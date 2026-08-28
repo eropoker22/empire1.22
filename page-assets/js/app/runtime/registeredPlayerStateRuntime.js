@@ -1,4 +1,5 @@
 import { resolvePlayerIdentityPresentation } from "./playerProfileViewModel.js";
+import { formatDistrictMetricNumber } from "./formatters.js";
 
 const DEFAULT_GANG_PROFILE_PLAYER_COLOR = "#67e8f9";
 
@@ -46,7 +47,7 @@ export function createRegisteredPlayerStateRuntime(deps = {}) {
     const playerFaction = scope?.querySelector?.(deps.playerPopupFactionSelector);
     const playerServer = scope?.querySelector?.(deps.playerPopupServerSelector);
 
-    deps.renderGangMembersState?.(root);
+    deps.renderPopulationState?.(root);
 
     const syncRegisteredPlayerState = ({ instant = false } = {}) => {
       const registration = deps.getStoredRegistration?.() || null;
@@ -81,7 +82,10 @@ export function createRegisteredPlayerStateRuntime(deps = {}) {
       deps.syncCurrentPlayerDistrictCountDisplays?.(root, resolveOwnedDistrictCount(deps, serverPlayer));
 
       if (gangHeat) {
-        gangHeat.textContent = String(deps.getResolvedGangState?.()?.heat ?? 0);
+        gangHeat.textContent = formatDistrictMetricNumber(
+          Math.max(0, Number(deps.getResolvedGangState?.()?.heat ?? 0)),
+          1
+        );
       }
 
       if (playerName) {

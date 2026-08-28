@@ -23,9 +23,9 @@ if (writeFiles) {
 }
 
 console.log(`Production chain simulation: ${report.passed ? "PASS" : "FAIL"}`);
-console.log(`Steps: ${report.steps.map((step) => `${step.buildingTypeId}/${step.recipeId}=${step.collectedAmount}`).join(", ")}`);
-console.log(`Reservation conflict: ${report.reservationAudit.conflictingArmoryError}`);
-console.log(`Duplicate cancel: ${report.reservationAudit.duplicateCancelError}`);
+console.log(`Steps: ${report.steps.map((step) => `${step.buildingTypeId}/${step.recipeId}=${step.producedAmount}`).join(", ")}`);
+console.log(`Rejected conflicting craft: ${report.atomicityAudit.conflictingArmoryError}`);
+console.log(`Legacy jobs remaining: ${report.atomicityAudit.legacyProductionJobsRemaining}`);
 if (writeFiles) console.log(`Wrote ${MARKDOWN_OUT}, ${JSON_OUT}`);
 if (!report.passed) process.exitCode = 1;
 

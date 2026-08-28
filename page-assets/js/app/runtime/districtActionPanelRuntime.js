@@ -117,7 +117,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     : () => null;
 
   const getAvailableAttackPopulation = () => {
-    const rawValue = elements.gangMembersValue?.textContent || "0";
+    const rawValue = elements.populationValue?.textContent || "0";
     return Number.parseInt(rawValue.replace(/[^\d]/g, ""), 10) || 0;
   };
   const getAttackSetupWeapons = typeof deps.getAttackSetupWeapons === "function"

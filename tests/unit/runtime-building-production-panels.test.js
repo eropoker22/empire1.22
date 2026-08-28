@@ -1791,6 +1791,63 @@ describe("building detail, production and recipe UI modules", () => {
     expect(renderRecipeList([{ buildingName: "pharmacy", recipeId: "stim", recipe }], {}, { mount }).children).toHaveLength(1);
   });
 
+  it("renders instant Pharmacy output from authoritative warehouse inventory", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const card = renderRecipeCard({
+      buildingName: "pharmacy",
+      recipeId: "chemicals",
+      recipe: {
+        name: "Chemikálie",
+        inputs: {},
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 },
+        cleanMoneyCost: 360,
+        durationMs: 10_000
+      },
+      executionMode: "instant",
+      outputInventoryAmount: 59,
+      outputInventoryCapacity: 60,
+      outputCap: 12,
+      queueCap: 8,
+      maxBatches: 1,
+      canStart: true
+    }, {}, { mount });
+
+    expect(findMetricValue(card, "Ve skladu")).toBe("59/60 ks");
+    expect(findMetricValue(card, "Vyrobeno")).toBe(null);
+    expect(findMetricValue(card, "Čas")).toBe("Okamžitě");
+    expect(findMetricValue(card, "Fronta")).toBe("Bez fronty");
+    expect(card.querySelector(".pharmacy-slot__btn--stop")).toBe(null);
+  });
+
+  it("renders instant Drug Lab output only from authoritative warehouse inventory", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const card = renderRecipeCard({
+      buildingName: "druglab",
+      recipeId: "neon-dust",
+      recipe: {
+        name: "Neon Dust",
+        inputs: { chemicals: 2 },
+        output: { inventory: "drugs", itemId: "neon-dust", amount: 1 },
+        durationMs: 10_000
+      },
+      executionMode: "instant",
+      outputInventoryAmount: 20,
+      outputInventoryCapacity: 60,
+      outputCap: 10,
+      queueCap: 8,
+      maxBatches: 1,
+      canStart: true
+    }, {}, { mount });
+
+    expect(findMetricValue(card, "Ve skladu")).toBe("20/60 ks");
+    expect(findMetricValue(card, "Vyrobeno")).toBe(null);
+    expect(findMetricValue(card, "Čas")).toBe("Okamžitě");
+    expect(findMetricValue(card, "Fronta")).toBe("Bez fronty");
+    expect(card.querySelector("[data-drug-lab-slot-stop]")).toBe(null);
+  });
+
   it("keeps recipe queue metrics tied to real jobs instead of selected previews", () => {
     const document = setupDocument();
     const mount = document.createElement("div");
@@ -1813,9 +1870,9 @@ describe("building detail, production and recipe UI modules", () => {
     }, {}, { mount });
     expect(findMetricValue(idleCard, "Vyrobeno")).toBe("0/10 ks");
     expect(findMetricValue(idleCard, "Výstup")).toBe(null);
-    expect(findMetricValue(idleCard, "Ve frontě")).toBe("0/8 ks");
+    expect(findMetricValue(idleCard, "Fronta")).toBe("0/8 ks");
     idleCard.querySelectorAll(".armory-slot__quantity-btn")[1].click();
-    expect(findMetricValue(idleCard, "Ve frontě")).toBe("0/8 ks");
+    expect(findMetricValue(idleCard, "Fronta")).toBe("0/8 ks");
 
     const runningLab = renderRecipeCard({
       buildingName: "druglab",
@@ -1826,7 +1883,7 @@ describe("building detail, production and recipe UI modules", () => {
       job: { status: "running", output: { inventory: "drugs", itemId: "neon-dust", amount: 2 }, quantity: 2, durationMs: 2000 }
     }, {}, { mount });
     expect(findMetricValue(runningLab, "Vyrobeno")).toBe("0/10 ks");
-    expect(findMetricValue(runningLab, "Ve frontě")).toBe("2/8 ks");
+    expect(findMetricValue(runningLab, "Fronta")).toBe("2/8 ks");
 
     const readyLab = renderRecipeCard({
       buildingName: "druglab",
@@ -1837,7 +1894,7 @@ describe("building detail, production and recipe UI modules", () => {
       job: { status: "ready", output: { inventory: "drugs", itemId: "neon-dust", amount: 2 }, quantity: 2, durationMs: 2000 }
     }, {}, { mount });
     expect(findMetricValue(readyLab, "Vyrobeno")).toBe("2/10 ks");
-    expect(findMetricValue(readyLab, "Ve frontě")).toBe("0/8 ks");
+    expect(findMetricValue(readyLab, "Fronta")).toBe("0/8 ks");
 
     const runningPharmacy = renderRecipeCard({
       buildingName: "pharmacy",
@@ -1847,7 +1904,7 @@ describe("building detail, production and recipe UI modules", () => {
       queueCap: 8,
       job: { status: "running", output: { inventory: "materials", itemId: "chemicals", amount: 2 }, quantity: 2, durationMs: 2000 }
     }, {}, { mount });
-    expect(findMetricValue(runningPharmacy, "Ve frontě")).toBe("2/8 ks");
+    expect(findMetricValue(runningPharmacy, "Fronta")).toBe("2/8 ks");
   });
 
   it("renders production output and queue metrics with separate caps", () => {
@@ -1878,9 +1935,9 @@ describe("building detail, production and recipe UI modules", () => {
     }, {}, { mount });
 
     expect(findMetricValue(runningCard, "Vyrobeno")).toBe("0/10 ks");
-    expect(findMetricValue(runningCard, "Ve frontě")).toBe("5/8 ks");
+    expect(findMetricValue(runningCard, "Fronta")).toBe("5/8 ks");
     expect(findMetricValue(readyCard, "Vyrobeno")).toBe("2/10 ks");
-    expect(findMetricValue(readyCard, "Ve frontě")).toBe("0/8 ks");
+    expect(findMetricValue(readyCard, "Fronta")).toBe("0/8 ks");
   });
 
   it("updates drug lab input requirements with selected production quantity", () => {
@@ -1913,7 +1970,7 @@ describe("building detail, production and recipe UI modules", () => {
 
     expect(card.querySelectorAll(".drug-production-slot__supply-value").map((item) => item.textContent)).toEqual(["6/12", "3/12"]);
     expect(findMetricValue(card, "Vyrobeno")).toBe("0/6 ks");
-    expect(findMetricValue(card, "Ve frontě")).toBe("0/5 ks");
+    expect(findMetricValue(card, "Fronta")).toBe("0/5 ks");
   });
 
   it("updates armory material requirements with selected production quantity", () => {
@@ -1990,7 +2047,7 @@ describe("building detail, production and recipe UI modules", () => {
       .toBe("Síla útoku 4 (+0.4)");
     expect(findMetricValue(card, "Vyrobeno")).toBe("2/5 ks");
     expect(findMetricValue(card, "Ve skladu")).toBe("200/90 ks");
-    expect(findMetricValue(card, "Ve frontě")).toBe("3/4 ks");
+    expect(findMetricValue(card, "Fronta")).toBe("3/4 ks");
     expect(card.querySelector(".drug-production-slot__metric--supplies").children[0].textContent).toBe("Materiál");
     expect(card.querySelectorAll(".armory-slot__material-value").map((item) => item.textContent)).toEqual(["3/12", "1/4"]);
     expect(card.querySelectorAll(".drug-production-slot__supply-pill")).toHaveLength(0);
@@ -2381,7 +2438,7 @@ describe("building detail, production and recipe UI modules", () => {
       }
     }, {}, { mount });
 
-    expect(findMetricValue(card, "Ve frontě")).toBe("6/6 ks");
+    expect(findMetricValue(card, "Fronta")).toBe("6/6 ks");
     expect(findMetricValue(card, "Vyrobeno")).toBe("0/8 ks");
     expect(card.querySelectorAll(".armory-slot__quantity-btn")[1].disabled).toBe(true);
     expect(card.querySelector("[data-armory-slot-start]").disabled).toBe(true);
@@ -2799,7 +2856,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(findMetricValue(readyCard, "Vyrobeno")).toBe("2/12 ks");
     expect(readyCard.querySelector(".pharmacy-slot__btn--start").textContent).toBe("Spustit");
     expect(readyCard.querySelector(".pharmacy-slot__btn--start").disabled).toBe(false);
-    expect(findMetricValue(readyCard, "Ve frontě")).toBe("0/8 ks");
+    expect(findMetricValue(readyCard, "Fronta")).toBe("0/8 ks");
   });
 
   it("keeps pharmacy info tab concise and focused on active mechanics", () => {

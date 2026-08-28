@@ -104,6 +104,10 @@ describe("district action overlay parity coverage", () => {
     for (const actionId of ["attack", "heist", "spy"]) {
       const localAction = localActions.find((action) => action.id === actionId);
       const hostedAction = hostedActions.find((action) => action.id === actionId);
+      expect(localAction).toMatchObject({
+        key: `${actionId}:district:25`,
+        targetDistrictId: "district:25"
+      });
       expect(hostedAction).toMatchObject({ enabled: true, stacked: false, subtitle: "" });
       expect({
         stacked: Boolean(hostedAction.stacked),
@@ -207,6 +211,13 @@ describe("district action overlay parity coverage", () => {
     expect(helperSource).toContain('document.querySelector("[data-map-viewport]")');
     expect(helperSource).toContain("point.insideViewport");
     expect(helperSource).toContain("page.mouse.click(point.x, point.y)");
+    expect(helperSource).toContain("await page.mouse.move(1, 1);");
+    expect(helperSource).toContain(
+      'toHaveAttribute("data-district-popup-interaction-ready", "ready")'
+    );
+    expect(helperSource.indexOf("await page.mouse.move(1, 1);")).toBeLessThan(
+      helperSource.indexOf("await settleActionOverlay(target);")
+    );
     expect(helperSource).toContain("[data-district-action-id=\"");
     expect(helperSource).toContain('gamePhase: "launch"');
     expect(helperSource).toContain("new Map(state.launchOwners || [])");
@@ -216,9 +227,16 @@ describe("district action overlay parity coverage", () => {
     expect(helperSource).toContain("launchOwner45: 9");
     expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
     expect(helperSource).toContain('definition.stage === "inline-pre-submit"');
-    expect(helperSource).toContain("stableBackdropFilterSelector: stabilizeInlineAction");
+    expect(helperSource).toContain("stableAnimationSelector: inlineRasterStabilizationSelector");
+    expect(helperSource).toContain("stableBackdropFilterSelector: inlineRasterStabilizationSelector");
+    expect(helperSource).toContain("stableRasterRootSelector: definition.shellSelector");
+    expect(helperSource).toContain("stableRasterSelector: inlineRasterStabilizationSelector");
     expect(helperSource).toContain("stableTargetDevicePixelAlignment: stabilizeInlineAction");
-    expect(helperSource).toContain('{ "background-color": "rgb(6, 10, 18)" }');
+    expect(helperSource).toContain("stableTargetPaintOrigin: stabilizeInlineAction");
+    expect(helperSource).toContain("stableTargetPseudoElements: stabilizeInlineAction");
+    expect(helperSource).toContain("includeStabilizationDiagnostics: stabilizeInlineAction");
+    expect(helperSource).toContain('transition: "none",\n          background: "rgb(6, 10, 18)"');
+    expect(helperSource).toContain('"padding-bottom": "8px"');
     expect(helperSource).toContain("roundedCompositeSelector: stabilizeInlineAction");
     expect(helperSource).toContain('not.toHaveClass(/\\bgame-mobile-close-guard\\b/u)');
     expect(helperSource).toContain("new MutationObserver(normalizeRecords)");
@@ -264,6 +282,12 @@ describe("district action overlay parity coverage", () => {
     expect(specSource).toContain("fixture-backed live/demo district action overlay parity");
     expect(specSource).toContain('test.describe.configure({ mode: "serial" })');
     expect(specSource).toContain("districtActionOverlayParityViewportBatches");
+    expect(specSource).toContain("EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS");
+    expect(specSource).toContain("Unknown district action parity viewport batch keys");
+    expect(specSource).toContain("for (const viewportBatch of selectedViewportBatches)");
+    expect(specSource).toContain(
+      "const expectedComparisons = selectedViewportBatches.flatMap"
+    );
     expect(specSource).toContain("setViewportSize(viewport)");
     expect(specSource).toContain("applyDistrictActionOverlayCanonicalLayoutText");
     expect(specSource).toContain("restoreDistrictActionOverlayCanonicalLayoutText");

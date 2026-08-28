@@ -15,7 +15,7 @@ const context = {
 };
 
 describe("player resource projection consistency", () => {
-  it("projects one authoritative economy across topbar, City Events, population, and materials", () => {
+  it("projects only canonical population and drops a conflicting legacy gang-members alias", () => {
     const state = createCoreStateFixture();
     state.playersById["player:1"] = {
       ...state.playersById["player:1"],
@@ -49,7 +49,6 @@ describe("player resource projection consistency", () => {
       dirtyCash: 412.2,
       influence: 1.4,
       population: 42,
-      gangMembers: 42,
       materials: {
         chemicals: 7
       },
@@ -61,11 +60,12 @@ describe("player resource projection consistency", () => {
       cash: 3_583.3,
       "dirty-cash": 412.2,
       population: 42,
-      "gang-members": 42,
       chemicals: 7,
       pistol: 2
     });
+    expect(view.resourceBalances).not.toHaveProperty("gang-members");
     expect(view.cityEvents?.agents.map((agent) => agent.currentInfluence))
       .toEqual([1, 1, 1]);
+    expect(view.economy).not.toHaveProperty("gangMembers");
   });
 });

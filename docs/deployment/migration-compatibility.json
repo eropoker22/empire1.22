@@ -126,6 +126,11 @@
       "filename": "025_open_registration_purge_start.sql",
       "classification": "backward-compatible",
       "reason": "Relaxes the hosted lifecycle constraint so Start can arm Očista while registration remains open."
+    },
+    {
+      "filename": "026_control_server_elimination_timing.sql",
+      "classification": "backward-compatible",
+      "reason": "Relaxes the canonical timing constraint for new flexible servers while retaining legacy null timing pairs."
     }
   ]
 }

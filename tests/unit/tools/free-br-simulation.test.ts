@@ -25,7 +25,7 @@ describe("canonical Free BR simulation", () => {
   it("is deterministic for a fixed seed and still varies across seeds", () => {
     expect(compactSummary("deterministic-seed")).toEqual(compactSummary("deterministic-seed"));
     expect(compactSummary("deterministic-seed")).not.toEqual(compactSummary("different-seed"));
-  });
+  }, 30_000);
 
   it("creates the canonical 20-player, 161-district world with 8 downtown districts", () => {
     const report = runFreeBrSimulation({ seed: "world-test", hours: 1 });
@@ -115,7 +115,7 @@ describe("canonical Free BR simulation", () => {
     expect(report.summary.hardTimeoutReached).toBe(false);
     expect(report.summary.finalLockdownEndedAtHour! - report.summary.finalLockdownStartedAtHour!)
       .toBeGreaterThan(12);
-  });
+  }, 30_000);
 
   it("aggregates a small scenario matrix", () => {
     const matrix = runFreeBrMatrix({

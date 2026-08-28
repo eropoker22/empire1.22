@@ -3,15 +3,13 @@ import {
   applyCommand,
   appendCityFeedEventsFromCoreEvents,
   createConflictReportViews,
-  createPoliceReadModel,
-  runTick
+  createPoliceReadModel
 } from "@empire/game-core";
 import { getAllPublicBuildingDefinitions, resolveModeConfig } from "@empire/game-config";
 import {
   createCoreStateWithFixedBuildingFixture
 } from "../../fixtures/game-state-fixtures";
 import {
-  createCollectProductionCommandFixture,
   createCraftItemCommandFixture,
   createRunBuildingActionCommandFixture
 } from "../../fixtures/command-fixtures";
@@ -149,7 +147,7 @@ describe("MVP buildings core loop hardening", () => {
     expect(police.heatSources.map((source) => source.kind)).toContain("district");
   });
 
-  it("does not create a legacy building-action city feed when Lab production is queued", () => {
+  it("creates one canonical item-crafted city-feed entry for instant Lab production", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("drug_lab", {
       playerBalances: {
         cash: 2500,
@@ -177,11 +175,16 @@ describe("MVP buildings core loop hardening", () => {
     const twice = Object.values(duplicateAppend.cityFeedEventsById ?? {});
 
     expect(result.errors).toEqual([]);
-    expect(once).toHaveLength(0);
-    expect(twice).toHaveLength(0);
+    expect(result.events).toContainEqual(expect.objectContaining({
+      type: "item-crafted",
+      payload: expect.objectContaining({ instant: true, outputResourceKey: "ghost-serum" })
+    }));
+    expect(once).toHaveLength(1);
+    expect(twice).toHaveLength(1);
+    expect(twice.map((event) => event.id)).toEqual(once.map((event) => event.id));
   });
 
-  it("completes the factory to armory equipment path through local production and collect", () => {
+  it("completes the armory equipment path atomically without local output or collect", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("armory", {
       playerBalances: {
         cash: 0,
@@ -204,23 +207,15 @@ describe("MVP buildings core loop hardening", () => {
       }),
       context
     );
-    let completedState = started.nextState;
-    for (let index = 0; index < 100; index += 1) {
-      completedState = runTick(completedState, context).nextState;
-    }
-    const balances = completedState.resourceStatesById["resource:1"].balances;
-    const localOutput = completedState.resourceStatesById["resource:" + building.id]?.balances;
+    const balances = started.nextState.resourceStatesById["resource:1"].balances;
+    const localOutput = started.nextState.resourceStatesById["resource:" + building.id]?.balances;
 
     expect(started.errors).toEqual([]);
     expect(balances["metal-parts"]).toBe(7);
     expect(balances["tech-core"]).toBe(3);
-    expect(localOutput?.pistol).toBe(1);
-    expect(completedState.buildingsById[building.id].processing).toBeNull();
-    const collected = applyCommand(completedState, createCollectProductionCommandFixture({
-      id: "command:mvp:armory:collect",
-      payload: { districtId: "district:1", buildingId: building.id, resourceKey: "pistol" }
-    }), context);
-    expect(collected.errors).toEqual([]);
-    expect(collected.nextState.resourceStatesById["resource:1"]?.balances.pistol).toBe(1);
+    expect(balances.pistol).toBe(1);
+    expect(localOutput?.pistol ?? 0).toBe(0);
+    expect(started.nextState.buildingsById[building.id].processing).toBeNull();
+    expect(Object.values(started.nextState.buildingsById[building.id].productionLines ?? {})).toEqual([]);
   });
 });

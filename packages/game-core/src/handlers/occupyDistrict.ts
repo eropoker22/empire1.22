@@ -26,11 +26,12 @@ import {
   consumeEncirclementConfirmation,
   prepareEncirclementConfirmation
 } from "../rules/liveness";
+import { completePendingOccupations } from "./completePendingOccupations";
 
 /**
- * Responsibility: Starts one validated neutral-district occupation operation.
- * Belongs here: upfront influence payment, cooldown locks, and persisted pending operation creation.
- * Does not belong here: capture resolution, report creation, or result disclosure.
+ * Responsibility: Resolves one validated neutral-district occupation atomically.
+ * Belongs here: upfront influence payment, immediate capture resolution, and cooldown locks for the next action.
+ * Does not belong here: transport delivery or client-side result timing.
  */
 export const handleOccupyDistrict = (
   state: CoreGameState,
@@ -83,10 +84,9 @@ export const handleOccupyDistrict = (
     balance.heatGain,
     factionModifiers.aggressiveActionHeatGainMultiplier
   ) * cityHallNightPatrol.heatMultiplier);
-  const resolveAtTick = state.root.tick + cooldownTicks;
-  const resolveAt = new Date(
-    Date.parse(command.issuedAt) + cooldownTicks * context.config.tickRateMs
-  ).toISOString();
+  const resolveAtTick = state.root.tick;
+  const resolveAt = command.issuedAt;
+  const cooldownEndsAtTick = state.root.tick + cooldownTicks;
   const operation: PendingOccupyOperation = {
     id: `occupy-operation:${command.id}`,
     commandId: command.id,
@@ -119,8 +119,7 @@ export const handleOccupyDistrict = (
     amount: influenceCost
   });
 
-  return {
-    nextState: consumeEncirclementConfirmation({
+  const startedState = consumeEncirclementConfirmation({
       ...state,
       pendingOccupyOperationsById: {
         ...(state.pendingOccupyOperationsById ?? {}),
@@ -140,7 +139,7 @@ export const handleOccupyDistrict = (
         [targetDistrict.id]: bumpDistrictConflictRevision(applyDistrictOperationLock({
           ...targetDistrict,
           version: targetDistrict.version + 1
-        }, "occupy", resolveAtTick))
+        }, "occupy", cooldownEndsAtTick))
       },
       cooldownStatesById: {
         ...state.cooldownStatesById,
@@ -148,17 +147,16 @@ export const handleOccupyDistrict = (
           ...cooldownState,
           cooldowns: applyMajorOperationCooldowns({
             ...cooldownState.cooldowns,
-            [createOccupyGlobalCooldownKey()]: resolveAtTick,
-            [createOccupySourceCooldownKey(sourceDistrict.id)]: resolveAtTick
+            [createOccupyGlobalCooldownKey()]: cooldownEndsAtTick,
+            [createOccupySourceCooldownKey(sourceDistrict.id)]: cooldownEndsAtTick
           }, sourceDistrict.id, state.root.tick, context.config.balance.conflict),
           version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
         }
       },
       root: { ...state.root, version: state.root.version + 1 }
-    }, command.payload.encirclementConfirmationToken),
-    events: [],
-    errors: []
-  };
+    }, command.payload.encirclementConfirmationToken);
+  const resolution = completePendingOccupations(startedState, context);
+  return { nextState: resolution.nextState, events: resolution.events, errors: [] };
 };
 
 const spendPlayerInfluence = ({

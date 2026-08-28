@@ -40,4 +40,27 @@ describe("hosted worker diagnostics", () => {
       log.mockRestore();
     }
   });
+
+  it("records a heartbeat failure as a first-class worker event", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      writeHostedWorkerDiagnostic({
+        level: "error",
+        event: "worker_heartbeat_failed",
+        buildSha: "c".repeat(40),
+        workerId: "worker:staging:fra:02",
+        environment: "staging",
+        region: "fra",
+        schemaVersion: "026_control_server_elimination_timing.sql",
+        errorCode: "HEARTBEAT_WRITE_FAILED"
+      });
+
+      expect(JSON.parse(String(log.mock.calls[0]?.[0] ?? "{}"))).toMatchObject({
+        event: "worker_heartbeat_failed",
+        errorCode: "HEARTBEAT_WRITE_FAILED"
+      });
+    } finally {
+      log.mockRestore();
+    }
+  });
 });

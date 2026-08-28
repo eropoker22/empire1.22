@@ -63,15 +63,15 @@ describe("runtime UI binder factories", () => {
   });
 
   it("keeps registered player state binding no-crash with missing faction", () => {
-    const renderGangMembersState = vi.fn();
+    const renderPopulationState = vi.fn();
     const runtime = createRegisteredPlayerStateRuntime({
       factionCatalog: {},
       getStoredRegistration: () => ({ factionId: "missing" }),
-      renderGangMembersState
+      renderPopulationState
     });
 
     expect(() => runtime.bindRegisteredPlayerState({ ownerDocument: null })).not.toThrow();
-    expect(renderGangMembersState).toHaveBeenCalled();
+    expect(renderPopulationState).toHaveBeenCalled();
   });
 
   it("applies stored gang color to the profile card", () => {
@@ -87,13 +87,32 @@ describe("runtime UI binder factories", () => {
       factionCatalog: {},
       getStoredRegistration: () => ({ factionId: "missing", gangColor: "#F97316" }),
       normalizeRuntimeHexColor: (value) => String(value || "").trim().toLowerCase(),
-      renderGangMembersState: vi.fn()
+      renderPopulationState: vi.fn()
     });
 
     runtime.bindRegisteredPlayerState(root);
 
     expect(profileCard.style.setProperty).toHaveBeenCalledWith("--gang-profile-player-color", "#f97316");
     expect(root.style.setProperty).toHaveBeenCalledWith("--gang-profile-player-color", "#f97316");
+  });
+
+  it("clamps and formats fractional authoritative heat before rendering the gang card", () => {
+    const gangHeat = { textContent: "—" };
+    const root = {
+      ownerDocument: null,
+      querySelector: vi.fn((selector) => selector === "[data-gang-heat]" ? gangHeat : null),
+      style: { setProperty: vi.fn() }
+    };
+    const runtime = createRegisteredPlayerStateRuntime({
+      factionCatalog: {},
+      gangHeatSelector: "[data-gang-heat]",
+      getResolvedGangState: () => ({ heat: -0.06466666666666665 }),
+      renderPopulationState: vi.fn()
+    });
+
+    runtime.bindRegisteredPlayerState(root);
+
+    expect(gangHeat.textContent).toBe("0");
   });
 
   it("hydrates faction and authoritative district count when the server player arrives later", () => {
@@ -150,7 +169,7 @@ describe("runtime UI binder factories", () => {
       playerPopupGangSelector: "[data-player-popup-gang]",
       playerPopupIdentitySelector: "[data-player-popup-identity]",
       playerPopupServerSelector: "[data-player-popup-server]",
-      renderGangMembersState: vi.fn(),
+      renderPopulationState: vi.fn(),
       renderSpyResourceState: vi.fn(),
       resolveServerPlayerAvatarSrc: () => "server-avatar.jpg",
       syncCurrentPlayerDistrictCountDisplays,

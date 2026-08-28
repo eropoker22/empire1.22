@@ -145,7 +145,7 @@ describe("authoritative basic action commands", () => {
       type: "district-heisted",
       payload: expect.objectContaining({
         style: "balanced",
-        gangMembersSent: 10,
+        populationSent: 10,
         cooldownTicks: context.config.balance.conflict!.heistCooldownTicks
       })
     });
@@ -314,8 +314,8 @@ describe("authoritative basic action commands", () => {
         recommendedStyle: "stealth",
         availablePopulation: 5,
         styles: expect.arrayContaining([
-          expect.objectContaining({ style: "stealth", enabled: true, defaultGangMembersSent: 5 }),
-          expect.objectContaining({ style: "balanced", enabled: false, defaultGangMembersSent: 10 })
+          expect.objectContaining({ style: "stealth", enabled: true, defaultPopulationSent: 5 }),
+          expect.objectContaining({ style: "balanced", enabled: false, defaultPopulationSent: 10 })
         ])
       })
     ]);
@@ -326,7 +326,7 @@ describe("authoritative basic action commands", () => {
         targetDistrictId: "district:2",
         sourceDistrictId: "district:1",
         style: "stealth",
-        gangMembersSent: 5
+        populationSent: 5
       }
     }), context);
     expect(result.errors).toEqual([]);

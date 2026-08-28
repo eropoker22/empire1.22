@@ -4,32 +4,32 @@ const range = (min, max = min) => Object.freeze([min, max]);
 
 const TIER_EFFECTS = Object.freeze({
   1: Object.freeze({
-    incomePct: range(10), cleanPct: range(0, 2), dirtyPct: range(8, 15), membersPct: range(1, 2), influencePct: range(5),
+    incomePct: range(10), cleanPct: range(0, 2), dirtyPct: range(8, 15), populationPct: range(1, 2), influencePct: range(5),
     actionBan: "špehování", production: "bez omezení výroby"
   }),
   2: Object.freeze({
-    incomePct: range(20), cleanPct: range(2, 7), dirtyPct: range(16, 20), drugPct: range(5), membersPct: range(3, 7),
+    incomePct: range(20), cleanPct: range(2, 7), dirtyPct: range(16, 20), drugPct: range(5), populationPct: range(3, 7),
     attackWeaponPct: range(3), influencePct: range(6, 8), actionBan: "špehování + Vykrást district", production: "Lékárna -10 %, Lab -10 %"
   }),
   3: Object.freeze({
-    incomePct: range(21, 26), cleanPct: range(2, 7), dirtyPct: range(16, 20), drugPct: range(6, 9), membersPct: range(7, 12),
+    incomePct: range(21, 26), cleanPct: range(2, 7), dirtyPct: range(16, 20), drugPct: range(6, 9), populationPct: range(7, 12),
     attackWeaponPct: range(3, 8), defenseWeaponPct: range(3, 8), influencePct: range(8, 12), actionBan: "špehování, Vykrást district, útok",
     production: "Lékárna + Lab -11 až -13 %, Zbrojovka -8 až -13 %"
   }),
   4: Object.freeze({
-    incomePct: range(26, 33), cleanPct: range(7, 12), dirtyPct: range(18, 23), drugPct: range(10, 15), membersPct: range(11, 17),
+    incomePct: range(26, 33), cleanPct: range(7, 12), dirtyPct: range(18, 23), drugPct: range(10, 15), populationPct: range(11, 17),
     attackWeaponPct: range(11), defenseWeaponPct: range(11), attackPowerPct: range(8), defensePowerPct: range(10), influencePct: range(11, 14),
     actionBan: "špehování, Vykrást district, útok, obsadit + Lékárna/Továrna speciální akce",
     production: "Lékárna + Lab -13 až -15 %, Zbrojovka -12 až -16 %"
   }),
   5: Object.freeze({
     incomePct: range(32, 40), cleanPct: range(14, 18), dirtyPct: range(23, 28), materialPct: range(30), drugPct: range(15, 17),
-    membersPct: range(18, 23), attackWeaponPct: range(13), defenseWeaponPct: range(14), attackPowerPct: range(15), defensePowerPct: range(15),
+    populationPct: range(18, 23), attackWeaponPct: range(13), defenseWeaponPct: range(14), attackPowerPct: range(15), defensePowerPct: range(15),
     influencePct: range(14, 17), actionBan: "špehování, Vykrást district, útok, obsadit + speciální akce budov",
     production: "silně omezená výroba po dobu razie"
   }),
   6: Object.freeze({
-    incomePct: range(100), cleanPct: range(25), dirtyPct: range(45), materialPct: range(35), drugPct: range(23), membersPct: range(30),
+    incomePct: range(100), cleanPct: range(25), dirtyPct: range(45), materialPct: range(35), drugPct: range(23), populationPct: range(30),
     attackWeaponPct: range(20), defenseWeaponPct: range(20), attackPowerPct: range(30), defensePowerPct: range(30), influencePct: range(25),
     actionBan: "všechny akce včetně speciálních akcí v budovách", production: "výroba zablokovaná po dobu razie"
   })
@@ -75,11 +75,11 @@ const OPERATION_IMPACT_PROFILES = Object.freeze({
   }),
   apartment_search: Object.freeze({
     severity: "high",
-    membersPct: range(4),
+    populationPct: range(4),
     influencePct: range(4, 7),
     incomePct: range(12, 18),
     actionBan: "špehování a nábor pod dohledem",
-    production: "populace a gang members pod tlakem"
+    production: "populace pod tlakem"
   }),
   drug_seizure: Object.freeze({
     severity: "medium",
@@ -112,7 +112,7 @@ const OPERATION_IMPACT_PROFILES = Object.freeze({
     materialPct: range(12, 18),
     attackWeaponPct: range(8, 12),
     defenseWeaponPct: range(8, 12),
-    membersPct: range(6, 9),
+    populationPct: range(6, 9),
     influencePct: range(8, 12),
     incomePct: range(45, 65),
     attackPowerPct: range(12, 18),
@@ -126,7 +126,7 @@ const SPECIALTY_LOSS_MULTIPLIERS = Object.freeze({
   financial: Object.freeze({ cleanPct: 1.3, dirtyPct: 1.35, incomePct: 1.1 }),
   drug: Object.freeze({ drugPct: 1.45, dirtyPct: 0.9, incomePct: 1.05 }),
   weapons: Object.freeze({ attackWeaponPct: 1.35, defenseWeaponPct: 1.35, materialPct: 1.25 }),
-  arrests: Object.freeze({ membersPct: 1.45, influencePct: 1.15, incomePct: 1.05 }),
+  arrests: Object.freeze({ populationPct: 1.45, influencePct: 1.15, incomePct: 1.05 }),
   total: Object.freeze({})
 });
 
@@ -148,7 +148,7 @@ const percentKeys = [
   "dirtyPct",
   "drugPct",
   "materialPct",
-  "membersPct",
+  "populationPct",
   "attackWeaponPct",
   "defenseWeaponPct",
   "influencePct",
@@ -170,7 +170,7 @@ export function resolvePoliceTierImpact(tierId) {
     dirtyPct: pct(effect.dirtyPct),
     drugPct: pct(effect.drugPct),
     materialPct: pct(effect.materialPct),
-    membersPct: pct(effect.membersPct),
+    populationPct: pct(effect.populationPct),
     attackWeaponPct: pct(effect.attackWeaponPct),
     defenseWeaponPct: pct(effect.defenseWeaponPct),
     influencePct: pct(effect.influencePct),
@@ -182,7 +182,7 @@ export function resolvePoliceTierImpact(tierId) {
       { label: "Zabavení", value: `clean ${label(effect.cleanPct)} • dirty ${label(effect.dirtyPct)}` },
       effect.drugPct ? { label: "Drogy", value: `-${label(effect.drugPct)}` } : null,
       effect.materialPct ? { label: "Materiály", value: `-${label(effect.materialPct)} včetně factory supplies` } : null,
-      { label: "Zatčení", value: `-${label(effect.membersPct)} obyvatel` },
+      { label: "Zatčení", value: `-${label(effect.populationPct)} obyvatel` },
       effect.attackWeaponPct || effect.defenseWeaponPct ? { label: "Zbraně", value: `attack -${label(effect.attackWeaponPct)} • defense -${label(effect.defenseWeaponPct)}` } : null,
       effect.attackPowerPct || effect.defensePowerPct ? { label: "Síla zbraní", value: `útok -${label(effect.attackPowerPct)} • obrana -${label(effect.defensePowerPct)}` } : null,
       { label: "Vliv", value: `-${label(effect.influencePct)}` },
@@ -219,7 +219,7 @@ export function resolvePoliceOperationImpact(tierId, operationType, specialtyKey
     impact.cleanPct > 0 || impact.dirtyPct > 0 ? { label: "Zabavení cash", value: `clean ${impact.cleanPct}% • dirty ${impact.dirtyPct}%` } : null,
     impact.drugPct > 0 ? { label: "Drogy", value: `-${impact.drugPct}%` } : null,
     impact.materialPct > 0 ? { label: "Materiály", value: `-${impact.materialPct}% včetně factory supplies` } : null,
-    impact.membersPct > 0 ? { label: "Zatčení", value: `-${impact.membersPct}% obyvatel` } : null,
+    impact.populationPct > 0 ? { label: "Zatčení", value: `-${impact.populationPct}% obyvatel` } : null,
     impact.attackWeaponPct > 0 || impact.defenseWeaponPct > 0 ? { label: "Zbraně", value: `attack -${impact.attackWeaponPct}% • defense -${impact.defenseWeaponPct}%` } : null,
     impact.attackPowerPct > 0 || impact.defensePowerPct > 0 ? { label: "Síla zbraní", value: `útok -${impact.attackPowerPct}% • obrana -${impact.defensePowerPct}%` } : null,
     impact.influencePct > 0 ? { label: "Vliv", value: `-${impact.influencePct}%` } : null,

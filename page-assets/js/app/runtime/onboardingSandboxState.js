@@ -40,7 +40,7 @@ export function createOnboardingSandboxSession(sourceSession = {}, defaults = {}
     },
     gang: {
       ...safeObject(source.gang),
-      members: 0,
+      population: 0,
       influence: 0,
       heat: 0,
       alliance: null,

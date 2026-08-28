@@ -112,6 +112,7 @@ function createCountdownWarningFixture() {
     removeEventListener: vi.fn()
   };
   const warning = {
+    dataset: {},
     hidden: true,
     classList: { toggle: vi.fn() },
     querySelector: vi.fn((selector) => ({
@@ -516,7 +517,7 @@ describe("elimination purge panel runtime", () => {
       clearInterval: vi.fn()
     };
 
-    bindEliminationCountdownWarning(fixture.root, createDemoDeps({
+    const binding = bindEliminationCountdownWarning(fixture.root, createDemoDeps({
       initialCountdownMs: 8 * 60 * 60 * 1000,
       resetCountdown: true,
       timerApi,
@@ -524,6 +525,7 @@ describe("elimination purge panel runtime", () => {
     }));
 
     expect(fixture.warning.hidden).toBe(true);
+    expect(fixture.warning.dataset.eliminationCountdownBound).toBe("true");
     expect(fixture.timeNode.textContent).toBe("8h 00min 00s");
 
     currentTime = 61000;
@@ -544,6 +546,8 @@ describe("elimination purge panel runtime", () => {
       type: "empire:elimination-resolved"
     }));
     expect(timerApi.clearInterval).not.toHaveBeenCalled();
+    binding.destroy();
+    expect(fixture.warning.dataset.eliminationCountdownBound).toBeUndefined();
   });
 
   it("opens the 7h 59min warning when the first observed tick is already just below the milestone", () => {
@@ -604,6 +608,54 @@ describe("elimination purge panel runtime", () => {
     intervalCallback();
     expect(fixture.warning.hidden).toBe(true);
     expect(fixture.timeNode.textContent).toBe("59min 59s");
+  });
+
+  it("keeps a dismissed milestone closed across a runtime remount in the same tab", () => {
+    const firstFixture = createCountdownWarningFixture();
+    const storedValues = new Map();
+    const storage = {
+      getItem: vi.fn((key) => storedValues.get(key) ?? null),
+      setItem: vi.fn((key, value) => storedValues.set(key, value))
+    };
+    let currentTime = 0;
+    let intervalCallback = null;
+    const timerApi = {
+      now: vi.fn(() => currentTime),
+      setInterval: vi.fn((callback) => {
+        intervalCallback = callback;
+        return 12;
+      }),
+      clearInterval: vi.fn()
+    };
+
+    const firstBinding = bindEliminationCountdownWarning(firstFixture.root, createDemoDeps({
+      initialCountdownMs: 2 * 60 * 60 * 1000 + 1000,
+      resetCountdown: true,
+      storage,
+      timerApi
+    }));
+    currentTime = 1000;
+    intervalCallback();
+    expect(firstFixture.warning.hidden).toBe(false);
+
+    firstFixture.closeListeners.get("click")({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+    expect(firstFixture.warning.hidden).toBe(true);
+    expect(storage.setItem).toHaveBeenCalledOnce();
+    firstBinding.destroy();
+
+    const remountedFixture = createCountdownWarningFixture();
+    bindEliminationCountdownWarning(remountedFixture.root, createDemoDeps({
+      initialCountdownMs: 2 * 60 * 60 * 1000 + 1000,
+      storage,
+      timerApi
+    }));
+    expect(remountedFixture.warning.hidden).toBe(true);
+    expect(storage.getItem).toHaveBeenCalled();
+
+    currentTime = 60 * 60 * 1000 + 1000;
+    intervalCallback();
+    expect(remountedFixture.warning.hidden).toBe(false);
+    expect(remountedFixture.timeNode.textContent).toBe("1h 00min 00s");
   });
 
   it("binds a body-level panel outside the game root", () => {

@@ -1,4 +1,4 @@
-import type { PendingOccupyOperation, ResourceState } from "@empire/shared-types";
+import type { PendingOccupyOperation } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { CORE_EVENT_TYPES, createEvent, type CoreEvent } from "../events";
@@ -10,12 +10,11 @@ import {
   countActiveOwnedDistricts,
   reconcilePlayerTerritoryLifecycle
 } from "../rules/liveness";
-import { bumpDistrictConflictRevision, bumpDistrictSecurityRevision } from "../state";
+import { bumpDistrictConflictRevision, bumpDistrictSecurityRevision, resolvePlayerPopulation } from "../state";
 import { composeEntityId } from "../utils";
 import { deterministicUnitInterval } from "../utils/math";
 import {
   createOccupyReportNotification,
-  createOccupyResolutionPlayerResourceState,
   resolveOccupyStreetNewsTemplateId
 } from "./occupyResolutionSupport";
 
@@ -71,20 +70,6 @@ const completePendingOccupation = (
     tick: state.root.tick,
     worldSeed: state.serverInstance.worldSeed
   });
-  const playerResourceState = state.resourceStatesById[player.resourceStateId]
-    ?? createOccupyResolutionPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
-  const nextPlayerResourceState: ResourceState = {
-    ...playerResourceState,
-    balances: {
-      ...playerResourceState.balances,
-      population: Math.max(
-        0,
-        Number(playerResourceState.balances.population ?? player.population ?? 0) - populationLost
-      )
-    },
-    lastUpdatedTick: state.root.tick,
-    version: playerResourceState.version + (state.resourceStatesById[playerResourceState.id] ? 1 : 0)
-  };
   const nextPoliceState = increasePlayerPoliceHeat(state, player, operation.heatGain, state.root.tick);
   const eventId = composeEntityId("event", `${operation.commandId}:occupy-${result}`);
   const report = createOccupyReportNotification({
@@ -123,9 +108,7 @@ const completePendingOccupation = (
       ...state.playersById,
       [player.id]: {
         ...player,
-        ...(player.population !== undefined
-          ? { population: Math.max(0, Number(player.population || 0) - populationLost) }
-          : {}),
+        population: Math.max(0, resolvePlayerPopulation(state, player) - populationLost),
         version: player.version + 1
       }
     },
@@ -133,10 +116,7 @@ const completePendingOccupation = (
     buildingsById: occupySucceeded
       ? reassignCapturedDistrictBuildings(state, targetDistrict.buildingIds, player.id)
       : state.buildingsById,
-    resourceStatesById: {
-      ...state.resourceStatesById,
-      [nextPlayerResourceState.id]: nextPlayerResourceState
-    },
+    resourceStatesById: state.resourceStatesById,
     policeStatesById: { ...state.policeStatesById, [nextPoliceState.id]: nextPoliceState },
     notificationsById: { ...state.notificationsById, [report.id]: report },
     root: {

@@ -74,7 +74,6 @@ describe("gameplay slice read model contract", () => {
           "resources": {
             "cleanCash": 1500,
             "dirtyCash": 300,
-            "gangMembers": 0,
             "influence": 0,
             "population": 0,
           },
@@ -419,8 +418,7 @@ const summarizeSlice = (view: GameplaySliceView) => ({
       cleanCash: roundNumber(view.player.economy.cleanCash),
       dirtyCash: roundNumber(view.player.economy.dirtyCash),
       influence: roundNumber(view.player.economy.influence),
-      population: roundNumber(view.player.economy.population),
-      gangMembers: roundNumber(view.player.economy.gangMembers)
+      population: roundNumber(view.player.economy.population)
     }
   },
   map: {

@@ -29,6 +29,23 @@ const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 const identities = parseIdentities(process.env.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON);
 const coverageContract = validateDistrictActionOverlayParityCoverage();
+const selectedViewportBatchKeys = new Set(
+  String(process.env.EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+);
+const unknownViewportBatchKeys = [...selectedViewportBatchKeys].filter((key) => (
+  !districtActionOverlayParityViewportBatches.some((batch) => batch.key === key)
+));
+if (unknownViewportBatchKeys.length > 0) {
+  throw new Error(
+    `Unknown district action parity viewport batch keys: ${unknownViewportBatchKeys.join(", ")}.`
+  );
+}
+const selectedViewportBatches = selectedViewportBatchKeys.size > 0
+  ? districtActionOverlayParityViewportBatches.filter((batch) => selectedViewportBatchKeys.has(batch.key))
+  : districtActionOverlayParityViewportBatches;
 
 const DISTRICT_CANONICAL_COST = "50 populace · 10 vlivu";
 const DISTRICT_CANONICAL_NOTE =
@@ -187,7 +204,7 @@ test.describe("fixture-backed live/demo district action overlay parity", () => {
     await Promise.allSettled(contexts.map((context) => context.close()));
   });
 
-  for (const viewportBatch of districtActionOverlayParityViewportBatches) {
+  for (const viewportBatch of selectedViewportBatches) {
     for (const surfaceName of districtActionOverlayNames) {
       test(`${viewportBatch.key} ${surfaceName} keeps DOM, classes, styles, bounds, focus, scroll and pixels`, async ({}, testInfo) => {
         const definition = districtActionOverlayDefinitions[surfaceName];
@@ -323,6 +340,10 @@ test.describe("fixture-backed live/demo district action overlay parity", () => {
             expect(
               screenshotComparison.meaningfulPixelCount,
               `${viewport.name} ${surfaceName} must have zero meaningful pixels outside dynamic leaves`
+              + (screenshotComparison.matches ? "" : `\n${JSON.stringify({
+                hosted: hostedCapture.stabilizationDiagnostics || null,
+                local: localCapture.stabilizationDiagnostics || null
+              }, null, 2)}`)
             ).toBe(0);
             expect(screenshotComparison.matches).toBe(true);
             completedComparisons.push(`${viewport.name}:${surfaceName}`);
@@ -360,7 +381,7 @@ test.describe("fixture-backed live/demo district action overlay parity", () => {
   }
 
   test("district action overlay parity coverage guard is complete", async ({}, testInfo) => {
-    const expectedComparisons = districtActionOverlayParityViewportBatches.flatMap(({ viewports }) => (
+    const expectedComparisons = selectedViewportBatches.flatMap(({ viewports }) => (
       districtActionOverlayNames.flatMap((surfaceName) => (
         viewports.map((viewport) => `${viewport.name}:${surfaceName}`)
       ))
@@ -382,6 +403,7 @@ test.describe("fixture-backed live/demo district action overlay parity", () => {
         ...coverageContract,
         evidence: districtActionOverlayScenarioEvidence,
         hostedEntriesReused: hostedClients.size,
+        selectedViewportBatchKeys: selectedViewportBatches.map(({ key }) => key),
         viewportBatches: districtActionOverlayParityViewportBatches
       }, null, 2)}\n`, "utf8"),
       contentType: "application/json"

@@ -42,6 +42,6 @@ export const freeModePoliceConfig: PoliceSystemBalanceConfig = {
   heatReductionBySeverity: { low: 0, medium: 8, high: 30, extreme: 55 },
   maxPoliticalRaidTriggerReductionPct: 45,
   extremePoliticalRaidReductionMultiplier: 0.5,
-  protectedResources: ["cash", "gang-members", "population"],
+  protectedResources: ["cash", "population"],
   autoResolveExpiredPendingRaids: true
 };

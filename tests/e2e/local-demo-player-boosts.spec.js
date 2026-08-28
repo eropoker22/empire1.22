@@ -135,7 +135,7 @@ async function seedBoostSession(page) {
 async function openBoostGame(page) {
   await page.clock.install({ time: START_TIME });
   await seedBoostSession(page);
-  await page.goto("/pages/game.html", { waitUntil: "load" });
+  await page.goto("/pages/game.html?runtimeMode=local-demo&autoStartLocalDemo=1", { waitUntil: "load" });
   await page.waitForFunction(() => (
     window.EmpireRuntime
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"
@@ -283,14 +283,11 @@ test("strategic boosts debit once, expire, and Tactical Grid is consumed by vali
   expect(afterAttackAccepted.playerBoosts.active).toBeNull();
   expect(afterAttackAccepted.playerBoosts.cooldownUntilMsByBoostId["tactical-grid"]).toBeGreaterThan(browserNow);
   expect(afterAttackAccepted.missions.attackOrders).toHaveLength(1);
+  expect(afterAttackAccepted.missions.attackOrders[0]).toMatchObject({
+    executionMode: "instant",
+    resultResolved: true
+  });
   expect(afterAttackAccepted.missions.attackOrders[0].tacticalGrid.appliedMultiplier).toBe(1.12);
-
-  const attackDurationMs = await page.evaluate((key) => {
-    const session = JSON.parse(localStorage.getItem(key) || "{}");
-    const order = session.missions?.attackOrders?.[0];
-    return new Date(order.resolveAt).getTime() - new Date(order.createdAt).getTime();
-  }, SESSION_KEY);
-  await page.clock.fastForward(attackDurationMs + 1_000);
   await expect(page.locator("#attack-result-modal")).toBeVisible();
   await expect(page.locator("#attack-result-modal-summary")).toContainText("Tactical Grid: +12 % bojové síly");
   await expect(page.locator("#attack-result-modal-stats")).toContainText("Tactical Grid: +12 % bojové síly");

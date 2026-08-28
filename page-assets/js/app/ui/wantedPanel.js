@@ -7,6 +7,33 @@ function createElement(tagName, className = "") {
 }
 
 const DEFAULT_HEAT_LEVEL_COUNT = 6;
+const wantedLevelsRenderState = new WeakMap();
+const wantedTitleRenderState = new WeakMap();
+
+function readChildSnapshot(mount) {
+  const children = Array.from(mount?.children || []);
+  return {
+    childCount: children.length,
+    firstChild: children[0] || null
+  };
+}
+
+function canReuseRenderedChildren(mount, renderState, renderKey) {
+  const previous = renderState.get(mount);
+  if (!previous || previous.renderKey !== renderKey) {
+    return false;
+  }
+  const current = readChildSnapshot(mount);
+  return current.childCount === previous.childCount
+    && current.firstChild === previous.firstChild;
+}
+
+function rememberRenderedChildren(mount, renderState, renderKey) {
+  renderState.set(mount, {
+    ...readChildSnapshot(mount),
+    renderKey
+  });
+}
 
 function resolveHeatLevelCount(levels = []) {
   const levelIds = Array.isArray(levels)
@@ -198,6 +225,14 @@ export function renderWantedLevels(mount, levels = []) {
 
   const safeLevels = Array.isArray(levels) ? levels : [];
   const maxLevel = resolveHeatLevelCount(safeLevels);
+  const renderKey = JSON.stringify(safeLevels.map((tier) => [
+    Math.max(0, Number(tier?.id || 0) || 0),
+    String(tier?.title || ""),
+    Boolean(tier?.active)
+  ]));
+  if (canReuseRenderedChildren(mount, wantedLevelsRenderState, renderKey)) {
+    return true;
+  }
   mount.replaceChildren?.();
   for (const tier of safeLevels) {
     const entry = createElement("div", `wanted-popup-level ${tier?.active ? "is-active" : ""}`);
@@ -221,6 +256,7 @@ export function renderWantedLevels(mount, levels = []) {
     entry.append(title, copy);
     mount.append?.(entry);
   }
+  rememberRenderedChildren(mount, wantedLevelsRenderState, renderKey);
   return true;
 }
 
@@ -232,6 +268,10 @@ function renderWantedTitle(mount, wantedViewModel = {}) {
   const title = String(wantedViewModel.title || "");
   const levelId = Math.max(0, Number(wantedViewModel.levelId || 0) || 0);
   const maxLevel = resolveHeatLevelCount(wantedViewModel.levels);
+  const renderKey = JSON.stringify([levelId, maxLevel, title]);
+  if (canReuseRenderedChildren(mount, wantedTitleRenderState, renderKey)) {
+    return true;
+  }
   const stars = createWantedHeatStars(levelId, {
     maxLevel,
     className: "wanted-popup-stars--title"
@@ -248,6 +288,7 @@ function renderWantedTitle(mount, wantedViewModel = {}) {
 
   titleText.textContent = title;
   mount.replaceChildren(stars, titleText);
+  rememberRenderedChildren(mount, wantedTitleRenderState, renderKey);
   return true;
 }
 

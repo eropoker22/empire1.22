@@ -48,6 +48,41 @@ describe("mobile action modal CSS", () => {
     expect(css).toContain("max-height: calc(100dvh - 16px) !important;");
   });
 
+  it("anchors full-height production cards without browser-dependent auto margins", () => {
+    for (const stylesheet of [buildingModalCss, clientBuildingModalCss]) {
+      expect(stylesheet).toContain(".armory-popup-card.building-detail-modal__content,");
+      expect(stylesheet).toContain("margin-left: 0 !important;");
+      expect(stylesheet).toContain("margin-right: 0 !important;");
+    }
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("width: min(438px, calc(100vw - 8px)) !important;");
+      expect(stylesheet).toContain("margin: 0 !important;");
+    }
+  });
+
+  it("draws the wanted close mark without a system-font glyph", () => {
+    for (const stylesheet of [css, clientCss]) {
+      expect(stylesheet).toContain(
+        "Wanted close mark is code-drawn so its shape does not depend on a system font raster."
+      );
+      expect(stylesheet).toContain("html body .wanted-popup-card .wanted-popup-close::before");
+      expect(stylesheet).toContain('content: "" !important;');
+      expect(stylesheet).toContain("top: calc(50% - 9px) !important;");
+      expect(stylesheet).toContain("left: calc(50% - 9px) !important;");
+      expect(stylesheet).toContain(
+        "linear-gradient(45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%)"
+      );
+    }
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain(
+        "html body.game-body .wanted-popup-card .wanted-popup-close::before"
+      );
+      expect(stylesheet).toContain(
+        "linear-gradient(-45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%)"
+      );
+    }
+  });
+
   it("keeps district building effects as desktop pill chips instead of full-width rows", () => {
     expect(buildingModalCss).toContain(".district-building-detail-card .building-info-card__effects,");
     expect(buildingModalCss).toContain("display: flex !important;");
@@ -437,6 +472,10 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("body.game-body:has(#events-modal:not(.hidden):not([hidden])) > .game-shell");
       expect(stylesheet).toContain("body.game-body:has(#events-modal:not(.hidden):not([hidden])) .game-topbar");
       expect(stylesheet).toContain("body.game-body:has(#events-modal:not(.hidden):not([hidden])) .game-topbar *");
+      expect(stylesheet).toContain("html body.game-body #boost-modal:not(.hidden):not([hidden])");
+      expect(stylesheet).toContain("body.game-body:has(#boost-modal:not(.hidden):not([hidden])) > .game-shell");
+      expect(stylesheet).toContain("body.game-body:has(#boost-modal:not(.hidden):not([hidden])) .game-topbar");
+      expect(stylesheet).toContain("body.game-body:has(#boost-modal:not(.hidden):not([hidden])) .game-topbar *");
       expect(stylesheet).toContain("pointer-events: none !important;");
     }
     for (const stylesheet of [mainCss, clientMainCss]) {

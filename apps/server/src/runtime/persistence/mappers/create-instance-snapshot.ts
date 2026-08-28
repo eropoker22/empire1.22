@@ -1,5 +1,6 @@
 import type { ServerInstanceRuntime } from "../../instance";
 import type { InstanceSnapshotDto } from "../dto";
+import { normalizePlayerPopulationState } from "@empire/game-core";
 
 /**
  * Responsibility: Converts runtime state into a persistence-safe snapshot DTO.
@@ -53,5 +54,5 @@ export const createInstanceSnapshot = (runtime: ServerInstanceRuntime): Instance
     capacity: runtime.lobby.maxPlayers,
     joinPolicy: runtime.lobby.joinPolicy
   },
-  state: structuredClone(runtime.state)
+  state: structuredClone(normalizePlayerPopulationState(runtime.state))
 });

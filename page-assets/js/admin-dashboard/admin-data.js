@@ -147,7 +147,7 @@ function createPlayers(servers, alliances) {
         mode: server.mode,
         online: index % 3 !== 0,
         districtCount: 1 + ((base * 3) % 11),
-        gangMembers: 24 + ((base * 17) % 460),
+        population: 24 + ((base * 17) % 460),
         cleanCash: 1200 + (base * 875),
         dirtyCash: 2400 + (base * 1320),
         heat,

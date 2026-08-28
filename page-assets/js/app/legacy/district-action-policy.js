@@ -29,6 +29,18 @@ export const DISTRICT_ACTION_CATALOG = Object.freeze([
   })
 ]);
 
+const createTargetIdentity = (actionId, districtId) => {
+  const numericDistrictId = Number.parseInt(String(districtId || ""), 10);
+  if (!Number.isFinite(numericDistrictId) || numericDistrictId <= 0) {
+    return {};
+  }
+  const targetDistrictId = `district:${numericDistrictId}`;
+  return {
+    key: `${actionId}:${targetDistrictId}`,
+    targetDistrictId
+  };
+};
+
 // Preview-only legacy policy used by the static shell. Server-fed gameplay slice commands own final outcomes.
 export function resolveDistrictActions(context) {
   const {
@@ -139,6 +151,7 @@ export function resolveDistrictActions(context) {
 
       return {
         id: action.id,
+        ...createTargetIdentity(action.id, districtId),
         visible,
         enabled: visible,
         label: action.defaultLabel,
@@ -155,6 +168,7 @@ export function resolveDistrictActions(context) {
 
       return {
         id: action.id,
+        ...createTargetIdentity(action.id, districtId),
         visible,
         enabled: visible,
         label: action.defaultLabel,
@@ -176,6 +190,7 @@ export function resolveDistrictActions(context) {
 
       return {
         id: action.id,
+        ...createTargetIdentity(action.id, districtId),
         visible,
         enabled: visible && !blocked,
         label: action.defaultLabel,
@@ -203,6 +218,7 @@ export function resolveDistrictActions(context) {
 
       return {
         id: action.id,
+        ...createTargetIdentity(action.id, districtId),
         visible,
         enabled,
         label: action.defaultLabel,
@@ -222,6 +238,7 @@ export function resolveDistrictActions(context) {
 
       return {
         id: action.id,
+        ...createTargetIdentity(action.id, districtId),
         visible,
         enabled,
         label: action.defaultLabel,

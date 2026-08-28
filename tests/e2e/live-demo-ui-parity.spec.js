@@ -42,6 +42,7 @@ import {
   closeSurface,
   compareParityPngScreenshotAttempts,
   compareParityPngScreenshots,
+  districtPopupStableBackdropFilterSelector,
   exerciseParitySurfaceScroll,
   expectNoDuplicateVisibleUi,
   getBuildingPresentationSignature,
@@ -72,6 +73,11 @@ const captureEnabled = process.env.EMPIRE_CAPTURE_UI_PARITY_BASELINE === "1";
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 const productionBuildingTypeIds = new Set(STARTER_DISTRICT_PRODUCTION_BUILDING_TYPES);
+const populationParityBuildingTypeIds = new Set([
+  "apartment_block",
+  "convenience_store",
+  "school"
+]);
 const sortedBuildingTypeIds = (values) => Array.from(new Set(values)).sort();
 const parityViewportBatches = Object.freeze([
   Object.freeze({
@@ -281,12 +287,32 @@ async function readOpenBuildingParity(page, buildingTypeId) {
     };
   }
   await settleParityPointer(page, shell);
+  const renderedPopulationBufferAmount = await readRenderedPopulationBufferAmount(shell);
   return {
+    renderedPopulationBufferAmount,
     surfaceName,
     presentation: await getBuildingPresentationSignature(page, surfaceName),
     structure: await getParityDomStructureSignature(page, surfaceName),
     technicalText: await getVisibleTechnicalBuildingText(page, surfaceName)
   };
+}
+
+async function readRenderedPopulationBufferAmount(shell) {
+  const renderedPopulationBufferText = await shell.locator(
+    `${buildingPopulationBufferDynamicValueSelector}:visible`
+  ).evaluateAll((elements) => {
+    const amountElement = elements.find((element) => (
+      element.nextElementSibling instanceof HTMLElement
+      && Object.hasOwn(element.nextElementSibling.dataset, "buildingPopulationCapacity")
+    ));
+    return amountElement?.textContent || null;
+  });
+  const renderedPopulationBufferAmount = renderedPopulationBufferText === null
+    ? null
+    : Number.parseFloat(String(renderedPopulationBufferText).trim());
+  return Number.isFinite(renderedPopulationBufferAmount)
+    ? renderedPopulationBufferAmount
+    : null;
 }
 
 async function attachOpenBuildingScreenshot({
@@ -342,7 +368,10 @@ async function attachOpenBuildingScreenshot({
     ].filter(Boolean).join(","),
     stableBackdropColor: surfaceName === "district" ? "rgb(2, 6, 12)" : "",
     stableBackdropFilterSelector: surfaceName === "district"
-      ? ".district-popup-card,.district-popup-buildings,.district-popup-action"
+      ? districtPopupStableBackdropFilterSelector
+      : "",
+    stableAnimationSelector: surfaceName === "district"
+      ? districtPopupStableBackdropFilterSelector
       : "",
     stableRasterSelector: surfaceName === "district" ? ".district-modal-hero__image" : "",
     stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
@@ -355,7 +384,9 @@ async function attachOpenBuildingScreenshot({
       ? "paint-origin"
       : "translate",
     stableTargetDevicePixelAlignment: surfaceName === "district",
-    stableTargetDevicePixelAlignmentMode: "translate",
+    stableTargetDevicePixelAlignmentMode: surfaceName === "district"
+      ? "position-offset"
+      : "translate",
     stableTargetStyleProperties: surfaceName === "district"
       ? {
           "--district-owner-avatar-opacity": "0",
@@ -381,6 +412,21 @@ async function attachOpenBuildingScreenshotPair({
   panelName
 }) {
   const attemptResult = await compareParityPngScreenshotAttempts(async (captureAttempt) => {
+    if (populationParityBuildingTypeIds.has(buildingTypeId)) {
+      const stablePopulationCapture = await captureStableHostedPopulationParitySnapshot(
+        localPage,
+        serverPage,
+        buildingTypeId,
+        () => readOpenBuildingParity(serverPage, buildingTypeId)
+      );
+      const localSurface = localPage.locator(
+        `${paritySurfaces[surfaceName].shell}:visible`
+      ).last();
+      expect(
+        await readRenderedPopulationBufferAmount(localSurface),
+        `${buildingTypeId} screenshot population buffer attempt ${captureAttempt}`
+      ).toBe(stablePopulationCapture.hostedSnapshot.renderedPopulationBufferAmount);
+    }
     const [localCapture, serverCapture] = await Promise.all([
       attachOpenBuildingScreenshot({
         page: localPage,
@@ -411,10 +457,13 @@ async function attachOpenBuildingScreenshotPair({
         ...localCapture.ignoreRegions
       ]
     };
+  }, {
+    allowCrossAttemptPairing: surfaceName === "district"
   });
   const comparison = {
     ...attemptResult.comparison,
-    captureAttemptCount: attemptResult.attemptCount
+    captureAttemptCount: attemptResult.attemptCount,
+    captureAttemptPair: attemptResult.comparisonPair
   };
   await testInfo.attach([
     "building",
@@ -553,6 +602,10 @@ async function compareOpenBuildingParity(
   expect(serverStats.structure, `${buildingTypeId} structure and bounds`).toEqual(
     localStats.structure
   );
+  expect(
+    serverStats.renderedPopulationBufferAmount,
+    `${buildingTypeId} rendered population buffer`
+  ).toBe(localStats.renderedPopulationBufferAmount);
   expect(
     localStats.structure.focus.activeElement?.insideSurface,
     `${buildingTypeId} local-demo natural focus must enter the shared surface`

@@ -1,4 +1,14 @@
 import { refreshLiveCooldownLabels } from "../shared-ui";
+import type { GameplayCommandTimingMetadata } from "@empire/shared-types";
+
+export interface GameplayCommandClientTiming extends Partial<GameplayCommandTimingMetadata> {
+  commandId: string;
+  clientSubmittedAtMs: number;
+  clientResponseReceivedAtMs?: number;
+  roundTripMs?: number;
+  uiRenderCompletedAtMs?: number;
+  uiAfterResponseMs?: number;
+}
 
 declare global {
   interface EmpireStreetsRuntimeDiagnostics {
@@ -31,6 +41,7 @@ declare global {
       gameplayPollSkippedCount?: number;
       fullUiRenderCount?: number;
       selectiveUiUpdateCount?: number;
+      lastGameplayCommandTiming?: GameplayCommandClientTiming;
     };
   }
 }
@@ -53,6 +64,7 @@ const isPerformanceDebugEnabled = (): boolean =>
   Boolean(window.empireStreetsRuntimeDiagnostics?.debugEnabled);
 
 const serverSliceRefreshTimestamps: number[] = [];
+const pendingCommandTimings = new Map<string, GameplayCommandClientTiming>();
 let lastServerSliceFingerprint = "";
 
 const pruneTimestamps = (timestamps: number[], nowMs: number): number => {
@@ -125,6 +137,53 @@ export const recordGameplayPollError = (): void => {
   if (!isPerformanceDebugEnabled()) return;
   const metrics = getPerformanceMetrics();
   metrics.gameplayPollErrorCount = (metrics.gameplayPollErrorCount ?? 0) + 1;
+};
+
+export const recordGameplayCommandSubmitted = (commandId: string): void => {
+  if (!isPerformanceDebugEnabled()) return;
+  const normalizedCommandId = String(commandId || "").trim();
+  if (!normalizedCommandId) return;
+  pendingCommandTimings.set(normalizedCommandId, {
+    commandId: normalizedCommandId,
+    clientSubmittedAtMs: Date.now()
+  });
+};
+
+export const recordGameplayCommandResponse = (
+  commandId: string,
+  serverTiming?: GameplayCommandTimingMetadata
+): void => {
+  if (!isPerformanceDebugEnabled()) return;
+  const normalizedCommandId = String(commandId || "").trim();
+  const pending = pendingCommandTimings.get(normalizedCommandId) ?? {
+    commandId: normalizedCommandId,
+    clientSubmittedAtMs: Date.now()
+  };
+  const clientResponseReceivedAtMs = Date.now();
+  const timing: GameplayCommandClientTiming = {
+    ...pending,
+    ...(serverTiming?.commandId === normalizedCommandId ? serverTiming : {}),
+    commandId: normalizedCommandId,
+    clientResponseReceivedAtMs,
+    roundTripMs: Math.max(0, clientResponseReceivedAtMs - pending.clientSubmittedAtMs)
+  };
+  pendingCommandTimings.set(normalizedCommandId, timing);
+  getPerformanceMetrics().lastGameplayCommandTiming = timing;
+};
+
+export const recordGameplayCommandUiRenderComplete = (): void => {
+  if (!isPerformanceDebugEnabled()) return;
+  const metrics = getPerformanceMetrics();
+  const timing = metrics.lastGameplayCommandTiming;
+  if (!timing?.clientResponseReceivedAtMs || timing.uiRenderCompletedAtMs) return;
+  const uiRenderCompletedAtMs = Date.now();
+  const completed = {
+    ...timing,
+    uiRenderCompletedAtMs,
+    uiAfterResponseMs: Math.max(0, uiRenderCompletedAtMs - timing.clientResponseReceivedAtMs)
+  };
+  metrics.lastGameplayCommandTiming = completed;
+  pendingCommandTimings.delete(completed.commandId);
 };
 
 export const getPollingIntervalMultiplier = (): number => {

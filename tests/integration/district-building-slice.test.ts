@@ -218,12 +218,20 @@ describe("district building gameplay slice", () => {
       clientRequestId: null,
       payload: { districtId, buildingId: pharmacyBuildingId!, recipeId: "chemicals", quantity: 1 }
     };
+    const playerResourceStateId = runtime.state.playersById[playerId]!.resourceStateId;
+    const chemicalsBefore = Number(runtime.state.resourceStatesById[playerResourceStateId]?.balances.chemicals || 0);
     const updatedRender = await client.dispatch(actionCommand);
 
     expect(updatedRender.errors).toEqual([]);
     expect(updatedRender.sidePanelHtml).toContain("data-building-action-building-id");
     expect(updatedRender.sidePanelHtml).not.toContain("data-build-actions");
-    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === pharmacyBuildingId)?.pharmacy?.lines.find((line) => line.recipeId === "chemicals")).toMatchObject({ queuedAmount: 1, activeAmount: 1 });
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === pharmacyBuildingId)?.pharmacy?.lines.find((line) => line.recipeId === "chemicals")).toMatchObject({
+      executionMode: "instant",
+      queuedAmount: 0,
+      activeAmount: 0,
+      playerStoredAmount: chemicalsBefore + 1
+    });
+    expect(runtime.state.resourceStatesById[playerResourceStateId]?.balances.chemicals).toBe(chemicalsBefore + 1);
     expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].buildingIds).toHaveLength(2);
 
     expect(updatedRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.isOwnedByPlayer).toBe(false);

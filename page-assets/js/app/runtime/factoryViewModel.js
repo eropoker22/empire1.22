@@ -209,9 +209,15 @@ export function buildFactoryDashboardViewModel({
   const outputCapsByResource = slots.reduce((caps, slot) => {
     const key = String(slot?.resourceKey || "").trim();
     if (!key) return caps;
+    const displayInfo = getFactorySlotDisplayInfo(slot, config);
+    const isInstant = slot?.executionMode === "instant";
     caps[key] = Math.max(
       Number(caps[key] || 0),
-      Math.max(0, Math.floor(Number(getFactorySlotDisplayInfo(slot, config).storageCap || slot?.slotCap || slotStorageCap || 0)))
+      Math.max(0, Math.floor(Number(
+        isInstant
+          ? slot?.slotCap || displayInfo.storageCap || slotStorageCap || 0
+          : displayInfo.storageCap || slot?.slotCap || slotStorageCap || 0
+      )))
     );
     return caps;
   }, {});
@@ -243,6 +249,7 @@ export function buildFactoryDashboardViewModel({
       title: isMaxLevel ? "Max level" : `Upgrade budovy (${formatCurrency(nextUpgradeCost)})`
     },
     collectButton: {
+      visible: false,
       disabled: Math.max(0, Math.floor(Number(collectableAmount || 0))) <= 0,
       text: "+",
       title: Math.max(0, Math.floor(Number(collectableAmount || 0))) > 0
@@ -264,10 +271,19 @@ export function buildFactoryDashboardViewModel({
             metalParts: Math.max(0, Number(supplyState.metalParts || 0)),
             techCore: Math.max(0, Number(supplyState.techCore || 0))
           };
-      const outputCap = Math.max(1, Math.floor(Number(displayInfo.storageCap || slot.slotCap || 1)));
-      const queueCap = Math.max(1, Math.floor(Number(displayInfo.recipe?.queueCap || slot.queueCap || 1)));
+      const isInstant = slot.executionMode === "instant";
+      const outputCap = Math.max(1, Math.floor(Number(
+        isInstant
+          ? slot.slotCap || displayInfo.storageCap || 1
+          : displayInfo.storageCap || slot.slotCap || 1
+      )));
+      const queueCap = isInstant
+        ? outputCap
+        : Math.max(1, Math.floor(Number(displayInfo.recipe?.queueCap || slot.queueCap || 1)));
       const queuedAmount = Math.max(0, Math.floor(Number(slot.queuedAmount || 0)));
-      const outputIsFull = Math.max(0, Math.floor(Number(slot.producedAmount || 0))) >= outputCap;
+      const outputAmount = Math.max(0, Math.floor(Number(slot.producedAmount || 0)));
+      const availableOutputCapacity = Math.max(0, outputCap - outputAmount);
+      const outputIsFull = availableOutputCapacity <= 0;
       const affordableByCash = displayCost.cleanCash > 0
         ? Math.floor(Math.max(0, Number(cleanMoney || 0)) / displayCost.cleanCash)
         : Number.POSITIVE_INFINITY;
@@ -278,7 +294,7 @@ export function buildFactoryDashboardViewModel({
         ? Math.floor(inputAmounts.techCore / displayCost.techCore)
         : Number.POSITIVE_INFINITY;
       const calculatedMaxStartQuantity = outputIsFull ? 0 : Math.max(0, Math.min(
-        queueCap - queuedAmount,
+        isInstant ? availableOutputCapacity : queueCap - queuedAmount,
         affordableByCash,
         affordableByMetal,
         affordableByTech
@@ -287,17 +303,22 @@ export function buildFactoryDashboardViewModel({
       const maxStartQuantity = Number.isFinite(projectedMaxStartQuantity)
         ? Math.max(0, Math.floor(projectedMaxStartQuantity))
         : calculatedMaxStartQuantity;
-      const baseDurationMs = getEffectiveFactorySlotDurationMs(slot, config, syncResult.baseProductionMultiplier || syncResult.productionMultiplier);
+      const baseDurationMs = isInstant
+        ? 0
+        : getEffectiveFactorySlotDurationMs(slot, config, syncResult.baseProductionMultiplier || syncResult.productionMultiplier);
       const projectedBaseDurationMs = Number(slot.baseDurationMs);
       const projectedDurationMs = Number(slot.effectiveDurationMs);
-      const resolvedBaseDurationMs = Number.isFinite(projectedBaseDurationMs) && projectedBaseDurationMs > 0
+      const resolvedBaseDurationMs = !isInstant && Number.isFinite(projectedBaseDurationMs) && projectedBaseDurationMs > 0
         ? projectedBaseDurationMs
         : baseDurationMs;
-      const durationMs = Number.isFinite(projectedDurationMs) && projectedDurationMs > 0
+      const durationMs = isInstant
+        ? 0
+        : Number.isFinite(projectedDurationMs) && projectedDurationMs > 0
         ? projectedDurationMs
         : getEffectiveFactorySlotDurationMs(slot, config, syncResult.productionMultiplier);
       return {
         slot,
+        executionMode: isInstant ? "instant" : "legacy-timed",
         recipeId: slot.recipeId || FACTORY_CANONICAL_KEY_BY_LEGACY_KEY[slot.resourceKey] || slot.id || slot.resourceKey,
         status: slot.status || null,
         loading: slot.loading === true,
@@ -322,7 +343,7 @@ export function buildFactoryDashboardViewModel({
         priceLabel: getFactoryDisplayCostLabel(displayCost),
         disabledReason: slot.disabledReason || null,
         durationMs,
-        durationBonusLabel: formatFactoryDurationBonus(resolvedBaseDurationMs, durationMs),
+        durationBonusLabel: isInstant ? "" : formatFactoryDurationBonus(resolvedBaseDurationMs, durationMs),
         ...getFactorySlotVisual(slot, config, formatDurationLabel)
       };
     })
@@ -351,6 +372,7 @@ export function buildServerFactoryDashboardViewModel({
   const supplyState = {};
   let cleanMoney = 0;
   const slots = productionLines.map((line) => {
+    const isInstant = line.executionMode === "instant";
     const resourceKey = FACTORY_LEGACY_KEY_BY_CANONICAL_KEY[line.resourceKey] || line.resourceKey;
     const slotMeta = slotConfig.find((item) => item.recipeId === line.recipeId || item.resourceKey === resourceKey) || {};
     for (const row of line.costDisplayRows || []) {
@@ -368,23 +390,24 @@ export function buildServerFactoryDashboardViewModel({
     const baseDurationTicks = Number(line.baseUnitDurationTicks);
     const effectiveDurationTicks = Number(line.effectiveUnitDurationTicks);
     const canonicalBaseDurationMs = getFactorySlotDurationMs({ resourceKey }, config);
-    const projectedEffectiveDurationMs = Number.isFinite(effectiveDurationTicks) && effectiveDurationTicks > 0
+    const projectedEffectiveDurationMs = !isInstant && Number.isFinite(effectiveDurationTicks) && effectiveDurationTicks > 0
       ? effectiveDurationTicks * safeTickRateMs
-      : undefined;
+      : isInstant ? 0 : undefined;
     const costPresentation = getServerFactoryLineCostPresentation(line);
     return {
       id: slotMeta.id ?? line.recipeId,
+      executionMode: isInstant ? "instant" : "legacy-timed",
       recipeId: line.recipeId,
       resourceKey,
-      producedAmount: Math.max(0, Number(line.producedAmount ?? producedSummary.currentAmount ?? 0)),
+      producedAmount: Math.max(0, Number(isInstant ? producedSummary.currentAmount : line.producedAmount ?? producedSummary.currentAmount ?? 0)),
       queuedAmount: Math.max(0, Number(line.queuedAmount || 0)),
       queueCap: Math.max(0, Number(line.queueCapacity || 0)),
       slotCap: Math.max(0, Number(line.producedCapacity ?? producedSummary.capacity ?? 0)),
-      isProducing: line.status === "processing",
+      isProducing: !isInstant && line.status === "processing",
       status: String(line.status || "ready"),
       loading: line.loading === true,
       remainingMs: Math.max(0, Number(line.remainingMs || 0)),
-      usesAuthoritativeCountdown: line.status === "processing" || Number(line.remainingMs || 0) > 0,
+      usesAuthoritativeCountdown: !isInstant && (line.status === "processing" || Number(line.remainingMs || 0) > 0),
       canStart: line.canStart === true,
       canCancelWaiting: line.canCancelWaiting === true,
       canCollect: line.canCollect === true,
@@ -392,13 +415,13 @@ export function buildServerFactoryDashboardViewModel({
       disabledReason: line.disabledReason || null,
       displayCost: costPresentation.displayCost,
       inputAmounts: costPresentation.inputAmounts,
-      baseDurationMs: canonicalBaseDurationMs || (
+      baseDurationMs: isInstant ? 0 : canonicalBaseDurationMs || (
         Number.isFinite(baseDurationTicks) && baseDurationTicks > 0
           ? baseDurationTicks * safeTickRateMs
           : undefined
       ),
       effectiveDurationMs: projectedEffectiveDurationMs,
-      effectiveSpeedMultiplier: resolveFactoryLineSpeedMultiplier(line, {
+      effectiveSpeedMultiplier: isInstant ? 1 : resolveFactoryLineSpeedMultiplier(line, {
         canonicalBaseDurationMs,
         effectiveDurationMs: projectedEffectiveDurationMs
       }),
@@ -482,6 +505,7 @@ export function buildServerFactoryDashboardViewModel({
     collectableAmount,
     collectButton: {
       ...dashboard.collectButton,
+      visible: false,
       disabled: !canCollect,
       title: canCollect
         ? `Vybrat hotové do skladu${collectableAmount > 0 ? ` (${collectableAmount})` : ""}`

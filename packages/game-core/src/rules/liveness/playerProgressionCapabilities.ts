@@ -15,6 +15,7 @@ import { validateRob } from "../../validation/validateRob";
 import { validateSpy } from "../../validation/validateSpy";
 import { calculatePlayerFrontier, resolveAllianceCorridorRoutes } from "../map/frontier";
 import { resolveCityEventCapability, resolveCollectCapability } from "./playerEconomyCapabilities";
+import { resolvePlayerPopulation } from "../../state/playerPopulation";
 
 export type PlayerProgressionCapabilities = Record<string, PlayerProgressionCapabilityView>;
 
@@ -99,7 +100,7 @@ export const resolvePlayerProgressionCapabilities = (
           targetDistrictId: candidate.targetDistrictId,
           sourceDistrictId: candidate.sourceDistrictId,
           style: "stealth",
-          gangMembersSent: minMembers,
+          populationSent: minMembers,
           expectedConflictRevision: Number(target?.conflictRevision ?? 0),
           expectedTargetVersion: target?.version,
           expectedSourceVersion: source?.version,
@@ -218,7 +219,7 @@ const resolveMinimumAttackLoadout = (
 ): Partial<Record<"baseball-bat" | "pistol" | "grenade" | "smg" | "bazooka", number>> | null => {
   const player = state.playersById[playerId];
   const inventory = state.resourceStatesById[player?.resourceStateId ?? ""]?.balances ?? {};
-  const population = Math.max(0, Number(player?.population ?? inventory.population ?? 0));
+  const population = Math.max(0, resolvePlayerPopulation(state, player));
   const weapons = context?.config.balance.attackWeapons;
   if (!weapons) return null;
   for (const weaponId of ["baseball-bat", "pistol", "grenade", "smg", "bazooka"] as const) {

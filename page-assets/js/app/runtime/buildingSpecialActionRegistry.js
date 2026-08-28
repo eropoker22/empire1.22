@@ -66,6 +66,7 @@ const SERVER_ACTIONS = new Map([
   ["energeticka stanice::snizit heat", ["power_station_reduce_heat", "power_station"]],
   ["energeticka stanice::snizit vypadky", ["power_station_reduce_heat", "power_station"]],
   ["pasovaci tunel::otevrit kanal", ["open_channel", "smuggling_tunnel"]],
+  ["poulicni dealeri::prodat zasobu", ["start_drug_sale", "street_dealers"]],
   ["poulicni dealeri::spustit prodej", ["start_drug_sale", "street_dealers"]],
   ["restaurace::vybrat trzby", ["restaurant_collect_revenue", "restaurant"]],
   ["restaurace::kryt schuzky", ["restaurant_cover_meetings", "restaurant"]],
@@ -305,6 +306,8 @@ export function getRecyclingSalvagePoolView(clinicRecoveryPool = null) {
 
 function normalizeClinicRecoverableActionKey(itemType = "") {
   const key = normalizeBuildingSpecialActionKey(itemType).replace(/\s+/g, "-");
+  // Read-only compatibility for recovery records created before population
+  // became the only people resource.
   if (key === "gang-members" || key === "gang-member" || key === "members") return "population";
   if (key === "population" || key === "populace" || key === "obyvatele") return "population";
   return key;

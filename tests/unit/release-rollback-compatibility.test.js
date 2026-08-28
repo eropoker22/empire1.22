@@ -39,7 +39,8 @@ describe("release rollback compatibility", () => {
     const migrations = [...contract.matchAll(/\["(\d{3}_[a-z0-9_]+\.sql)",\s*"([0-9a-f]{64})"\]/gu)]
       .map((match) => ({ filename: match[1], checksum: match[2] }));
     const classified = validateMigrationClassifications(manifest, migrations);
-    expect(classified).toHaveLength(24);
+    expect(migrations.length).toBeGreaterThan(0);
+    expect(classified).toHaveLength(migrations.length);
     expect(classified.every((entry) => entry.reason.length >= 12)).toBe(true);
   });
 

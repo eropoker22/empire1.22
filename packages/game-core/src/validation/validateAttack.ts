@@ -15,6 +15,7 @@ import {
 } from "../rules";
 import { hasValidAttackAuthorization } from "./spyIntel";
 import { formatTickDuration } from "../utils/time";
+import { resolvePlayerPopulation } from "../state/playerPopulation";
 
 /**
  * Responsibility: Placeholder validator for district attacks.
@@ -123,9 +124,7 @@ export const validateAttack = (
       return [{ code: "attack_insufficient_weapon_inventory", message: "Nemáš dost kusů této zbraně." }];
     }
   }
-  const availablePopulation = Math.max(0, Math.floor(Number(
-    attacker.population ?? state.resourceStatesById[attacker.resourceStateId]?.balances?.population ?? 0
-  )));
+  const availablePopulation = Math.max(0, Math.floor(resolvePlayerPopulation(state, attacker)));
   const requiredPopulation = calculateAttackPopulationRequired(selection.loadout, attackWeapons);
   if (availablePopulation < requiredPopulation) {
     return [{ code: "attack_insufficient_population", message: "Nemáš dost obyvatel pro vybranou výzbroj." }];

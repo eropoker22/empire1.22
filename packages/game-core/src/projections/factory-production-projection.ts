@@ -4,13 +4,11 @@ import type { CoreGameState } from "../entities";
 import { resolveProductionBuildingLevelMultiplier } from "../rules/buildings/buildingUpgradeRules";
 import {
   FACTORY_BUILDING_TYPE_ID,
-  getFactoryLine,
-  getFactoryProducedAmount,
   isFactoryOwnedBy,
   resolveActiveFactoryCount,
-  resolveFactoryDurationTicks,
   resolveFactoryNetworkSpeedMultiplier
 } from "../handlers/factoryProductionShared";
+import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "../handlers/warehouseBuilding";
 
 const RESOURCE_LABELS: Record<string, string> = {
   cash: "Clean Cash",
@@ -30,61 +28,53 @@ export const createFactoryProductionBuildingView = (input: {
   if (input.building.buildingTypeId !== FACTORY_BUILDING_TYPE_ID || !factory) return null;
   const player = input.state.playersById[input.playerId];
   const balances = player ? input.state.resourceStatesById[player.resourceStateId]?.balances ?? {} : {};
+  const storage = player && input.config?.balance.warehouse
+    ? resolveWarehouseStorageCapacity(input.state, player.id, input.config.balance.warehouse)
+    : null;
   const isOwner = isFactoryOwnedBy(input.state, input.building, input.playerId) && input.building.status === "active";
   const activeFactoryCount = resolveActiveFactoryCount(input.state, input.playerId);
   const networkSpeedMultiplier = resolveFactoryNetworkSpeedMultiplier(activeFactoryCount, factory);
   const levelSpeedMultiplier = resolveProductionBuildingLevelMultiplier(input.building, { config: input.config! });
-  const tickRateMs = Math.max(1, Number(input.tickRateMs || input.config?.tickRateMs || 5000));
   const ownershipDisabledReason = isOwner
     ? null
     : input.building.status !== "active" ? "Továrna musí být aktivní." : "Továrna patří jinému hráči.";
   const productionLines = (Object.entries(factory.recipes) as Array<[FactoryRecipeId, typeof factory.recipes[FactoryRecipeId]]>).map(([recipeId, recipe]) => {
-    const line = getFactoryLine(input.building, recipeId);
-    const producedAmount = getFactoryProducedAmount(input.state, input.building, recipe.outputResourceKey);
-    const activeAmount = line.activeCompletesAtTick === null ? 0 : 1;
-    const waitingAmount = Math.max(0, line.queuedAmount - activeAmount);
-    const queueSpace = Math.max(0, recipe.queueCap - line.queuedAmount);
     const cleanCash = Math.max(0, Number(balances.cash || 0));
+    const playerStoredAmount = Math.max(0, Number(balances[recipe.outputResourceKey] || 0));
+    const playerStoredCapacity = storage ? getWarehouseCapacityForResource(storage, recipe.outputResourceKey) : 0;
+    const maxByStorage = storage
+      ? Math.max(0, Math.floor((playerStoredCapacity - playerStoredAmount) / recipe.outputAmount))
+      : Number.MAX_SAFE_INTEGER;
+    const maxByCash = recipe.cleanCashCostPerUnit > 0
+      ? Math.floor(cleanCash / recipe.cleanCashCostPerUnit)
+      : Number.MAX_SAFE_INTEGER;
     const maxByInputs = Object.entries(recipe.inputCosts).reduce(
       (max, [resourceKey, amount]) => Math.min(max, Math.floor(Math.max(0, Number(balances[resourceKey] || 0)) / amount)),
       Number.POSITIVE_INFINITY
     );
-    const localFull = producedAmount >= recipe.localOutputCap;
-    const maxStartQuantity = isOwner && !localFull
-      ? Math.max(0, Math.min(queueSpace, Math.floor(cleanCash / recipe.cleanCashCostPerUnit), maxByInputs))
+    const maxStartQuantity = isOwner
+      ? Math.max(0, Math.min(recipe.queueCap, maxByCash, maxByInputs, maxByStorage))
       : 0;
     const missingInputs = Object.entries(recipe.inputCosts).some(([resourceKey, amount]) => Number(balances[resourceKey] || 0) < amount);
-    const status = producedAmount > recipe.localOutputCap
-      ? "over_capacity"
-      : producedAmount === recipe.localOutputCap
-        ? "full"
-        : activeAmount
-          ? "processing"
-          : line.queuedAmount > 0
-            ? "waiting"
-            : producedAmount > 0
-              ? "completed"
-              : "ready";
+    const storageFull = maxByStorage <= 0;
+    const status = storageFull ? "full" : "ready";
     const disabledReason = !isOwner
       ? ownershipDisabledReason
-      : localFull ? "Lokální zásoba Továrny je plná."
-      : queueSpace <= 0 ? "Fronta této výrobní linky je plná."
+      : storageFull ? "Sklad je pro tento produkt plný."
       : cleanCash < recipe.cleanCashCostPerUnit ? "Na spuštění výroby nemáš dost clean cash."
       : missingInputs ? "Na spuštění výroby nemáš dost materiálových vstupů."
       : null;
-    const remainingTicks = activeAmount ? Math.max(0, line.activeCompletesAtTick! - input.state.root.tick) : 0;
-    const effectiveUnitDurationTicks = resolveFactoryDurationTicks(input.state, input.building, recipe, { config: input.config! });
-    const canCollect = isOwner && producedAmount > 0;
     return {
+      executionMode: "instant",
       recipeId,
       resourceKey: recipe.outputResourceKey,
       label: recipe.label,
-      producedAmount,
-      producedCapacity: recipe.localOutputCap,
-      queuedAmount: line.queuedAmount,
+      producedAmount: 0,
+      producedCapacity: playerStoredCapacity,
+      queuedAmount: 0,
       queueCapacity: recipe.queueCap,
-      activeAmount: activeAmount as 0 | 1,
-      waitingAmount,
+      activeAmount: 0,
+      waitingAmount: 0,
       unitCleanCashCost: recipe.cleanCashCostPerUnit,
       materialInputCosts: { ...recipe.inputCosts },
       costDisplayRows: [
@@ -101,39 +91,30 @@ export const createFactoryProductionBuildingView = (input: {
           availableAmount: Math.max(0, Number(balances[resourceKey] ?? 0))
         }))
       ],
-      baseUnitDurationTicks: recipe.durationTicksPerUnit,
-      effectiveUnitDurationTicks,
-      effectiveSpeedMultiplier: recipe.durationTicksPerUnit / effectiveUnitDurationTicks,
-      unitsPerHour: 60 * 60 * 1000 / (effectiveUnitDurationTicks * tickRateMs),
-      remainingTicks,
-      remainingMs: remainingTicks * tickRateMs,
+      baseUnitDurationTicks: 0,
+      effectiveUnitDurationTicks: 0,
+      effectiveSpeedMultiplier: 1,
+      unitsPerHour: 0,
+      remainingTicks: 0,
+      remainingMs: 0,
       status,
       canStart: maxStartQuantity > 0,
-      canCancelWaiting: waitingAmount > 0,
-      canCollect,
-      collectDisabledReason: canCollect
-        ? null
-        : ownershipDisabledReason || "Na této lince není nic hotového k vyzvednutí.",
+      canCancelWaiting: false,
+      canCollect: false,
+      collectDisabledReason: ownershipDisabledReason || "Výsledek výroby se ukládá do skladu okamžitě.",
       maxStartQuantity,
       disabledReason
     } satisfies FactoryProductionLineView;
   });
-  const collectableAmount = productionLines.reduce((total, line) => (
-    total + (line.canCollect ? line.producedAmount : 0)
-  ), 0);
-  const canCollect = productionLines.some((line) => line.canCollect);
   return {
     buildingId: input.building.id,
     districtId: input.building.districtId,
     buildingTypeId: FACTORY_BUILDING_TYPE_ID,
     level: input.building.level,
-    effectiveProductionSpeedMultiplier: productionLines[0]?.effectiveSpeedMultiplier
-      ?? networkSpeedMultiplier * levelSpeedMultiplier,
-    collectableAmount,
-    canCollect,
-    collectDisabledReason: canCollect
-      ? null
-      : ownershipDisabledReason || "Zatím není nic hotového k vyzvednutí.",
+    effectiveProductionSpeedMultiplier: 1,
+    collectableAmount: 0,
+    canCollect: false,
+    collectDisabledReason: ownershipDisabledReason || "Výsledek výroby se ukládá do skladu okamžitě.",
     network: {
       activeFactoryCount,
       networkSpeedMultiplier,
@@ -141,14 +122,15 @@ export const createFactoryProductionBuildingView = (input: {
       effectiveSpeedMultiplier: networkSpeedMultiplier * levelSpeedMultiplier
     },
     producedSummary: productionLines.map((line) => {
-      const currentAmount = getFactoryProducedAmount(input.state, input.building, line.resourceKey);
+      const currentAmount = Math.max(0, Number(balances[line.resourceKey] || 0));
+      const capacity = storage ? getWarehouseCapacityForResource(storage, line.resourceKey) : 0;
       return {
         resourceKey: line.resourceKey as FactoryRecipeId,
         label: line.label,
         currentAmount,
-        capacity: factory.recipes[line.recipeId].localOutputCap,
-        isFull: currentAmount === factory.recipes[line.recipeId].localOutputCap,
-        isOverCapacity: currentAmount > factory.recipes[line.recipeId].localOutputCap
+        capacity,
+        isFull: currentAmount === capacity,
+        isOverCapacity: currentAmount > capacity
       };
     }),
     productionLines

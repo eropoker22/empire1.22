@@ -28,7 +28,7 @@ async function openLocalGame(page) {
         factorySupplies: { metalParts: 40, techCore: 20, combatModule: 8 }
       },
       economy: { cleanMoney: 100_000, dirtyMoney: 10_000 },
-      gang: { members: 30, population: 30, heat: 0, influence: 0, lastHeatDecayAt: now },
+      gang: { population: 30, heat: 0, influence: 0, lastHeatDecayAt: now },
       missions: { attackOrders: [], occupyOrders: [], robberyOrders: [], spy: { available: 3, missions: [] } },
       production: {
         jobs: {}, factory: { level: 1, resources: {}, slots: [], updatedAt: Date.now() },
@@ -44,7 +44,7 @@ async function openLocalGame(page) {
       completed: true, skipped: true, currentStepId: "completed", dismissedAt: now, version: "demo-v1-clean"
     }));
   }, { sessionKey: SESSION_KEY, scopedSessionKey: SCOPED_SESSION_KEY });
-  await page.goto("/pages/game.html", { waitUntil: "load" });
+  await page.goto("/pages/game.html?runtimeMode=local-demo&autoStartLocalDemo=1", { waitUntil: "load" });
   await page.waitForFunction(() => (
     window.EmpireRuntime
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"

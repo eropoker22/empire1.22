@@ -43,7 +43,6 @@ const createGameplaySliceView = (districtId = HOME_DISTRICT_ID): GameplaySliceVi
       dirtyCash: 20,
       influence: 3,
       population: 4,
-      gangMembers: 2,
       resources: {},
       materials: {},
       drugs: {},

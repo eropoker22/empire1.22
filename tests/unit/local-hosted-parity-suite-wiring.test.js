@@ -59,6 +59,23 @@ describe("local-hosted presentation parity suite wiring", () => {
     expect(suiteSource).toContain('name: "spawn-building-matrix-c"');
   });
 
+  it("keeps bounded ui-parity group runs visibly debug-only", () => {
+    expect(runnerSource).toContain('argument.startsWith("--ui-parity-group=")');
+    expect(runnerSource).toContain(
+      '"--ui-parity-group is debug-only and requires --suite=ui-parity as the only suite."'
+    );
+    expect(runnerSource).toContain(
+      `--ui-parity-group cannot be combined with \${UI_PARITY_DEBUG_BUILDING_TYPES_ENV}.`
+    );
+    expect(runnerSource).toContain(
+      "comprehensiveParityGate: uiParityDebugBuildingTypeIds.length === 0"
+    );
+    expect(runnerSource).toContain("&& requestedUiParityGroupNames.size === 0");
+    expect(runnerSource).toContain(
+      "configuredPlaywrightGroups.filter((group) => requestedUiParityGroupNames.has(group.name))"
+    );
+  });
+
   it("partitions every spawn matrix case into exactly one bounded group", () => {
     const suiteSource = getHostedSuiteSource("ui-parity");
     const groupPatterns = [...suiteSource.matchAll(
@@ -118,6 +135,11 @@ describe("local-hosted presentation parity suite wiring", () => {
     ]);
     expect(new Set(groupedKeys).size).toBe(groupedKeys.length);
     expect(nonSpawnParitySpecSource).toContain("Unknown non-spawn parity matrix keys");
+    expect(nonSpawnParitySpecSource).toContain("stableTargetDevicePixelAlignment: true");
+    expect(nonSpawnParitySpecSource).toContain('stableTargetDevicePixelAlignmentMode: "translate"');
+    expect(nonSpawnParitySpecSource).toContain(
+      'stableScrollbarSelector: ".district-building-detail-body"'
+    );
   });
 
   it("compares phase heat base against the precise authoritative passive projection", () => {
@@ -173,6 +195,10 @@ describe("local-hosted presentation parity suite wiring", () => {
     expect(suiteSource).toContain("playerCount: 3");
     expect(suiteSource).toContain("tests/e2e/manual-hosted-district-actions-ui.spec.js");
     expect(suiteSource).toContain("tests/e2e/live-demo-district-action-overlay-parity.spec.js");
+    expect(suiteSource).toContain('["01", "02", "03", "04", "05"].map');
+    expect(suiteSource).toContain("EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS");
+    expect(suiteSource).toContain('name: "visible-actions"');
+    expect(runnerSource).toContain("...(group.specs || suite.specs)");
   });
 
   it("keeps every parity suite in both full local-hosted gates", () => {
@@ -186,5 +212,14 @@ describe("local-hosted presentation parity suite wiring", () => {
       "multiplayer-visible-actions",
       "social-concurrency-privacy"
     ]));
+  });
+
+  it("stops failed disposable servers without deleting their diagnostic state", () => {
+    expect(runnerSource).toContain('result.cleanup = "stopping-after-failure"');
+    expect(runnerSource).toContain(
+      "await stopDisposableHostedServer(admin, result.serverInstanceId)"
+    );
+    expect(runnerSource).toContain('result.cleanup = "stopped-after-failure"');
+    expect(runnerSource).not.toContain('"preserved-for-diagnostics"');
   });
 });

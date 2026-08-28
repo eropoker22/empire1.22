@@ -58,7 +58,7 @@ async function openLocalOnboardingGame(page) {
     scopedSessionKey: SCOPED_SESSION_STORAGE_KEY
   });
 
-  await page.goto("/pages/game.html", { waitUntil: "load" });
+  await page.goto("/pages/game.html?runtimeMode=local-demo&autoStartLocalDemo=1", { waitUntil: "load" });
   await page.waitForFunction(() => (
     window.EmpireRuntime
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"

@@ -12,6 +12,7 @@ import {
   validateMapAction
 } from "../rules";
 import { formatTickDuration } from "../utils/time";
+import { resolvePlayerPopulation } from "../state/playerPopulation";
 
 const HEIST_STYLES = new Set(["stealth", "balanced", "all_in"]);
 
@@ -37,34 +38,34 @@ export const validateHeist = (
     }];
   }
 
-  if (!Number.isInteger(command.payload.gangMembersSent) || command.payload.gangMembersSent <= 0) {
+  if (!Number.isInteger(command.payload.populationSent) || command.payload.populationSent <= 0) {
     return [{
-      code: "HEIST_GANG_MEMBERS_INVALID",
-      message: "Heist vyžaduje kladný počet členů gangu.",
-      details: { gangMembersSent: command.payload.gangMembersSent }
+      code: "HEIST_POPULATION_INVALID",
+      message: "Heist vyžaduje kladný počet lidí z populace.",
+      details: { populationSent: command.payload.populationSent }
     }];
   }
 
   const styleConfig = conflictConfig?.heist?.styles[command.payload.style];
   if (styleConfig && (
-    command.payload.gangMembersSent < styleConfig.minMembers
-    || command.payload.gangMembersSent > styleConfig.maxMembers
+    command.payload.populationSent < styleConfig.minMembers
+    || command.payload.populationSent > styleConfig.maxMembers
   )) {
     return [{
-      code: "HEIST_GANG_MEMBERS_OUT_OF_RANGE",
-      message: "Počet členů neodpovídá zvolenému stylu heistu.",
+      code: "HEIST_POPULATION_OUT_OF_RANGE",
+      message: "Počet lidí neodpovídá zvolenému stylu heistu.",
       details: { minMembers: styleConfig.minMembers, maxMembers: styleConfig.maxMembers }
     }];
   }
 
   const player = state.playersById[command.playerId];
-  const availablePopulation = Math.max(0, Math.floor(Number(player?.population ?? 0)));
-  if (availablePopulation < command.payload.gangMembersSent) {
+  const availablePopulation = Math.max(0, Math.floor(resolvePlayerPopulation(state, player)));
+  if (availablePopulation < command.payload.populationSent) {
     return [{
-      code: "INSUFFICIENT_GANG_MEMBERS",
-      message: "Na tenhle heist nemáš dost dostupných členů gangu.",
+      code: "INSUFFICIENT_POPULATION",
+      message: "Na tenhle heist nemáš dost populace.",
       details: {
-        requested: command.payload.gangMembersSent,
+        requested: command.payload.populationSent,
         available: availablePopulation
       }
     }];

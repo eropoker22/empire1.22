@@ -1,10 +1,7 @@
 import { resolveDistrictBuildingChipKind } from "./districtBuildingChipKind.js";
 import { resolveMapDistrictAtmosphereMeta } from "../map/mapDataAdapter.js";
 import { resolveLivePlayerAvatarSrc } from "../model/livePlayerAvatarCatalog.js";
-import {
-  createAuthoritativeDistrictEconomyPresentation
-} from "../runtime/authoritativeDistrictEconomyPresentation.js";
-
+import { createAuthoritativeDistrictEconomyPresentation } from "../runtime/authoritativeDistrictEconomyPresentation.js";
 const toLabel = (value, fallback = "—") => {
   const normalized = String(value || "").trim();
   if (!normalized) return fallback;
@@ -12,7 +9,6 @@ const toLabel = (value, fallback = "—") => {
     .replace(/[_-]+/gu, " ")
     .replace(/^./u, (character) => character.toUpperCase());
 };
-
 const formatUiMetricValue = (value) => {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) {
@@ -20,7 +16,6 @@ const formatUiMetricValue = (value) => {
   }
   return String(Number(numericValue.toFixed(2)));
 };
-
 const findOwner = (readModel, ownerPlayerId) => {
   if (!ownerPlayerId) return null;
   const entries = [
@@ -29,7 +24,6 @@ const findOwner = (readModel, ownerPlayerId) => {
   ].filter(Boolean);
   return entries.find((entry) => String(entry?.playerId) === String(ownerPlayerId)) || null;
 };
-
 const formatDisabledActionInfo = (id, disabledCode, disabledReason) => {
   if (
     id === "spy"
@@ -66,8 +60,8 @@ const action = (id, label, disabled, disabledReason, surfaceDataset, options = {
 
 const targetActionOptions = (target, key) => ({
   key,
-  stacked: true,
-  subtitle: target.label || target.name || "",
+  stacked: target.enabled !== true,
+  subtitle: target.enabled === true ? "" : (target.label || target.name || ""),
   targetDistrictId: target.districtId,
   inlineDisabledReason: true,
   disabledCode: target.disabledCode || ""
@@ -115,27 +109,33 @@ const createTargetActions = (targetActions = {}) => [
     targetActionOptions(target, `attack:${target.districtId}`)
   ))
 ];
-
 const createDistrictActions = (panel, targetActions, isOwnedByPlayer) => {
   const actions = createTargetActions(targetActions);
   if (panel.trap && isOwnedByPlayer) {
+    const activeTrap = Boolean(panel.trap.activeLabel);
+    const relocation = !activeTrap && /^Přesunout/iu.test(panel.trap.actionLabel || "");
     actions.unshift(action(
       "trap",
-      panel.trap.actionLabel,
+      activeTrap ? "Past aktivní" : relocation ? "Přesunout past" : "Past",
       panel.trap.disabled,
       panel.trap.disabledReason,
       { placeTrap: "true" },
       {
         key: "place-trap",
-        stacked: Boolean(panel.trap.activeLabel),
-        subtitle: panel.trap.activeLabel || ""
+        stacked: true,
+        subtitle: panel.trap.activeLabel || "",
+        title: activeTrap
+          ? "V tomto districtu je nastražená tvoje past."
+          : relocation
+            ? String(panel.trap.disabledReason || "Přesuň aktivní past do tohoto districtu.")
+            : "Nastraž 1 past do svého districtu."
       }
     ));
   }
   if (panel.placeDefense) {
     actions.unshift(action(
       "defense",
-      panel.placeDefense.actionLabel,
+      "Obrana",
       panel.placeDefense.disabled,
       panel.placeDefense.disabledReason,
       { placeDefense: "true" },
@@ -145,7 +145,7 @@ const createDistrictActions = (panel, targetActions, isOwnedByPlayer) => {
   if (panel.removeDefense) {
     actions.unshift(action(
       "defense",
-      panel.removeDefense.actionLabel,
+      "Obrana",
       panel.removeDefense.disabled,
       panel.removeDefense.disabledReason,
       { removeDefense: "true" },

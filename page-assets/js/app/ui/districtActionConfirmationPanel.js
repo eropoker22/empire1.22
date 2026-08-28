@@ -161,7 +161,7 @@ export function createDistrictActionConfirmationPanelElements(elements = {}) {
     defenseStatus: elements.defenseStatus,
     defenseTargetTitle: elements.defenseTargetTitle,
     defenseWeaponInputs: elements.defenseWeaponInputs,
-    gangMembersValue: elements.gangMembersValue,
+    populationValue: elements.populationValue,
     occupyConfirmButton: elements.occupyConfirmButton,
     occupyConfirmCost: elements.occupyConfirmCost,
     occupyConfirmDuration: elements.occupyConfirmDuration,

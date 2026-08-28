@@ -2,7 +2,7 @@ import { resolveDistrictActions } from "./legacy/district-action-policy.js";
 import {
   ATTACK_COOLDOWN_MS,
   ATTACK_SETUP_WEAPONS,
-  DEFAULT_GANG_MEMBERS,
+  DEFAULT_POPULATION,
   MAX_SPIES,
   OCCUPY_COOLDOWN_MS,
   ROBBERY_COOLDOWN_MS,
@@ -295,7 +295,7 @@ import {
   BUILDING_ACTION_FEED_SELECTOR,
   BUILDING_ACTION_EMPTY_SELECTOR,
   BUILDING_ACTION_REMOVE_SELECTOR,
-  GANG_MEMBERS_SELECTOR,
+  POPULATION_SELECTOR,
   GANG_HEAT_SELECTOR,
   GANG_STAR_SELECTOR,
   GANG_STARS_SELECTOR,
@@ -855,6 +855,11 @@ import {
   createServerDistrictSelectionCoordinator,
   toCanonicalServerDistrictId
 } from "./runtime/serverDistrictSelectionCoordinator.js";
+import {
+  activateServerDistrictSelectionCoordinator,
+  cacheServerDistrictSelectionReadModel,
+  deactivateServerDistrictSelectionCoordinator
+} from "./runtime/serverDistrictSelectionBridge.js";
 import {
   resolveServerAttackDistrictRoute,
   resolveServerDistrictActionTarget,
@@ -2470,7 +2475,7 @@ function bindServerGameplayResourceReadModel(root) {
       return false;
     }
     latestGameplaySliceReadModel = nextSlice;
-    serverDistrictSelectionCoordinator?.cacheReadModel?.(
+    cacheServerDistrictSelectionReadModel(
       nextSlice,
       getServerGameplayRenderState()
     );
@@ -2478,7 +2483,7 @@ function bindServerGameplayResourceReadModel(root) {
       return false;
     }
     applyTopbarEconomy(root, { instant: true });
-    renderGangMembersState(root);
+    renderPopulationState(root);
     renderSpyResourceState(root, { instant: true });
     root.ownerDocument?.dispatchEvent?.(new CustomEvent("empire:runtime-refresh", {
       detail: {
@@ -2960,13 +2965,22 @@ function isFinalLockdownActive() {
 }
 
 function setStoredGangState(payload) {
-  updateStoredPreviewSession((session) => ({
-    ...session,
-    gang: {
-      ...(session.gang || {}),
-      ...(payload || {})
-    }
-  }));
+  const normalizedPayload = { ...(payload || {}) };
+  if (normalizedPayload.population === undefined && normalizedPayload.members !== undefined) {
+    normalizedPayload.population = normalizedPayload.members;
+  }
+  delete normalizedPayload.members;
+  updateStoredPreviewSession((session) => {
+    const currentGang = { ...(session.gang || {}) };
+    delete currentGang.members;
+    return {
+      ...session,
+      gang: {
+        ...currentGang,
+        ...normalizedPayload
+      }
+    };
+  });
   document.dispatchEvent(new CustomEvent("empire:gang-state-changed"));
 }
 
@@ -2977,7 +2991,7 @@ function getResolvedGangState() {
   if (serverPlayer?.economy) {
     const police = latestGameplaySliceReadModel?.police || serverPlayer.police || null;
     return {
-      members: clamp(
+      population: clamp(
         Number(resolveServerPlayerPopulation(serverPlayer) ?? 0),
         0,
         9999
@@ -2997,7 +3011,7 @@ function getResolvedGangState() {
   }
   if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
     return {
-      members: 0,
+      population: 0,
       influence: 0,
       heat: 0,
       policeRaidProtectionUntil: 0,
@@ -3009,8 +3023,16 @@ function getResolvedGangState() {
     };
   }
   const storedState = getStoredGangState();
-  const parsedMembers = Number.parseInt(String(storedState?.members ?? DEFAULT_GANG_MEMBERS), 10);
-  const members = clamp(Number.isFinite(parsedMembers) ? parsedMembers : DEFAULT_GANG_MEMBERS, 0, 9999);
+  // `members` is read only to migrate old local-preview sessions. New state is
+  // always written as canonical population.
+  const parsedPopulation = Number.parseInt(String(
+    storedState?.population ?? storedState?.members ?? DEFAULT_POPULATION
+  ), 10);
+  const population = clamp(
+    Number.isFinite(parsedPopulation) ? parsedPopulation : DEFAULT_POPULATION,
+    0,
+    9999
+  );
   const influence = Math.max(0, Number.parseInt(String(storedState?.influence ?? 0), 10) || 0);
   const heat = clamp(Number.parseInt(String(storedState?.heat ?? 0), 10) || 0, 0, 9999);
   const policeRaidProtectionUntil = Math.max(0, Number(storedState?.policeRaidProtectionUntil || 0) || 0);
@@ -3026,7 +3048,7 @@ function getResolvedGangState() {
     : new Date().toISOString();
 
   return {
-    members,
+    population,
     influence,
     heat,
     policeRaidProtectionUntil,
@@ -3293,10 +3315,10 @@ function applyPoliceActionImpact(tier, options = {}) {
   const materialLoss = applyInventoryPenalty("materials", tierImpact.materialPct);
 
   const gangState = getResolvedGangState();
-  const membersLoss = applyPercentageLoss(gangState.members, tierImpact.membersPct);
+  const populationLoss = applyPercentageLoss(gangState.population, tierImpact.populationPct);
   const influenceLoss = applyPercentageLoss(gangState.influence, tierImpact.influencePct);
   setStoredGangState({
-    members: membersLoss.nextValue,
+    population: populationLoss.nextValue,
     influence: influenceLoss.nextValue
   });
 
@@ -3307,7 +3329,7 @@ function applyPoliceActionImpact(tier, options = {}) {
     attackWeaponLoss.totalLost > 0 ? { label: "Zabavené attack zbraně", value: summarizePenaltyEntries(attackWeaponLoss.entries, (itemId) => ATTACK_WEAPON_LABELS[itemId] || itemId) } : null,
     defenseWeaponLoss.totalLost > 0 ? { label: "Zabavené defense zbraně", value: summarizePenaltyEntries(defenseWeaponLoss.entries, (itemId) => ATTACK_WEAPON_LABELS[itemId] || itemId) } : null,
     materialLoss.totalLost > 0 ? { label: "Zabavený materiál", value: summarizePenaltyEntries(materialLoss.entries, getProductionResourceLabel) } : null,
-    membersLoss.lostValue > 0 ? { label: "Zatčení členové", value: `${membersLoss.lostValue}` } : null,
+    populationLoss.lostValue > 0 ? { label: "Ztráta populace", value: `${populationLoss.lostValue}` } : null,
     influenceLoss.lostValue > 0 ? { label: "Ztracený vliv", value: `${influenceLoss.lostValue}` } : null
   ].filter(Boolean);
 
@@ -3318,7 +3340,7 @@ function applyPoliceActionImpact(tier, options = {}) {
     attackWeaponLoss: attackWeaponLoss.totalLost,
     defenseWeaponLoss: defenseWeaponLoss.totalLost,
     materialLoss: materialLoss.totalLost,
-    membersLoss: membersLoss.lostValue,
+    populationLoss: populationLoss.lostValue,
     influenceLoss: influenceLoss.lostValue,
     operationKey: tierImpact.operationKey,
     operationLabel: tierImpact.operationLabel,
@@ -3334,7 +3356,7 @@ function applyPoliceActionImpact(tier, options = {}) {
   };
 }
 
-function renderGangMembersState(root) {
+function renderPopulationState(root) {
   if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
     const serverPopulation = resolveServerPlayerPopulation(
       getServerGameplaySliceReadModel()?.player
@@ -3346,7 +3368,7 @@ function renderGangMembersState(root) {
       return false;
     }
     renderResourcesPanelUi({
-      gangMembers: serverPopulation,
+      population: serverPopulation,
       available: true
     }, {
       root,
@@ -3358,7 +3380,7 @@ function renderGangMembersState(root) {
 
   const gangState = getResolvedGangState();
   renderResourcesPanelUi({
-    gangMembers: gangState.members,
+    population: gangState.population,
     available: gangState.available !== false
   }, {
     root,
@@ -3906,18 +3928,25 @@ function getServerBuildingLabel(report = {}) {
 
 function getCollectedPopulationAmount(report = {}) {
   const output = report.outputGain || report.producedItems || {};
-  return Math.max(0, Math.floor(Number(output["gang-members"] ?? output.population ?? 0)));
+  // The alias is read only for an already cached legacy result payload.
+  return Math.max(0, Math.floor(Number(
+    output.population
+      ?? output["gang-members"]
+      ?? output.gangMembers
+      ?? output.gang_members
+      ?? 0
+  )));
 }
 
 function createClinicRecoveryReportPayload(report = {}, targetLabel = "") {
   const recoveredPopulation = getCollectedPopulationAmount(report);
   return {
     tone: "is-success is-building-action-result",
-    title: "Klinika: zachránění členové",
+    title: "Klinika: zachráněná populace",
     badge: "Léčba",
     summary: recoveredPopulation > 0
-      ? `Klinika zachránila ${recoveredPopulation} členů po nedávných ztrátách.`
-      : "Klinika dokončila léčbu, ale žádného dalšího člena se nepodařilo zachránit.",
+      ? `Klinika zachránila ${recoveredPopulation} lidí po nedávných ztrátách.`
+      : "Klinika dokončila léčbu, ale nikoho dalšího se nepodařilo zachránit.",
     districtId: report.districtId,
     actionId: String(report.buildingActionId || report.actionId || ""),
     buildingTypeId: "clinic",
@@ -4525,7 +4554,7 @@ function collectMissionCooldownStreetNewsEntries(now) {
 
     for (const order of readStreetNewsCooldownArray(getStoredOccupyOrders)) {
       appendOrder("occupy", "Obsazení", order, "resolveAt", (entry) =>
-        `${formatStreetNewsCooldownDistrict(entry?.targetDistrictId)} je obsazován`
+        `${formatStreetNewsCooldownDistrict(entry?.targetDistrictId)} · cooldown dalšího obsazení`
       );
     }
 
@@ -4540,16 +4569,17 @@ function collectMissionCooldownStreetNewsEntries(now) {
   const spyMissions = Array.isArray(spyState.missions) ? spyState.missions : [];
   for (const mission of spyMissions) {
     const isCaptured = mission?.status === "captured";
+    const isCooldown = mission?.status === "cooldown";
     if (!includePreviewMissions && !isCaptured) {
       continue;
     }
-    const expiresAt = parseStreetNewsCooldownTimestamp(isCaptured ? mission?.cooldownUntil : mission?.returnAt);
+    const expiresAt = parseStreetNewsCooldownTimestamp(isCaptured || isCooldown ? mission?.cooldownUntil : mission?.returnAt);
     if (!expiresAt || expiresAt <= now) {
       continue;
     }
     appendStreetNewsCooldownEntry(entries, {
       id: `cooldown:spy:${String(mission?.id || `${mission?.sourceDistrictId || ""}:${mission?.targetDistrictId || ""}:${expiresAt}`)}`,
-      title: isCaptured ? "ŠPEH ZAJAT" : "Špehování",
+      title: isCaptured ? "ŠPEH ZAJAT" : isCooldown ? "Špeh · cooldown" : "Špehování",
       summary: isCaptured ? "" : formatStreetNewsCooldownDistrict(mission?.targetDistrictId),
       meta: isCaptured
         ? formatBuildingActionFeedCountdown(expiresAt - now, "words")
@@ -4879,6 +4909,26 @@ function setBuildingActionFeedback(root, tone, title, summary, meta = "", option
   appendBuildingActionEntry(root, snapshot, { syncPreview: false, forceLog: Boolean(options.forceLog) });
 }
 
+function resolveLocalActionCooldownUntilMs(action = {}, now = Date.now()) {
+  const explicit = new Date(action.cooldownUntil || 0).getTime();
+  if (Number.isFinite(explicit) && explicit > now) return explicit;
+  const legacyCompletion = new Date(action.resolveAt || action.returnAt || 0).getTime();
+  return Number.isFinite(legacyCompletion) && legacyCompletion > now ? legacyCompletion : 0;
+}
+
+function createResolvedLocalActionCooldownMarker(action, cooldownUntilMs, timestampKey = "resolveAt") {
+  const cooldownUntil = new Date(cooldownUntilMs).toISOString();
+  return {
+    ...action,
+    resultResolved: true,
+    executionMode: "instant",
+    status: "cooldown",
+    createdAt: new Date().toISOString(),
+    cooldownUntil,
+    [timestampKey]: cooldownUntil
+  };
+}
+
 function completeAttackOrder(root, orderId) {
   const orders = getStoredAttackOrders();
   const order = orders.find((entry) => entry.id === orderId);
@@ -4890,6 +4940,10 @@ function completeAttackOrder(root, orderId) {
 
   setStoredAttackOrders(orders.filter((entry) => entry.id !== orderId));
   attackMissionTimers.delete(orderId);
+  if (order.resultResolved) {
+    return;
+  }
+  const cooldownUntilMs = resolveLocalActionCooldownUntilMs(order);
 
   const gangState = getResolvedGangState();
   const worldState = getResolvedWorldState();
@@ -4934,6 +4988,7 @@ function completeAttackOrder(root, orderId) {
   const targetOwnerName = launchOwnerId ? getLaunchPlayerName(launchOwnerId) : "Neobsazeno";
   const resolvedOrder = {
     ...order,
+    resolveAt: new Date().toISOString(),
     estimatedAttackPower: resolvedAttackPower,
     resolvedScenario: outcome,
     tacticalGrid: tacticalGrid.consumed
@@ -4942,7 +4997,7 @@ function completeAttackOrder(root, orderId) {
   };
 
   setStoredGangState({
-    members: gangState.members + returningMembers
+    population: gangState.population + returningMembers
   });
   setStoredWorldState({
     ...worldState,
@@ -5004,7 +5059,7 @@ function completeAttackOrder(root, orderId) {
     intelLevel: "verified",
     scenarioLabel
   });
-  renderGangMembersState(root);
+  renderPopulationState(root);
 
   const attackResultPayload = getResultPayloadBuilders().createAttackResultPayload({
     order: resolvedOrder,
@@ -5040,6 +5095,15 @@ function completeAttackOrder(root, orderId) {
       defenseReduced: nextDefense < Number(currentDefense || 0) || Boolean(outcome.capturesDistrict) || Boolean(outcome.destroysDistrict)
     }
   }));
+
+  if (cooldownUntilMs > Date.now()) {
+    const cooldownMarker = createResolvedLocalActionCooldownMarker(order, cooldownUntilMs);
+    setStoredAttackOrders([
+      ...getStoredAttackOrders().filter((entry) => entry.id !== orderId),
+      cooldownMarker
+    ]);
+    scheduleAttackOrder(root, cooldownMarker);
+  }
 }
 
 function scheduleAttackOrder(root, order) {
@@ -5047,7 +5111,12 @@ function scheduleAttackOrder(root, order) {
     return;
   }
 
-  const remainingMs = new Date(order.resolveAt || order.returnAt || order.createdAt).getTime() - Date.now();
+  if (!order.resultResolved) {
+    completeAttackOrder(root, order.id);
+    return;
+  }
+
+  const remainingMs = new Date(order.cooldownUntil || order.resolveAt || order.returnAt || order.createdAt).getTime() - Date.now();
 
   if (remainingMs <= 0) {
     completeAttackOrder(root, order.id);
@@ -5131,13 +5200,18 @@ function completeOccupyOrder(root, orderId) {
 
   setStoredOccupyOrders(orders.filter((entry) => entry.id !== orderId));
   occupyMissionTimers.delete(orderId);
+  if (order.resultResolved) {
+    return;
+  }
+  const cooldownUntilMs = resolveLocalActionCooldownUntilMs(order);
+  const resolvedOrder = { ...order, resolveAt: new Date().toISOString() };
 
   const targetDistrictId = Number.parseInt(String(order.targetDistrictId || "").replace("district:", ""), 10) || 0;
   const spyIntel = getResolvedSpyIntel();
   const worldState = getResolvedWorldState();
   const launchOwnerId = START_PHASE_OWNER_BY_DISTRICT_ID.get(targetDistrictId);
   const targetOwnerName = launchOwnerId ? getLaunchPlayerName(launchOwnerId) : "Neobsazeno";
-  const occupyOutcome = resolveLegacyOccupyOutcome(order);
+  const occupyOutcome = resolveLegacyOccupyOutcome(resolvedOrder);
 
   setStoredSpyIntel({
     occupiableDistrictIds: spyIntel.occupiableDistrictIds.filter((districtId) => districtId !== targetDistrictId),
@@ -5154,9 +5228,9 @@ function completeOccupyOrder(root, orderId) {
     window.empireStreetsDistrictState?.captureDistrict?.(targetDistrictId);
     if (occupyOutcome.populationRefunded > 0) {
       setStoredGangState({
-        members: Math.max(0, Number(getResolvedGangState().members || 0)) + occupyOutcome.populationRefunded
+        population: Math.max(0, Number(getResolvedGangState().population || 0)) + occupyOutcome.populationRefunded
       });
-      renderGangMembersState(root);
+      renderPopulationState(root);
     }
   }
 
@@ -5179,7 +5253,7 @@ function completeOccupyOrder(root, orderId) {
       { label: "Cena", value: `${occupyOutcome.populationCost} populace` },
       { label: "Vráceno", value: `${occupyOutcome.populationRefunded} populace` },
       { label: "Ztraceno", value: `${occupyOutcome.populationLost} populace` },
-      { label: "Trvání", value: formatDurationLabel(new Date(order.resolveAt).getTime() - new Date(order.createdAt).getTime()), nowrap: true },
+      { label: "Vyhodnocení", value: "Okamžitě", nowrap: true },
       { label: "Stav districtu", value: occupyOutcome.succeeded ? "Obsazený" : "Neobsazený" }
     ]
   };
@@ -5205,6 +5279,15 @@ function completeOccupyOrder(root, orderId) {
       defenseReduced: occupyOutcome.succeeded
     }
   }));
+
+  if (cooldownUntilMs > Date.now()) {
+    const cooldownMarker = createResolvedLocalActionCooldownMarker(order, cooldownUntilMs);
+    setStoredOccupyOrders([
+      ...getStoredOccupyOrders().filter((entry) => entry.id !== orderId),
+      cooldownMarker
+    ]);
+    scheduleOccupyOrder(root, cooldownMarker);
+  }
 }
 
 function scheduleOccupyOrder(root, order) {
@@ -5212,7 +5295,12 @@ function scheduleOccupyOrder(root, order) {
     return;
   }
 
-  const remainingMs = new Date(order.resolveAt || order.createdAt).getTime() - Date.now();
+  if (!order.resultResolved) {
+    completeOccupyOrder(root, order.id);
+    return;
+  }
+
+  const remainingMs = new Date(order.cooldownUntil || order.resolveAt || order.createdAt).getTime() - Date.now();
 
   if (remainingMs <= 0) {
     completeOccupyOrder(root, order.id);
@@ -5243,8 +5331,13 @@ function completeRobberyOrder(root, orderId) {
 
   setStoredRobberyOrders(orders.filter((entry) => entry.id !== orderId));
   robberyMissionTimers.delete(orderId);
+  if (order.resultResolved) {
+    return;
+  }
+  const cooldownUntilMs = resolveLocalActionCooldownUntilMs(order);
+  const resolvedOrder = { ...order, resolveAt: new Date().toISOString() };
 
-  const robberyOutcome = resolveRobberyOrderOutcome(order);
+  const robberyOutcome = resolveRobberyOrderOutcome(resolvedOrder);
   const scenarioLabel = robberyOutcome.scenarioLabel;
   const deployedMembers = robberyOutcome.deployedMembers;
   const memberLoss = robberyOutcome.memberLoss;
@@ -5252,9 +5345,9 @@ function completeRobberyOrder(root, orderId) {
   const loot = robberyOutcome.loot;
   const lootEntries = Object.entries(loot);
   setStoredGangState({
-    members: getResolvedGangState().members + returningMembers
+    population: getResolvedGangState().population + returningMembers
   });
-  renderGangMembersState(root);
+  renderPopulationState(root);
   addGangHeat(root, robberyOutcome.heatGain, `Vykrást district ${String(order.targetDistrictId || "").replace("district:", "") || "?"}`);
 
   if (lootEntries.length > 0) {
@@ -5277,7 +5370,7 @@ function completeRobberyOrder(root, orderId) {
   });
 
   const { raidTone, raidResultPayload } = getResultPayloadBuilders().createRobberyResultPayload({
-    order,
+    order: resolvedOrder,
     deployedMembers,
     memberLoss,
     lootEntries,
@@ -5295,6 +5388,15 @@ function completeRobberyOrder(root, orderId) {
   });
   appendBuildingActionResultEntry(root, "raid", raidResultPayload);
   queueOrOpenResultModal(root, "raid", raidResultPayload);
+
+  if (cooldownUntilMs > Date.now()) {
+    const cooldownMarker = createResolvedLocalActionCooldownMarker(order, cooldownUntilMs);
+    setStoredRobberyOrders([
+      ...getStoredRobberyOrders().filter((entry) => entry.id !== orderId),
+      cooldownMarker
+    ]);
+    scheduleRobberyOrder(root, cooldownMarker);
+  }
 }
 
 function scheduleRobberyOrder(root, order) {
@@ -5302,7 +5404,12 @@ function scheduleRobberyOrder(root, order) {
     return;
   }
 
-  const remainingMs = new Date(order.resolveAt || order.createdAt).getTime() - Date.now();
+  if (!order.resultResolved) {
+    completeRobberyOrder(root, order.id);
+    return;
+  }
+
+  const remainingMs = new Date(order.cooldownUntil || order.resolveAt || order.createdAt).getTime() - Date.now();
 
   if (remainingMs <= 0) {
     completeRobberyOrder(root, order.id);
@@ -5468,11 +5575,52 @@ function syncCompletedProductionJobs() {
   let hasChanges = false;
 
   for (const [jobId, job] of Object.entries(productionState)) {
-    const result = advanceLocalProductionJob(job, Date.now());
-    if (result.changed && result.job) {
-      productionState[jobId] = result.job;
-      hasChanges = true;
+    const normalizedJob = normalizeLocalProductionJob(job);
+    if (!normalizedJob?.output?.itemId) {
+      continue;
     }
+
+    // Timed local jobs are a read-only compatibility input. Their inputs were
+    // already reserved/debited by the old pipeline, so the safe migration is
+    // to credit every pending or ready unit exactly once and remove the job.
+    const unsettledAmount = Math.max(0, Math.floor(
+      Number(normalizedJob.queuedAmount || 0) + Number(normalizedJob.producedAmount || 0)
+    ));
+    if (unsettledAmount <= 0) {
+      delete productionState[jobId];
+      hasChanges = true;
+      continue;
+    }
+
+    const receivableAmount = getReceivableInventoryOutputAmount(
+      normalizedJob.output,
+      unsettledAmount
+    );
+    const creditedAmount = receivableAmount > 0
+      ? applyInventoryOutput({ ...normalizedJob.output, amount: receivableAmount })
+      : 0;
+    const remainingAmount = Math.max(0, unsettledAmount - creditedAmount);
+    if (remainingAmount <= 0) {
+      delete productionState[jobId];
+    } else {
+      productionState[jobId] = {
+        ...normalizedJob,
+        queuedAmount: 0,
+        producedAmount: remainingAmount,
+        quantity: 0,
+        reservationUnits: [],
+        inputs: {},
+        cleanMoneyCost: 0,
+        isProducing: false,
+        activeWorkRemainingMs: null,
+        lastProgressAtMs: null,
+        readyAtMs: null,
+        readyAt: null,
+        status: "ready",
+        output: { ...normalizedJob.output, amount: remainingAmount }
+      };
+    }
+    hasChanges = true;
   }
 
   if (hasChanges) {
@@ -7649,9 +7797,9 @@ function syncStartPhaseResourceSimulation(root, now = Date.now()) {
 
   if (populationDelta > 0) {
     setStoredGangState({
-      members: Math.max(0, Math.floor(Number(gangState.members || 0)) + populationDelta)
+      population: Math.max(0, Math.floor(Number(gangState.population || 0)) + populationDelta)
     });
-    renderGangMembersState(root);
+    renderPopulationState(root);
   }
 
   if (heatDelta > 0) {
@@ -8015,8 +8163,17 @@ function settleCompletedLocalStreetDealerSales(root, now = Date.now()) {
     return [];
   }
   setLocalStreetDealerSaleState(settlement.nextSaleState);
-  const rewardDirtyCash = settlement.completed.reduce((sum, sale) => sum + sale.rewardDirtyCash, 0);
-  const heatGain = settlement.completed.reduce((sum, sale) => sum + sale.heatGain, 0);
+  applyCompletedLocalStreetDealerSales(root, settlement.completed);
+  return settlement.completed;
+}
+
+function applyCompletedLocalStreetDealerSales(root, completedSales = []) {
+  const sales = Array.isArray(completedSales) ? completedSales : [];
+  if (sales.length === 0) {
+    return;
+  }
+  const rewardDirtyCash = sales.reduce((sum, sale) => sum + sale.rewardDirtyCash, 0);
+  const heatGain = sales.reduce((sum, sale) => sum + sale.heatGain, 0);
   const economy = getResolvedEconomyState();
   setStoredEconomyState({
     ...economy,
@@ -8025,7 +8182,7 @@ function settleCompletedLocalStreetDealerSales(root, now = Date.now()) {
   if (heatGain > 0) {
     addGangHeat(root, heatGain, "Lokální prodej Pouličních dealerů");
   }
-  for (const sale of settlement.completed) {
+  for (const sale of sales) {
     appendBuildingActionResultEntry(root, "police", {
       title: `Pouliční dealeři: ${sale.itemLabel}`,
       summary: `Prodej ${sale.amount}x dokončen. Zisk ${formatDistrictBuildingMoney(sale.rewardDirtyCash)} dirty cash, heat +${sale.heatGain}.`,
@@ -8042,7 +8199,6 @@ function settleCompletedLocalStreetDealerSales(root, now = Date.now()) {
       refresh: false
     });
   }
-  return settlement.completed;
 }
 
 function getLocalStreetDealerTunnelSupport() {
@@ -8089,7 +8245,7 @@ function startLocalStreetDealerSaleFromRequest(root, context, request = {}) {
     openChannel: getLocalStreetDealerOpenChannel()
   });
   if (!result.ok) {
-    setBuildingActionFeedback(root, "warning", "Spustit prodej", result.message, context.buildingName);
+    setBuildingActionFeedback(root, "warning", "Prodat zásobu", result.message, context.buildingName);
     return false;
   }
   updateStoredPreviewSession((session) => ({
@@ -8106,12 +8262,13 @@ function startLocalStreetDealerSaleFromRequest(root, context, request = {}) {
       streetDealers: result.nextSaleState
     }
   }));
+  applyCompletedLocalStreetDealerSales(root, [result.sale]);
   setBuildingActionFeedback(
     root,
     "success",
-    "Spustit prodej",
-    `${result.sale.slotId} prodává ${result.sale.amount}x ${result.sale.itemLabel}. Hotovo za ${formatDistrictBuildingCooldown(result.sale.completesAt - result.sale.startedAt)}.`,
-    getResolvedPhaseState().mapPhase === "day" ? "Denní prodej: nižší výnos a vyšší heat" : "Noční prodej"
+    "Prodat zásobu",
+    `${result.sale.amount}x ${result.sale.itemLabel} prodáno okamžitě za ${formatDistrictBuildingMoney(result.sale.rewardDirtyCash)} dirty cash. Heat +${result.sale.heatGain}.`,
+    `Další prodej za ${formatDistrictBuildingCooldown(result.sale.cooldownUntil - result.sale.startedAt)}`
   );
   return true;
 }
@@ -8341,6 +8498,7 @@ export function setE2eDistrictBuildingPopulationBuffer({
         : 0
     })
   }));
+  refreshOpenDistrictBuildingDetailPopups(getDefaultRuntimeRoot());
   return {
     capacity: mechanicsType === "school"
       ? Number(nextEntry.studentCapacity || 0)
@@ -9297,8 +9455,8 @@ async function collectDistrictBuildingDetailOutputOnce(root, shell) {
     }
     const gangState = getResolvedGangState();
     const remainingPopulation = 0;
-    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedPopulation) });
-    renderGangMembersState(root);
+    setStoredGangState({ population: Math.max(0, Math.floor(Number(gangState.population || 0)) + collectedPopulation) });
+    renderPopulationState(root);
     summary.push(`${collectedPopulation} členů gangu`);
     resetOwnedApartmentBlockPopulationEntries(context.district, mechanics.apartmentCapacity);
     setBuildingActionFeedback(
@@ -9325,8 +9483,8 @@ async function collectDistrictBuildingDetailOutputOnce(root, shell) {
       return;
     }
     const gangState = getResolvedGangState();
-    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedPopulation) });
-    renderGangMembersState(root);
+    setStoredGangState({ population: Math.max(0, Math.floor(Number(gangState.population || 0)) + collectedPopulation) });
+    renderPopulationState(root);
     summary.push(`${collectedPopulation} členů gangu`);
     resetConvenienceStorePopulationEntry(context.district, mechanics.convenienceStoreCapacity);
     setBuildingActionFeedback(
@@ -9353,8 +9511,8 @@ async function collectDistrictBuildingDetailOutputOnce(root, shell) {
       return;
     }
     const gangState = getResolvedGangState();
-    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedPopulation) });
-    renderGangMembersState(root);
+    setStoredGangState({ population: Math.max(0, Math.floor(Number(gangState.population || 0)) + collectedPopulation) });
+    renderPopulationState(root);
     summary.push(`${collectedPopulation} členů`);
     resetOwnedSchoolPopulationEntries(context.district, mechanics.schoolCapacity);
     setBuildingActionFeedback(
@@ -9686,8 +9844,8 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
       return null;
     }
     const remainingPopulation = 0;
-    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + collectedPopulation) });
-    renderGangMembersState(root);
+    setStoredGangState({ population: Math.max(0, Math.floor(Number(gangState.population || 0)) + collectedPopulation) });
+    renderPopulationState(root);
     resetOwnedApartmentBlockPopulationEntries(context.district, mechanics.apartmentCapacity);
     membersChanged = true;
     summaryParts.push(`Vybral jsi ${collectedPopulation} nových členů gangu z Bytového bloku.`);
@@ -9830,8 +9988,8 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
     }
 
     if (recoveredPopulation > 0) {
-      setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + recoveredPopulation) });
-      renderGangMembersState(root);
+      setStoredGangState({ population: Math.max(0, Math.floor(Number(gangState.population || 0)) + recoveredPopulation) });
+      renderPopulationState(root);
       membersChanged = true;
     }
 
@@ -9839,7 +9997,9 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
     const nextSupplies = { ...supplies };
     for (const [itemId, amount] of Object.entries(acceptedByType)) {
       const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
-      if (safeAmount <= 0 || itemId === "gang-members" || itemId === "population") continue;
+      // Historical clinic entries are migrated into population above and must
+      // never be copied into warehouse inventory as a second people resource.
+      if (safeAmount <= 0 || ["population", "gang-members", "gangMembers", "gang_members"].includes(itemId)) continue;
       if (itemId === "metal-parts") {
         nextSupplies.metalParts = Math.max(0, Math.floor(Number(nextSupplies.metalParts || 0)) + safeAmount);
       } else if (itemId === "tech-core") {
@@ -9863,7 +10023,7 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
     };
     if (recoveredPopulation > 0) summaryParts.push(`Zachráněno členů ${recoveredPopulation}`);
     const returnedItems = Object.entries(acceptedByType)
-      .filter(([itemId]) => itemId !== "gang-members" && itemId !== "population")
+      .filter(([itemId]) => !["population", "gang-members", "gangMembers", "gang_members"].includes(itemId))
       .map(([itemId, amount]) => `${getProductionResourceLabel(itemId)} x${amount}`);
     if (returnedItems.length > 0) summaryParts.push(`Vráceno ${returnedItems.join(", ")}`);
     const capacityLoss = Object.values(lostByCapacity).reduce((total, amount) => total + Math.max(0, Math.floor(Number(amount || 0))), 0);
@@ -10091,8 +10251,8 @@ function applyDistrictBuildingSpecialAction(root, context, action, actionProfile
   }
 
   if (actionProfile.members) {
-    setStoredGangState({ members: Math.max(0, Math.floor(Number(gangState.members || 0)) + Math.floor(Number(actionProfile.members || 0))) });
-    renderGangMembersState(root);
+    setStoredGangState({ population: Math.max(0, Math.floor(Number(gangState.population || 0)) + Math.floor(Number(actionProfile.members || 0))) });
+    renderPopulationState(root);
     membersChanged = true;
     summaryParts.push(`Členové +${Math.floor(Number(actionProfile.members || 0))}`);
   }
@@ -10997,12 +11157,23 @@ function completeSpyMission(root, missionId) {
     spyMissionTimers.delete(missionId);
     return;
   }
+  if (getSpyMissionPhase(mission) !== "active") {
+    setStoredSpyState({
+      ...storedSpyState,
+      available: clamp(MAX_SPIES - (storedMissions.length - 1), 0, MAX_SPIES),
+      missions: storedMissions.filter((entry) => entry.id !== missionId)
+    });
+    spyMissionTimers.delete(missionId);
+    renderSpyResourceState(root);
+    return;
+  }
 
   const scenarioLabel = resolveSpyScenarioWithBoost(mission);
   const remainingMissions = storedMissions.filter((entry) => entry.id !== missionId);
   const spyOutcome = normalizeSpyOutcome(scenarioLabel);
   const isCapturedOnMajorFail = isSpyCapturedOutcome(spyOutcome);
   const heatGain = getSpyHeatGainForOutcome(spyOutcome);
+  const cooldownUntilMs = resolveLocalActionCooldownUntilMs(mission);
   const extraIntelBlocks = scenarioLabel === "Úspěch"
     && Number(mission.boostSnapshot?.extraIntelBlocksOnSuccess || 0) > 0
     ? [{
@@ -11016,18 +11187,23 @@ function completeSpyMission(root, missionId) {
       }]
     : [];
 
+  let cooldownMission = null;
   if (isCapturedOnMajorFail) {
+    cooldownMission = createCapturedSpyMission(mission, { cooldownMs: SPY_CAPTURE_COOLDOWN_MS });
     setStoredSpyState({
       available: clamp(MAX_SPIES - (remainingMissions.length + 1), 0, MAX_SPIES),
       missions: [
         ...remainingMissions,
-        createCapturedSpyMission(mission, { cooldownMs: SPY_CAPTURE_COOLDOWN_MS })
+        cooldownMission
       ]
     });
   } else {
+    cooldownMission = cooldownUntilMs > Date.now()
+      ? createResolvedLocalActionCooldownMarker(mission, cooldownUntilMs, "returnAt")
+      : null;
     setStoredSpyState({
-      available: clamp(MAX_SPIES - remainingMissions.length, 0, MAX_SPIES),
-      missions: remainingMissions
+      available: clamp(MAX_SPIES - (remainingMissions.length + (cooldownMission ? 1 : 0)), 0, MAX_SPIES),
+      missions: cooldownMission ? [...remainingMissions, cooldownMission] : remainingMissions
     });
   }
 
@@ -11064,7 +11240,7 @@ function completeSpyMission(root, missionId) {
 
   const isUnownedDistrict = isDistrictUnownedForSpyResult(mission.targetDistrictId, mission.ownerLabel);
   const spyResultPayload = getResultPayloadBuilders().createSpyResultPayload({
-    mission,
+    mission: cooldownMission || mission,
     scenarioLabel,
     knownDefensePower,
     isUnownedDistrict,
@@ -11085,6 +11261,9 @@ function completeSpyMission(root, missionId) {
   if (isCapturedOnMajorFail && isCurrentPlayerOwnedDistrict(mission.targetDistrictId)) {
     queueOrOpenResultModal(root, "spy_alert", createSpyDetectionAlertPayload(mission.targetDistrictId));
   }
+  if (cooldownMission) {
+    scheduleSpyMission(root, cooldownMission);
+  }
 }
 
 function scheduleSpyMission(root, mission) {
@@ -11092,10 +11271,16 @@ function scheduleSpyMission(root, mission) {
     return;
   }
 
+  const missionPhase = getSpyMissionPhase(mission);
   const remainingMs = getSpyMissionExpiryTimestamp(mission) - Date.now();
 
+  if (missionPhase === "active") {
+    completeSpyMission(root, mission.id);
+    return;
+  }
+
   if (remainingMs <= 0) {
-    if (getSpyMissionPhase(mission) === "captured") {
+    if (missionPhase !== "active") {
       const spyState = getResolvedSpyState();
       const remainingMissions = spyState.missions.filter((entry) => entry.id !== mission.id);
       setStoredSpyState({
@@ -11111,7 +11296,7 @@ function scheduleSpyMission(root, mission) {
   }
 
   const timerId = window.setTimeout(() => {
-    if (getSpyMissionPhase(mission) === "captured") {
+    if (getSpyMissionPhase(mission) !== "active") {
       const spyState = getResolvedSpyState();
       const remainingMissions = spyState.missions.filter((entry) => entry.id !== mission.id);
       setStoredSpyState({
@@ -11403,7 +11588,7 @@ function bindDistrictCanvas(root) {
     raidResultModalOk, attackResultModal, attackResultModalBackdrop, attackResultModalClose,
     attackResultModalOk, policeActionResultModal, policeActionResultModalBackdrop,
     policeActionResultModalClose, policeActionResultModalOk, buildingActionState,
-    buildingActionSummary, buildingActionMeta, gangMembersValue
+    buildingActionSummary, buildingActionMeta, populationValue
   } = districtPopupElements;
   const districtPopupServerLoading = root.querySelector("[data-district-popup-server-loading]");
 
@@ -12295,7 +12480,10 @@ function bindDistrictCanvas(root) {
   const isDistrictOccupationInProgress = (districtId) => {
     const targetDistrictId = Number(districtId);
     return getStoredOccupyOrders()
-      .some((order) => Number(String(order.targetDistrictId || "").replace("district:", "")) === targetDistrictId);
+      .some((order) => (
+        !order?.resultResolved
+        && Number(String(order.targetDistrictId || "").replace("district:", "")) === targetDistrictId
+      ));
   };
 
   const hasActiveOccupationInProgress = () => {
@@ -12324,6 +12512,8 @@ function bindDistrictCanvas(root) {
     const targetDistrictId = Number(districtId);
     const now = Date.now();
     return getStoredRobberyOrders().some((order) => (
+      !order?.resultResolved
+      &&
       Number(String(order?.targetDistrictId || "").replace("district:", "")) === targetDistrictId
       && new Date(order?.resolveAt || order?.createdAt || 0).getTime() > now
     ));
@@ -12364,11 +12554,11 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = "Jedno obsazování už probíhá. Další můžeš spustit až po jeho dokončení.";
+      buildingActionSummary.textContent = "Předchozí obsazení je už vyhodnocené. Další můžeš spustit po skončení gameplay cooldownu.";
     }
 
     if (buildingActionMeta) {
-      buildingActionMeta.textContent = "Obsazení · aktivní operace";
+      buildingActionMeta.textContent = "Obsazení · cooldown dalšího použití";
     }
   };
 
@@ -12433,6 +12623,7 @@ function bindDistrictCanvas(root) {
           defensePower: context.boostContext.effectiveDefensePower
         })
       : context.resolvedScenario;
+    const attackStartedAtMs = Date.now();
     const createdOrder = {
       id: orderId,
       playerId: `player:${CURRENT_PLAYER_ID}`,
@@ -12455,13 +12646,15 @@ function bindDistrictCanvas(root) {
         : null,
       resolvedScenario,
       hasTrapDefense: context.hasTrapDefense,
-      createdAt: new Date().toISOString(),
-      resolveAt: new Date(Date.now() + context.boostContext.cooldownMs).toISOString(),
-      status: "cooldown"
+      createdAt: new Date(attackStartedAtMs).toISOString(),
+      resolveAt: new Date(attackStartedAtMs).toISOString(),
+      cooldownUntil: new Date(attackStartedAtMs + context.boostContext.cooldownMs).toISOString(),
+      executionMode: "instant",
+      status: "resolving"
     };
 
     setStoredGangState({
-      members: Math.max(0, getResolvedGangState().members - context.totalResidents)
+      population: Math.max(0, getResolvedGangState().population - context.totalResidents)
     });
     setStoredWeaponInventory(nextInventory);
     setStoredAttackOrders([
@@ -12475,8 +12668,7 @@ function bindDistrictCanvas(root) {
         order: createdOrder
       }
     }));
-    renderGangMembersState(root);
-    scheduleAttackOrder(root, createdOrder);
+    renderPopulationState(root);
     recordDistrictIntelEvent({
       type: "attack_started",
       districtId: selectedDistrict.id,
@@ -12487,9 +12679,9 @@ function bindDistrictCanvas(root) {
     renderAttackProgress({
       stateLabel: "Rozkaz",
       summary: createdOrder.hasTrapDefense
-        ? `District ${context.sourceDistrictId} zahájí útok na District ${selectedDistrict.id}. Cíl je krytý toxickou pastí. Výzbroj: ${context.selectedWeaponsLabel}.${context.boostContext.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`
-        : `District ${context.sourceDistrictId} zahájí útok na District ${selectedDistrict.id}. Výzbroj: ${context.selectedWeaponsLabel}. Výsledek: ${createdOrder.resolvedScenario.label}.${context.boostContext.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`,
-      meta: `Síla ${createdOrder.estimatedAttackPower} · Obrana ${createdOrder.targetDefensePower} · Obyvatelé ${context.totalResidents} · cooldown ${context.boostContext.cooldownLabel || formatDurationLabel(context.boostContext.cooldownMs)}`
+        ? `Útok na District ${selectedDistrict.id} se vyhodnotí okamžitě. Cíl je krytý toxickou pastí. Výzbroj: ${context.selectedWeaponsLabel}.`
+        : `Útok na District ${selectedDistrict.id} se vyhodnotí okamžitě. Výzbroj: ${context.selectedWeaponsLabel}.`,
+      meta: `Síla ${createdOrder.estimatedAttackPower} · Obrana ${createdOrder.targetDefensePower} · Obyvatelé ${context.totalResidents} · další útok po cooldownu ${context.boostContext.cooldownLabel || formatDurationLabel(context.boostContext.cooldownMs)}`
     }, {
       elements: {
         state: buildingActionState,
@@ -12503,6 +12695,7 @@ function bindDistrictCanvas(root) {
     closeAttackConfirmPopup();
     closeAttackSetupPopup();
     closePopup();
+    scheduleAttackOrder(root, createdOrder);
     return true;
   };
 
@@ -12627,7 +12820,7 @@ function bindDistrictCanvas(root) {
     const spyIntel = getResolvedSpyIntel();
     const canOccupyAfterSpy = spyIntel.occupiableDistrictIds.includes(Number(selectedDistrict.id));
     const populationCost = resolveOccupyPopulationCostForOwnedCount(getCurrentPlayerOwnedDistrictIds(interactionState).size);
-    const availablePopulation = Math.max(0, Math.floor(Number(getResolvedGangState().members || 0)));
+    const availablePopulation = Math.max(0, Math.floor(Number(getResolvedGangState().population || 0)));
 
     if (!canOccupyAfterSpy || adjacentOwnedDistrictIds.length <= 0 || availablePopulation < populationCost) {
       return false;
@@ -12636,16 +12829,19 @@ function bindDistrictCanvas(root) {
     const occupyCooldownView = getOccupyActionCooldownView();
     const occupyDurationMs = occupyCooldownView.effectiveCooldownMs;
     const occupyDurationLabel = occupyCooldownView.label || formatDurationLabel(occupyDurationMs);
+    const occupyStartedAtMs = Date.now();
     const createdOrder = {
       id: `occupy-order:${Date.now()}`,
       sourceDistrictId: `district:${adjacentOwnedDistrictIds[0]}`,
       targetDistrictId: `district:${selectedDistrict.id}`,
-      createdAt: new Date().toISOString(),
-      resolveAt: new Date(Date.now() + occupyDurationMs).toISOString(),
+      createdAt: new Date(occupyStartedAtMs).toISOString(),
+      resolveAt: new Date(occupyStartedAtMs).toISOString(),
+      cooldownUntil: new Date(occupyStartedAtMs + occupyDurationMs).toISOString(),
       populationCost,
       failureChance: LEGACY_OCCUPY_FAILURE_CHANCE,
       populationRefundRatio: LEGACY_OCCUPY_POPULATION_REFUND_RATIO,
-      status: "cooldown"
+      executionMode: "instant",
+      status: "resolving"
     };
 
     setStoredOccupyOrders([
@@ -12653,9 +12849,9 @@ function bindDistrictCanvas(root) {
       createdOrder
     ]);
     setStoredGangState({
-      members: Math.max(0, availablePopulation - populationCost)
+      population: Math.max(0, availablePopulation - populationCost)
     });
-    renderGangMembersState(root);
+    renderPopulationState(root);
     document.dispatchEvent(new CustomEvent("empire:occupy-started", {
       detail: {
         sourceDistrictId: adjacentOwnedDistrictIds[0],
@@ -12669,7 +12865,6 @@ function bindDistrictCanvas(root) {
       sourceDistrictId: createdOrder.sourceDistrictId,
       intelLevel: "verified"
     });
-    scheduleOccupyOrder(root, createdOrder);
     render("mission-started");
     ensureMissionAnimationLoop();
 
@@ -12679,7 +12874,7 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `District ${selectedDistrict.id} se obsazuje po spy akci Úspěch. Cena ${populationCost} populace. Neúspěšnost 5 %. Při úspěchu se vrátí 10 % ceny. Obsazení potrvá ${occupyDurationLabel}.`;
+      buildingActionSummary.textContent = `District ${selectedDistrict.id} se po spy akci vyhodnotí okamžitě. Cena ${populationCost} populace. Neúspěšnost 5 %. Při úspěchu se vrátí 10 % ceny.`;
     }
 
     if (buildingActionMeta) {
@@ -12688,6 +12883,7 @@ function bindDistrictCanvas(root) {
 
     closeOccupyConfirmPopup();
     closePopup();
+    scheduleOccupyOrder(root, createdOrder);
     return true;
   };
 
@@ -12721,13 +12917,14 @@ function bindDistrictCanvas(root) {
     }
 
     setStoredGangState({
-      members: Math.max(0, getResolvedGangState().members - deployedMembers)
+      population: Math.max(0, getResolvedGangState().population - deployedMembers)
     });
-    renderGangMembersState(root);
+    renderPopulationState(root);
 
     const robberyCooldownView = getRobberyActionCooldownView();
     const robberyDurationMs = robberyCooldownView.effectiveCooldownMs;
     const robberyDurationLabel = robberyCooldownView.label || formatDurationLabel(robberyDurationMs);
+    const robberyStartedAtMs = Date.now();
     const createdOrder = {
       id: `robbery-order:${Date.now()}`,
       playerId: `player:${CURRENT_PLAYER_ID}`,
@@ -12735,9 +12932,11 @@ function bindDistrictCanvas(root) {
       targetDistrictType: selectedDistrict.districtType,
       sourceDistrictId: `district:${sourceDistrictId}`,
       deployedMembers,
-      createdAt: new Date().toISOString(),
-      resolveAt: new Date(Date.now() + robberyDurationMs).toISOString(),
-      status: "cooldown"
+      createdAt: new Date(robberyStartedAtMs).toISOString(),
+      resolveAt: new Date(robberyStartedAtMs).toISOString(),
+      cooldownUntil: new Date(robberyStartedAtMs + robberyDurationMs).toISOString(),
+      executionMode: "instant",
+      status: "resolving"
     };
 
     setStoredRobberyOrders([
@@ -12757,7 +12956,6 @@ function bindDistrictCanvas(root) {
       sourceDistrictId,
       intelLevel: "verified"
     });
-    scheduleRobberyOrder(root, createdOrder);
     render("mission-started");
     ensureMissionAnimationLoop();
 
@@ -12767,7 +12965,7 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `District ${sourceDistrictId} spouští Vykrást district na prázdný District ${selectedDistrict.id}. Nasazeno ${deployedMembers} členů gangu. Akce neobsazuje území a běží ${robberyDurationLabel}.`;
+      buildingActionSummary.textContent = `Vykradení prázdného District ${selectedDistrict.id} se vyhodnotí okamžitě. Nasazeno ${deployedMembers} členů gangu; akce neobsazuje území.`;
     }
 
     if (buildingActionMeta) {
@@ -12777,6 +12975,7 @@ function bindDistrictCanvas(root) {
     hideTooltip();
     closePopup();
     showRobberyToast(root);
+    scheduleRobberyOrder(root, createdOrder);
     return true;
   };
 
@@ -12807,6 +13006,7 @@ function bindDistrictCanvas(root) {
 
     const boostSnapshot = getLocalSpyBoostSnapshot(getAuthoritySession());
     const spyDurationMs = getSpyActionDurationMs(SPY_COOLDOWN_MS, boostSnapshot);
+    const spyStartedAtMs = Date.now();
     const mission = {
       id: `spy-mission:${Date.now()}`,
       sourceDistrictId: adjacentOwnedDistrictIds[0],
@@ -12816,8 +13016,11 @@ function bindDistrictCanvas(root) {
       districtType: selectedDistrict.districtType,
       intelQualityPct: 0,
       boostSnapshot,
-      createdAt: new Date().toISOString(),
-      returnAt: new Date(Date.now() + spyDurationMs).toISOString()
+      createdAt: new Date(spyStartedAtMs).toISOString(),
+      returnAt: new Date(spyStartedAtMs).toISOString(),
+      cooldownUntil: new Date(spyStartedAtMs + spyDurationMs).toISOString(),
+      executionMode: "instant",
+      status: "active"
     };
 
     setStoredSpyState({
@@ -12838,7 +13041,6 @@ function bindDistrictCanvas(root) {
       intelLevel: "verified"
     });
     renderSpyResourceState(root);
-    scheduleSpyMission(root, mission);
     render("mission-started");
     ensureMissionAnimationLoop();
 
@@ -12848,16 +13050,17 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `Špeh byl vyslán z District ${mission.sourceDistrictId} do District ${mission.targetDistrictId}. Report dorazí za ${formatDurationLabel(spyDurationMs)}.`;
+      buildingActionSummary.textContent = `Špehování District ${mission.targetDistrictId} se vyhodnotí okamžitě. Špionážní slot se obnoví po gameplay cooldownu.`;
     }
 
     if (buildingActionMeta) {
-      buildingActionMeta.textContent = `1 špeh na misi · návrat ${new Date(mission.returnAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+      buildingActionMeta.textContent = `Výsledek okamžitě · slot znovu dostupný za ${formatDurationLabel(spyDurationMs)}`;
     }
 
     showSpyToast(root);
     closeSpyConfirmPopup();
     closePopup();
+    scheduleSpyMission(root, mission);
     return true;
   };
 
@@ -13029,7 +13232,7 @@ function bindDistrictCanvas(root) {
       }))
     });
 
-    const actions = createServerDistrictActionPresentation(readModel, canonicalDistrictId);
+    const actions = Array.isArray(serverView.actions) ? serverView.actions : [];
     renderDistrictActionHub({
       actions,
       emptyText: actions.length === 0
@@ -13406,6 +13609,7 @@ function bindDistrictCanvas(root) {
       });
     }
   });
+  activateServerDistrictSelectionCoordinator(serverDistrictSelectionCoordinator);
 
   const openServerScopedDistrict = async (district, buildingRequest = null) => {
     const result = await serverDistrictSelectionCoordinator.open({
@@ -14783,7 +14987,7 @@ function bindDistrictCanvas(root) {
             targetDistrictId,
             sourceDistrictId: corridor?.sourceDistrictId || heistView.sourceDistrictId,
             style: balancedHeist?.style || "balanced",
-            gangMembersSent: balancedHeist?.defaultGangMembersSent || balancedHeist?.minMembers || 10,
+            populationSent: balancedHeist?.defaultPopulationSent || balancedHeist?.minMembers || 10,
             expectedTargetVersion: heistView.expectedTargetVersion,
             expectedSourceVersion: heistView.expectedSourceVersion,
             expectedConflictRevision: heistView.expectedConflictRevision,
@@ -15406,6 +15610,7 @@ function bindDistrictCanvas(root) {
     });
 
   const cleanupDistrictCanvas = () => {
+    deactivateServerDistrictSelectionCoordinator(serverDistrictSelectionCoordinator);
     if (spyAnimationFrameId !== null) {
       window.cancelAnimationFrame(spyAnimationFrameId);
       spyAnimationFrameId = null;
@@ -15517,7 +15722,7 @@ const {
   bindFactionRegistration
 } = createAuthRegistrationRuntime({
   DEFAULT_DRUG_INVENTORY,
-  DEFAULT_GANG_MEMBERS,
+  DEFAULT_POPULATION,
   DEFAULT_MATERIAL_INVENTORY,
   FACTION_CATALOG,
   createCompletedRegistrationStatusViewModel,
@@ -15726,7 +15931,7 @@ const {
   playerPopupGangSelector: PLAYER_POPUP_GANG_SELECTOR,
   playerPopupIdentitySelector: PLAYER_POPUP_IDENTITY_SELECTOR,
   playerPopupServerSelector: PLAYER_POPUP_SERVER_SELECTOR,
-  renderGangMembersState,
+  renderPopulationState,
   renderSpyResourceState,
   resolvePlayerIdentityPresentation,
   resolveServerPlayerAvatarSrc: resolveLivePlayerAvatarSrc,
@@ -15756,6 +15961,7 @@ const {
   formatDurationLabel,
   getFactoryLevelMultiplier,
   getFactoryUpgradeCost,
+  getInventoryCapacity,
   getResolvedEconomyState,
   getStoredFactoryState,
   getStoredFactorySupplies,
@@ -15790,6 +15996,7 @@ const {
   setStoredEconomyState,
   setStoredFactoryState,
   setStoredFactorySupplies,
+  settleLegacyLocalProductionJobs: syncCompletedProductionJobs,
   getServerFactoryReadModel,
   prepareServerProductionBuilding,
   refreshServerFactoryReadModel: () => {
@@ -15914,7 +16121,7 @@ function refreshAllUi(state = null) {
   };
 
   runRefresh("resources panel", () => applyTopbarEconomy(root, { instant: true }));
-  runRefresh("gang resources", () => renderGangMembersState(root));
+  runRefresh("gang resources", () => renderPopulationState(root));
   runRefresh("spy resource", () => renderSpyResourceState(root, { instant: true }));
   runRefresh("selected district panel", () => {
     window.empireStreetsDistrictState?.refreshSelectedDistrictPanel?.();
@@ -17096,7 +17303,7 @@ export {
   ATTACK_SETUP_WEAPONS,
   CURRENT_PLAYER_ID,
   DEFAULT_DRUG_INVENTORY,
-  DEFAULT_GANG_MEMBERS,
+  DEFAULT_POPULATION,
   DEFAULT_MATERIAL_INVENTORY,
   DEFAULT_WEAPON_INVENTORY,
   DEMO_SCENARIOS,
@@ -17265,7 +17472,7 @@ export {
   renderAttackConfirmPanel,
   renderAttackPanel,
   renderAttackProgress,
-  renderGangMembersState,
+  renderPopulationState,
   renderProductionPanel,
   renderBattleReportPanel as renderBattleReport,
   renderBuildingActionResult,

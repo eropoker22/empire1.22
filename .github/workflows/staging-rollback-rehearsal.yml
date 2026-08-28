@@ -16,7 +16,7 @@ on:
         required: true
         type: string
       remote_acceptance_run_id:
-        description: Successful Staging Remote Acceptance run ID with registration closed
+        description: Successful Staging Remote Acceptance run ID with permanent registration open
         required: true
         type: string
 
@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   gate:
-    name: Verify immutable closed staging candidate
+    name: Verify immutable permanent-open staging candidate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -81,7 +81,7 @@ jobs:
             (.expectedSchemaVersion | test("^[0-9]{3}_[a-z0-9_]+\\.sql$"))
           ' "${manifests[0]}" >/dev/null
 
-      - name: Verify successful closed remote acceptance
+      - name: Verify successful permanent-open remote acceptance
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
@@ -102,7 +102,8 @@ jobs:
           [[ "${#summaries[@]}" == "1" ]]
           jq -e --arg sha "$RELEASE_SHA" '
             .status == "automated-pass" and .environment == "staging" and
-            .buildSha == $sha and .registrationClosed == true
+            .buildSha == $sha and .registrationOpen == true and
+            .registrationClosed == false and .registrationExpiresAt == null
           ' "${summaries[0]}" >/dev/null
 
       - name: Upload rollback gate evidence
@@ -273,7 +274,8 @@ jobs:
             .status == "ok" and .buildSha == $sha and .environment == "staging" and
             .schemaVersion == $schema and .expectedSchemaVersion == $schema and .heartbeat.registered == true
           ' "$worker" >/dev/null
-          jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+          jq -e '.accepted == true and .data.registrationEnabled == true and
+            .data.mode == "open" and .data.expiresAt == null' "$policy" >/dev/null
           echo "candidate_deploy_id=$candidate_deploy_id" >> "$GITHUB_OUTPUT"
           echo "previous_deploy_id=$previous_deploy_id" >> "$GITHUB_OUTPUT"
           echo "candidate_image=$candidate_image" >> "$GITHUB_OUTPUT"
@@ -283,11 +285,12 @@ jobs:
             --arg candidateSha "$RELEASE_SHA" --arg previousSha "$PREVIOUS_SHA" '
             {candidateSha:$candidateSha,previousSha:$previousSha,candidateNetlifyDeployId:$candidateDeployId,
              previousNetlifyDeployId:$previousDeployId,candidateFlyImage:$candidateImage,
-             previousFlyImage:$previousImage,registrationClosed:true,activeWorkerReplicas:1}
+             previousFlyImage:$previousImage,registrationOpen:true,registrationClosed:false,
+             registrationExpiresAt:null,activeWorkerReplicas:1}
           ' > artifacts/release/staging-rollback/pointers.json
           rm -f "$site" "$deploys" "$current_deploy" "$api" "$worker" "$policy"
 
-      - name: Restore previous staging code with registration closed
+      - name: Restore previous staging code with permanent registration open
         id: rollback
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
@@ -297,9 +300,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_SHA" --force --scope builds functions --context production >/dev/null
-          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
-            --force --scope functions --context production >/dev/null
+          netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_SHA" \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope builds functions >/dev/null
+          netlify env:set EMPIRE_BUILD_SHA "$PREVIOUS_SHA" \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
+          netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           curl --fail --silent --show-error --request POST \
             --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
             "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys/${PREVIOUS_NETLIFY_DEPLOY_ID}/restore" >/dev/null
@@ -307,7 +317,7 @@ jobs:
             --image "$PREVIOUS_FLY_IMAGE" --ha=false --strategy immediate --yes
           flyctl scale count 1 --app "$FLY_STAGING_APP" --yes
 
-      - name: Verify previous staging release is healthy and closed
+      - name: Verify previous staging release is healthy and registration remains open
         id: previous_health
         shell: bash
         run: |
@@ -347,10 +357,12 @@ jobs:
             .buildSha == $sha and .schemaVersion == $schema and (.files | length > 0)
           ' "$assets" >/dev/null
           curl --fail --silent --show-error "$STAGING_ORIGIN/api/account/registration-policy" -o "$policy"
-          jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+          jq -e '.accepted == true and .data.registrationEnabled == true and
+            .data.mode == "open" and .data.expiresAt == null' "$policy" >/dev/null
           curl --fail --silent --show-error "$STAGING_ORIGIN/api/servers" >/dev/null
           jq -n --arg sha "$PREVIOUS_SHA" --arg schema "$expected_schema" \
-            '{status:"pass",buildSha:$sha,schemaVersion:$schema,registrationClosed:true,
+            '{status:"pass",buildSha:$sha,schemaVersion:$schema,registrationOpen:true,
+              registrationClosed:false,registrationExpiresAt:null,
               apiHealthy:true,workerHealthy:true,frontendShaVerified:true}' \
             > artifacts/release/staging-rollback/previous-health.json
           rm -f "$api" "$worker" "$html" "$assets" "$policy"
@@ -366,9 +378,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          netlify env:set EMPIRE_BUILD_SHA "$RELEASE_SHA" --force --scope builds functions --context production >/dev/null
-          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false \
-            --force --scope functions --context production >/dev/null
+          netlify env:set EMPIRE_BUILD_SHA "$RELEASE_SHA" \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope builds functions >/dev/null
+          netlify env:set EMPIRE_BUILD_SHA "$RELEASE_SHA" \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
+          netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           curl --fail --silent --show-error --request POST \
             --header "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
             "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys/${CANDIDATE_NETLIFY_DEPLOY_ID}/restore" >/dev/null
@@ -407,11 +426,13 @@ jobs:
             sleep 10
           done
           curl --fail --silent --show-error "$STAGING_ORIGIN/api/account/registration-policy" -o "$policy"
-          jq -e '.accepted == true and .data.registrationEnabled == false and .data.mode == "closed"' "$policy" >/dev/null
+          jq -e '.accepted == true and .data.registrationEnabled == true and
+            .data.mode == "open" and .data.expiresAt == null' "$policy" >/dev/null
           flyctl machines list --app "$FLY_STAGING_APP" --json \
             | jq -e '[.[] | select(.state != "destroyed" and .state != "destroying")] | length == 1' >/dev/null
           jq -n --arg sha "$RELEASE_SHA" --arg schema "$expected_schema" \
-            '{status:"pass",buildSha:$sha,schemaVersion:$schema,registrationClosed:true,
+            '{status:"pass",buildSha:$sha,schemaVersion:$schema,registrationOpen:true,
+              registrationClosed:false,registrationExpiresAt:null,
               apiHealthy:true,workerHealthy:true,activeWorkerReplicas:1}' \
             > artifacts/release/staging-rollback/candidate-restored-health.json
           rm -f "$api" "$worker" "$policy"
@@ -433,7 +454,8 @@ jobs:
           set -euo pipefail
           jq -n --arg sha "$RELEASE_SHA" --arg previousSha "$PREVIOUS_SHA" '
             {status:"pass",environment:"staging",buildSha:$sha,previousSha:$previousSha,
-             rollbackRehearsed:true,registrationClosed:true,schemaCompatibleWithPrevious:true,
+             rollbackRehearsed:true,registrationOpen:true,registrationClosed:false,
+             registrationExpiresAt:null,schemaCompatibleWithPrevious:true,
              candidateRestored:true,candidateAssetParityVerified:true,
              databaseRestored:false,activeWorkerReplicas:1}
           ' > artifacts/release/staging-rollback/summary.json
@@ -489,7 +511,8 @@ jobs:
           jq -e --arg sha "$RELEASE_SHA" --arg previousSha "$PREVIOUS_SHA" '
             .status == "pass" and .environment == "staging" and .buildSha == $sha and
             .previousSha == $previousSha and .rollbackRehearsed == true and
-            .registrationClosed == true and .schemaCompatibleWithPrevious == true and
+            .registrationOpen == true and .registrationClosed == false and
+            .registrationExpiresAt == null and .schemaCompatibleWithPrevious == true and
             .candidateRestored == true and .candidateAssetParityVerified == true and
             .databaseRestored == false and .activeWorkerReplicas == 1
           ' "${summaries[0]}" >/dev/null

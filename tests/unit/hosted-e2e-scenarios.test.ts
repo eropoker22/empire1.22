@@ -158,6 +158,14 @@ describe("hosted E2E scenario seeding", () => {
       itemId: "metal-parts",
       lostAtTick: expectedTick
     });
+    expect(Object.values(seeded.state.buildingsById)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        buildingTypeId: "warehouse",
+        ownerPlayerId: player.id,
+        status: "active",
+        level: 4
+      })
+    ]));
 
     for (const entry of hostedBuildingActionMatrix.filter((candidate) => candidate.phase === phase)) {
       const district = seeded.state.districtsById[entry.districtId];
@@ -254,10 +262,12 @@ describe("hosted E2E scenario seeding", () => {
       "2026-07-29T22:00:00.000Z"
     );
     const player = Object.values(seeded.state.playersById)[0];
+    const playerResources = seeded.state.resourceStatesById[player.resourceStateId];
 
     expect(source).toEqual(original);
     expect(seeded.state.root.tick).toBe(5);
     expect(seeded.state.serverInstance.currentTick).toBe(5);
+    expect(playerResources.balances["metal-parts"]).toBe(20);
     const seededBuildings = Object.values(seeded.state.buildingsById);
     const seededCasino = seededBuildings.find((building) => building.buildingTypeId === "casino");
     const seededCentralBank = seededBuildings.find((building) => building.buildingTypeId === "central_bank");
@@ -477,14 +487,14 @@ describe("hosted E2E scenario seeding", () => {
     });
     expect(seeded.state.resourceStatesById[creator.resourceStateId].balances).toMatchObject({
       cash: 1_000_000,
-      chemicals: 100,
-      population: 500
+      chemicals: 100
     });
+    expect(creator.population).toBe(500);
     expect(seeded.state.resourceStatesById[hunter.resourceStateId].balances).toMatchObject({
       cash: 1_000_000,
-      bazooka: 20,
-      population: 500
+      bazooka: 20
     });
+    expect(hunter.population).toBe(500);
     expect(Object.values(seeded.state.notificationsById)).toEqual(expect.arrayContaining([
       expect.objectContaining({
         recipientId: creator.id,
@@ -550,7 +560,7 @@ describe("hosted E2E scenario seeding", () => {
 const createBuildingActionSnapshot = (): InstanceSnapshotDto => {
   const snapshot = createSnapshot();
   const districtIds = Array.from(new Set(
-    hostedBuildingActionMatrix.map((entry) => entry.districtId)
+    [...hostedBuildingActionMatrix.map((entry) => entry.districtId), "district:16"]
   ));
   seedCanonicalDistricts(snapshot, districtIds);
   return snapshot;

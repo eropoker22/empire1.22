@@ -393,9 +393,12 @@ describe("core police system completion", () => {
       balances: {
         cash: 1000,
         "dirty-cash": 1000,
-        chemicals: 50,
-        "gang-members": 20
+        chemicals: 50
       }
+    };
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      population: 20
     };
 
     const triggered = triggerRaid(state, createContext());
@@ -417,9 +420,10 @@ describe("core police system completion", () => {
     expect(balances).toMatchObject({
       cash: 1000,
       "dirty-cash": 780,
-      chemicals: 45,
-      "gang-members": 20
+      chemicals: 45
     });
+    expect(resolved.nextState.playersById["player:1"].population).toBe(20);
+    expect(balances).not.toHaveProperty("gang-members");
     expect(resolved.nextState.playersById["player:1"].salvagePool).toBeUndefined();
     expect(resolved.nextState.districtsById["district:1"]).toMatchObject({
       status: "locked",

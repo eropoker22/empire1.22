@@ -50,7 +50,6 @@ const createGameplaySliceFixture = ({
       dirtyCash: 0,
       influence: 0,
       population: 0,
-      gangMembers: 0,
       resources: {},
       materials: {},
       drugs: {},

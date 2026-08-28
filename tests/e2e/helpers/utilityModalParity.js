@@ -61,6 +61,7 @@ export const utilityParitySurfaces = Object.freeze({
     ]),
     semanticDatasetKeys: Object.freeze([]),
     shellSelector: "[data-player-popup]",
+    stableBackdropFilterSelector: "[data-player-popup-card]",
     targetSelector: "[data-player-popup-card]",
     triggerSelector: "[data-player-profile-open]"
   }),
@@ -81,10 +82,19 @@ export const utilityParitySurfaces = Object.freeze({
       "storageTone"
     ]),
     shellSelector: "[data-storage-popup]",
+    stableBackdropColor: "rgb(2, 6, 12)",
+    stableBackdropFilterSelector: ".storage-popup-card,.storage-popup-backdrop",
+    stableAnimationSelector: ".storage-popup-card,.storage-popup-backdrop",
     targetSelector: ".storage-popup-card",
     triggerSelector: "[data-storage-popup-open]"
   }),
   wanted: Object.freeze({
+    canonicalDisabledSelector: [
+      "[data-wanted-popup-dirty]",
+      "[data-wanted-popup-clean]",
+      "[data-wanted-popup-influence]",
+      "[data-wanted-popup-clear-log]"
+    ].join(","),
     closeSelector: ".wanted-popup-card [data-wanted-popup-close]",
     dynamicLeafSelector: [
       "[data-wanted-popup-heat]",
@@ -94,7 +104,9 @@ export const utilityParitySurfaces = Object.freeze({
       "[data-wanted-popup-protection]",
       "[data-wanted-popup-audit-risk]",
       "[data-wanted-popup-rise-list] .wanted-popup-item > *",
-      "[data-wanted-popup-fall-list] .wanted-popup-item > *"
+      "[data-wanted-popup-fall-list] .wanted-popup-item > *",
+      "[data-wanted-popup-rise-list] .wanted-popup-empty",
+      "[data-wanted-popup-fall-list] .wanted-popup-empty"
     ].join(","),
     requiredSectionSelectors: Object.freeze([
       ".wanted-popup-header",
@@ -106,6 +118,17 @@ export const utilityParitySurfaces = Object.freeze({
     ]),
     semanticDatasetKeys: Object.freeze([]),
     shellSelector: "[data-wanted-popup]",
+    stableBackdropFilterSelector: [
+      ".wanted-popup-card",
+      ".wanted-popup-hero__copy",
+      ".wanted-popup-meta",
+      ".wanted-popup-panel",
+      ".wanted-popup-actions",
+      ".wanted-popup-level",
+      ".wanted-popup-feedback",
+      ".wanted-popup-item",
+      ".wanted-popup-empty"
+    ].join(","),
     targetSelector: ".wanted-popup-card",
     triggerSelector: "[data-gang-heat]"
   }),
@@ -129,7 +152,7 @@ export const utilityParitySurfaces = Object.freeze({
       ".login-about-terminal-header",
       ".login-about-hero-copy",
       ".login-about-workspace",
-      ".login-about-terminal-footer"
+      ".login-about-content"
     ]),
     semanticDatasetKeys: Object.freeze([
       "loginAboutSection"
@@ -139,6 +162,12 @@ export const utilityParitySurfaces = Object.freeze({
     triggerSelector: "[data-login-about-open]"
   }),
   leaderboard: Object.freeze({
+    canonicalDisabledSelector: [
+      '[data-leaderboard-filter="active"]',
+      '[data-leaderboard-tab="money"]',
+      '[data-leaderboard-tab="wanted"]',
+      '[data-leaderboard-tab="attacks"]'
+    ].join(","),
     closeSelector: ".leaderboard-popup-card > [data-leaderboard-popup-close]",
     dynamicLeafSelector: [
       "[data-leaderboard-server-badge]",
@@ -264,14 +293,28 @@ function resolveUtilityParitySurface(surfaceName) {
   return definition;
 }
 
-async function settleUtilitySurface(target) {
-  await target.evaluate(async (targetElement) => {
-    for (const animation of targetElement.getAnimations({ subtree: true })) {
-      try {
-        animation.finish();
-      } catch {}
-    }
-    const images = Array.from(targetElement.querySelectorAll("img"));
+async function settleUtilitySurface(target, { ignoreImageSelector = "" } = {}) {
+  await target.evaluate(async (targetElement, config) => {
+    const settleAnimations = async () => {
+      for (const animation of targetElement.getAnimations({ subtree: true })) {
+        const timing = animation.effect?.getComputedTiming?.() || {};
+        const endTime = Number(timing.endTime);
+        try {
+          if (Number.isFinite(endTime) && endTime >= 0 && endTime <= 5_000) {
+            animation.finish();
+          } else {
+            animation.pause();
+            await animation.ready.catch(() => undefined);
+            animation.currentTime = 0;
+          }
+        } catch {}
+      }
+    };
+    await settleAnimations();
+    const images = Array.from(targetElement.querySelectorAll("img")).filter((image) => (
+      !config.ignoreImageSelector
+      || (!image.matches(config.ignoreImageSelector) && !image.closest(config.ignoreImageSelector))
+    ));
     await Promise.all(images.map(async (image) => {
       if (image.complete) return;
       await new Promise((resolve) => {
@@ -282,7 +325,8 @@ async function settleUtilitySurface(target) {
     await new Promise((resolve) => requestAnimationFrame(() => (
       requestAnimationFrame(resolve)
     )));
-  });
+    await settleAnimations();
+  }, { ignoreImageSelector });
 }
 
 async function assertRequiredUtilitySections(target, definition, surfaceName) {
@@ -314,7 +358,55 @@ export async function openUtilityParitySurface(page, surfaceName) {
 
   const shell = page.locator(`${definition.shellSelector}:visible`).last();
   const target = page.locator(`${definition.targetSelector}:visible`).last();
-  await expect(shell, `${surfaceName} shell must become visible`).toBeVisible();
+  try {
+    await expect(shell, `${surfaceName} shell must become visible`).toBeVisible();
+  } catch (error) {
+    const diagnostics = await page.evaluate(({ shellSelector, triggerSelector }) => {
+      const overlay = document.querySelector(shellSelector);
+      const trigger = document.querySelector(`${triggerSelector}:not([hidden])`);
+      const legacyState = globalThis[Symbol.for("empire.legacyOverlayCoordinator.state")];
+      const describeOverlay = (entry) => ({
+        ariaHidden: entry?.element?.getAttribute?.("aria-hidden") ?? null,
+        className: String(entry?.element?.className || ""),
+        connected: entry?.element?.isConnected === true,
+        hidden: entry?.element?.hidden === true
+      });
+      return {
+        bodyClasses: Array.from(document.body.classList).sort(),
+        legacyOverlayStack: Array.isArray(legacyState?.overlayStack)
+          ? legacyState.overlayStack.map(describeOverlay)
+          : [],
+        legacySuppressionRemainingMs: Math.max(
+          0,
+          Math.ceil(Number(legacyState?.suppressMapInputUntil || 0) - performance.now())
+        ),
+        overlay: overlay
+          ? {
+              ariaHidden: overlay.getAttribute("aria-hidden"),
+              controllerBound: overlay.dataset.loginAboutControllerBound || null,
+              display: getComputedStyle(overlay).display,
+              hidden: overlay.hidden,
+              modalBound: overlay.dataset.loginModalBound || null
+            }
+          : null,
+        trigger: trigger
+          ? {
+              connected: trigger.isConnected,
+              display: getComputedStyle(trigger).display,
+              pointerEvents: getComputedStyle(trigger).pointerEvents
+            }
+          : null,
+        url: location.href
+      };
+    }, {
+      shellSelector: definition.shellSelector,
+      triggerSelector: definition.triggerSelector
+    });
+    throw new Error(
+      `${surfaceName} failed to open through its visible trigger: ${JSON.stringify(diagnostics)}`,
+      { cause: error }
+    );
+  }
   await expect(target, `${surfaceName} target must become visible`).toBeVisible();
 
   if (surfaceName === "leaderboard") {
@@ -327,7 +419,9 @@ export async function openUtilityParitySurface(page, surfaceName) {
   }
 
   await assertRequiredUtilitySections(target, definition, surfaceName);
-  await settleUtilitySurface(target);
+  await settleUtilitySurface(target, {
+    ignoreImageSelector: definition.dynamicLeafSelector
+  });
   return target;
 }
 
@@ -342,6 +436,10 @@ export async function closeUtilityParitySurface(page, surfaceName) {
   await expect(closeButton, `${surfaceName} must expose its visible close action`).toBeVisible();
   await closeButton.click();
   await expect(page.locator(definition.shellSelector)).toBeHidden();
+  // The game-page compatibility coordinator shields clicks for 450 ms and
+  // the mobile close assist for 460 ms. A serial parity test must not issue
+  // the next real user click inside either production guard window.
+  await page.waitForTimeout(470);
 }
 
 export async function applyUtilityParityCanonicalContent(page, surfaceName) {
@@ -451,16 +549,65 @@ export async function applyUtilityParityCanonicalContent(page, surfaceName) {
               capture.attributeRecords.set(element, records);
             }
             record = {
+              canonicalHadAttribute: true,
+              canonicalValue: config.authoritativeText,
               latestActualHadAttribute: true,
               latestActualValue: currentValue
             };
             records.set(name, record);
-          } else if (!hasAttribute || currentValue !== config.authoritativeText) {
+          } else if (
+            hasAttribute !== record.canonicalHadAttribute
+            || (hasAttribute && currentValue !== record.canonicalValue)
+          ) {
             record.latestActualHadAttribute = hasAttribute;
             record.latestActualValue = currentValue;
           }
-          if (!hasAttribute || currentValue !== config.authoritativeText) {
-            element.setAttribute(name, config.authoritativeText);
+          if (!hasAttribute || currentValue !== record.canonicalValue) {
+            element.setAttribute(name, record.canonicalValue);
+          }
+        }
+      }
+    };
+    const normalizeDisabledAttributes = () => {
+      if (!config.canonicalDisabledSelector) return;
+      const elements = Array.from(
+        targetElement.querySelectorAll(config.canonicalDisabledSelector)
+      );
+      if (elements.length === 0) {
+        throw new Error(
+          `${config.surfaceName} canonical disabled selector matched no elements.`
+        );
+      }
+      for (const element of elements) {
+        let records = capture.attributeRecords.get(element);
+        if (!records) {
+          records = new Map();
+          capture.attributeRecords.set(element, records);
+        }
+        for (const [name, canonicalValue] of [
+          ["disabled", ""],
+          ["aria-disabled", "true"]
+        ]) {
+          const hasAttribute = element.hasAttribute(name);
+          const currentValue = hasAttribute ? element.getAttribute(name) : null;
+          let record = records.get(name);
+          if (!record) {
+            record = {
+              canonicalHadAttribute: true,
+              canonicalValue,
+              latestActualHadAttribute: hasAttribute,
+              latestActualValue: currentValue
+            };
+            records.set(name, record);
+          } else if (
+            hasAttribute !== record.canonicalHadAttribute
+            || (hasAttribute && currentValue !== record.canonicalValue)
+          ) {
+            record.latestActualHadAttribute = hasAttribute;
+            record.latestActualValue = currentValue;
+          }
+          if (!hasAttribute || currentValue !== record.canonicalValue) {
+            element.setAttribute(name, record.canonicalValue);
           }
         }
       }
@@ -475,6 +622,7 @@ export async function applyUtilityParityCanonicalContent(page, surfaceName) {
         }
         normalizeTextNodes(dynamicLeafElements);
         normalizeTextAttributes(dynamicLeafElements);
+        normalizeDisabledAttributes();
       } catch (error) {
         capture.observerError ||= error instanceof Error ? error.message : String(error);
       } finally {
@@ -515,7 +663,9 @@ export async function applyUtilityParityCanonicalContent(page, surfaceName) {
             try {
               const hasAttribute = element.hasAttribute(name);
               const currentValue = hasAttribute ? element.getAttribute(name) : null;
-              if (!hasAttribute || currentValue !== config.authoritativeText) {
+              const currentIsCanonical = hasAttribute === record.canonicalHadAttribute
+                && (!hasAttribute || currentValue === record.canonicalValue);
+              if (!currentIsCanonical) {
                 record.latestActualHadAttribute = hasAttribute;
                 record.latestActualValue = currentValue;
                 results.push({ kind: "attribute", name, status: "preserved-live-update" });
@@ -557,7 +707,10 @@ export async function applyUtilityParityCanonicalContent(page, surfaceName) {
       normalizeCanonicalContent();
       if (capture.observerError) throw new Error(capture.observerError);
       capture.observer.observe(targetElement, {
-        attributeFilter: config.attributeNames,
+        attributeFilter: [
+          ...config.attributeNames,
+          ...(config.canonicalDisabledSelector ? ["disabled", "aria-disabled"] : [])
+        ],
         attributes: true,
         characterData: true,
         childList: true,
@@ -575,6 +728,7 @@ export async function applyUtilityParityCanonicalContent(page, surfaceName) {
   }, {
     attributeNames: UTILITY_CANONICAL_TEXT_ATTRIBUTE_NAMES,
     authoritativeText: AUTHORITATIVE_TEXT,
+    canonicalDisabledSelector: definition.canonicalDisabledSelector || "",
     dynamicLeafSelector: definition.dynamicLeafSelector,
     registryProperty: UTILITY_CANONICAL_CONTENT_REGISTRY_PROPERTY,
     surfaceName
@@ -613,6 +767,9 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
   const definition = resolveUtilityParitySurface(surfaceName);
   const target = page.locator(`${definition.targetSelector}:visible`).last();
   await expect(target).toBeVisible();
+  await settleUtilitySurface(target, {
+    ignoreImageSelector: definition.dynamicLeafSelector
+  });
   return target.evaluate((targetElement, config) => {
     const authoritativeText = config.authoritativeText;
     if (config.dynamicLeafSelector) {
@@ -644,13 +801,14 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
       )
     );
     const classNames = (element) => Array.from(element.classList || []).sort();
+    const normalizeLayoutUnit = (value) => Math.round(Number(value || 0) * 64) / 64;
     const relativeRect = (element) => {
       const rect = element.getBoundingClientRect();
       return {
-        height: Math.round(rect.height),
-        width: Math.round(rect.width),
-        x: Math.round(rect.left - targetRect.left),
-        y: Math.round(rect.top - targetRect.top)
+        height: normalizeLayoutUnit(rect.height),
+        width: normalizeLayoutUnit(rect.width),
+        x: normalizeLayoutUnit(rect.left - targetRect.left),
+        y: normalizeLayoutUnit(rect.top - targetRect.top)
       };
     };
     const elementPath = (element) => {
@@ -706,7 +864,15 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
       const signature = scrollSignature(element);
       delete signature.clientHeight;
       delete signature.clientWidth;
-      if (modalOpen) signature.maxScrollTop = 0;
+      if (modalOpen) {
+        // A bottom-flow mobile trigger can sit at a different absolute page Y
+        // when authoritative background data changes page height. Once the
+        // modal is open, compare the document lock contract rather than that
+        // unrelated background coordinate.
+        signature.maxScrollTop = 0;
+        signature.scrollLeft = 0;
+        signature.scrollTop = 0;
+      }
       return signature;
     };
     const visibleNodes = [targetElement, ...targetElement.querySelectorAll("*")]
@@ -727,6 +893,7 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
     ));
     const modalOpen = Boolean(
       targetElement.matches("[role='dialog'], [aria-modal='true']")
+      || targetElement.closest("[role='dialog'], [aria-modal='true']")
       || targetElement.querySelector("[role='dialog'], [aria-modal='true']")
     );
     const activeElement = document.activeElement instanceof Element
@@ -821,8 +988,8 @@ export async function getUtilityParitySurfaceSignature(page, surfaceName) {
             ...scrollSignature(element)
           })),
         target: scrollSignature(targetElement),
-        windowX: Math.round(window.scrollX),
-        windowY: Math.round(window.scrollY)
+        windowX: modalOpen ? 0 : Math.round(window.scrollX),
+        windowY: modalOpen ? 0 : Math.round(window.scrollY)
       },
       sectionOrder: sectionNodes.map((element) => ({
         classes: classNames(element),
@@ -932,10 +1099,26 @@ export async function captureUtilityParityScreenshot(page, {
   return captureIsolatedParityScreenshot(page, {
     ignoreSelector: definition.dynamicLeafSelector,
     path: screenshotPath,
-    stableBackdropFilterSelector: surfaceName === "profile"
-      ? definition.targetSelector
-      : "",
+    roundedCompositeSelector: surfaceName === "profile"
+      ? ".player-popup-row"
+      : surfaceName === "storage"
+        ? ".storage-popup-section,.storage-popup-row,.storage-popup-close"
+        : surfaceName === "settings"
+          ? "[data-onboarding-launch],#settings-save-btn"
+          : "",
+    roundedCompositeRasterFringePx: surfaceName === "storage" ? 4 : 2,
+    stableBackdropColor: definition.stableBackdropColor || "",
+    stableBackdropFilterSelector: definition.stableBackdropFilterSelector || "",
+    stableAnimationSelector: definition.stableAnimationSelector || "",
     stableBackdropShellSelector: definition.shellSelector,
+    stableDescendantDevicePixelAlignmentSelector: surfaceName === "profile"
+      ? ".player-popup-row"
+      : surfaceName === "settings"
+        ? "[data-onboarding-launch],#settings-save-btn"
+        : "",
+    stableDescendantDevicePixelAlignmentMode: "target-relative-paint-origin",
+    stableTargetDevicePixelAlignment: ["profile", "wanted"].includes(surfaceName),
+    stableTargetDevicePixelAlignmentMode: "position-offset",
     target
   });
 }

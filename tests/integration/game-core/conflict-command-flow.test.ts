@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, runTick } from "../../../packages/game-core/src/engine";
+import { applyCommand } from "../../../packages/game-core/src/engine";
 import {
   hasValidAttackAuthorization,
   migrateConflictState
@@ -151,13 +151,6 @@ describe("conflict command flow", () => {
       ...state.playersById["player:1"],
       population: 100
     };
-    state.resourceStatesById["resource:1"] = {
-      ...state.resourceStatesById["resource:1"],
-      balances: {
-        ...state.resourceStatesById["resource:1"]?.balances,
-        population: 100
-      }
-    };
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       influence: 20
@@ -177,43 +170,18 @@ describe("conflict command flow", () => {
       result: "success",
       targetDistrictId: "district:2"
     });
-    const pendingOccupation = applyCommand(spy.nextState, createOccupyDistrictCommandFixture({
+    const occupied = applyCommand(spy.nextState, createOccupyDistrictCommandFixture({
       payload: {
         expectedConflictRevision: spy.nextState.districtsById["district:2"].conflictRevision
       }
     }), context);
 
-    expect(pendingOccupation.errors).toContainEqual(expect.objectContaining({
-      code: "OCCUPY_SPY_REQUIRED"
-    }));
-
-    let resolvedState = spy.nextState;
-    const resolveAtTick = Number(report?.payload.resolveAtTick);
-    while (resolvedState.root.tick < resolveAtTick) {
-      resolvedState = runTick(resolvedState, context).nextState;
-    }
-
-    const occupied = applyCommand(resolvedState, createOccupyDistrictCommandFixture({
-      payload: {
-        expectedConflictRevision: resolvedState.districtsById["district:2"].conflictRevision
-      }
-    }), context);
-
     expect(occupied.errors).toEqual([]);
-    expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBeNull();
-    const occupyOperation = Object.values(occupied.nextState.pendingOccupyOperationsById ?? {})[0];
-
-    expect(occupyOperation).toMatchObject({
-      playerId: "player:1",
-      targetDistrictId: "district:2"
-    });
-
-    let completedState = occupied.nextState;
-    while (occupyOperation && completedState.root.tick < occupyOperation.resolveAtTick) {
-      completedState = runTick(completedState, context).nextState;
-    }
-
-    expect(completedState.districtsById["district:2"]?.ownerPlayerId).toBe("player:1");
+    expect(occupied.nextState.root.tick).toBe(spy.nextState.root.tick);
+    expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBe("player:1");
+    expect(Object.values(occupied.nextState.pendingOccupyOperationsById ?? {})).toEqual([]);
+    expect(occupied.nextState.notificationsById["notification:command:occupy:1:occupy-report"]?.payload)
+      .toMatchObject({ result: "success", districtCaptured: true });
   });
 
   it("partial spy intel reveals limited info but does not unlock neutral district occupation", () => {

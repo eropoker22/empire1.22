@@ -43,7 +43,6 @@ const createGameplaySliceFixture = (): GameplaySliceView => ({
       dirtyCash: 0,
       influence: 0,
       population: 0,
-      gangMembers: 0,
       resources: {},
       materials: {},
       drugs: {},
@@ -696,7 +695,7 @@ describe("client surface actions", () => {
           expectedTargetVersion: 9,
           expectedSourceVersion: 7,
           style: "balanced",
-          gangMembersSent: 1
+          populationSent: 1
         }
       }
     ]);
@@ -720,8 +719,8 @@ describe("client surface actions", () => {
         recommendedStyle: "stealth",
         availablePopulation: 5,
         styles: [
-          { style: "stealth", label: "Tichý", enabled: true, defaultGangMembersSent: 5 },
-          { style: "balanced", label: "Vyvážený", enabled: false, defaultGangMembersSent: 10 }
+          { style: "stealth", label: "Tichý", enabled: true, defaultPopulationSent: 5 },
+          { style: "balanced", label: "Vyvážený", enabled: false, defaultPopulationSent: 10 }
         ]
       }
     ];
@@ -737,7 +736,7 @@ describe("client surface actions", () => {
       targetDistrictId: "district:4",
       sourceDistrictId: "district:1",
       style: "stealth",
-      gangMembersSent: 5
+      populationSent: 5
     });
   });
 

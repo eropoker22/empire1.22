@@ -64,7 +64,6 @@ export function createServerDistrictSelectionCoordinator({
   onLoading = () => {},
   onReady = () => {},
   onError = () => {},
-  cacheTtlMs = 10 * 60_000,
   now = () => Date.now()
 } = {}) {
   let requestGeneration = 0;
@@ -72,7 +71,6 @@ export function createServerDistrictSelectionCoordinator({
   let activeRequestPromise = null;
   const readModelsByDistrictId = new Map();
 
-  const normalizedCacheTtlMs = Math.max(0, Number(cacheTtlMs || 0));
   const cacheReadModel = (readModel, renderState = null) => {
     const districtId = String(readModel?.district?.districtId || "").trim();
     if (!districtId || !readModel) return false;
@@ -84,17 +82,6 @@ export function createServerDistrictSelectionCoordinator({
     });
     return true;
   };
-  const getCachedEntry = (districtId) => {
-    const cached = readModelsByDistrictId.get(districtId);
-    if (!cached) return null;
-    const ageMs = Math.max(0, (Number(now()) || Date.now()) - cached.cachedAt);
-    if (ageMs > normalizedCacheTtlMs) {
-      readModelsByDistrictId.delete(districtId);
-      return null;
-    }
-    return cached;
-  };
-
   const open = async ({
     district,
     districtId,
@@ -139,27 +126,6 @@ export function createServerDistrictSelectionCoordinator({
         renderState: currentRenderState,
         response: null,
         stale: false
-      };
-      onReady(result);
-      return result;
-    }
-
-    const cachedEntry = getCachedEntry(canonicalDistrictId);
-    const cachedReadModel = cachedEntry?.readModel || null;
-    const cachedBuilding = requiresBuilding
-      ? resolveServerDistrictBuilding(cachedReadModel, requestedBuilding)
-      : null;
-    if (cachedReadModel && (!requiresBuilding || cachedBuilding)) {
-      const result = {
-        accepted: true,
-        building: cachedBuilding,
-        canonicalDistrictId,
-        district,
-        readModel: cachedReadModel,
-        renderState: cachedEntry?.renderState || null,
-        response: null,
-        stale: false,
-        cached: true
       };
       onReady(result);
       return result;

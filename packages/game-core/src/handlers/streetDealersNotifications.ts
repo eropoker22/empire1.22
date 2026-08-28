@@ -30,7 +30,7 @@ export const createStreetDealerSaleNotification = (input: {
       buildingType: "street_dealers",
       buildingActionId: "start_drug_sale",
       actionId: "start_drug_sale",
-      actionLabel: "Spustit prodej",
+      actionLabel: "Prodat zásobu",
       result: "success",
       success: true,
       inputCost: {},

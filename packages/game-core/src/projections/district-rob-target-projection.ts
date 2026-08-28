@@ -2,6 +2,7 @@ import type { RobDistrictCommand } from "@empire/shared-types";
 import type { ConflictBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities/game-state";
 import { createRobCooldownKey, createRobSourceCooldownKey } from "../rules";
+import { resolvePlayerPopulation } from "../state/playerPopulation";
 import { validateRob } from "../validation";
 
 export const createDistrictRobTargetViews = (
@@ -14,9 +15,7 @@ export const createDistrictRobTargetViews = (
   const source = state.districtsById[sourceDistrictId];
   if (!source) return [];
   const player = state.playersById[playerId];
-  const availablePopulation = Math.floor(Number(
-    player?.population ?? state.resourceStatesById[player?.resourceStateId]?.balances?.population ?? 0
-  ));
+  const availablePopulation = Math.floor(resolvePlayerPopulation(state, player));
   const hasPopulationForRob = Number.isFinite(availablePopulation) && availablePopulation >= 1;
   return source.adjacentDistrictIds.map((id) => state.districtsById[id]).filter(Boolean).map((target) => {
     const previewCommand: RobDistrictCommand = {

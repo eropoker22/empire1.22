@@ -2,6 +2,7 @@ import type { CraftItemCommand } from "@empire/shared-types";
 import type { CoreError } from "../errors";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
+import { scaleCosts } from "../handlers/productionLineCosts";
 
 /**
  * Responsibility: Pure validator for server-authoritative building craft commands.
@@ -75,6 +76,14 @@ export const validateCraft = (
     ];
   }
 
+  const quantity = Number(command.payload.quantity ?? 1);
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return [{
+      code: "craft_invalid_quantity",
+      message: "Množství výroby musí být kladné celé číslo."
+    }];
+  }
+
   if (building.processing) {
     const activeRecipe = craftProfile.recipes[building.processing.recipeId];
 
@@ -93,7 +102,7 @@ export const validateCraft = (
     ? state.resourceStatesById[player.resourceStateId]?.balances ?? {}
     : {};
 
-  for (const [resourceKey, requiredAmount] of Object.entries(recipe.inputCosts)) {
+  for (const [resourceKey, requiredAmount] of Object.entries(scaleCosts(recipe.inputCosts, quantity))) {
     const availableAmount = Math.max(0, Number(balances[resourceKey] || 0));
 
     if (availableAmount < requiredAmount) {

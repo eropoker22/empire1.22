@@ -30,7 +30,7 @@ describe("basic action transport payload validation", () => {
       targetDistrictId: "district:2",
       sourceDistrictId: "district:1",
       style: "balanced",
-      gangMembersSent: 10,
+      populationSent: 10,
       expectedConflictRevision: 1
     })).accepted).toBe(true);
     expect(validateSubmitGameplayCommandRequest(createSubmitRequest("place-defense", {
@@ -50,7 +50,7 @@ describe("basic action transport payload validation", () => {
       targetDistrictId: "district:2",
       sourceDistrictId: "district:1",
       style: "balanced",
-      gangMembersSent: 10,
+      populationSent: 10,
       expectedConflictRevision: 1,
       outcome: "success",
       loot: { cash: 9999 },
@@ -103,7 +103,7 @@ describe("basic action transport payload validation", () => {
     const heist = validateSubmitGameplayCommandRequest(createSubmitRequest("heist-district", {
       targetDistrictId: "district:2",
       style: "loud",
-      gangMembersSent: 10,
+      populationSent: 10,
       expectedConflictRevision: 1
     }));
     const defense = validateSubmitGameplayCommandRequest(createSubmitRequest("place-defense", {

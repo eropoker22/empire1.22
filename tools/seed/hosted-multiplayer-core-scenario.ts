@@ -139,8 +139,6 @@ const preparePlayer = (
     ...resourceState.balances,
     cash: 1_000_000,
     "dirty-cash": 1_000_000,
-    population: 500,
-    "gang-members": 500,
     chemicals: 0,
     biomass: 0,
     "metal-parts": 0,

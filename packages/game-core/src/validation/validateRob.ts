@@ -10,6 +10,7 @@ import {
   validateMapAction
 } from "../rules";
 import { formatTickDuration } from "../utils/time";
+import { resolvePlayerPopulation } from "../state/playerPopulation";
 
 export const validateRob = (
   state: CoreGameState,
@@ -54,13 +55,7 @@ export const validateRob = (
   }
 
   if (result.reasonCode !== "NO_VALID_ORIGIN") {
-    const availablePopulation = Math.floor(
-      Number(
-        player.population ??
-        state.resourceStatesById[player.resourceStateId]?.balances?.population ??
-        0
-      )
-    );
+    const availablePopulation = Math.floor(resolvePlayerPopulation(state, player));
 
     if (!Number.isFinite(availablePopulation) || availablePopulation < 1) {
       return [{

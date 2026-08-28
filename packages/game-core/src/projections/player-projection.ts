@@ -26,6 +26,7 @@ import { createPlayerBoostView } from "./player-boost-projection";
 import { createPlayerCityEventsView } from "./city-event-projection";
 import { resolvePlayerOperationalLiveness } from "../rules/liveness/playerOperationalLiveness";
 import { calculatePlayerProjectedInfluence } from "./player-resource-projection";
+import { LEGACY_POPULATION_RESOURCE_KEYS, resolvePlayerPopulation } from "../state/playerPopulation";
 
 /**
  * Responsibility: Builds a minimal player-facing projection from authoritative core state.
@@ -50,10 +51,10 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
       resourceBalances[weaponId] = Number(attackWeaponInventory[weaponId] || 0);
     }
   }
-  if (player && Number.isFinite(Number(player.population))) {
-    const population = Math.max(0, Number(player.population || 0));
+  if (player) {
+    const population = resolvePlayerPopulation(state, player);
+    for (const resourceKey of LEGACY_POPULATION_RESOURCE_KEYS) delete resourceBalances[resourceKey];
     resourceBalances.population = population;
-    resourceBalances["gang-members"] = population;
   }
   const economy = createPlayerEconomyView(state, playerId, resourceBalances);
   const factoryBuilding = Object.values(state.buildingsById)
@@ -81,7 +82,7 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
       : null,
     attackWeapons: player && context?.config.balance.attackWeapons
       ? {
-          availablePopulation: Math.max(0, Math.floor(Number(player.population ?? resourceBalances.population ?? 0))),
+          availablePopulation: Math.max(0, Math.floor(resolvePlayerPopulation(state, player))),
           weapons: ATTACK_WEAPON_IDS.map((weaponId) => {
             const weapon = context.config.balance.attackWeapons![weaponId];
             return {
@@ -184,15 +185,13 @@ const createPlayerEconomyView = (
 ): PlayerEconomyView => {
   const player = state.playersById[playerId];
   const resources = sanitizeBalances(resourceBalances);
-  const population = Math.max(0, Number(player?.population ?? resources.population ?? 0));
-  const gangMembers = population;
+  const population = resolvePlayerPopulation(state, player);
 
   return {
     cleanCash: amountOf(resources, "cash"),
     dirtyCash: amountOf(resources, "dirty-cash"),
     influence: calculatePlayerProjectedInfluence(state, playerId),
     population,
-    gangMembers,
     resources,
     materials: pickBalances(resources, MATERIAL_RESOURCE_IDS),
     drugs: pickBalances(resources, DRUG_RESOURCE_IDS),

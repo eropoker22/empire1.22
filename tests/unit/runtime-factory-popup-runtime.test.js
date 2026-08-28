@@ -248,6 +248,8 @@ describe("factory popup runtime", () => {
     await open.dispatch("click");
 
     expect(collect.disabled).toBe(true);
+    expect(collect.hidden).toBe(true);
+    expect(collect.style.display).toBe("none");
     expect(collect.title).toBe(ownershipReason);
     expect(collect.setAttribute).toHaveBeenCalledWith("aria-label", ownershipReason);
     await collect.dispatch("click");
@@ -708,7 +710,7 @@ describe("factory popup runtime", () => {
     );
   });
 
-  it("cancels only waiting Factory items and keeps the active unit running", () => {
+  it("settles legacy Factory jobs before rendering and exposes no new cancel action", () => {
     const open = createElement();
     const popup = createElement();
     const close = createElement();
@@ -727,11 +729,13 @@ describe("factory popup runtime", () => {
       }]
     };
     const setStoredFactoryState = vi.fn();
+    const settleLegacyLocalProductionJobs = vi.fn();
     const renderFactoryDashboardPanel = vi.fn();
     const runtime = createRuntime({
       getStoredFactoryState: () => factoryState,
       renderFactoryDashboardPanel,
       setStoredFactoryState,
+      settleLegacyLocalProductionJobs,
       syncBuildingDetailTopbarVisibility: vi.fn()
     });
     const root = createRoot({
@@ -759,17 +763,11 @@ describe("factory popup runtime", () => {
     open.dispatch("click");
     renderFactoryDashboardPanel.mock.calls.at(-1)[2].onPauseSlot({ slot: { id: "metal" } });
 
-    const nextState = setStoredFactoryState.mock.calls.at(-1)[0];
-    expect(nextState.slots[0]).toEqual(expect.objectContaining({
-      isProducing: true,
-      queueMode: true,
-      queuedAmount: 1,
-      productionRemainder: 0.5,
-      producedAmount: 2
-    }));
+    expect(settleLegacyLocalProductionJobs).toHaveBeenCalled();
+    expect(setStoredFactoryState).not.toHaveBeenCalled();
   });
 
-  it("rejects the whole Factory start when the queue is already full", () => {
+  it("rejects an instant Factory batch when warehouse capacity is full", () => {
     const open = createElement();
     const popup = createElement();
     const close = createElement();
@@ -793,7 +791,9 @@ describe("factory popup runtime", () => {
     const setBuildingActionFeedback = vi.fn();
     const renderFactoryDashboardPanel = vi.fn();
     const runtime = createRuntime({
+      getInventoryCapacity: () => 10,
       getStoredFactoryState: () => factoryState,
+      getStoredFactorySupplies: () => ({ metalParts: 10, techCore: 0, combatModule: 0 }),
       renderFactoryDashboardPanel,
       setBuildingActionFeedback,
       setStoredFactoryState,
@@ -830,8 +830,8 @@ describe("factory popup runtime", () => {
       maxStartQuantity: 0
     }, { batchCount: 4 });
 
-    expect(setStoredFactoryState.mock.calls.at(-1)[0].slots[0].queuedAmount).toBe(8);
-    expect(setBuildingActionFeedback).toHaveBeenCalledWith(root, "warning", "Továrna", "Fronta je plná.");
+    expect(setStoredFactoryState).not.toHaveBeenCalled();
+    expect(setBuildingActionFeedback).toHaveBeenCalledWith(root, "warning", "Továrna", "Ve skladu není místo pro celé zvolené množství.");
     expect(factoryState.slots[0].queuedAmount).toBe(8);
   });
 

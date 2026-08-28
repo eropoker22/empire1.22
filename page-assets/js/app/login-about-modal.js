@@ -188,20 +188,27 @@ const bindDialog = ({ overlay, openButtons, closeSelector, onOpen, onClose, onKe
   if (!(dialog instanceof HTMLElement)) return;
   let restoreFocus = null;
   let isOpen = false;
-  const close = () => {
-    if (!isOpen) return;
+  const finalizeClosedState = () => {
+    if (!isOpen) return false;
     isOpen = false;
-    overlay.hidden = true;
-    overlay.setAttribute("aria-hidden", "true");
     setBodyModalState(overlay.ownerDocument, false);
     restoreFocus?.focus?.();
     onClose?.();
+    return true;
+  };
+  const close = () => {
+    if (!isOpen) return;
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    finalizeClosedState();
   };
   const open = (button) => {
-    if (isOpen) return;
+    if (isOpen && !overlay.hidden && overlay.getAttribute("aria-hidden") !== "true") return;
+    if (isOpen) finalizeClosedState();
     isOpen = true;
     restoreFocus = button || overlay.ownerDocument.activeElement;
     onOpen?.(button);
+    overlay.classList.remove("hidden");
     overlay.hidden = false;
     overlay.removeAttribute("aria-hidden");
     setBodyModalState(overlay.ownerDocument, true);
@@ -215,6 +222,12 @@ const bindDialog = ({ overlay, openButtons, closeSelector, onOpen, onClose, onKe
     });
   }
   overlay.querySelectorAll(closeSelector).forEach((button) => button.addEventListener("click", close));
+  overlay.addEventListener("empire:overlay-fallback-closed", (event) => {
+    if (event.detail?.overlay !== overlay || (!overlay.hidden && overlay.getAttribute("aria-hidden") !== "true")) {
+      return;
+    }
+    finalizeClosedState();
+  });
   overlay.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       event.preventDefault();

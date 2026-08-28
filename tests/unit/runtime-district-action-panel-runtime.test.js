@@ -49,7 +49,7 @@ describe("district action panel runtime", () => {
         attackEstimatedPower,
         attackStatus,
         attackWeaponInputs: [input("2", { attackWeaponInput: "pistol" })],
-        gangMembersValue: textElement("12")
+        populationValue: textElement("12")
       }
     });
 
@@ -113,7 +113,7 @@ describe("district action panel runtime", () => {
         defenseEstimatedPower,
         defenseStatus,
         defenseConfirmButton,
-        gangMembersValue: textElement("12")
+        populationValue: textElement("12")
       }
     });
 
@@ -194,7 +194,7 @@ describe("district action panel runtime", () => {
         attackStatus,
         attackConfirmButton,
         attackWeaponInputs: [input("0", { attackWeaponInput: "pistol" })],
-        gangMembersValue: textElement("12")
+        populationValue: textElement("12")
       }
     });
 
@@ -215,7 +215,7 @@ describe("district action panel runtime", () => {
         robberyAvailableMembers: textElement(),
         robberyStatus,
         robberyConfirmButton,
-        gangMembersValue: textElement("10")
+        populationValue: textElement("10")
       }
     });
 
@@ -271,7 +271,7 @@ describe("district action panel runtime", () => {
         robberyTrapPreview,
         robberyScoutReport,
         robberyRiskDescription,
-        gangMembersValue: textElement("10")
+        populationValue: textElement("10")
       }
     });
 
@@ -314,7 +314,7 @@ describe("district action panel runtime", () => {
         robberyTargetTitle: textElement(),
         robberyStatus: textElement(),
         robberyConfirmButton: textElement(),
-        gangMembersValue: textElement("10")
+        populationValue: textElement("10")
       }
     });
 
@@ -347,7 +347,7 @@ describe("district action panel runtime", () => {
         robberyConfirmMembers: textElement(),
         robberyConfirmDuration: robberyDuration,
         robberyConfirmFinalButton: textElement(),
-        gangMembersValue: textElement("10")
+        populationValue: textElement("10")
       }
     });
 
@@ -374,7 +374,7 @@ describe("district action panel runtime", () => {
         occupyConfirmDuration: occupyDuration,
         occupyConfirmNote: occupyNote,
         occupyConfirmButton: textElement(),
-        gangMembersValue: textElement("100")
+        populationValue: textElement("100")
       }
     });
 

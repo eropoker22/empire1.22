@@ -372,20 +372,20 @@ async function runActionBurst(clients, samples, pressure) {
         const style = styles.find((candidate) => candidate.style === target.recommendedStyle)
           || styles.find((candidate) => candidate.style === "balanced")
           || styles[0];
-        const gangMembersSent = Number(style?.defaultGangMembersSent);
+        const populationSent = Number(style?.defaultPopulationSent);
         const availablePopulation = Number(target.availablePopulation ?? balances.population);
         if (!["stealth", "balanced", "all_in"].includes(style?.style)
-          || !Number.isInteger(gangMembersSent)
-          || gangMembersSent <= 0
+          || !Number.isInteger(populationSent)
+          || populationSent <= 0
           || !Number.isFinite(availablePopulation)
-          || gangMembersSent > availablePopulation
-          || (Number.isFinite(Number(style.minMembers)) && gangMembersSent < Number(style.minMembers))
-          || (Number.isFinite(Number(style.maxMembers)) && gangMembersSent > Number(style.maxMembers))) continue;
+          || populationSent > availablePopulation
+          || (Number.isFinite(Number(style.minMembers)) && populationSent < Number(style.minMembers))
+          || (Number.isFinite(Number(style.maxMembers)) && populationSent > Number(style.maxMembers))) continue;
         const payload = {
           targetDistrictId: target.districtId,
           sourceDistrictId: target.sourceDistrictId,
           style: style.style,
-          gangMembersSent,
+          populationSent,
           expectedConflictRevision: target.expectedConflictRevision
         };
         addOptionalNumber(payload, "expectedTargetVersion", target.expectedTargetVersion);

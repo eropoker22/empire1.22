@@ -222,7 +222,7 @@ function createHeistDistrictCommand(input) {
       targetDistrictId: input.targetDistrictId,
       sourceDistrictId: input.sourceDistrictId,
       style: input.style ?? "balanced",
-      gangMembersSent: input.gangMembersSent ?? 1,
+      populationSent: input.populationSent ?? 1,
       expectedTargetVersion: input.expectedTargetVersion ?? 0,
       expectedSourceVersion: input.expectedSourceVersion ?? 0
     },
@@ -349,13 +349,13 @@ async function submitFallbackAction(page, baseReadModel) {
 
     if (district.heistTargets?.some((target) => target?.enabled)) {
       const target = district.heistTargets.find((entry) => entry?.enabled);
-      const style = target.styles?.[0] ?? { style: "balanced", defaultGangMembersSent: 1 };
+      const style = target.styles?.[0] ?? { style: "balanced", defaultPopulationSent: 1 };
       const command = createHeistDistrictCommand({
         ...commandBase,
         commandId: `smoke-action:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`,
         targetDistrictId: target.districtId,
         style: style.style,
-        gangMembersSent: style.defaultGangMembersSent,
+        populationSent: style.defaultPopulationSent,
         expectedTargetVersion: target.expectedTargetVersion,
         expectedSourceVersion: target.expectedSourceVersion
       });

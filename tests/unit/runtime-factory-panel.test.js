@@ -105,6 +105,38 @@ describe("factory dashboard view model and panel", () => {
     });
   });
 
+  it("uses authoritative warehouse capacity for instant Factory production", () => {
+    const viewModel = buildFactoryDashboardViewModel({
+      factoryState: {
+        level: 1,
+        slots: [{
+          id: "metal",
+          resourceKey: "metalParts",
+          executionMode: "instant",
+          producedAmount: 40,
+          queuedAmount: 0,
+          slotCap: 60,
+          queueCap: 13
+        }]
+      },
+      syncResult: { productionMultiplier: 1, ownedFactoryCount: 1, rates: {} },
+      supplyState: { metalParts: 40, techCore: 20, combatModule: 8 },
+      cleanMoney: 100_000,
+      config: FACTORY_CONFIG,
+      slotConfig: [{ id: "metal", label: "Metal Parts" }]
+    });
+
+    expect(viewModel.resources.metalParts).toBe("40/60");
+    expect(viewModel.slots[0]).toMatchObject({
+      executionMode: "instant",
+      slotOutputCap: 60,
+      slotStorageCap: 60,
+      queueCap: 60,
+      maxStartQuantity: 20,
+      canStart: true
+    });
+  });
+
   it("adapts authoritative Factory data into the same canonical presentation as the demo", () => {
     const lines = [
       {
@@ -301,8 +333,10 @@ describe("factory dashboard view model and panel", () => {
     const collectButton = new FakeElement();
 
     expect(viewModel.collectableAmount).toBe(0);
-    expect(viewModel.collectButton).toEqual({ disabled: true, text: "+", title: ownershipReason });
+    expect(viewModel.collectButton).toEqual({ visible: false, disabled: true, text: "+", title: ownershipReason });
     expect(renderFactoryDashboardPanel({ collectButton }, viewModel)).toBe(true);
+    expect(collectButton.hidden).toBe(true);
+    expect(collectButton.style.display).toBe("none");
     expect(collectButton.disabled).toBe(true);
     expect(collectButton.title).toBe(ownershipReason);
     expect(collectButton.attributes.get("aria-label")).toBe(ownershipReason);

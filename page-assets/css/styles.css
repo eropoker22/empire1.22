@@ -3406,7 +3406,7 @@ html body.game-body #profile-gang-card.right-panel-card .profile-row--faction > 
   text-shadow: none !important;
 }
 
-html body.game-body #profile-gang-card.right-panel-card [data-gang-members],
+html body.game-body #profile-gang-card.right-panel-card [data-population],
 html body.game-body #profile-gang-card.right-panel-card [data-gang-districts],
 html body.game-body #profile-gang-card.right-panel-card [data-gang-heat] {
   font-size: 0.92rem !important;
@@ -8034,8 +8034,14 @@ html body.game-body .district-popup-shell[data-district-popup]:not([hidden]) .di
     isolation: isolate !important;
   }
 
+  html body.game-body #boost-modal:not(.hidden):not([hidden]) {
+    z-index: 28000 !important;
+    isolation: isolate !important;
+  }
+
   html body.game-body:has(#events-modal:not(.hidden):not([hidden])) > .game-shell,
-  html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) > .game-shell {
+  html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) > .game-shell,
+  html body.game-body:has(#boost-modal:not(.hidden):not([hidden])) > .game-shell {
     z-index: 28000 !important;
   }
 
@@ -8044,7 +8050,10 @@ html body.game-body .district-popup-shell[data-district-popup]:not([hidden]) .di
   html body.game-body:has(#events-modal:not(.hidden):not([hidden])) .game-topbar *,
   html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) #game-header,
   html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) .game-topbar,
-  html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) .game-topbar * {
+  html body.game-body:has(#event-detail-modal:not(.hidden):not([hidden])) .game-topbar *,
+  html body.game-body:has(#boost-modal:not(.hidden):not([hidden])) #game-header,
+  html body.game-body:has(#boost-modal:not(.hidden):not([hidden])) .game-topbar,
+  html body.game-body:has(#boost-modal:not(.hidden):not([hidden])) .game-topbar * {
     pointer-events: none !important;
   }
 }
@@ -8399,6 +8408,37 @@ html body.game-body :is(
   }
 }
 
+/* Wanted close mark is code-drawn so its shape does not depend on a system font raster. */
+html body.game-body .wanted-popup-card .wanted-popup-close {
+  font-size: 0 !important;
+}
+
+html body.game-body .wanted-popup-card .wanted-popup-close::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: auto !important;
+  top: calc(50% - 9px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: calc(50% - 9px) !important;
+  display: block !important;
+  width: 18px !important;
+  min-width: 18px !important;
+  max-width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  max-height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background:
+    linear-gradient(45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+
 /* Final phone production-building contract: full-height workspaces with a dimmed city behind them. */
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html body.game-body :is(
@@ -8458,7 +8498,7 @@ html body.game-body :is(
     width: min(438px, calc(100vw - 8px)) !important;
     height: calc(var(--mobile-locked-vh, 100svh) - var(--production-building-phone-top) - var(--production-building-phone-bottom)) !important;
     max-height: calc(var(--mobile-locked-vh, 100svh) - var(--production-building-phone-top) - var(--production-building-phone-bottom)) !important;
-    margin: auto !important;
+    margin: 0 !important;
     border-radius: 0 !important;
     box-sizing: border-box !important;
     transform: none !important;

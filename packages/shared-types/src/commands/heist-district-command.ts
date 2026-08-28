@@ -12,7 +12,7 @@ export interface HeistDistrictPayload {
   targetDistrictId: DistrictId;
   sourceDistrictId?: DistrictId;
   style: HeistDistrictStyle;
-  gangMembersSent: number;
+  populationSent: number;
   expectedTargetVersion?: number;
   expectedSourceVersion?: number;
   expectedConflictRevision: number;

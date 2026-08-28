@@ -1,7 +1,7 @@
 import type { RunBuildingActionCommand } from "@empire/shared-types";
 import type { AirportBalanceConfig, BuildingActionBalanceConfig, FixedBuildingBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
-import type { AirportActionResolution, AirportMetadata, PendingAirportImport } from "./airportTypes";
+import type { AirportActionResolution, AirportMetadata } from "./airportTypes";
 import {
   getAirportMetadata,
   getOwnedAirport,
@@ -11,8 +11,8 @@ import {
   resolveImportCategoryOrNull,
   withAirportMetadata
 } from "./airportMetadata";
-import { createImportShipment } from "./airportShipments";
 import { formatTickDuration } from "../utils/time";
+import { resolveInstantAirportImport } from "./airportInstantImport";
 
 export type { AirportActionResolution, AirportCustomsEvent, AirportImportCategory, AirportMetadata, PendingAirportImport } from "./airportTypes";
 export { completeAirportImportsAndCustoms } from "./airportCompletion";
@@ -87,44 +87,15 @@ export const resolveAirportAction = (input: {
 
   if (actionId === input.config.expressImport.actionId) {
     const category = resolveImportCategory(input.payload.targetCategory ?? input.payload.category, input.config.expressImport.targetCategories);
-    const penaltyPct = Math.max(0, Number(metadata.nextImportCostPenaltyPct || 0));
-    const cost = Math.ceil(input.config.expressImport.costCleanCash * (1 + penaltyPct / 100));
-    const importId = `airport-import:${input.commandId}`;
-    const completesAtTick = input.state.root.tick + Math.max(1, Math.ceil(input.config.expressImport.durationSeconds * 1000 / Math.max(1, input.tickRateMs)));
-    const pendingImport: PendingAirportImport = {
-      importId,
+    return resolveInstantAirportImport({
+      state: input.state,
+      building: input.building,
+      balances: input.balances,
+      config: input.config,
+      commandId: input.commandId,
       category,
-      startedAtTick: input.state.root.tick,
-      completesAtTick,
-      shipment: createImportShipment(category, input.config, `${input.commandId}:${input.state.root.tick}`)
-    };
-    const nextMetadata: AirportMetadata = {
-      ...metadata,
-      nextImportCostPenaltyPct: 0,
-      pendingImports: [...metadata.pendingImports, pendingImport].slice(-4)
-    };
-    return {
-      balances: {
-        ...input.balances,
-        cash: Math.max(0, Number(input.balances.cash || 0) - cost)
-      },
-      buildingMetadata: withAirportMetadata(input.building, nextMetadata),
-      heatGain: input.config.expressImport.heatGain,
-      influenceChange: 0,
-      inputCost: { cash: cost },
-      outputGain: {},
-      reportText: `Expresní dovoz (${category}) přistane za ${formatTickDuration(completesAtTick - input.state.root.tick, input.tickRateMs)}.`,
-      airportResult: {
-        type: "express_import_started",
-        category,
-        importId,
-        completesAtTick,
-        costCleanCash: cost,
-        nextImportCostPenaltyAppliedPct: penaltyPct,
-        customsRiskPct: input.config.expressImport.customsRiskPct,
-        shipmentPreview: pendingImport.shipment
-      }
-    };
+      metadata
+    });
   }
 
   if (actionId === input.config.blackCharter.actionId) {

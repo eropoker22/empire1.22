@@ -593,6 +593,7 @@ async function clickVisibleBuildingAction(page, {
       timeout: 30_000
     }
   ).toBeGreaterThanOrEqual(payload.readModel.server.stateVersion);
+  await assertAndDismissBuildingActionResult(page, actionId);
   return {
     attemptCommandIds: submission.attempts.map(
       (attempt) => String(attempt.request?.command?.id || "")
@@ -602,6 +603,20 @@ async function clickVisibleBuildingAction(page, {
     stateVersion: payload.readModel.server.stateVersion,
     tick: Number(payload.readModel.server.currentTick)
   };
+}
+
+async function assertAndDismissBuildingActionResult(page, actionId) {
+  const modal = page.locator("#police-action-result-modal");
+  const content = modal.locator("#police-action-result-modal-content");
+  await expect(
+    modal,
+    `${actionId} must immediately expose its authoritative result modal`
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(content).toHaveClass(/\bis-building-action-result\b/u);
+  await expect(modal.locator("#police-action-result-modal-title")).not.toHaveText("");
+  await expect(modal.locator("#police-action-result-modal-details")).not.toHaveText("");
+  await modal.locator("#police-action-result-modal-close").click();
+  await expect(modal).toBeHidden();
 }
 
 async function closeVisibleBuildingDetail(page) {

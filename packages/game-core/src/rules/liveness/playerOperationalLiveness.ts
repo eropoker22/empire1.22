@@ -10,6 +10,7 @@ import {
   type UsableConflictOrigins
 } from "./playerConflictOrigins";
 import { resolvePlayerProgressionCapabilities } from "./playerProgressionCapabilities";
+import { resolvePlayerPopulation } from "../../state/playerPopulation";
 export { resolveUsableConflictOriginDistricts } from "./playerConflictOrigins";
 
 export const resolvePlayerOperationalLiveness = (
@@ -137,7 +138,7 @@ const resolveEmergencyRecoveryEligibility = (
   const canClaim = Boolean(config?.enabled && config.maxUsesPerPlayer > 0
     && player && player.status === "active" && activeDistricts.length === 1
     && !disabledByFinalLockdown && !used && !input.canProgressNow && !futureWithinGrace
-    && Number(player.population ?? balances.population ?? 0) < config.population
+    && resolvePlayerPopulation(state, player) < config.population
     && Number(balances.cash ?? 0) < config.cleanCash);
   return {
     canClaim,

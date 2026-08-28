@@ -294,10 +294,10 @@ describe("authoritative gameplay rules", () => {
       balances: {
         cash: 1000,
         "dirty-cash": 500,
-        chemicals: 25,
-        "gang-members": 40
+        chemicals: 25
       }
     };
+    state.playersById["player:1"] = { ...state.playersById["player:1"], population: 40 };
     state.policeStatesById["police:1"] = {
       id: "police:1",
       ownerPlayerId: "player:1",
@@ -323,7 +323,7 @@ describe("authoritative gameplay rules", () => {
       resourcesSeized: {
         chemicals: 1
       },
-      gangMembersLost: 0,
+      populationLost: 0,
       districtLockdownTicks: 0,
       heatReduced: 30
     });

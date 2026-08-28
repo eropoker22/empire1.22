@@ -68,6 +68,12 @@ describe("utility modal parity coverage contract", () => {
         ".leaderboard-popup-list"
       ])
     );
+    expect(utilityParitySurfaces.about.requiredSectionSelectors).toContain(
+      ".login-about-content"
+    );
+    expect(utilityParitySurfaces.about.requiredSectionSelectors).not.toContain(
+      ".login-about-terminal-footer"
+    );
   });
 
   it("masks only authoritative leaves and never a shell, card or collection", () => {
@@ -90,8 +96,28 @@ describe("utility modal parity coverage contract", () => {
       expect(masks.some((selector) => forbiddenSelectors.has(selector))).toBe(false);
     }
     expect(utilityParitySurfaces.storage.dynamicLeafSelector).toBe("[data-storage-value]");
+    expect(utilityParitySurfaces.storage.stableBackdropColor).toBe("rgb(2, 6, 12)");
+    expect(utilityParitySurfaces.storage.stableBackdropFilterSelector)
+      .toBe(".storage-popup-card,.storage-popup-backdrop");
+    expect(utilityParitySurfaces.storage.stableAnimationSelector)
+      .toBe(".storage-popup-card,.storage-popup-backdrop");
+    expect(utilityParitySurfaces.wanted.dynamicLeafSelector).toContain(
+      "[data-wanted-popup-rise-list] .wanted-popup-empty"
+    );
+    expect(utilityParitySurfaces.wanted.canonicalDisabledSelector).toContain(
+      "[data-wanted-popup-dirty]"
+    );
+    expect(utilityParitySurfaces.wanted.stableBackdropFilterSelector).toContain(
+      ".wanted-popup-panel"
+    );
     expect(utilityParitySurfaces.leaderboard.dynamicLeafSelector).not.toContain(
       "[data-leaderboard-list]"
+    );
+    expect(utilityParitySurfaces.leaderboard.canonicalDisabledSelector).toContain(
+      '[data-leaderboard-filter="active"]'
+    );
+    expect(utilityParitySurfaces.leaderboard.canonicalDisabledSelector).toContain(
+      '[data-leaderboard-tab="money"]'
     );
   });
 
@@ -131,6 +157,10 @@ describe("utility modal parity coverage contract", () => {
     expect(specSource).toContain('test.describe.configure({ mode: "serial" })');
     expect(specSource).toContain("utilityParityViewportBatches");
     expect(specSource).toContain("setViewportSize(viewport)");
+    expect(specSource).toContain("compareParityPngScreenshots(");
+    expect(specSource).not.toContain("compareParityPngScreenshotAttempts(");
+    expect(specSource).not.toContain("allowCrossAttemptPairing");
+    expect(specSource).not.toContain("maxAttempts");
     expect(specSource).toContain("const canonicalContentApplyResults = await Promise.all([");
     expect(specSource).toContain("applyUtilityParityCanonicalContent");
     expect(specSource).toContain("restoreUtilityParityCanonicalContent");
@@ -184,6 +214,10 @@ describe("utility modal parity coverage contract", () => {
     expect(canonicalContentSource).toContain("new MutationObserver(normalizeCanonicalContent)");
     expect(canonicalContentSource).toContain("capture.textRecords");
     expect(canonicalContentSource).toContain("capture.attributeRecords");
+    expect(canonicalContentSource).toContain("normalizeDisabledAttributes");
+    expect(canonicalContentSource).toContain("canonicalHadAttribute");
+    expect(canonicalContentSource).toContain("canonicalDisabledSelector");
+    expect(canonicalContentSource).toContain('["aria-disabled", "true"]');
     expect(canonicalContentSource).toContain("record.latestActualText = textNode.data");
     expect(canonicalContentSource).toContain("record.latestActualValue = currentValue");
     expect(canonicalContentSource).toContain("capture.observer?.takeRecords()");
@@ -195,7 +229,15 @@ describe("utility modal parity coverage contract", () => {
       "export async function restoreUtilityParityCanonicalContent"
     );
     expect(signatureSource).toContain("return target.evaluate((targetElement, config) => {");
+    expect(signatureSource).toContain("await settleUtilitySurface(target, {");
+    expect(helperSource).toContain('ignoreImageSelector: definition.dynamicLeafSelector');
+    expect(helperSource).toContain('!image.matches(config.ignoreImageSelector)');
+    expect(helperSource).toContain("await animation.ready.catch(() => undefined)");
+    expect(helperSource.match(/await settleAnimations\(\);/gu) || []).toHaveLength(2);
     expect(signatureSource).toContain("const authoritativeText = config.authoritativeText;");
+    expect(signatureSource).toContain(
+      "Math.round(Number(value || 0) * 64) / 64"
+    );
     expect(signatureSource).toContain("utility signature requires an active content lock");
     expect(signatureSource).toContain("globalThis[config.registryProperty]");
     expect(signatureSource).toContain("authoritativeText: AUTHORITATIVE_TEXT");
@@ -204,8 +246,49 @@ describe("utility modal parity coverage contract", () => {
     expect(signatureSource).not.toContain("MutationObserver");
     expect(signatureSource).not.toContain("target.evaluate(async");
     expect(helperSource).toContain(
-      'stableBackdropFilterSelector: surfaceName === "profile"'
+      'stableBackdropColor: definition.stableBackdropColor || ""'
+    );
+    expect(helperSource).toContain(
+      'stableBackdropFilterSelector: definition.stableBackdropFilterSelector || ""'
+    );
+    expect(helperSource).toContain(
+      'stableAnimationSelector: definition.stableAnimationSelector || ""'
+    );
+    expect(helperSource).toContain(
+      'roundedCompositeSelector: surfaceName === "profile"'
+    );
+    expect(helperSource).toContain('? ".player-popup-row"');
+    expect(helperSource).toContain(': surfaceName === "storage"');
+    expect(helperSource).toContain(
+      '? ".storage-popup-section,.storage-popup-row,.storage-popup-close"'
+    );
+    expect(helperSource).toContain(': surfaceName === "settings"');
+    expect(helperSource.match(/\? "\[data-onboarding-launch\],#settings-save-btn"/gu) || [])
+      .toHaveLength(2);
+    expect(helperSource).toContain(
+      'roundedCompositeRasterFringePx: surfaceName === "storage" ? 4 : 2'
     );
     expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
+    expect(helperSource).toContain(
+      'stableDescendantDevicePixelAlignmentSelector: surfaceName === "profile"'
+    );
+    expect(helperSource).toContain('? ".player-popup-row"');
+    expect(helperSource).toContain(': surfaceName === "settings"');
+    expect(helperSource).toContain(
+      'stableDescendantDevicePixelAlignmentMode: "target-relative-paint-origin"'
+    );
+    expect(helperSource).toContain(
+      'stableTargetDevicePixelAlignment: ["profile", "wanted"].includes(surfaceName)'
+    );
+    expect(helperSource).toContain(
+      'stableTargetDevicePixelAlignmentMode: "position-offset"'
+    );
+    expect(helperSource).toContain("await page.waitForTimeout(470)");
+    expect(signatureSource).toContain("signature.scrollTop = 0");
+    expect(signatureSource).toContain(
+      'targetElement.closest("[role=\'dialog\'], [aria-modal=\'true\']")'
+    );
+    expect(signatureSource).toContain("windowX: modalOpen ? 0 : Math.round(window.scrollX)");
+    expect(signatureSource).toContain("windowY: modalOpen ? 0 : Math.round(window.scrollY)");
   });
 });

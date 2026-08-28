@@ -197,6 +197,7 @@ export function buildDistrictActionViewModel(district = {}, playerState = {}, op
           if (action.id !== "trap") {
             return {
               id: action.id,
+              key: action.key || action.id,
               label: action.label,
               enabled: countdown ? false : action.enabled,
               stacked: Boolean(action.stacked),
@@ -205,7 +206,8 @@ export function buildDistrictActionViewModel(district = {}, playerState = {}, op
               countdownLabel: countdown?.label || "",
               countdownEndsAt: countdown?.endsAt || null,
               title: action.title || action.reason || "",
-              reason: action.reason ? normalizeReason(action.reason) : ""
+              reason: action.reason ? normalizeReason(action.reason) : "",
+              targetDistrictId: action.targetDistrictId || ""
             };
           }
 

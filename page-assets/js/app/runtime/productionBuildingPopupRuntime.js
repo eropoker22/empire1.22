@@ -3,8 +3,7 @@ import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/lega
 import {
   cancelWaitingLocalProduction,
   collectLocalProduction,
-  normalizeLocalProductionJob,
-  queueLocalProduction
+  normalizeLocalProductionJob
 } from "./localProductionLineState.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 
@@ -89,12 +88,16 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       input.resourceKey,
       Math.max(0, Number(input.requiredPerUnit ?? input.requiredAmount ?? 0))
     ]));
+    const isInstant = line.executionMode === "instant";
     const tickRateMs = Math.max(1, Number(deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS));
-    const effectiveDurationMs = Math.max(1000, Number(line.effectiveUnitDurationTicks || 0) * tickRateMs);
+    const effectiveDurationMs = isInstant
+      ? 0
+      : Math.max(1000, Number(line.effectiveUnitDurationTicks || 0) * tickRateMs);
     const outputInventory = configuredRecipe.output?.inventory
       || (buildingName === "pharmacy" ? "materials" : buildingName === "armory" ? "weapons" : "drugs");
     return {
       ...configuredRecipe,
+      executionMode: isInstant ? "instant" : "legacy-timed",
       name: String(line.label || configuredRecipe.name || ""),
       inputs,
       cleanMoneyCost: Math.max(0, Number(line.unitCleanCashCost || 0)),
@@ -112,9 +115,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
   const getServerProductionRecipeViewModel = (root, buildingName, building, line, recipes) => {
     const recipe = getServerProductionRecipe(buildingName, recipes, line);
+    const isInstant = line.executionMode === "instant";
     const tickRateMs = Math.max(1, Number(deps.getServerTickRateMs?.() || FREE_GAMEPLAY_TICK_MS));
-    const effectiveDurationMs = Math.max(1000, Number(line.effectiveUnitDurationTicks || 0) * tickRateMs);
-    const isProducing = Number(line.activeAmount || 0) > 0 || line.status === "processing";
+    const effectiveDurationMs = isInstant
+      ? 0
+      : Math.max(1000, Number(line.effectiveUnitDurationTicks || 0) * tickRateMs);
+    const isProducing = !isInstant && (Number(line.activeAmount || 0) > 0 || line.status === "processing");
     const remainingMs = Math.max(0, Number(line.remainingMs || 0));
     const inputAmounts = Object.fromEntries((Array.isArray(line.inputAvailability) ? line.inputAvailability : []).map((input) => [
       input.resourceKey,
@@ -126,6 +132,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       districtId: String(building.districtId || ""),
       buildingId: String(building.buildingId || ""),
       buildingName,
+      executionMode: isInstant ? "instant" : "legacy-timed",
       recipeId: String(line.recipeId || ""),
       recipe,
       job: {
@@ -141,8 +148,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       },
       effectiveDurationMs,
       slotState: {
-        label: serverProductionStatusLabels[line.status] || "Připraveno",
-        isActive: line.status !== "ready"
+        label: isInstant ? "Okamžitá výroba" : serverProductionStatusLabels[line.status] || "Připraveno",
+        isActive: !isInstant && line.status !== "ready"
       },
       outputInventoryAmount: Math.max(0, Number(line.playerStoredAmount || 0)),
       outputInventoryCapacity: Math.max(0, Number(line.playerStoredCapacity || 0)),
@@ -279,14 +286,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
   };
 
   const createProductionCard = (root, buildingName, recipeId, recipeKey, recipe, rerender) => {
-    const legacyProductionEnabled = isLegacyLocalProductionEnabled();
+    const localProductionEnabled = isLegacyLocalProductionEnabled();
     const buildingState = deps.getStoredProductionBuildingState?.(buildingName) || {};
     const ownedBuildingCount = getOwnedProductionBuildingCount(buildingName, buildingState.level);
     const durationMultiplier = deps.getProductionBuildingMultiplier?.(buildingName, buildingState.level) || 1;
     const productionBoost = deps.getPlayerProductionBoostSnapshot?.() || { multiplier: 1, expiresAtMs: null };
     const baseEffectiveDurationMs = Math.max(1000, Math.round(Number(recipe?.durationMs || 0) / durationMultiplier));
-    const effectiveDurationMs = Math.max(1000, Math.round(baseEffectiveDurationMs / Math.max(1, Number(productionBoost.multiplier || 1))));
-    const durationReductionPct = Math.max(0, Math.round((1 - effectiveDurationMs / baseEffectiveDurationMs) * 100));
     const outputUnitAmount = buildingName === "pharmacy" || buildingName === "armory"
       ? 1
       : Math.max(1, Math.floor(Number(recipe?.output?.amount || 1)));
@@ -301,24 +306,16 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       output: recipe?.output
     };
     const job = normalizeLocalProductionJob(deps.getProductionJob?.(recipeKey), jobDefaults);
-    const getRemainingQueueSpace = (productionJob = null) => {
-      if (queueCap <= 0) {
-        return Number.POSITIVE_INFINITY;
-      }
-      const queuedAmount = Math.max(0, Math.floor(Number(productionJob?.queuedAmount || 0)));
-      return Math.max(0, queueCap - queuedAmount);
-    };
     const getCurrentJob = () => normalizeLocalProductionJob(deps.getProductionJob?.(recipeKey), jobDefaults);
     const inputAmounts = Object.fromEntries(
       Object.keys(recipe?.inputs || {}).map((itemId) => [itemId, deps.getInventoryAmount?.("materials", itemId) || 0])
     );
     const getMaxCapacityBatches = () => {
-      const current = getCurrentJob();
-      if (current && outputCap > 0 && current.producedAmount >= outputCap) return 0;
-      return Math.min(
-        99,
-        queueCap > 0 ? Math.floor(getRemainingQueueSpace(current) / outputUnitAmount) : 99
-      );
+      const receivableOutput = deps.getReceivableInventoryOutputAmount?.(
+        recipe?.output,
+        99 * outputUnitAmount
+      ) ?? 0;
+      return Math.max(0, Math.min(99, Math.floor(receivableOutput / outputUnitAmount)));
     };
     const getMaxBatches = () => {
       const cleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0));
@@ -328,17 +325,30 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ...Object.entries(recipe?.inputs || {}).map(([itemId, amount]) => Math.floor((deps.getInventoryAmount?.("materials", itemId) || 0) / Math.max(1, Number(amount || 0))))
       );
     };
-    const maxBatches = legacyProductionEnabled ? getMaxBatches() : 0;
+    const getLocalDisabledReason = () => {
+      if (!localProductionEnabled) return productionBridgeMessage;
+      if (getMaxCapacityBatches() <= 0) return "Sklad je pro tento produkt plný.";
+      const cleanCost = Math.max(0, Number(recipe?.cleanMoneyCost || 0));
+      const cleanCash = Math.max(0, Number(deps.getResolvedEconomyState?.().cleanMoney || 0));
+      if (cleanCash < cleanCost) return "Na spuštění výroby nemáš dost clean cash.";
+      if (!(deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false)) {
+        return "Na spuštění výroby nemáš dost materiálových vstupů.";
+      }
+      return null;
+    };
+    const maxBatches = localProductionEnabled ? getMaxBatches() : 0;
+    const disabledReason = getLocalDisabledReason();
     const viewModel = {
       root,
       buildingName,
       recipeId,
       recipeKey,
       recipe,
-      job,
-      effectiveDurationMs,
-      durationBonusLabel: durationReductionPct > 0 ? `−${durationReductionPct} %` : "",
-      slotState: getProductionSlotState(job),
+      executionMode: "instant",
+      job: null,
+      effectiveDurationMs: 0,
+      durationBonusLabel: "",
+      slotState: { label: "Okamžitá výroba", isActive: false },
       outputInventoryAmount: deps.getInventoryAmount?.(recipe?.output?.inventory, recipe?.output?.itemId) || 0,
       outputInventoryCapacity: deps.getInventoryCapacity?.(recipe?.output?.itemId) || 0,
       outputCap,
@@ -348,9 +358,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         ? deps.getArmoryRecipeStrengthPreview?.(recipeId, recipe) || null
         : null,
       inputAmounts,
-      canStart: legacyProductionEnabled
+      canStart: localProductionEnabled
         && maxBatches > 0
-        && (deps.hasEnoughMaterials?.(recipe?.inputs || {}) || false),
+        && disabledReason === null,
+      disabledReason,
       maxBatches,
       maxSelectableBatches: maxBatches,
       allowStartWithMissingInputs: false
@@ -358,7 +369,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const card = deps.renderRecipeCard?.(viewModel, {
       getMaxBatches,
       onStart: ({ batchCount }) => {
-        if (!legacyProductionEnabled) {
+        if (!localProductionEnabled) {
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
@@ -368,20 +379,14 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           rerender?.();
           return;
         }
-        const currentJob = getCurrentJob();
-
         const maxBatches = Math.max(0, Math.floor(Number(getMaxBatches() || 0)));
         const requestedBatchCount = Math.max(1, Math.floor(Number(batchCount || 1)));
         if (requestedBatchCount > maxBatches) {
-          const queueSpace = Math.max(0, Math.floor(Number(getRemainingQueueSpace(currentJob) || 0)));
-          const message = queueCap > 0 && requestedBatchCount * outputUnitAmount > queueSpace
-            ? "Výrobní fronta je plná nebo v ní není místo pro celé zvolené množství."
-            : "Chybí materiál nebo clean cash pro celé zvolené množství.";
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
             deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
-            message
+            "Chybí materiál, clean cash nebo volné místo ve skladu pro celé zvolené množství."
           );
           rerender?.();
           return;
@@ -402,44 +407,66 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           return;
         }
 
-        const remainingQueueSpace = getRemainingQueueSpace(currentJob);
         const outputAmount = outputUnitAmount * safeBatchCount;
-        if (outputAmount <= 0 || outputAmount > remainingQueueSpace || (currentJob && outputCap > 0 && currentJob.producedAmount >= outputCap)) {
+        const receivableOutput = deps.getReceivableInventoryOutputAmount?.(recipe?.output, outputAmount) ?? 0;
+        if (outputAmount <= 0 || receivableOutput !== outputAmount) {
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
             deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
-            "Výrobní fronta je plná nebo v ní není místo pro celé zvolené množství."
+            "Ve skladu není místo pro celé zvolené množství."
           );
           rerender?.();
           return;
         }
         deps.consumeMaterials?.(requiredInputs);
         if (cleanCost > 0) deps.setStoredEconomyState?.({ ...economyState, cleanMoney: economyState.cleanMoney - cleanCost });
-        const queued = queueLocalProduction(currentJob, {
-          ...jobDefaults,
-          quantity: safeBatchCount,
-          now: Date.now(),
-          productionSpeedMultiplier: productionBoost.multiplier,
-          productionSpeedExpiresAtMs: productionBoost.expiresAtMs,
-          unitCleanMoneyCost: Math.max(0, Number(recipe?.cleanMoneyCost || 0)),
-          unitInputs: recipe?.inputs || {}
-        });
-        if (!queued.ok) {
-          // This guard can only be reached after a concurrent local update. Restore the debit.
+        const creditedOutput = deps.applyInventoryOutput?.({ ...recipe?.output, amount: outputAmount }) ?? 0;
+        if (creditedOutput !== outputAmount) {
+          // Local preview writes are synchronous. This rollback keeps the same
+          // all-or-nothing contract if a storage state changed unexpectedly.
           for (const [itemId, amount] of Object.entries(requiredInputs)) {
             deps.setInventoryAmount?.("materials", itemId, Number(deps.getInventoryAmount?.("materials", itemId) || 0) + Number(amount || 0));
           }
           if (cleanCost > 0) deps.setStoredEconomyState?.({ ...economyState });
+          if (creditedOutput > 0) {
+            const outputInventory = String(recipe?.output?.inventory || "");
+            const outputItemId = String(recipe?.output?.itemId || "");
+            deps.setInventoryAmount?.(
+              outputInventory,
+              outputItemId,
+              Math.max(0, Number(deps.getInventoryAmount?.(outputInventory, outputItemId) || 0) - creditedOutput)
+            );
+          }
+          deps.setBuildingActionFeedback?.(
+            root,
+            "warning",
+            deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+            "Výrobu se nepodařilo atomicky uložit. Náklady byly vráceny."
+          );
           rerender?.();
           return;
         }
-        deps.persistProductionJob?.(recipeKey, queued.job);
+        deps.applyTopbarEconomy?.(root);
+        deps.setBuildingActionFeedback?.(
+          root,
+          "success",
+          deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+          `${recipe?.name || "Výrobek"} byl okamžitě uložen do skladu.`
+        );
+        deps.appendBuildingActionResultEntry?.(root, "police", deps.createStorageCollectResultPayload?.({
+          buildingLabel: deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
+          hideBadge: buildingName === "pharmacy",
+          items: [{
+            label: deps.getProductionResourceLabel?.(recipe?.output?.itemId),
+            amount: outputAmount
+          }],
+          meta: "Okamžitá výroba"
+        }), {}, { syncPreview: true, forceLog: true });
         rerender?.();
-        deps.scheduleProductionJob?.(recipeKey, rerender);
       },
       onStop: () => {
-        if (!legacyProductionEnabled) {
+        if (!localProductionEnabled) {
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
@@ -472,7 +499,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         rerender?.();
       },
       onCollect: () => {
-        if (!legacyProductionEnabled) {
+        if (!localProductionEnabled) {
           deps.setBuildingActionFeedback?.(
             root,
             "warning",
@@ -652,7 +679,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       deps.setBuildingActionFeedback?.(root, "warning", "Lékárna", error.message || "Akci se nepodařilo provést.");
       return;
     }
-    deps.setBuildingActionFeedback?.(root, "success", "Lékárna", label + " byl aktualizován.");
+    deps.setBuildingActionFeedback?.(root, "success", "Lékárna", label + " byl vyroben a uložen do skladu.");
   };
 
   const reportServerDrugLabResult = (root, response, label) => {
@@ -661,7 +688,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       deps.setBuildingActionFeedback?.(root, "warning", "Lab", error.message || "Akci se nepodařilo provést.");
       return;
     }
-    deps.setBuildingActionFeedback?.(root, "success", "Lab", label + " byl aktualizován.");
+    deps.setBuildingActionFeedback?.(root, "success", "Lab", label + " byl vyroben a uložen do skladu.");
   };
 
   const reportServerArmoryResult = (root, response, label) => {
@@ -670,7 +697,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       deps.setBuildingActionFeedback?.(root, "warning", "Zbrojovka", error.message || "Akci se nepodařilo provést.");
       return;
     }
-    deps.setBuildingActionFeedback?.(root, "success", "Zbrojovka", label + " byl aktualizován.");
+    deps.setBuildingActionFeedback?.(root, "success", "Zbrojovka", label + " byl vyroben a uložen do skladu.");
   };
 
   const renderProductionPanel = (root, panelName, recipes, rerender) => {
@@ -871,16 +898,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       }
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        const collectDisabled = serverLoading
-          || (serverProduction ? readyCount <= 0 : !isLegacyLocalProductionEnabled() || readyCount <= 0);
-        const collectLabel = serverLoading
-          ? "Načítám stav budovy…"
-          : !serverProduction && !isLegacyLocalProductionEnabled()
-          ? productionBridgeMessage
-          : readyCount > 0
-          ? `Vybrat hotové do skladu (${readyCount})`
-          : "Vybrat hotové do skladu";
-        setElementPropertyIfChanged(collectButton, "disabled", collectDisabled);
+        const collectLabel = "Ruční výroba se ukládá do skladu okamžitě.";
+        setElementPropertyIfChanged(collectButton, "hidden", true);
+        setElementStylePropertyIfChanged(collectButton, "display", "none");
+        setElementPropertyIfChanged(collectButton, "disabled", true);
         setElementPropertyIfChanged(collectButton, "textContent", "+");
         setElementPropertyIfChanged(collectButton, "title", collectLabel);
         setElementAttributeIfChanged(collectButton, "aria-label", collectLabel);

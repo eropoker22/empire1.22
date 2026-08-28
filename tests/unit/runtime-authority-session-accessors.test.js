@@ -145,4 +145,53 @@ describe("authority session accessors", () => {
       targetDistrictId: 2
     });
   });
+
+  it("keeps a resolved spy cooldown without presenting it as an active map mission", () => {
+    const futureCooldown = new Date(Date.now() + 60_000).toISOString();
+    let session = createSession();
+    session = {
+      ...session,
+      missions: {
+        ...session.missions,
+        spy: {
+          available: 3,
+          missions: [
+            {
+              id: "resolved-cooldown",
+              status: "cooldown",
+              targetDistrictId: 2,
+              cooldownUntil: futureCooldown
+            },
+            {
+              id: "expired-cooldown",
+              status: "cooldown",
+              targetDistrictId: 3,
+              cooldownUntil: new Date(Date.now() - 1_000).toISOString()
+            }
+          ]
+        }
+      }
+    };
+    const api = createAuthoritySessionAccessors({
+      clamp: (value, min, max) => Math.min(Math.max(value, min), max),
+      defaultDrugInventory: {},
+      defaultMaterialInventory: {},
+      defaultWeaponInventory: {},
+      getAuthoritySession: () => session,
+      maxSpies: 3,
+      updateStoredPreviewSession: (updater) => {
+        session = updater(session);
+      }
+    });
+
+    const resolved = api.getResolvedSpyState();
+
+    expect(resolved.available).toBe(2);
+    expect(resolved.missions).toEqual([
+      expect.objectContaining({ id: "resolved-cooldown", status: "cooldown" })
+    ]);
+    expect(api.getSpyMissionPhase(resolved.missions[0])).toBe("cooldown");
+    expect(api.isSpyMissionActiveOnMap(resolved.missions[0])).toBe(false);
+    expect(session.missions.spy.missions).toHaveLength(1);
+  });
 });

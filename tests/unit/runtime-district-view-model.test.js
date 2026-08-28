@@ -144,7 +144,14 @@ describe("district view model adapter", () => {
     const model = buildDistrictActionViewModel({ id: 9 }, {
       activePoliceAction: null,
       resolvedActions: [
-        { id: "attack", label: "Útok", enabled: false, reason: "Requires an adjacent owned district." },
+        {
+          id: "attack",
+          key: "attack:district:9",
+          label: "Útok",
+          enabled: false,
+          reason: "Requires an adjacent owned district.",
+          targetDistrictId: "district:9"
+        },
         { id: "trap", label: "Past", enabled: true, reason: "", visible: true }
       ],
       actionCountdowns: {
@@ -169,7 +176,9 @@ describe("district view model adapter", () => {
       enabled: false,
       countdownLabel: "Zbývá 0:42",
       countdownEndsAt: 42000,
-      reason: "Chybí sousední tvůj district."
+      reason: "Chybí sousední tvůj district.",
+      key: "attack:district:9",
+      targetDistrictId: "district:9"
     });
     expect(model.actions[1]).toMatchObject({
       id: "trap",

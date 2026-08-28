@@ -6,6 +6,9 @@ import {
   getNormalMarketRotation,
   initializeServerMarket,
   resolveImmediateHeist,
+  resolveOccupyBalance,
+  resolveOccupyInfluenceCost,
+  resolveOccupyPopulationCost,
   resolveResourceCapacity,
   runTick,
   type MarketTransaction
@@ -46,7 +49,7 @@ const HEIST_MATERIAL_RESOURCE_IDS = [
 ] as const;
 
 describe("gameplay slice optimistic concurrency", () => {
-  it("accepts commands with the current state version and returns advanced metadata", async () => {
+  it("accepts commands with the current state version and returns debug-only latency metadata", async () => {
     const server = createServerApp();
     const instanceId = "instance:free:concurrency:current";
     const playerId = "player:concurrency:current";
@@ -60,6 +63,17 @@ describe("gameplay slice optimistic concurrency", () => {
     });
     const confirmedDistrictId = load.readModel?.district?.districtId ?? districtId;
     const expectedStateVersion = load.metadata?.stateVersion;
+    const runtime = server.instanceManager.getInstanceById(instanceId)!;
+    runtime.config = {
+      ...runtime.config,
+      technical: {
+        ...runtime.config.technical,
+        debug: {
+          ...runtime.config.technical.debug,
+          allowDebugTools: true
+        }
+      }
+    };
     const response = await server.gameplaySliceTransport.submit({
       sessionToken,
       expectedStateVersion,
@@ -77,6 +91,14 @@ describe("gameplay slice optimistic concurrency", () => {
     expect(response.errors).toEqual([]);
     expect(response.accepted).toBe(true);
     expect(response.metadata?.stateVersion).toBeGreaterThan(expectedStateVersion ?? 0);
+    expect(response.metadata?.commandTiming).toMatchObject({
+      commandId: "command:concurrency:current:1",
+      commandType: "place-trap",
+      status: "applied"
+    });
+    expect(response.metadata?.commandTiming?.serverResolutionMs).toBeGreaterThanOrEqual(0);
+    expect(response.metadata?.commandTiming?.persistenceMs).toBeGreaterThanOrEqual(0);
+    expect(response.metadata?.commandTiming?.totalServerMs).toBeGreaterThanOrEqual(0);
   });
 
   it("revalidates conflict commands against current state instead of rejecting on global version", async () => {
@@ -296,7 +318,7 @@ describe("gameplay slice optimistic concurrency", () => {
     state.root.version = 300;
     configureCanonicalPlayerState(state, "player:1", {
       population: 500,
-      balances: { cash: 1_000, population: 500 }
+      balances: { cash: 1_000 }
     });
     configureCanonicalPlayerState(state, "player:2", {
       population: 0,
@@ -317,7 +339,7 @@ describe("gameplay slice optimistic concurrency", () => {
     addAttacker(state, "player:3", "district:3", "district:2");
     configureCanonicalPlayerState(state, "player:3", {
       population: 500,
-      balances: { cash: 1_000, population: 500 }
+      balances: { cash: 1_000 }
     });
     state.districtsById["district:3"] = {
       ...state.districtsById["district:3"],
@@ -344,6 +366,18 @@ describe("gameplay slice optimistic concurrency", () => {
       playerId,
       totalOwnedInfluence(state, playerId)
     ]));
+    const populationBefore = Object.fromEntries(occupiers.map(({ playerId }) => [
+      playerId,
+      state.playersById[playerId]!.population
+    ]));
+    const influenceCostByPlayer = Object.fromEntries(occupiers.map(({ playerId }) => [
+      playerId,
+      resolveOccupyInfluenceCost(state, playerId, runtime.config.balance.conflict)
+    ]));
+    const populationCostByPlayer = Object.fromEntries(occupiers.map(({ playerId }) => [
+      playerId,
+      resolveOccupyPopulationCost(state, playerId, runtime.config.balance.conflict)
+    ]));
 
     const responses = await raceTogether(commands.map((command, index) => () =>
       server.gameplaySliceTransport.submit({
@@ -359,24 +393,21 @@ describe("gameplay slice optimistic concurrency", () => {
       .toEqual(["DISTRICT_CONFLICT_STATE_CHANGED"]);
     const acceptedIndex = responses.findIndex((response) => response.accepted);
     const acceptedPlayerId = commands[acceptedIndex]!.playerId;
-    const pendingOperations = Object.values(runtime.state.pendingOccupyOperationsById ?? {});
-    expect(pendingOperations).toHaveLength(1);
-    expect(pendingOperations[0]).toMatchObject({
-      playerId: acceptedPlayerId,
-      targetDistrictId: "district:2"
-    });
+    const occupyBalance = resolveOccupyBalance(runtime.config.balance.conflict);
+    const acceptedPopulationCost = populationCostByPlayer[acceptedPlayerId]!;
+    const acceptedPopulationRefund = Math.floor(acceptedPopulationCost * occupyBalance.populationRefundPct / 100);
+    expect(Object.values(runtime.state.pendingOccupyOperationsById ?? {})).toHaveLength(0);
+    expect(runtime.state.districtsById["district:2"].ownerPlayerId).toBe(acceptedPlayerId);
     for (const { playerId } of occupiers) {
       expect(totalOwnedInfluence(runtime.state, playerId)).toBe(
-        influenceBefore[playerId]! - (playerId === acceptedPlayerId ? pendingOperations[0]!.influenceCost : 0)
+        influenceBefore[playerId]! - (playerId === acceptedPlayerId ? influenceCostByPlayer[playerId]! : 0)
+      );
+      expect(runtime.state.playersById[playerId]!.population).toBe(
+        populationBefore[playerId]! - (playerId === acceptedPlayerId
+          ? acceptedPopulationCost - acceptedPopulationRefund
+          : 0)
       );
     }
-
-    while (runtime.state.root.tick < pendingOperations[0]!.resolveAtTick) {
-      runtime.state = runTick(runtime.state, { config: runtime.config }).nextState;
-    }
-
-    expect(runtime.state.districtsById["district:2"].ownerPlayerId).toBe(acceptedPlayerId);
-    expect(Object.values(runtime.state.pendingOccupyOperationsById ?? {})).toHaveLength(0);
     expect(checkGameStateInvariants(runtime.state)).toMatchObject({ passed: true, violations: [] });
     await expect(server.instanceManager.listCommandRecords(instanceId)).resolves.toHaveLength(2);
     await expect(server.instanceManager.listEventRecords(instanceId)).resolves.toHaveLength(1);
@@ -910,7 +941,7 @@ const findTransferHeistCommand = (
         targetDistrictId: "district:2",
         sourceDistrictId: "district:1",
         style: "balanced",
-        gangMembersSent: 10,
+        populationSent: 10,
         expectedConflictRevision: state.districtsById["district:2"].conflictRevision
       }
     });

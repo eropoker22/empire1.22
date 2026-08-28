@@ -275,6 +275,7 @@ describe("free session MVP flow", () => {
       "Loot",
       "Heat gained",
       "Police warning",
+      "Vyhodnocení",
       "Cooldown",
       "Další krok"
     ]);

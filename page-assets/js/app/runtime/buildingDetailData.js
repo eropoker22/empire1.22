@@ -48,7 +48,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   garaz: GARAGE_DETAIL_PROFILE,
   "rekrutacni centrum": Object.freeze({
     role: "Nábor",
-    info: "Rekrutační centrum není zdroj populace. Bere lidi z bytových bloků a dělá z nich použitelný gang. Posiluje nábor, kapacitu zázemí a bojovou hodnotu výbavy.",
+    info: "Rekrutační centrum posiluje nábor populace, kapacitu zázemí a bojovou hodnotu výbavy.",
     actions: Object.freeze([])
   }),
   klinika: Object.freeze({
@@ -99,7 +99,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   "poulicni dealeri": Object.freeze({
     role: "Distribuce",
     info: "Pouliční dealeři generují slabší dirty cash a prodávají látky z Drug Labu za špinavé peníze. Lab vyrobí produkt. Pouliční dealeři ho promění v peníze.",
-    actions: Object.freeze(["Spustit prodej"])
+    actions: Object.freeze(["Prodat zásobu"])
   }),
   vecerka: Object.freeze({
     role: "Pouliční provoz",
@@ -188,7 +188,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   lekarna: Object.freeze({
     role: "Chemická podpora",
-    info: "Lékárna má tři nezávislé linky pro Chemicals, Biomass a Stim Pack. Každý cyklus vyrábí jeden kus za clean cash a hotové položky čekají na vyzvednutí do SKLADU.",
+    info: "Lékárna vyrábí Chemicals, Biomass a Stim Pack okamžitě. Server v jednom kroku ověří cenu, odečte clean cash a uloží výstup do SKLADU.",
     actions: Object.freeze([])
   }),
   "drug lab": Object.freeze({
@@ -245,7 +245,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
     Object.freeze({ casinoBribedInspector: true, cleanCost: 15000, failureChancePct: 14, durationMs: 12 * 60 * 1000, cooldownMs: 105 * 60 * 1000, heatSuccess: -15, heatFailure: 12, influenceSuccess: 4, auditRiskReductionPct: 35, auditRiskFailurePct: 10, summary: "Podplacený inspektor je drahá ochrana s rizikem selhání." })
   ]),
   "poulicni dealeri": Object.freeze([
-    Object.freeze({ dealerLocalSale: true, cooldownMs: 0, summary: `Prodává jednu z ${STREET_DEALERS_CONFIG.sellableDrugs.length} povolených laboratorních látek; současně může běžet pouze jeden prodej.` })
+    Object.freeze({ dealerLocalSale: true, cooldownMs: 0, summary: `Okamžitě prodá jednu z ${STREET_DEALERS_CONFIG.sellableDrugs.length} povolených laboratorních látek; případný cooldown omezuje až další prodej.` })
   ]),
   vecerka: Object.freeze([
     Object.freeze({
@@ -295,7 +295,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   ]),
   "vip salonek": Object.freeze([]),
   letiste: Object.freeze([
-    Object.freeze({ airportExpressImport: true, cleanCost: 2000, heat: 6, durationMs: 90 * 1000, cooldownMs: 18 * 60 * 1000, customsRiskPct: 10, summary: "Objedná materiálovou zásilku. Přesah nad kapacitu SKLADU zůstane čekat na volné místo." }),
+    Object.freeze({ airportExpressImport: true, cleanCost: 2000, heat: 6, durationMs: 0, cooldownMs: 18 * 60 * 1000, customsRiskPct: 10, summary: "Okamžitě doručí materiálovou zásilku; bez volné kapacity server command odmítne bez odečtení ceny." }),
     Object.freeze({ airportBlackCharter: true, dirtyCost: 2500, heat: 9, durationMs: 8 * 60 * 1000, cooldownMs: 24 * 60 * 1000, offerDiscountPct: 6, purchaseCustomsRiskPct: 15, summary: "Otevře dočasnou Black Market nabídku s rizikem celního zátahu při nákupu." }),
     Object.freeze({ airportEvacuationCorridor: true, cleanCost: 1800, heat: 5, durationMs: 7 * 60 * 1000, cooldownMs: 26 * 60 * 1000, escapeChanceBonusPct: 18, lossReductionPct: 10, summary: "Zvedne šanci úniku, sníží ztráty při neúspěchu a zrychlí návratovou logistiku." })
   ]),
@@ -499,7 +499,7 @@ export const FITNESS_CLUB_SUPPORT_CONFIG = Object.freeze({
   combinedRecruitmentFitnessAttackCapPct: 24,
   combinedRecruitmentFitnessDefenseCapPct: 18,
   attackApplication: Object.freeze({
-    baseGangMemberAttack: 0.75,
+    basePopulationAttack: 0.75,
     "baseball-bat": 0.75,
     pistol: 0.35,
     grenade: 0.15,
@@ -507,7 +507,7 @@ export const FITNESS_CLUB_SUPPORT_CONFIG = Object.freeze({
     bazooka: 0.1
   }),
   defenseApplication: Object.freeze({
-    baseGangMemberDefense: 0.75,
+    basePopulationDefense: 0.75,
     vest: 0.4,
     barricades: 0.2,
     cameras: 0,

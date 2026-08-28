@@ -49,6 +49,32 @@ describe("durable admin user authentication", () => {
     expect(authentication.errors[0]?.code).toBe("ADMIN_SESSION_REVOKED");
   });
 
+  it("durably revokes an expired session when it is first validated", async () => {
+    const repositories = createInMemoryAdminDurableRepositories({ users: [user(await hashAdminPassword(PASSWORD))] });
+    const revokeSession = vi.spyOn(repositories.sessions, "revokeSession");
+    let currentTime = new Date("2026-07-16T10:00:00.000Z");
+    const service = createAdminSessionService({ repositories, environment: ENV, now: () => currentTime });
+    const login = await service.login({
+      username: "TestOwner",
+      password: PASSWORD,
+      fingerprint: "192.0.2.1",
+      correlationId: "request:expiry-login"
+    });
+    expect(login.accepted).toBe(true);
+    if (!login.accepted) return;
+
+    currentTime = new Date("2026-07-16T10:31:00.000Z");
+    await expect(service.authenticate(login.token, "request:expired")).resolves.toMatchObject({
+      accepted: false,
+      errors: [{ code: "ADMIN_SESSION_EXPIRED" }]
+    });
+    expect(revokeSession).toHaveBeenCalledWith(login.session.adminSessionId, currentTime.toISOString());
+    await expect(service.authenticate(login.token, "request:already-revoked")).resolves.toMatchObject({
+      accepted: false,
+      errors: [{ code: "ADMIN_SESSION_REVOKED" }]
+    });
+  });
+
   it("revokes an existing session when the stored admin role changes", async () => {
     const repositories = createInMemoryAdminDurableRepositories({ users: [user(await hashAdminPassword(PASSWORD))] });
     const service = createAdminSessionService({ repositories, environment: ENV });

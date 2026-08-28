@@ -62,6 +62,30 @@ describe("remote staging acceptance suite contract", () => {
     expect(getRemoteStagingAcceptanceSuite("lifecycle-stop").pauseResumeBeforeSpec).toBe(true);
   });
 
+  it("bounds district action parity browser lifetime by viewport batch", () => {
+    const suite = getRemoteStagingAcceptanceSuite("multiplayer-visible-actions");
+    expect(suite.workflowTimeoutMinutes).toBe(90);
+    expect(suite.playwrightRuns).toHaveLength(6);
+    expect(suite.playwrightRuns[0]).toMatchObject({
+      name: "multiplayer-visible-actions",
+      specs: ["tests/e2e/manual-hosted-district-actions-ui.spec.js"]
+    });
+    const parityRuns = suite.playwrightRuns.slice(1);
+    expect(parityRuns.map(({ environment }) => (
+      environment.EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS
+    ))).toEqual([
+      "district-action-01",
+      "district-action-02",
+      "district-action-03",
+      "district-action-04",
+      "district-action-05"
+    ]);
+    expect(parityRuns.every(({ specs }) => (
+      specs.length === 1
+      && specs[0] === "tests/e2e/live-demo-district-action-overlay-parity.spec.js"
+    ))).toBe(true);
+  });
+
   it("keeps the manual admin starting state complete", () => {
     expect(REMOTE_MANUAL_STARTING_PLAYER_STATE).toMatchObject({
       cleanCash: expect.any(Number),

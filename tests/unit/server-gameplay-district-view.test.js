@@ -137,4 +137,58 @@ describe("server gameplay district presentation", () => {
     expect(view?.ownerLabel).toBe("Cizí hráč");
     expect(view?.ownerMeta).toBe("");
   });
+
+  it("preserves authoritative defense and trap actions from the district panel", () => {
+    const fixture = createFixture();
+    fixture.renderState.districtPanel.placeDefense = {
+      actionLabel: "Vložit obranu",
+      disabled: false,
+      disabledReason: ""
+    };
+    fixture.renderState.districtPanel.trap = {
+      actionLabel: "Nastražit skrytou past",
+      activeLabel: "",
+      disabled: false,
+      disabledReason: ""
+    };
+
+    const view = createServerGameplayDistrictView(fixture.readModel, fixture.renderState);
+
+    expect(view?.actions).toEqual([
+      expect.objectContaining({ id: "defense", enabled: true, label: "Obrana" }),
+      expect.objectContaining({
+        id: "trap",
+        enabled: true,
+        label: "Past",
+        stacked: true,
+        title: "Nastraž 1 past do svého districtu."
+      })
+    ]);
+    expect(view?.actionHidden).toBe(false);
+  });
+
+  it("keeps enabled target actions single-line while retaining authoritative routing metadata", () => {
+    const fixture = createFixture();
+    fixture.readModel.district.isOwnedByPlayer = false;
+    fixture.readModel.district.targetActions = {
+      heistTargets: [{
+        districtId: "district:21",
+        enabled: true,
+        name: "District 21"
+      }]
+    };
+
+    const view = createServerGameplayDistrictView(fixture.readModel, fixture.renderState);
+
+    expect(view?.actions).toEqual([
+      expect.objectContaining({
+        id: "heist",
+        key: "heist:district:21",
+        enabled: true,
+        stacked: false,
+        subtitle: "",
+        targetDistrictId: "district:21"
+      })
+    ]);
+  });
 });

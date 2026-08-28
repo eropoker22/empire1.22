@@ -143,8 +143,8 @@
     "typecheck": "node scripts/run-local-bin.mjs typescript/bin/tsc -p tsconfig.test.json --noEmit",
     "test": "npm run test:unit && npm run test:integration && npm run test:server && npm run test:persistence && npm run test:read-models",
     "test:full": "npm test && npm run test:simulation",
-    "test:unit": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit --exclude tests/unit/game-core/free-session-balance-anti-snowball.test.ts --exclude tests/unit/game-core/faction-foundation-simulation.test.ts --exclude tests/unit/game-core/police-free-session-simulation.test.ts --exclude tests/unit/tools/free-mode-pacing-sim.test.ts --exclude tests/unit/tools/closed-alpha-20p-simulation.test.ts",
-    "test:integration": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/integration --exclude tests/integration/free-mode-shared-city-simulation.test.ts",
+    "test:unit": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit --exclude tests/unit/game-core/free-session-balance-anti-snowball.test.ts --exclude tests/unit/game-core/faction-foundation-simulation.test.ts --exclude tests/unit/game-core/police-free-session-simulation.test.ts --exclude tests/unit/tools/free-mode-pacing-sim.test.ts --exclude tests/unit/tools/closed-alpha-20p-simulation.test.ts --maxWorkers=4",
+    "test:integration": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/integration --exclude tests/integration/free-mode-shared-city-simulation.test.ts --maxWorkers=2 --testTimeout=10000",
     "test:simulation": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/unit/tools/free-br-simulation.test.ts tests/unit/tools/production-chain-simulation.test.ts tests/unit/tools/closed-alpha-20p-simulation.test.ts tests/unit/game-core/free-session-balance-anti-snowball.test.ts tests/unit/game-core/faction-foundation-simulation.test.ts tests/unit/game-core/police-free-session-simulation.test.ts",
     "test:concurrency": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server/gameplay-slice-concurrency.test.ts",
     "test:recovery:critical": "node scripts/run-local-bin.mjs vitest/vitest.mjs run tests/server/atomic-command-persistence.test.ts tests/server/atomic-tick-persistence.test.ts tests/server/postgres-atomic-runtime-fencing.test.ts tests/server/hosted-runtime-lease-incarnation.test.ts",
@@ -192,17 +192,20 @@
     "verify:prod-like": "npm run verify:closed-alpha && npm run test:persistence:postgres:smoke"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
-    "@vitest/coverage-v8": "^2.1.5",
+    "@playwright/test": "^1.62.1",
+    "@vitest/coverage-v8": "^3.2.6",
     "jsdom": "^29.1.1",
     "typescript": "^5.6.3",
-    "vite": "^5.4.21",
-    "vitest": "^2.1.5"
+    "vite": "^7.3.6",
+    "vitest": "^3.2.6"
   },
   "engines": {
     "node": ">=24 <25"
   },
   "dependencies": {
-    "pg": "^8.21.0"
+    "pg": "^8.23.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }

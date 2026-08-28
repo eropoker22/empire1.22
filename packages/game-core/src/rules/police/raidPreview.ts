@@ -25,9 +25,12 @@ export const createRaidPreviewConsequences = (
   });
   const consequenceMultiplier = 1 - mitigation.reductionPct / 100;
   const seizedDirtyCash = mitigateLoss(baseSeizedDirtyCash, consequenceMultiplier);
+  // Protect historical aliases while an old snapshot is being hydrated. They
+  // are removed by normalizePlayerPopulationState and are never active stock.
   const protectedResources = new Set([
     ...(config.protectedResources ?? []),
-    "dirty-cash", "cash", "clean-cash", "cleanCash", "population", "gang-members"
+    "dirty-cash", "cash", "clean-cash", "cleanCash", "population",
+    "gang-members", "gangMembers", "gang_members"
   ]);
   let remainingResourceCap = resolveResourceSeizureCap(severity, config.maxSeizedPerRaid);
   const baseSeizedResources: Record<string, number> = {};

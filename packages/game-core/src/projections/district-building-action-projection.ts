@@ -14,6 +14,7 @@ import {
 } from "./district-building-action-view-helpers";
 import { getAirportMetadata } from "../handlers/airportBuildingActions";
 import { validateApartmentBlockAction } from "../handlers/apartmentBlockBuildingActions";
+import { resolveBuildingActionStorageError } from "../handlers/buildingActionStorage";
 import { getCentralBankMetadata } from "../handlers/centralBankBuildingActions";
 import { getCityHallMetadata } from "../handlers/cityHallBuildingActions";
 import { validateConvenienceStoreAction } from "../handlers/convenienceStoreBuildingActions";
@@ -23,12 +24,7 @@ import { resolveRecyclingCenterSalvageStats } from "../handlers/recyclingCenterB
 import { getStripClubMetadata } from "../handlers/stripClubBuildingActions";
 import { getStockExchangeMetadata } from "../handlers/stockExchangeBuildingActions";
 import { resolveOpenChannelStats } from "../handlers/smugglingTunnelBuildingActions";
-import {
-  getOwnedWarehouseCount,
-  resolveWarehouseNetworkMultipliers,
-  resolveWarehouseStorageCapacity,
-  resolveWarehouseUpgradeCapacityPreview
-} from "../handlers/warehouseBuilding";
+import { getOwnedWarehouseCount, resolveWarehouseNetworkMultipliers, resolveWarehouseStorageCapacity, resolveWarehouseUpgradeCapacityPreview } from "../handlers/warehouseBuilding";
 import {
   getOwnedClinicCount,
   resolveClinicNetworkMultipliers,
@@ -58,9 +54,7 @@ import {
 import type { AirportBalanceConfig, CarDealerBalanceConfig, CentralBankBalanceConfig, CityHallBalanceConfig, CourthouseBalanceConfig, FitnessClubBalanceConfig, GarageBalanceConfig, LobbyClubBalanceConfig, PowerStationBalanceConfig, RecruitmentCenterBalanceConfig, RecyclingCenterBalanceConfig, RestaurantBalanceConfig, SchoolBalanceConfig, ShoppingMallBalanceConfig, SmugglingTunnelBalanceConfig, StockExchangeBalanceConfig, StreetDealersBalanceConfig, StripClubBalanceConfig, VipLoungeBalanceConfig } from "../contracts/game-mode-config";
 import type { ConvenienceStoreBalanceConfig } from "../contracts/game-mode-config";
 import { resolveDayNightBuildingRule } from "../rules/day-night/dayNightActionRules";
-import {
-  resolveDayNightPassiveBuildingRule
-} from "../rules/day-night/dayNight";
+import { resolveDayNightPassiveBuildingRule } from "../rules/day-night/dayNight";
 import {
   resolveFixedBuildingIncomeConfig,
   resolveFixedBuildingIncomeConfigBeforeDayNight
@@ -431,6 +425,9 @@ const createBuildingActionViews = (input: {
             buildingTypeId: input.building.buildingTypeId
           })
         : createBaseBuildingActionPreview(action);
+      const storageDisabledReason = input.config
+        ? resolveBuildingActionStorageError({ state: input.state, playerId: input.playerId, outputGain: effectivePreview.effectiveOutputGain, context: { config: input.config } })?.message ?? null
+        : null;
       const missingCosts = Object.entries(effectivePreview.effectiveInputCost).filter(
         ([resourceKey, requiredAmount]) => Math.max(0, Number(input.playerBalances[resourceKey] || 0)) < requiredAmount
       );
@@ -582,6 +579,8 @@ const createBuildingActionViews = (input: {
                                 ? schoolDisabledReason
                                 : streetDealerDisabledReason
                                   ? streetDealerDisabledReason
+                                  : storageDisabledReason
+                                    ? storageDisabledReason
                               : cooldownRemainingTicks > 0
                                 ? `Akce čeká ${formatTickLabel(cooldownRemainingTicks)}.`
                                 : missingCosts.length > 0

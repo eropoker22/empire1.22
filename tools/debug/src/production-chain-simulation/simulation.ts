@@ -1,26 +1,25 @@
 import { resolveModeConfig } from "@empire/game-config";
-import { applyCommand, runTick } from "@empire/game-core";
+import { applyCommand } from "@empire/game-core";
 import {
   BUILDING_IDS,
   PLAYER_RESOURCE_ID,
-  createCancelCommand,
-  createCollectCommand,
   createCraftCommand,
   createProductionChainState,
-  getBuildingOutput,
   getPlayerBalance
 } from "./simulation-state";
+
 const context = { config: resolveModeConfig("free") };
 
 export interface ProductionChainSimulationStep {
   buildingTypeId: keyof typeof BUILDING_IDS;
   recipeId: string;
   quantity: number;
-  startedAtTick: number;
-  completedAtTick: number;
+  submittedAtTick: number;
+  resolvedAtTick: number;
   ticksElapsed: number;
-  maxCompletedInSingleTick: number;
-  collectedAmount: number;
+  outputBefore: number;
+  outputAfter: number;
+  producedAmount: number;
 }
 
 export interface ProductionChainSimulationReport {
@@ -28,22 +27,24 @@ export interface ProductionChainSimulationReport {
   passed: boolean;
   steps: ProductionChainSimulationStep[];
   finalBalances: Record<string, number>;
-  reservationAudit: {
-    factoryStartAccepted: boolean;
+  atomicityAudit: {
+    factoryCraftAccepted: boolean;
     conflictingArmoryError: string | null;
-    metalPartsAfterFactoryReservation: number;
-    metalPartsAfterWaitingRefund: number;
-    cleanCashAfterWaitingRefund: number;
-    duplicateCancelError: string | null;
+    metalPartsAfterFactoryCraft: number;
+    cleanCashAfterFactoryCraft: number;
+    techCoreAfterFactoryCraft: number;
+    rejectedArmoryPreservedBalances: boolean;
+    legacyProductionJobsRemaining: number;
   };
   invariants: {
     allCommandsAccepted: boolean;
-    onePieceCompletion: boolean;
-    finalPistolCollected: boolean;
+    allResultsImmediate: boolean;
+    exactOutputCredits: boolean;
+    finalPistolProduced: boolean;
     noNegativeBalances: boolean;
-    reservationConflictRejected: boolean;
-    waitingRefundExact: boolean;
-    duplicateRefundBlocked: boolean;
+    conflictingCraftRejected: boolean;
+    rejectedCraftAtomic: boolean;
+    noLegacyProductionJobs: boolean;
   };
 }
 
@@ -58,38 +59,26 @@ export const runProductionChainSimulation = (): ProductionChainSimulationReport 
     quantity: number
   ): void => {
     const buildingId = BUILDING_IDS[buildingTypeId];
-    const outputBefore = getBuildingOutput(state, buildingId, recipeId);
-    const startedAtTick = state.root.tick;
-    const start = applyCommand(state, createCraftCommand(++commandSequence, buildingId, recipeId, quantity), context);
-    requireNoErrors(start.errors, `start ${buildingTypeId}/${recipeId}`);
-    state = start.nextState;
-
-    let maxCompletedInSingleTick = 0;
-    let ticksElapsed = 0;
-    while (getBuildingOutput(state, buildingId, recipeId) < outputBefore + quantity) {
-      const beforeTick = getBuildingOutput(state, buildingId, recipeId);
-      state = runTick(state, context).nextState;
-      const afterTick = getBuildingOutput(state, buildingId, recipeId);
-      maxCompletedInSingleTick = Math.max(maxCompletedInSingleTick, afterTick - beforeTick);
-      ticksElapsed += 1;
-      if (ticksElapsed > 10_000) {
-        throw new Error(`Production chain timed out at ${buildingTypeId}/${recipeId}.`);
-      }
-    }
-
-    const playerBeforeCollect = getPlayerBalance(state, recipeId);
-    const collect = applyCommand(state, createCollectCommand(++commandSequence, buildingId, recipeId), context);
-    requireNoErrors(collect.errors, `collect ${buildingTypeId}/${recipeId}`);
-    state = collect.nextState;
+    const outputBefore = getPlayerBalance(state, recipeId);
+    const submittedAtTick = state.root.tick;
+    const result = applyCommand(
+      state,
+      createCraftCommand(++commandSequence, buildingId, recipeId, quantity),
+      context
+    );
+    requireNoErrors(result.errors, `produce ${buildingTypeId}/${recipeId}`);
+    state = result.nextState;
+    const outputAfter = getPlayerBalance(state, recipeId);
     steps.push({
       buildingTypeId,
       recipeId,
       quantity,
-      startedAtTick,
-      completedAtTick: state.root.tick,
-      ticksElapsed,
-      maxCompletedInSingleTick,
-      collectedAmount: getPlayerBalance(state, recipeId) - playerBeforeCollect
+      submittedAtTick,
+      resolvedAtTick: state.root.tick,
+      ticksElapsed: state.root.tick - submittedAtTick,
+      outputBefore,
+      outputAfter,
+      producedAmount: outputAfter - outputBefore
     });
   };
 
@@ -100,16 +89,16 @@ export const runProductionChainSimulation = (): ProductionChainSimulationReport 
   runRecipe("armory", "pistol", 1);
 
   const finalBalances = { ...state.resourceStatesById[PLAYER_RESOURCE_ID]!.balances };
-  const reservationAudit = runReservationAudit();
+  const atomicityAudit = runAtomicityAudit();
   const invariants = {
-    allCommandsAccepted: steps.length === 5 && steps.every((step) => step.collectedAmount === step.quantity),
-    onePieceCompletion: steps.every((step) => step.maxCompletedInSingleTick === 1),
-    finalPistolCollected: finalBalances.pistol === 1,
+    allCommandsAccepted: steps.length === 5,
+    allResultsImmediate: steps.every((step) => step.ticksElapsed === 0),
+    exactOutputCredits: steps.every((step) => step.producedAmount === step.quantity),
+    finalPistolProduced: finalBalances.pistol === 1,
     noNegativeBalances: Object.values(finalBalances).every((amount) => amount >= 0),
-    reservationConflictRejected: reservationAudit.conflictingArmoryError === "armory_missing_inputs",
-    waitingRefundExact: reservationAudit.metalPartsAfterWaitingRefund === 5
-      && reservationAudit.cleanCashAfterWaitingRefund === 900,
-    duplicateRefundBlocked: reservationAudit.duplicateCancelError === "factory_no_waiting_items"
+    conflictingCraftRejected: atomicityAudit.conflictingArmoryError === "armory_missing_inputs",
+    rejectedCraftAtomic: atomicityAudit.rejectedArmoryPreservedBalances,
+    noLegacyProductionJobs: atomicityAudit.legacyProductionJobsRemaining === 0
   };
 
   return {
@@ -117,28 +106,38 @@ export const runProductionChainSimulation = (): ProductionChainSimulationReport 
     passed: Object.values(invariants).every(Boolean),
     steps,
     finalBalances,
-    reservationAudit,
+    atomicityAudit,
     invariants
   };
 };
 
-const runReservationAudit = (): ProductionChainSimulationReport["reservationAudit"] => {
+const runAtomicityAudit = (): ProductionChainSimulationReport["atomicityAudit"] => {
   let state = createProductionChainState({ cash: 1_800, "metal-parts": 9, "tech-core": 1 });
-  const factoryStart = applyCommand(state, createCraftCommand(100, BUILDING_IDS.factory, "tech-core", 2), context);
-  state = factoryStart.nextState;
-  const metalPartsAfterFactoryReservation = getPlayerBalance(state, "metal-parts");
-  const armoryStart = applyCommand(state, createCraftCommand(101, BUILDING_IDS.armory, "pistol", 1), context);
-  const cancel = createCancelCommand(102, BUILDING_IDS.factory, "tech-core");
-  const canceled = applyCommand(state, cancel, context);
-  const duplicate = applyCommand(canceled.nextState, cancel, context);
+  const factoryCraft = applyCommand(
+    state,
+    createCraftCommand(100, BUILDING_IDS.factory, "tech-core", 2),
+    context
+  );
+  state = factoryCraft.nextState;
+  const balancesBeforeRejectedArmory = { ...state.resourceStatesById[PLAYER_RESOURCE_ID]!.balances };
+  const armoryCraft = applyCommand(
+    state,
+    createCraftCommand(101, BUILDING_IDS.armory, "pistol", 1),
+    context
+  );
+  const balancesAfterRejectedArmory = armoryCraft.nextState.resourceStatesById[PLAYER_RESOURCE_ID]!.balances;
+  const legacyProductionJobsRemaining = Object.values(armoryCraft.nextState.buildingsById)
+    .reduce((total, building) => total + Object.keys(building.productionLines ?? {}).length, 0);
 
   return {
-    factoryStartAccepted: factoryStart.errors.length === 0,
-    conflictingArmoryError: armoryStart.errors[0]?.code ?? null,
-    metalPartsAfterFactoryReservation,
-    metalPartsAfterWaitingRefund: getPlayerBalance(canceled.nextState, "metal-parts"),
-    cleanCashAfterWaitingRefund: getPlayerBalance(canceled.nextState, "cash"),
-    duplicateCancelError: duplicate.errors[0]?.code ?? null
+    factoryCraftAccepted: factoryCraft.errors.length === 0,
+    conflictingArmoryError: armoryCraft.errors[0]?.code ?? null,
+    metalPartsAfterFactoryCraft: getPlayerBalance(state, "metal-parts"),
+    cleanCashAfterFactoryCraft: getPlayerBalance(state, "cash"),
+    techCoreAfterFactoryCraft: getPlayerBalance(state, "tech-core"),
+    rejectedArmoryPreservedBalances:
+      JSON.stringify(balancesAfterRejectedArmory) === JSON.stringify(balancesBeforeRejectedArmory),
+    legacyProductionJobsRemaining
   };
 };
 

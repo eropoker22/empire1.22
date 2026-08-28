@@ -1,6 +1,7 @@
 export type PharmacyProductionStatus = "ready" | "processing" | "waiting" | "full" | "completed";
 
 export interface PharmacyProductionLineView {
+  executionMode?: "instant" | "legacy-timed";
   recipeId: "chemicals" | "biomass" | "stim-pack";
   resourceKey: "chemicals" | "biomass" | "stim-pack";
   label: string;

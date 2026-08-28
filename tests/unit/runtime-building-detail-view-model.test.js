@@ -2303,7 +2303,7 @@ describe("building detail view-model builder", () => {
     expect(rows[0].disabled).toBe(false);
     expect(rows[0].handlerId).toBe("server-run-building-action");
     expect(rows[0].cooldownMs).toBe(0);
-    expect(rows[0].rewardSummary).toBe("Prodává jednu z 3 povolených laboratorních látek; současně může běžet pouze jeden prodej.");
+    expect(rows[0].rewardSummary).toBe("Okamžitě prodá jednu z 3 povolených laboratorních látek; případný cooldown omezuje až další prodej.");
   });
 
   it("removes production and craft special action rows from building detail cards", () => {

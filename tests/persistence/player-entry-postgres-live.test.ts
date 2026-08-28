@@ -145,7 +145,7 @@ describe("player entry postgres live", () => {
         factionId: null,
         avatarId: null
       });
-      const setupRequest = { membershipId: membershipA.membershipId, factionId: "mafian", avatarId: "mafian:1", gangColor: "#22d3ee" };
+      const setupRequest = { membershipId: membershipA.membershipId, factionId: "mafian", avatarId: "mafian:1", gangColor: "#06b6d4" };
       const setupKey = key("setup-a");
       const finalizing = await fixture.entry.finalizeSetup(account.accountId, setupRequest, setupKey);
       expect(await fixture.entry.finalizeSetup(account.accountId, setupRequest, setupKey)).toMatchObject({ membershipId: finalizing.membershipId });
@@ -163,7 +163,7 @@ describe("player entry postgres live", () => {
           playerId: membershipA.playerId,
           displayName: `p_identity_${fixture.suffix.slice(0, 8)}`,
           gangName: "Gang identity",
-          color: "#22d3ee"
+          color: "#06b6d4"
         }
       });
       const initialMembership = await fixture.entry.getMembership(membershipA.membershipId);
@@ -200,8 +200,37 @@ describe("player entry postgres live", () => {
       expect(Object.keys(fixture.server.instanceManager.getInstanceById(serverA.serverInstanceId)!.state.playersById)).toHaveLength(1);
       expect(await fixture.eventCount(membershipA.membershipId, "player-activated")).toBe(1);
 
-      await fixture.entry.syncResolvedMemberships(serverA.serverInstanceId, [],
-        result(serverA.serverInstanceId, membershipA.playerId), new Date().toISOString());
+      const resolvedResult = result(serverA.serverInstanceId, membershipA.playerId);
+      const resolvedRuntime = fixture.server.instanceManager.getInstanceById(serverA.serverInstanceId)!;
+      resolvedRuntime.state.matchResult = resolvedResult;
+      resolvedRuntime.state.root = {
+        ...resolvedRuntime.state.root,
+        phase: "resolved",
+        matchResultId: resolvedResult.id,
+        version: resolvedRuntime.state.root.version + 1
+      };
+      resolvedRuntime.state.serverInstance.status = "ended";
+      resolvedRuntime.state.finalLockdownState = {
+        id: `final-lockdown:${serverA.serverInstanceId}`,
+        serverInstanceId: serverA.serverInstanceId,
+        status: "resolved",
+        startedAtTick: resolvedRuntime.state.root.tick,
+        activeElapsedTicks: 0,
+        activeDurationTicks: 0,
+        remainingActiveTicks: 0,
+        lastUpdatedTick: resolvedRuntime.state.root.tick,
+        pausedByQuietHours: false,
+        resolvedAtTick: resolvedRuntime.state.root.tick,
+        finalTopPlayerIds: [membershipA.playerId],
+        version: 1
+      };
+      await fixture.server.instanceManager.saveInstanceSnapshot(serverA.serverInstanceId);
+      await fixture.entry.syncResolvedMemberships(
+        serverA.serverInstanceId,
+        [],
+        resolvedResult,
+        new Date().toISOString()
+      );
       expect(await fixture.entry.getMembership(membershipA.membershipId)).toMatchObject({
         finalRank: 1,
         finalScore: 12_500

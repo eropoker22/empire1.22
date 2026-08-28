@@ -409,7 +409,11 @@ function renderStepBody(bodyElement, ownerDocument, step = {}, fallbackText = ""
 }
 
 function scheduleFocus(mount, stepId) {
-  if (!mount || panelState.lastFocusedStepId === stepId) {
+  if (!mount) {
+    return;
+  }
+  const activeElement = mount.ownerDocument?.activeElement || null;
+  if (panelState.lastFocusedStepId === stepId && mount.contains?.(activeElement)) {
     return;
   }
   panelState.lastFocusedStepId = stepId;

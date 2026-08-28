@@ -10,7 +10,6 @@ const environment = {
   EMPIRE_RELEASE_ENVIRONMENT: "staging",
   EMPIRE_ALLOWED_ORIGINS: "https://empire.test",
   EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true",
-  EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-05T12:00:00.000Z",
   EMPIRE_ACCOUNT_TERMS_VERSION: "closed-alpha-internal-v1"
 };
 const ready = { persistenceReady: true, authSecurityReady: true };
@@ -21,6 +20,7 @@ describe("account registration policy", () => {
     expect(resolveAccountRegistrationPolicy(environment, ready, now)).toEqual({
       registrationEnabled: true,
       mode: "open",
+      expiresAt: null,
       passwordMinimumLength: 12,
       minimumAgeYears: 16,
       termsAcceptanceRequired: true,
@@ -43,18 +43,27 @@ describe("account registration policy", () => {
       ready,
       now
     )).toMatchObject({ registrationEnabled: false, termsVersion: null });
+  });
+
+  it("keeps bounded registration explicit and isolated from permanent-open mode", () => {
     expect(resolveAccountRegistrationPolicy({
       ...environment,
-      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-05T09:59:59.000Z"
-    }, ready, now).registrationEnabled).toBe(false);
-    expect(resolveAccountRegistrationPolicy({
-      ...environment,
-      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-07T10:00:00.000Z"
-    }, ready, now).registrationEnabled).toBe(false);
-    expect(resolveAccountRegistrationPolicy({
-      ...environment,
-      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "Wed, 05 Aug 2026 12:00:00 GMT"
-    }, ready, now).registrationEnabled).toBe(false);
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: "2026-08-05T12:00:00.000Z"
+    }, ready, now)).toMatchObject({
+      registrationEnabled: true,
+      mode: "open",
+      expiresAt: "2026-08-05T12:00:00.000Z"
+    });
+    for (const expiresAt of [
+      "2026-08-05T09:59:59.000Z",
+      "2026-08-07T10:00:00.000Z",
+      "Wed, 05 Aug 2026 12:00:00 GMT"
+    ]) {
+      expect(resolveAccountRegistrationPolicy({
+        ...environment,
+        EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: expiresAt
+      }, ready, now)).toMatchObject({ registrationEnabled: false, mode: "closed", expiresAt: null });
+    }
   });
 
   it("serves only the public registration fields", async () => {
@@ -65,6 +74,7 @@ describe("account registration policy", () => {
     expect(payload.data).toEqual({
       registrationEnabled: true,
       mode: "open",
+      expiresAt: null,
       passwordMinimumLength: 12,
       minimumAgeYears: 16,
       termsAcceptanceRequired: true,
@@ -100,6 +110,17 @@ describe("account registration policy", () => {
     expect(repository.registerAccount).not.toHaveBeenCalled();
   });
 
+  it("rejects account creation server-side when the owner kill-switch is closed", async () => {
+    const repository = createRepository();
+    const response = await createHandler(repository, {
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false"
+    })(registerRequest());
+
+    expect(response?.statusCode).toBe(403);
+    expect(JSON.parse(response?.body ?? "null").errors[0]?.code).toBe("ACCOUNT_REGISTRATION_CLOSED");
+    expect(repository.registerAccount).not.toHaveBeenCalled();
+  });
+
   it("rejects legacy invite fields instead of silently trusting them", async () => {
     const repository = createRepository();
     const response = await createHandler(repository)(registerRequest({ inviteCode: "legacy" }));
@@ -110,10 +131,13 @@ describe("account registration policy", () => {
   });
 });
 
-const createHandler = (repository = createRepository()) => createPlayerEntryNetlifyBoundary({
+const createHandler = (
+  repository = createRepository(),
+  environmentOverrides: Record<string, string | undefined> = {}
+) => createPlayerEntryNetlifyBoundary({
   environment: {
     ...environment,
-    EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: new Date(Date.now() + 60 * 60 * 1_000).toISOString()
+    ...environmentOverrides
   },
   repository,
   authThrottle: { consume: async () => ({ allowed: true, retryAfterSeconds: 0, reason: null }) } satisfies AuthThrottleService,

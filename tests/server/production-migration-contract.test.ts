@@ -36,6 +36,19 @@ describe("production migration contract", () => {
     expect(migration).not.toContain("AND effective_first_elimination_tick IS NULL)\n      OR");
   });
 
+  it("allows new flexible servers to persist canonical Očista timing without rejecting legacy null pairs", async () => {
+    const migration = await readFile(new URL(
+      "../../apps/server/src/runtime/persistence/postgres/migrations/026_control_server_elimination_timing.sql",
+      import.meta.url
+    ), "utf8");
+
+    expect(migration).toContain("server_template = 'control'");
+    expect(migration).toContain("canonical_first_elimination_tick IS NULL");
+    expect(migration).toContain("canonical_tick_rate_ms IS NULL");
+    expect(migration).toContain("canonical_first_elimination_tick IS NOT NULL");
+    expect(migration).toContain("canonical_tick_rate_ms IS NOT NULL");
+  });
+
   it("accepts only the complete exact migration history", async () => {
     expect(await isProductionSchemaCurrent(database([...PRODUCTION_MIGRATION_CONTRACT]))).toBe(true);
     expect(await isProductionSchemaCurrent(database(PRODUCTION_MIGRATION_CONTRACT.slice(0, -1)))).toBe(false);

@@ -2,14 +2,11 @@ import type { RunBuildingActionCommand } from "@empire/shared-types";
 import type { BuildingActionBalanceConfig, SmugglingTunnelBalanceConfig, StreetDealersBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
-import {
-  applyDayNightActionHeat,
-  resolveDayNightActionRule
-} from "../rules/day-night/dayNightActionRules";
+import { resolveDayNightActionRule } from "../rules/day-night/dayNightActionRules";
 import { composeEntityId } from "../utils";
-import { formatTickDuration } from "../utils/time";
 import { resolveDealerSupplyStats, resolveOpenChannelStats } from "./smugglingTunnelBuildingActions";
 import {
+  minutesToTicks,
   resolveRequestedSlotId,
   resolveStreetRiskPct,
   resolveStreetDealerSlotDrug,
@@ -17,6 +14,7 @@ import {
 } from "./streetDealersActionHelpers";
 import { getStreetDealersPlayerMetadata, withStreetDealersPlayerMetadata } from "./streetDealersMetadata";
 import { getOwnedStreetDealerCount, resolveStreetDealerNetworkMultipliers, resolveStreetDealerSlotCount } from "./streetDealersNetwork";
+import { resolveSaleCompletion } from "./streetDealersSaleOutcomes";
 import type { StreetDealerSaleSlot, StreetDealersActionResolution, StreetDealersPlayerMetadata } from "./streetDealersTypes";
 export const resolveStreetDealersAction = (input: {
   state: CoreGameState;
@@ -59,14 +57,7 @@ export const resolveStreetDealersAction = (input: {
   );
   const baseHeatGain = Math.ceil(amount * drug.baseHeatPerUnit * saleHeatMultiplier);
   const rewardDirtyCash = baseRewardDirtyCash;
-  const heatGain = applyDayNightActionHeat(
-    baseHeatGain,
-    input.state,
-    input.context,
-    input.action.actionId,
-    input.building.buildingTypeId
-  );
-  const heatPreview = Math.ceil(heatGain * (1 + openChannel.dealerSaleHeatBonusPct / 100));
+  const heatPreview = Math.ceil(baseHeatGain * (1 + openChannel.dealerSaleHeatBonusPct / 100));
   const streetRiskPct = resolveStreetRiskPct(amount, drug, input.config, dealerSupply.streetRiskReductionPct);
   const phaseRule = resolveDayNightActionRule(
     input.state,
@@ -82,7 +73,7 @@ export const resolveStreetDealersAction = (input: {
     streetRiskPct + openChannel.streetIncidentFlatRiskPct + phaseRiskPct
   );
   const metadata = getStreetDealersPlayerMetadata(input.player);
-  const nextSlot: StreetDealerSaleSlot = {
+  const saleSlot: StreetDealerSaleSlot = {
     slotId,
     saleId: composeEntityId(
       "street-sale",
@@ -92,35 +83,61 @@ export const resolveStreetDealersAction = (input: {
     itemLabel: drug.label,
     amount,
     startedAtTick: input.state.root.tick,
-    completesAtTick: input.state.root.tick + durationTicks,
+    completesAtTick: input.state.root.tick,
     rewardDirtyCash,
-    heatGain,
+    heatGain: baseHeatGain,
     streetRiskPct: effectiveStreetRiskPct,
     originDistrictId: input.command.payload.districtId,
     originBuildingId: input.command.payload.buildingId
   };
+  const completion = resolveSaleCompletion({
+    state: input.state,
+    playerId: input.player.id,
+    slot: saleSlot,
+    config: input.config,
+    smugglingTunnelConfig: input.smugglingTunnelConfig,
+    tickRateMs: input.tickRateMs
+  });
+  const incidentCooldownTicks = minutesToTicks(
+    Number(completion.incident?.extraCooldownMinutes || 0),
+    input.tickRateMs
+  );
+  const cooldownUntilTick = input.state.root.tick + durationTicks
+    + (completion.incident?.extraCooldownMinutes ? incidentCooldownTicks : 0);
+  const nextSlot: StreetDealerSaleSlot = { slotId, cooldownUntilTick };
+  const result = {
+    type: "sale_completed",
+    slotId,
+    itemId: drug.itemId,
+    itemLabel: drug.label,
+    amount,
+    rewardDirtyCash: completion.rewardDirtyCash,
+    baseRewardDirtyCash,
+    heatGain: completion.heatGain,
+    streetRiskPct: effectiveStreetRiskPct,
+    incident: completion.incident,
+    cooldownUntilTick,
+    instant: true
+  };
   const nextMetadata: StreetDealersPlayerMetadata = {
     slots: upsertSlot(metadata.slots, nextSlot),
-    saleHistory: metadata.saleHistory
+    saleHistory: [...metadata.saleHistory, { tick: input.state.root.tick, ...result }].slice(-20)
   };
 
   return {
     balances: {
       ...input.balances,
-      [drug.itemId]: Math.max(0, Number(input.balances[drug.itemId] || 0) - amount)
+      [drug.itemId]: Math.max(0, Number(input.balances[drug.itemId] || 0) - amount),
+      "dirty-cash": Math.max(0, Number(input.balances["dirty-cash"] || 0) + completion.rewardDirtyCash)
     },
     playerMetadata: withStreetDealersPlayerMetadata(input.player, nextMetadata),
-    heatGain: 0,
+    heatGain: completion.heatGain,
     influenceChange: 0,
     inputCost: { [drug.itemId]: amount },
-    outputGain: {},
-    reportText: `Pouliční dealeři prodávají ${amount}x ${drug.label}. Hotovo za ${formatTickDuration(durationTicks, input.tickRateMs)}, pouliční riziko ${effectiveStreetRiskPct} %.`,
+    outputGain: { "dirty-cash": completion.rewardDirtyCash },
+    reportText: `Pouliční dealeři okamžitě prodali ${amount}x ${drug.label} za ${completion.rewardDirtyCash} dirty cash; pouliční riziko ${effectiveStreetRiskPct} %.`,
     streetDealerResult: {
-      type: "sale_started",
-      slotId,
-      itemId: drug.itemId,
-      itemLabel: drug.label,
-      amount,
+      ...result,
       ownedStreetDealers: ownedCount,
       availableSlots: slotCount,
       multipliers: network,
@@ -130,10 +147,9 @@ export const resolveStreetDealersAction = (input: {
         saleSpeedMultiplier,
         saleHeatMultiplier
       },
-      rewardPreviewDirtyCash: rewardDirtyCash,
-      heatPreview,
-      durationTicks,
-      completesAtTick: nextSlot.completesAtTick,
+      rewardPreviewDirtyCash: completion.rewardDirtyCash,
+      heatPreview: completion.heatGain,
+      cooldownTicks: durationTicks,
       streetRiskPct: effectiveStreetRiskPct,
       dayNightPhase: phaseRule.phaseId
     }

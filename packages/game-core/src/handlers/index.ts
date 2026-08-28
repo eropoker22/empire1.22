@@ -29,6 +29,8 @@ export * from "./factoryProductionConfig";
 export * from "./factoryProductionShared";
 export * from "./factoryProductionSupport";
 export * from "./factoryProductionMigration";
+export * from "./instantProduction";
+export * from "./instantProductionMigration";
 export * from "./defenseDistrict";
 export * from "./heistDistrict";
 export * from "./joinAlliance";

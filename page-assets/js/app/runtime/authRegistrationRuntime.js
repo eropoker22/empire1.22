@@ -99,7 +99,7 @@ export function createAuthRegistrationRuntime(deps = {}) {
       });
       deps.setStoredMarketPriceState?.(deps.createDefaultMarketPriceState?.());
       deps.setStoredGangState?.({
-        members: deps.DEFAULT_GANG_MEMBERS,
+        population: deps.DEFAULT_POPULATION,
         influence: Number(defaultGangState.influence || 0),
         heat: Number(defaultGangState.heat || 0),
         policeRaidProtectionUntil: 0,

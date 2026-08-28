@@ -17,7 +17,7 @@ import { appendRecoveryPoolEntries, createRecoveryEntriesFromLosses } from "./cl
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 import { createHeistReportNotification, createPlayerResourceState, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
-import { bumpDistrictConflictRevision, bumpDistrictSecurityRevision } from "../state";
+import { bumpDistrictConflictRevision, bumpDistrictSecurityRevision, resolvePlayerPopulation } from "../state";
 
 const HEIST_CASH_RESOURCES = ["cash", "dirty-cash"] as const;
 const HEIST_MATERIAL_RESOURCES = [
@@ -86,11 +86,8 @@ export const handleHeistDistrict = (
     attackerBalances[resourceKey] = Math.max(0, Number(attackerBalances[resourceKey] ?? 0)) + amount;
     defenderBalances[resourceKey] = Math.max(0, Number(defenderBalances[resourceKey] ?? 0) - amount);
   }
-  const currentPopulation = Math.max(0, Math.floor(Number(
-    player.population ?? attackerBalances.population ?? 0
-  )));
-  const nextPopulation = Math.max(0, currentPopulation - resolution.gangLosses);
-  if ("population" in attackerBalances) attackerBalances.population = nextPopulation;
+  const currentPopulation = Math.max(0, Math.floor(resolvePlayerPopulation(state, player)));
+  const nextPopulation = Math.max(0, currentPopulation - resolution.populationLosses);
   const nextPoliceState = increasePlayerPoliceHeat(
     state,
     player,
@@ -105,7 +102,7 @@ export const handleHeistDistrict = (
     targetOwnerPlayerId: targetOwner.id,
     outcome: resolution.outcome,
     loot,
-    gangLosses: resolution.gangLosses,
+    populationLosses: resolution.populationLosses,
     heatGained: resolution.heatGain,
     successChance: resolution.successChance,
     detectionChance: resolution.detectionChance,
@@ -186,7 +183,7 @@ export const handleHeistDistrict = (
   const recoveredState = appendRecoveryPoolEntries(
     nextState,
     player.id,
-    createRecoveryEntriesFromLosses({ population: resolution.gangLosses }, "heist"),
+    createRecoveryEntriesFromLosses({ population: resolution.populationLosses }, "heist"),
     command.id
   );
 
@@ -199,10 +196,10 @@ export const handleHeistDistrict = (
         sourceDistrictId,
         targetDistrictId: targetDistrict.id,
         style: command.payload.style,
-        gangMembersSent: command.payload.gangMembersSent,
+        populationSent: command.payload.populationSent,
         outcome: resolution.outcome,
         loot,
-        gangLosses: resolution.gangLosses,
+        populationLosses: resolution.populationLosses,
         heatGained: resolution.heatGain,
         cooldownTicks: config.globalCooldownTicks
       }),

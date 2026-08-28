@@ -495,6 +495,9 @@ async function attachBuildingScreenshotPair({
       ignoreSelector: dynamicContentSelector,
       path: screenshotPath,
       stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
+      stableScrollbarSelector: ".district-building-detail-body",
+      stableTargetDevicePixelAlignment: true,
+      stableTargetDevicePixelAlignmentMode: "translate",
       target
     });
     await testInfo.attach(attachmentName, {

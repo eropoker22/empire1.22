@@ -14,6 +14,7 @@ import {
   calculateDistrictResourceModifierStatRatesByDistrictId,
   calculateFixedBuildingPassivePressureByDistrictId
 } from "../rules/economy/collectIncome";
+import { resolvePlayerPopulation } from "../state/playerPopulation";
 
 export const createNextTickRateState = (
   state: CoreGameState,
@@ -37,7 +38,7 @@ export const createNextTickRateState = (
       return [
         playerId,
         populationGain > 0
-          ? { ...player, population: Math.max(0, Number(player.population || 0) + populationGain) }
+          ? { ...player, population: resolvePlayerPopulation(state, player) + populationGain }
           : player
       ];
     })

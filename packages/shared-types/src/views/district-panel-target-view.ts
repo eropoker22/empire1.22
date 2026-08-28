@@ -112,7 +112,7 @@ export interface DistrictHeistTargetView {
     style: "stealth" | "balanced" | "all_in";
     label: string;
     enabled?: boolean;
-    defaultGangMembersSent: number;
+    defaultPopulationSent: number;
     minMembers?: number;
     maxMembers?: number;
     successChance?: number;

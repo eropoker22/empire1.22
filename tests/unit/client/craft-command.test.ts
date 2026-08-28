@@ -38,7 +38,6 @@ const createGameplaySliceFixture = (canCraft = true): GameplaySliceView => ({
       dirtyCash: 0,
       influence: 0,
       population: 0,
-      gangMembers: 0,
       resources: {
         chemicals: 12
       },

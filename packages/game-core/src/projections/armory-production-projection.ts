@@ -4,10 +4,7 @@ import type { CoreGameState } from "../entities";
 import { resolveProductionBuildingLevelMultiplier } from "../rules/buildings/buildingUpgradeRules";
 import {
   ARMORY_BUILDING_TYPE_ID,
-  getArmoryLine,
-  getArmoryProducedAmount,
   resolveActiveArmoryCount,
-  resolveArmoryDurationTicks,
   resolveArmoryNetworkSpeedMultiplier
 } from "../handlers/armoryProductionShared";
 import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "../handlers/warehouseBuilding";
@@ -37,10 +34,6 @@ export const createArmoryProductionBuildingView = (input: {
   const networkSpeedMultiplier = resolveArmoryNetworkSpeedMultiplier(activeArmoryCount, armory);
   const levelSpeedMultiplier = resolveProductionBuildingLevelMultiplier(input.building, { config: input.config! });
   const productionLines = (Object.entries(armory.recipes) as Array<[ArmoryRecipeId, typeof armory.recipes[ArmoryRecipeId]]>).map(([recipeId, recipe]) => {
-    const line = getArmoryLine(input.building, recipeId);
-    const producedAmount = getArmoryProducedAmount(input.state, input.building, recipe.outputResourceKey);
-    const activeAmount = line.activeCompletesAtTick === null ? 0 : 1;
-    const waitingAmount = Math.max(0, line.queuedAmount - activeAmount);
     const inputAvailability = Object.entries(recipe.inputCosts).map(([resourceKey, requiredAmount]) => ({
       resourceKey,
       label: RESOURCE_LABELS[resourceKey] ?? resourceKey,
@@ -51,55 +44,48 @@ export const createArmoryProductionBuildingView = (input: {
       hasEnough: Math.max(0, Number(balances[resourceKey] || 0)) >= requiredAmount,
       requiredForSelectedQuantity: requiredAmount
     }));
-    const queueSpace = Math.max(0, recipe.queueCap - line.queuedAmount);
+    const playerStoredAmount = Math.max(0, Number(balances[recipe.outputResourceKey] || 0));
+    const playerStoredCapacity = storage ? getWarehouseCapacityForResource(storage, recipe.outputResourceKey) : 0;
+    const maxByStorage = storage
+      ? Math.max(0, Math.floor((playerStoredCapacity - playerStoredAmount) / recipe.outputAmount))
+      : Number.MAX_SAFE_INTEGER;
     const maxByInputs = inputAvailability.reduce(
       (limit, item) => Math.min(limit, Math.floor(item.availableAmount / item.requiredAmount)),
       Number.POSITIVE_INFINITY
     );
-    const localFull = producedAmount >= recipe.localOutputCap;
-    const maxStartQuantity = isOwner && !localFull ? Math.max(0, Math.min(queueSpace, maxByInputs)) : 0;
+    const maxStartQuantity = isOwner ? Math.max(0, Math.min(recipe.queueCap, maxByInputs, maxByStorage)) : 0;
     const missingInputs = inputAvailability.some((item) => item.availableAmount < item.requiredAmount);
-    const remainingTicks = activeAmount ? Math.max(0, line.activeCompletesAtTick! - input.state.root.tick) : 0;
-    const status = producedAmount > recipe.localOutputCap
-      ? "over_capacity"
-      : producedAmount === recipe.localOutputCap
-        ? "full"
-        : activeAmount
-          ? "processing"
-          : line.queuedAmount > 0
-            ? "waiting"
-            : producedAmount > 0
-              ? "completed"
-              : "ready";
+    const storageFull = maxByStorage <= 0;
+    const status = storageFull ? "full" : "ready";
     const disabledReason = !isOwner
       ? input.building.status !== "active" ? "Zbrojovka musí být aktivní." : "Zbrojovka patří jinému hráči."
-      : localFull ? "Lokální zásoba Zbrojovky je plná."
-      : queueSpace <= 0 ? "Fronta této výrobní linky je plná."
+      : storageFull ? "Sklad je pro tento produkt plný."
       : missingInputs ? "Na spuštění výroby nemáš dost materiálových vstupů."
       : null;
     return {
+      executionMode: "instant",
       recipeId,
       category: recipe.category,
       resourceKey: recipe.outputResourceKey,
       label: recipe.label,
-      producedAmount,
-      producedCapacity: recipe.localOutputCap,
-      playerStoredAmount: Math.max(0, Number(balances[recipe.outputResourceKey] || 0)),
-      playerStoredCapacity: storage ? getWarehouseCapacityForResource(storage, recipe.outputResourceKey) : 0,
-      queuedAmount: line.queuedAmount,
+      producedAmount: 0,
+      producedCapacity: playerStoredCapacity,
+      playerStoredAmount,
+      playerStoredCapacity,
+      queuedAmount: 0,
       queueCapacity: recipe.queueCap,
-      activeAmount: activeAmount as 0 | 1,
-      waitingAmount,
+      activeAmount: 0,
+      waitingAmount: 0,
       materialInputCosts: { ...recipe.inputCosts },
       inputAvailability,
-      baseUnitDurationTicks: recipe.durationTicksPerUnit,
-      effectiveUnitDurationTicks: resolveArmoryDurationTicks(input.state, input.building, recipe, { config: input.config! }),
-      remainingTicks,
-      remainingMs: remainingTicks * Math.max(1, Number(input.tickRateMs || input.config?.tickRateMs || 5000)),
+      baseUnitDurationTicks: 0,
+      effectiveUnitDurationTicks: 0,
+      remainingTicks: 0,
+      remainingMs: 0,
       status,
       canStart: maxStartQuantity > 0,
-      canCancelWaiting: waitingAmount > 0,
-      canCollect: isOwner && producedAmount > 0,
+      canCancelWaiting: false,
+      canCollect: false,
       maxStartQuantity,
       disabledReason
     } satisfies ArmoryProductionLineView;

@@ -180,7 +180,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
   start_drug_sale: {
     actionId: "start_drug_sale",
     buildingType: "street_dealers",
-    label: "Spustit prodej",
+    label: "Prodat zásobu",
     description: "Prodá látku z Drug Labu přes jeden ze tří pevných slotů Pouličních dealerů. Minimum je 10 ks a současně může běžet jen jeden prodej.",
     durationMs: 0,
     cooldownMs: 0,

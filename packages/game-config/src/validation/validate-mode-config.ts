@@ -9,6 +9,7 @@ import { validateConvenienceStoreConfig } from "../../../game-core/src/handlers/
 import { validatePlayerBoostConfig } from "../../../game-core/src/handlers/playerBoostConfig";
 import { validateCityEventConfig } from "./validate-city-event-config";
 import { validateStreetDealersConfig } from "./validate-street-dealers-config";
+import { validateConflictConfig } from "./validate-conflict-config";
 
 // Guards resolved mode configs; environment loading and gameplay execution belong elsewhere.
 export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGameModeConfig => {
@@ -161,90 +162,7 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
     throw new Error("Mode config requires a storageKeyPrefix.");
   }
   if (config.balance.conflict) {
-    if (config.balance.conflict.spyCooldownTicks < 0) {
-      throw new Error("Conflict config requires a non-negative spyCooldownTicks.");
-    }
-    if ((config.balance.conflict.spyAuthorizationTtlTicks ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative spyAuthorizationTtlTicks.");
-    }
-    if ((config.balance.conflict.spySlotCooldownTicks ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative spySlotCooldownTicks.");
-    }
-    if ((config.balance.conflict.spyCaptureCooldownTicks ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative spyCaptureCooldownTicks.");
-    }
-    const defenseCapacity = config.balance.conflict.defenseCapacity;
-    if (defenseCapacity) {
-      if (defenseCapacity.baseCapacityPoints <= 0) {
-        throw new Error("Conflict defense capacity requires positive baseCapacityPoints.");
-      }
-      for (const itemId of ["vest", "barricades", "cameras", "defense-tower", "alarm"] as const) {
-        if (!Number.isFinite(defenseCapacity.itemWeights[itemId]) || defenseCapacity.itemWeights[itemId] <= 0) {
-          throw new Error(`Conflict defense capacity requires a positive weight for ${itemId}.`);
-        }
-      }
-    }
-
-    if (config.balance.conflict.attackCooldownTicks < 0) {
-      throw new Error("Conflict config requires a non-negative attackCooldownTicks.");
-    }
-
-    if ((config.balance.conflict.robCooldownTicks ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative robCooldownTicks.");
-    }
-
-    if ((config.balance.conflict.heistCooldownTicks ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative heistCooldownTicks.");
-    }
-
-    if ((config.balance.conflict.occupyCooldownTicks ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative occupyCooldownTicks.");
-    }
-
-    if ((config.balance.conflict.occupyFailureChancePct ?? 0) < 0 || (config.balance.conflict.occupyFailureChancePct ?? 0) > 100) {
-      throw new Error("Conflict config requires occupyFailureChancePct between 0 and 100.");
-    }
-
-    if ((config.balance.conflict.minAttackDurationTicks ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative minAttackDurationTicks.");
-    }
-
-    if ((config.balance.conflict.attackHeatGain ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative attackHeatGain.");
-    }
-
-    if ((config.balance.conflict.occupyHeatGain ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative occupyHeatGain.");
-    }
-
-    if ((config.balance.conflict.occupyInfluenceCost ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative occupyInfluenceCost.");
-    }
-
-    if ((config.balance.conflict.occupyRepeatInfluenceCost ?? 0) < 0) {
-      throw new Error("Conflict config requires a non-negative occupyRepeatInfluenceCost.");
-    }
-
-    if ((config.balance.conflict.occupyPopulationRefundPct ?? 0) < 0 || (config.balance.conflict.occupyPopulationRefundPct ?? 0) > 100) {
-      throw new Error("Conflict config requires occupyPopulationRefundPct between 0 and 100.");
-    }
-
-    if (config.balance.conflict.trapAttackLosses < 0) {
-      throw new Error("Conflict config requires a non-negative trapAttackLosses.");
-    }
-
-    if (config.balance.conflict.reportsLimit <= 0) {
-      throw new Error("Conflict config requires a positive reportsLimit.");
-    }
-
-    for (const [key, value] of [
-      ["spyBaseSuccessChance", config.balance.conflict.spyBaseSuccessChance],
-      ["spyTrapRevealChance", config.balance.conflict.spyTrapRevealChance]
-    ] as const) {
-      if (value < 0 || value > 1) {
-        throw new Error(`Conflict config requires ${key} between 0 and 1.`);
-      }
-    }
+    validateConflictConfig(config.balance.conflict);
   }
 
   for (const craftBuilding of Object.values(config.balance.craftBuildings ?? {})) {

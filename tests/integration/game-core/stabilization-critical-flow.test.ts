@@ -110,7 +110,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
     const result = runTick(state, { config: resolveModeConfig("free") }).nextState;
 
     expect(result.playersById["player:1"].population).toBeCloseTo(20.5);
-    expect(result.resourceStatesById["resource:1"].balances["gang-members"]).toBeCloseTo(0.5);
+    expect(result.resourceStatesById["resource:1"].balances).not.toHaveProperty("gang-members");
     expect(result.districtsById["district:1"].influence).toBeGreaterThan(0);
     expect(result.districtsById["district:1"].heat).toBeGreaterThan(0);
     expect(result.resourceStatesById["resource:1"].balances.influence).toBeUndefined();

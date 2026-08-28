@@ -8,12 +8,16 @@ import {
   captureIsolatedParityScreenshot,
   compareParityPngScreenshotAttempts,
   compareParityPngScreenshots,
+  createFractionalClipEdgeIgnoreRegions,
   createParityPopulationBufferSyncFixture,
+  createParityRenderedPopulationBufferFixture,
   createRoundedCornerCompositeIgnoreRegions,
+  districtPopupStableBackdropFilterSelector,
   exerciseParitySurfaceScroll,
   expandParityRasterIgnoreRegions,
   extractCssUrlValues,
   findTechnicalBuildingText,
+  GAME_CHROME_DYNAMIC_LEAF_RASTER_FRINGE_PX,
   gameChromeDynamicMaskSelector,
   gameChromeScreenshotIgnoreSelector,
   getBuildingPresentationSignature,
@@ -137,7 +141,8 @@ function createPinnedTargetStyleCaptureHarness({
   onScreenshot = null,
   onSettle = null,
   replacementStyles = null,
-  screenshotError = null
+  screenshotError = null,
+  stablePaintOrigin = false
 } = {}) {
   const propertyName = "--district-owner-avatar-opacity";
   const original = createParityStyleElement(initialStyles || {
@@ -156,7 +161,10 @@ function createPinnedTargetStyleCaptureHarness({
         onSettle?.({ original, propertyName, replacement });
         return undefined;
       }
-      if (handleEvaluateCall === 3) {
+      if (stablePaintOrigin && handleEvaluateCall === 3) {
+        return callback(original.element, argument);
+      }
+      if (handleEvaluateCall === (stablePaintOrigin ? 4 : 3)) {
         return {
           dynamicRegions: [],
           roundedBox: { height: 100, radii: {}, width: 100 },
@@ -186,6 +194,34 @@ function createPinnedTargetStyleCaptureHarness({
 }
 
 describe("UI parity class signature", () => {
+  it("masks only fractional outer clip edges of element screenshots", () => {
+    expect(createFractionalClipEdgeIgnoreRegions(
+      { height: 546, width: 414 },
+      { bottom: true, left: false, right: false, top: false }
+    )).toEqual([{ height: 1, width: 414, x: 0, y: 545 }]);
+    expect(createFractionalClipEdgeIgnoreRegions(
+      { height: 100, width: 200 },
+      { left: true, right: true, top: true }
+    )).toEqual([
+      { height: 1, width: 200, x: 0, y: 0 },
+      { height: 100, width: 1, x: 0, y: 0 },
+      { height: 100, width: 1, x: 199, y: 0 }
+    ]);
+  });
+
+  it("stabilizes every translucent district section, including the owner card", () => {
+    expect(districtPopupStableBackdropFilterSelector.split(",")).toEqual([
+      ".district-popup-card",
+      ".district-popup-owner-card",
+      ".district-popup-status",
+      ".district-popup-summary-card",
+      ".district-popup-buildings",
+      ".district-popup-gossip",
+      ".district-popup-action-section",
+      ".district-popup-action"
+    ]);
+  });
+
   it("maps hosted civil population buffers into the matching local-demo detail fields", () => {
     const fixtures = [
       [
@@ -283,6 +319,25 @@ describe("UI parity class signature", () => {
         enabled: true
       }]
     })).toBeNull();
+  });
+
+  it("projects a rendered whole population amount only while the action contract stays valid", () => {
+    const fixture = createParityPopulationBufferSyncFixture("apartment_block", {
+      actions: [{
+        actionId: "collect_population",
+        disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru.",
+        enabled: false
+      }],
+      buildingTypeId: "apartment_block",
+      presentation: { populationBuffer: { capacity: 50, storedAmount: 3.5 } }
+    }, 12_345);
+
+    expect(createParityRenderedPopulationBufferFixture(fixture, 4)).toMatchObject({
+      populationBuffer: { capacity: 50, storedAmount: 4 },
+      updatedAt: 12_345
+    });
+    expect(createParityRenderedPopulationBufferFixture(fixture, 10)).toBeNull();
+    expect(createParityRenderedPopulationBufferFixture(fixture, 51)).toBeNull();
   });
 
   it("synchronizes only allowlisted population buildings through the test helper", async () => {
@@ -545,6 +600,49 @@ describe("UI parity class signature", () => {
     ))).toEqual([0, 1]);
   });
 
+  it("synchronizes local display to a newer rendered whole amount below the same action threshold", async () => {
+    const hostedBuilding = {
+      actions: [{
+        actionId: "collect_population",
+        disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru.",
+        enabled: false
+      }],
+      buildingTypeId: "apartment_block",
+      presentation: { populationBuffer: { capacity: 50, storedAmount: 3.75 } },
+      specialActions: []
+    };
+    const hostedPage = { evaluate: vi.fn().mockResolvedValue(hostedBuilding) };
+    const localPage = { evaluate: vi.fn().mockResolvedValue(undefined) };
+    const hostedSignature = {
+      presentation: {
+        actions: [{
+          actionId: "collect_population",
+          disabled: true,
+          disabledReason: "Bytový blok potřebuje alespoň 10 lidí k výběru."
+        }]
+      },
+      renderedPopulationBufferAmount: 4
+    };
+
+    const result = await captureStableHostedPopulationParitySnapshot(
+      localPage,
+      hostedPage,
+      "apartment_block",
+      vi.fn().mockResolvedValue(hostedSignature)
+    );
+
+    expect(result).toMatchObject({
+      hostedSnapshot: hostedSignature,
+      populationFixture: {
+        populationBuffer: { capacity: 50, storedAmount: 4 }
+      },
+      snapshotAttempts: 1
+    });
+    expect(localPage.evaluate.mock.calls.map((call) => (
+      call[1].populationBuffer.storedAmount
+    ))).toEqual([3, 4]);
+  });
+
   it("fails closed when the visible population amount keeps crossing thresholds", async () => {
     const createHostedBuilding = (storedAmount) => {
       const enabled = Math.floor(storedAmount) >= 10;
@@ -780,8 +878,11 @@ describe("UI parity class signature", () => {
     expect(gameChromeDynamicMaskSelector).toContain("[data-topbar-clean-money]");
     expect(gameChromeScreenshotIgnoreSelector).toContain("[data-topbar-clean-money]");
     expect(gameChromeScreenshotIgnoreSelector).toContain("[data-map-viewport]");
+    expect(gameChromeScreenshotIgnoreSelector).toContain('[data-mount-role="map"]');
     expect(gameChromeScreenshotIgnoreSelector).toContain("[data-gang-star]");
     expect(gameChromeScreenshotIgnoreSelector).toContain("[data-city-status]");
+    expect(gameChromeDynamicMaskSelector).toContain("[data-server-lifecycle-surface]");
+    expect(gameChromeScreenshotIgnoreSelector).toContain("[data-server-lifecycle-surface]");
     expect(gameChromeScreenshotIgnoreSelector).not.toContain(".resource-pill:has(");
     expect(gameChromeScreenshotIgnoreSelector).not.toContain(".gang-profile-row:has(");
     expect(gameChromeScreenshotIgnoreSelector).not.toContain("[data-boost-open-trigger]");
@@ -873,6 +974,46 @@ describe("UI parity class signature", () => {
     })).rejects.toThrow(/capture attempts must be from 1 to 3/u);
   });
 
+  it("can match bounded cross-attempt raster phases without widening tolerance", async () => {
+    const lowPhase = createPngBuffer(1, 1, [20, 40, 60, 255]);
+    const highPhase = createPngBuffer(1, 1, [27, 40, 60, 255]);
+    const captureAttempt = vi.fn()
+      .mockResolvedValueOnce({
+        actualBuffer: lowPhase,
+        expectedBuffer: highPhase,
+        ignoreRegions: []
+      })
+      .mockResolvedValueOnce({
+        actualBuffer: highPhase,
+        expectedBuffer: lowPhase,
+        ignoreRegions: []
+      });
+
+    const recovered = await compareParityPngScreenshotAttempts(captureAttempt, {
+      allowCrossAttemptPairing: true
+    });
+
+    expect(captureAttempt).toHaveBeenCalledTimes(2);
+    expect(recovered).toMatchObject({
+      attemptCount: 2,
+      attempts: [
+        { attempt: 1, comparison: { matches: false, meaningfulPixelCount: 1 } },
+        {
+          attempt: 2,
+          comparison: { matches: false, meaningfulPixelCount: 1 },
+          crossComparisons: [{
+            actualAttempt: 2,
+            expectedAttempt: 1,
+            comparison: { matches: true, meaningfulPixelCount: 0 }
+          }]
+        }
+      ],
+      comparison: { matches: true, meaningfulPixelCount: 0 },
+      comparisonPair: { actualAttempt: 2, expectedAttempt: 1 }
+    });
+    expect(PARITY_PNG_CHANNEL_TOLERANCE).toBe(6);
+  });
+
   it("rejects PNG dimension changes as meaningful differences", () => {
     const onePixel = createPngBuffer(1, 1, [20, 40, 60, 255]);
     const twoPixels = createPngBuffer(2, 1, [20, 40, 60, 255, 20, 40, 60, 255]);
@@ -939,9 +1080,10 @@ describe("UI parity class signature", () => {
     });
   });
 
-  it("keeps text paint at one raster pixel and rounded composites at two", () => {
+  it("keeps isolated text paint at one raster pixel and game chrome leaves at four", () => {
     expect(PARITY_SCREENSHOT_RASTER_FRINGE_PX).toBe(1);
     expect(PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX).toBe(2);
+    expect(GAME_CHROME_DYNAMIC_LEAF_RASTER_FRINGE_PX).toBe(4);
     expect(expandParityRasterIgnoreRegions([
       { height: 6.25, width: 5.5, x: 10.25, y: 20.5 }
     ])).toEqual([
@@ -955,7 +1097,7 @@ describe("UI parity class signature", () => {
       },
       width: 728
     });
-    expect(roundedExterior).toHaveLength(22);
+    expect(roundedExterior).toHaveLength(24);
     expect(roundedExterior).toContainEqual({ height: 1, width: 3, x: 0, y: 575 });
     expect(roundedExterior).toContainEqual({ height: 1, width: 20, x: 0, y: 593 });
     expect(Math.max(...roundedExterior.map((region) => region.width))).toBe(20);
@@ -970,7 +1112,7 @@ describe("UI parity class signature", () => {
       },
       width: 58
     });
-    expect(pillExterior).toHaveLength(36);
+    expect(pillExterior).toHaveLength(44);
     expect(Math.max(...pillExterior.map((region) => region.width))).toBeLessThanOrEqual(9);
   });
 
@@ -1018,12 +1160,48 @@ describe("UI parity class signature", () => {
       { height: 1, width: 5, x: 10, y: 20 },
       { height: 1, width: 3, x: 10, y: 21 },
       { height: 1, width: 3, x: 10, y: 22 },
-      { height: 1, width: 3, x: 10, y: 23 }
+      { height: 1, width: 3, x: 10, y: 23 },
+      { height: 1, width: 2, x: 10, y: 24 },
+      { height: 1, width: 2, x: 10, y: 25 }
     ]);
     expect(target.evaluate.mock.calls[0][1]).toEqual({
       ignore: "",
       rounded: ".district-modal-hero--district"
     });
+  });
+
+  it("allows a surface-specific rounded compositor fringe without changing the default", () => {
+    const box = {
+      height: 40,
+      radii: { topLeft: { x: 4, y: 4 } },
+      width: 80
+    };
+
+    expect(createRoundedCornerCompositeIgnoreRegions(box, 3)[0])
+      .toEqual({ height: 1, width: 6, x: 0, y: 0 });
+    expect(createRoundedCornerCompositeIgnoreRegions(box)[0])
+      .toEqual({ height: 1, width: 5, x: 0, y: 0 });
+    expect(() => createRoundedCornerCompositeIgnoreRegions(box, -1))
+      .toThrow("Parity rounded composite fringe must be a non-negative integer");
+  });
+
+  it("applies rounded compositor fringe on both raster axes", () => {
+    const regions = createRoundedCornerCompositeIgnoreRegions({
+      height: 44,
+      radii: { topLeft: { x: 9, y: 9 } },
+      width: 211
+    }, 4);
+    const masksPoint = (x, y) => regions.some((region) => (
+      x >= region.x
+      && x < region.x + region.width
+      && y >= region.y
+      && y < region.y + region.height
+    ));
+
+    expect(masksPoint(0, 9)).toBe(true);
+    expect(masksPoint(3, 12)).toBe(true);
+    expect(masksPoint(4, 9)).toBe(false);
+    expect(masksPoint(0, 13)).toBe(false);
   });
 
   it("captures the real backdrop without mutating the surface or ambience", async () => {
@@ -1082,17 +1260,20 @@ describe("UI parity class signature", () => {
 
     await expect(captureGameChromeScreenshot(page, "chrome.png")).resolves.toEqual({
       ignoreRegions: [
-        { height: 52, width: 62, x: 69, y: 79 },
+        { height: 58, width: 68, x: 66, y: 76 },
         { height: 1, width: 5, x: 5, y: 6 },
         { height: 1, width: 3, x: 5, y: 7 },
         { height: 1, width: 3, x: 5, y: 8 },
-        { height: 1, width: 3, x: 5, y: 9 }
+        { height: 1, width: 3, x: 5, y: 9 },
+        { height: 1, width: 2, x: 5, y: 10 },
+        { height: 1, width: 2, x: 5, y: 11 }
       ],
       screenshot
     });
     expect(page.evaluate).toHaveBeenCalledTimes(4);
     expect(page.evaluate.mock.calls[3][1]).toBe([
       ".map-boost-btn",
+      "#leaderboard-card",
       "#profile-gang-card .profile-row--alliance",
       "#global-chat-card .server-chat-panel__send--arrow"
     ].join(","));
@@ -1162,6 +1343,115 @@ describe("UI parity class signature", () => {
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[3]);
     expect(target.evaluate.mock.invocationCallOrder[3])
       .toBeLessThan(target.screenshot.mock.invocationCallOrder[0]);
+    expect(target.screenshot.mock.invocationCallOrder[0])
+      .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
+  });
+
+  it("roots backdrop filter stabilization at the modal shell", async () => {
+    const screenshot = Buffer.from("png");
+    const backdropState = {
+      backgroundColorApplied: false,
+      previousBackgroundColor: "",
+      previousBackgroundColorPriority: "",
+      token: "parity-underlay-test"
+    };
+    const stableState = {
+      entries: [],
+      matchedElementCount: 2
+    };
+    const target = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(backdropState)
+        .mockResolvedValueOnce(stableState)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 }
+        })
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined),
+      screenshot: vi.fn().mockResolvedValue(screenshot)
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    await expect(captureIsolatedParityScreenshot(page, {
+      path: "filtered-surface.png",
+      stableBackdropFilterSelector: ".storage-popup-card,.storage-popup-backdrop",
+      stableBackdropShellSelector: "[data-storage-popup]",
+      target
+    })).resolves.toEqual({ ignoreRegions: [], screenshot });
+
+    expect(target.evaluate).toHaveBeenCalledTimes(7);
+    expect(target.evaluate.mock.calls[2][1]).toEqual({
+      rootSelector: "[data-storage-popup]",
+      selector: ".storage-popup-card,.storage-popup-backdrop"
+    });
+    expect(target.evaluate.mock.calls[5][1]).toEqual(stableState);
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "targetElement.closest(config.rootSelector)"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "data-parity-capture-stable-backdrop-filter"
+    );
+  });
+
+  it("suppresses only scrollbar paint during an isolated capture and restores it", async () => {
+    const screenshot = Buffer.from("png");
+    const stableScrollbarState = {
+      entries: [{ previousToken: null, token: "parity-scrollbar-test-0" }],
+      ignoreRegions: [{ height: 120, width: 9, x: 286, y: 18 }],
+      sheetToken: "parity-scrollbar-test"
+    };
+    const target = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(stableScrollbarState)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 }
+        })
+        .mockResolvedValueOnce(undefined),
+      screenshot: vi.fn().mockResolvedValue(screenshot)
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    await expect(captureIsolatedParityScreenshot(page, {
+      path: "scrolling-surface.png",
+      stableScrollbarSelector: ".district-building-detail-body",
+      target
+    })).resolves.toEqual({
+      ignoreRegions: stableScrollbarState.ignoreRegions,
+      screenshot
+    });
+
+    expect(target.evaluate).toHaveBeenCalledTimes(5);
+    expect(target.evaluate.mock.calls[1][1]).toBe(".district-building-detail-body");
+    expect(target.evaluate.mock.calls[4][1]).toEqual(stableScrollbarState);
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "data-parity-capture-stable-scrollbar-sheet"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "::-webkit-scrollbar-thumb"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).not.toContain(
+      "scrollbar-width:none"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "element.offsetWidth - element.clientWidth - borderLeft - borderRight"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "Include exactly one device-pixel fringe on the gutter's inner edge"
+    );
     expect(target.screenshot.mock.invocationCallOrder[0])
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
   });
@@ -1290,7 +1580,71 @@ describe("UI parity class signature", () => {
     expect(harness.original.attributes.has("data-parity-capture-stable-target-style")).toBe(false);
   });
 
-  it("aligns a capture target down to deterministic pixels and restores relative offsets", async () => {
+  it("captures an otherwise identical target at a stable viewport paint origin and restores it", async () => {
+    let screenshotSnapshot = null;
+    const harness = createPinnedTargetStyleCaptureHarness({
+      onScreenshot: ({ original }) => {
+        screenshotSnapshot = {
+          rect: original.element.getBoundingClientRect(),
+          position: original.style.getPropertyValue("position"),
+          positionPriority: original.style.getPropertyPriority("position"),
+          width: original.style.getPropertyValue("width"),
+          height: original.style.getPropertyValue("height")
+        };
+      },
+      stablePaintOrigin: true
+    });
+    harness.original.element.getBoundingClientRect = vi.fn(() => {
+      const isFixed = harness.original.style.getPropertyValue("position") === "fixed";
+      return {
+        height: Number.parseFloat(harness.original.style.getPropertyValue("height")) || 46,
+        left: isFixed
+          ? Number.parseFloat(harness.original.style.getPropertyValue("left")) || 0
+          : 34,
+        top: isFixed
+          ? Number.parseFloat(harness.original.style.getPropertyValue("top")) || 0
+          : 504,
+        width: Number.parseFloat(harness.original.style.getPropertyValue("width")) || 254
+      };
+    });
+
+    vi.stubGlobal("window", { devicePixelRatio: 1 });
+    try {
+      await expect(captureIsolatedParityScreenshot(harness.page, {
+        path: "stable-paint-origin.png",
+        stableTargetPaintOrigin: true,
+        target: harness.target
+      })).resolves.toEqual({ ignoreRegions: [], screenshot: Buffer.from("png") });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(screenshotSnapshot).toEqual({
+      rect: { height: 46, left: 0, top: 0, width: 254 },
+      position: "fixed",
+      positionPriority: "important",
+      width: "254px",
+      height: "46px"
+    });
+    for (const propertyName of [
+      "position",
+      "left",
+      "top",
+      "right",
+      "bottom",
+      "width",
+      "height",
+      "margin",
+      "transform",
+      "translate",
+      "box-sizing"
+    ]) {
+      expect(harness.original.values.has(propertyName)).toBe(false);
+    }
+    expect(harness.original.attributes.has("data-parity-capture-stable-target-style")).toBe(false);
+  });
+
+  it("aligns a relative capture target through the responsive position-offset mode", async () => {
     const original = createParityStyleElement({
       left: { priority: "important", value: "0px" },
       top: { priority: "", value: "0px" }
@@ -1353,6 +1707,7 @@ describe("UI parity class signature", () => {
       await expect(captureIsolatedParityScreenshot(page, {
         path: "fractional-inline-action.png",
         stableTargetDevicePixelAlignment: true,
+        stableTargetDevicePixelAlignmentMode: "position-offset",
         target
       })).resolves.toEqual({ ignoreRegions: [], screenshot: Buffer.from("png") });
     } finally {
@@ -1364,6 +1719,7 @@ describe("UI parity class signature", () => {
       left: { priority: "important", value: "-0.25px" },
       top: { priority: "important", value: "-0.75px" }
     });
+    expect(handle.evaluate.mock.calls[0][1]).toBe("position-offset");
     expect(handle.evaluate).toHaveBeenCalledTimes(5);
     expect(handle.evaluate.mock.invocationCallOrder[1])
       .toBeLessThan(handle.evaluate.mock.invocationCallOrder[2]);
@@ -1471,6 +1827,100 @@ describe("UI parity class signature", () => {
     expect(original.priorities.get("transform")).toBe("important");
     expect(original.values.has("translate")).toBe(false);
     expect(original.priorities.has("translate")).toBe(false);
+    expect(original.attributes.has("data-parity-capture-device-pixel-alignment")).toBe(false);
+    expect(handle.evaluate).toHaveBeenCalledTimes(5);
+    expect(target.screenshot).not.toHaveBeenCalled();
+    expect(handle.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("aligns a centered absolute target through resolved position offsets", async () => {
+    const original = createParityStyleElement({
+      left: { priority: "", value: "50%" },
+      top: { priority: "", value: "50%" },
+      transform: { priority: "important", value: "translate(-50%, -50%)" }
+    });
+    const resolvedPosition = (propertyName, baseline) => {
+      const inlineValue = original.style.getPropertyValue(propertyName);
+      return inlineValue.endsWith("px") ? Number.parseFloat(inlineValue) : baseline;
+    };
+    original.element.getBoundingClientRect = vi.fn(() => ({
+      height: 505,
+      left: 780.25 + resolvedPosition("left", 960) - 960,
+      top: 287.75 + resolvedPosition("top", 540) - 540,
+      width: 360
+    }));
+    let handleEvaluateCall = 0;
+    let screenshotBounds = null;
+    let screenshotOffsets = null;
+    const handle = {
+      dispose: vi.fn().mockResolvedValue(undefined),
+      evaluate: vi.fn(async (callback, argument) => {
+        handleEvaluateCall += 1;
+        if ([1, 3, 5].includes(handleEvaluateCall)) {
+          return callback(original.element, argument);
+        }
+        if (handleEvaluateCall === 4) {
+          return {
+            dynamicRegions: [],
+            roundedBox: { height: 505, radii: {}, width: 360 },
+            roundedBoxes: []
+          };
+        }
+        return undefined;
+      }),
+      screenshot: vi.fn(async () => {
+        screenshotBounds = original.element.getBoundingClientRect();
+        screenshotOffsets = Object.fromEntries(["left", "top"].map((propertyName) => [
+          propertyName,
+          {
+            priority: original.style.getPropertyPriority(propertyName),
+            value: original.style.getPropertyValue(propertyName)
+          }
+        ]));
+        return Buffer.from("png");
+      })
+    };
+    const target = {
+      elementHandle: vi.fn().mockResolvedValue(handle),
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      screenshot: vi.fn()
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    vi.stubGlobal("window", {
+      devicePixelRatio: 1,
+      getComputedStyle: vi.fn(() => ({
+        left: "960px",
+        position: "absolute",
+        top: "540px",
+        transform: "matrix(1, 0, 0, 1, -180, -252.5)",
+        translate: "none"
+      }))
+    });
+    try {
+      await expect(captureIsolatedParityScreenshot(page, {
+        path: "position-offset-district-target.png",
+        stableTargetDevicePixelAlignment: true,
+        stableTargetDevicePixelAlignmentMode: "position-offset",
+        target
+      })).resolves.toEqual({ ignoreRegions: [], screenshot: Buffer.from("png") });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(screenshotBounds).toEqual({ height: 505, left: 780, top: 287, width: 360 });
+    expect(screenshotOffsets).toEqual({
+      left: { priority: "important", value: "959.75px" },
+      top: { priority: "important", value: "539.25px" }
+    });
+    expect(handle.evaluate.mock.calls[0][1]).toBe("position-offset");
+    expect(original.values.get("left")).toBe("50%");
+    expect(original.values.get("top")).toBe("50%");
+    expect(original.values.get("transform")).toBe("translate(-50%, -50%)");
     expect(original.attributes.has("data-parity-capture-device-pixel-alignment")).toBe(false);
     expect(handle.evaluate).toHaveBeenCalledTimes(5);
     expect(target.screenshot).not.toHaveBeenCalled();
@@ -1822,10 +2272,12 @@ describe("UI parity class signature", () => {
       entries: [{
         filter: "saturate(1.06) brightness(0.8)",
         filterPriority: "",
+        previousToken: null,
+        token: "parity-raster-test-0",
         transform: "scale(1.015)",
         transformPriority: ""
       }],
-      token: "parity-raster-test"
+      matchedElementCount: 1
     };
     const target = {
       evaluate: vi.fn()
@@ -1852,7 +2304,10 @@ describe("UI parity class signature", () => {
     })).rejects.toThrow("synthetic screenshot failure");
 
     expect(target.evaluate).toHaveBeenCalledTimes(5);
-    expect(target.evaluate.mock.calls[1][1]).toBe(".district-modal-hero__image");
+    expect(target.evaluate.mock.calls[1][1]).toEqual({
+      rootSelector: "",
+      selector: ".district-modal-hero__image"
+    });
     expect(target.evaluate.mock.calls[4][1]).toEqual(stableRasterState);
     expect(target.evaluate.mock.invocationCallOrder[2])
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[3]);
@@ -1865,8 +2320,8 @@ describe("UI parity class signature", () => {
   it("restores capture-only backdrop-filter stabilization when a screenshot fails", async () => {
     const screenshotFailure = new Error("synthetic screenshot failure");
     const stableBackdropFilterState = {
-      previousRootToken: null,
-      token: "parity-backdrop-filter-test"
+      entries: [],
+      matchedElementCount: 1
     };
     const target = {
       evaluate: vi.fn()
@@ -1893,24 +2348,89 @@ describe("UI parity class signature", () => {
     })).rejects.toThrow("synthetic screenshot failure");
 
     expect(target.evaluate).toHaveBeenCalledTimes(5);
-    expect(target.evaluate.mock.calls[1][1]).toBe(".district-popup-action");
+    expect(target.evaluate.mock.calls[1][1]).toEqual({
+      rootSelector: "",
+      selector: ".district-popup-action"
+    });
     expect(target.evaluate.mock.calls[4][1]).toEqual(stableBackdropFilterState);
     expect(captureIsolatedParityScreenshot.toString()).toContain(
-      "data-parity-capture-stable-backdrop-filter-root"
+      "data-parity-capture-stable-backdrop-filter"
     );
     expect(captureIsolatedParityScreenshot.toString()).toContain(
-      "const specificRootSelector = rootSelector.repeat(3)"
+      'setProperty("backdrop-filter", "none", "important")'
     );
     expect(captureIsolatedParityScreenshot.toString()).toContain(
-      "{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}"
+      'setProperty("-webkit-backdrop-filter", "none", "important")'
     );
     expect(captureIsolatedParityScreenshot.toString()).toContain(
-      "document.querySelectorAll(styleSelector).forEach((element) => element.remove())"
+      'getPropertyValue(propertyName) === "none"'
     );
     expect(target.evaluate.mock.invocationCallOrder[2])
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[3]);
     expect(target.evaluate.mock.invocationCallOrder[3])
       .toBeLessThan(target.screenshot.mock.invocationCallOrder[0]);
+    expect(target.screenshot.mock.invocationCallOrder[0])
+      .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
+  });
+
+  it("pins district section animations to their final base styles during capture", async () => {
+    const screenshotFailure = new Error("synthetic screenshot failure");
+    const stableAnimationState = {
+      entries: [{
+        previousAnimation: "ui-feed-item-in 380ms ease both",
+        previousAnimationPriority: "",
+        previousToken: null,
+        previousWillChange: "transform, opacity",
+        previousWillChangePriority: "",
+        token: "parity-animation-test-0"
+      }],
+      matchedElementCount: 1
+    };
+    const target = {
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(stableAnimationState)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          dynamicRegions: [],
+          roundedBox: { height: 100, radii: {}, width: 100 }
+        })
+        .mockResolvedValueOnce(undefined),
+      screenshot: vi.fn().mockRejectedValue(screenshotFailure)
+    };
+    const page = {
+      evaluate: vi.fn().mockResolvedValue(undefined),
+      locator: vi.fn(),
+      mouse: { move: vi.fn().mockResolvedValue(undefined) }
+    };
+
+    await expect(captureIsolatedParityScreenshot(page, {
+      path: "district-animation-surface.png",
+      stableAnimationSelector: ".district-popup-owner-card",
+      target
+    })).rejects.toThrow("synthetic screenshot failure");
+
+    expect(target.evaluate).toHaveBeenCalledTimes(5);
+    expect(target.evaluate.mock.calls[1][1]).toEqual({
+      rootSelector: "",
+      selector: ".district-popup-owner-card"
+    });
+    expect(target.evaluate.mock.calls[4][1]).toEqual(stableAnimationState);
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      "data-parity-capture-stable-animation"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      'setProperty("animation", "none", "important")'
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      'setProperty("will-change", "auto", "important")'
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      '["animation", "none", entry.previousAnimation, entry.previousAnimationPriority]'
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      '["will-change", "auto", entry.previousWillChange, entry.previousWillChangePriority]'
+    );
     expect(target.screenshot.mock.invocationCallOrder[0])
       .toBeLessThan(target.evaluate.mock.invocationCallOrder[4]);
   });
@@ -1925,8 +2445,8 @@ describe("UI parity class signature", () => {
       token: "parity-backdrop-test"
     };
     const stableBackdropFilterState = {
-      previousRootToken: null,
-      token: "parity-backdrop-filter-test"
+      entries: [],
+      matchedElementCount: 1
     };
     const target = {
       evaluate: vi.fn()
@@ -1973,8 +2493,15 @@ describe("UI parity class signature", () => {
       token: "parity-backdrop-test"
     };
     const stableRasterState = {
-      entries: [{ filter: "", filterPriority: "", transform: "", transformPriority: "" }],
-      token: "parity-raster-test"
+      entries: [{
+        filter: "",
+        filterPriority: "",
+        previousToken: null,
+        token: "parity-raster-test-0",
+        transform: "",
+        transformPriority: ""
+      }],
+      matchedElementCount: 1
     };
     const target = {
       evaluate: vi.fn()

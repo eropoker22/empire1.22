@@ -89,6 +89,20 @@ writeHostedWorkerDiagnostic({
 
 const runLoop = createHostedRuntimeWorkerRunLoop({
   requestDrain: worker.requestDrain,
+  heartbeat: async () => {
+    if (shuttingDown) return;
+    try {
+      await worker.heartbeat();
+    } catch (error) {
+      healthy = false;
+      lastErrorCode = safeErrorCode(error);
+      writeHostedWorkerDiagnostic({
+        level: "error", event: "worker_heartbeat_failed", errorCode: lastErrorCode,
+        buildSha, workerId, environment: releaseEnvironment, region,
+        schemaVersion: workerSchema.schemaVersion
+      });
+    }
+  },
   runOnce: async () => {
     if (shuttingDown) return;
     try { await worker.runOnce(); healthy = true; lastErrorCode = null; }

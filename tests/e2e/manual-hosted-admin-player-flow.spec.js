@@ -1730,10 +1730,7 @@ function assertExactProductionSubmitLifecycle(clients, lifecycles) {
   const posts = [];
   for (const lifecycle of lifecycles) {
     const expectedPosts = [
-      lifecycle.commands.initialStart,
-      lifecycle.commands.cancelWaiting,
-      lifecycle.commands.newStart,
-      lifecycle.commands.collect
+      lifecycle.commands.produce
     ].map((summary) => ({
       commandId: summary.command.commandId,
       commandType: summary.command.type,
@@ -1745,14 +1742,14 @@ function assertExactProductionSubmitLifecycle(clients, lifecycles) {
     }));
     expect(
       clients[lifecycle.clientIndex].productionSubmitCapture.posts,
-      `${lifecycle.identity.buildingTypeId} must emit only its four visible lifecycle submits`
+      `${lifecycle.identity.buildingTypeId} must emit only its instant production submit`
     ).toEqual(expectedPosts);
     posts.push(...expectedPosts.map((post) => ({
       clientIndex: lifecycle.clientIndex,
       ...post
     })));
   }
-  expect(posts).toHaveLength(manualProductionCases.length * 4);
+  expect(posts).toHaveLength(manualProductionCases.length);
   return posts;
 }
 

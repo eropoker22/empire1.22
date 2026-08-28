@@ -8,6 +8,7 @@ import { addCosts, creditCosts, debitCosts, equalCosts, hasRequiredResources, li
 import { normalizeResourceCosts } from "./productionLineShared";
 import { armoryFailure as failure, createArmoryPlayerResourceState, type ArmoryHandlerResult, validateArmoryTarget } from "./armoryProductionSupport";
 import { getArmoryBuildingResourceState, getArmoryLine, getArmoryProducedAmount, startArmoryLine } from "./armoryProductionShared";
+import { executeInstantProduction } from "./instantProduction";
 
 type ArmoryLineCommand = { playerId: string; payload: { districtId: string; buildingId: string; recipeId: string } };
 
@@ -18,70 +19,26 @@ export const handleArmoryProductionStart = (
 ): ArmoryHandlerResult => {
   const validation = validateArmoryTarget(state, command, context);
   if (validation.errors.length || !validation.building || !validation.recipe) return { nextState: state, events: [], errors: validation.errors };
-  const quantity = Number(command.payload.quantity);
+  const quantity = Number(command.payload.quantity ?? 1);
   if (!Number.isInteger(quantity) || quantity <= 0) return failure(state, "armory_invalid_quantity", "Množství výroby musí být kladné celé číslo.");
 
   const { building, recipe } = validation;
-  const line = getArmoryLine(building, command.payload.recipeId);
-  if (getArmoryProducedAmount(state, building, recipe.outputResourceKey) >= recipe.localOutputCap) {
-    return failure(state, "armory_output_full", "Lokální zásoba Zbrojovky je plná.");
-  }
-  if (line.queuedAmount + quantity > recipe.queueCap) {
-    return failure(state, "armory_queue_full", "Fronta této výrobní linky je plná.");
-  }
-  const player = state.playersById[command.playerId];
-  if (!player) return failure(state, "armory_not_owned", "Hráč nevlastní cílovou Zbrojovku.");
-  const stored = state.resourceStatesById[player.resourceStateId];
-  const resources = stored
-    ? { ...stored, balances: normalizeStorageBalances(stored.balances) }
-    : createArmoryPlayerResourceState(player, state.root.tick);
-  const inputCosts = scaleCosts(recipe.inputCosts, quantity);
-  if (!hasRequiredResources(resources.balances, inputCosts)) {
-    return failure(state, "armory_missing_inputs", "Na spuštění výroby nemáš dost materiálových vstupů.");
-  }
-  if (line.queuedAmount && (
-    line.unitCleanCashCost !== 0
-    || !equalCosts(normalizeResourceCosts(line.unitResourceCosts), recipe.inputCosts)
-  )) {
-    return failure(state, "armory_line_reservation_locked", "Fronta obsahuje rezervaci podle předchozího receptu a musí se nejdřív dokončit nebo zrušit.");
-  }
-  const queuedLine = {
-    ...line,
-    queuedAmount: line.queuedAmount + quantity,
-    reservedResourceCosts: addCosts(line.reservedResourceCosts, inputCosts),
-    unitCleanCashCost: 0,
-    unitResourceCosts: normalizeResourceCosts(recipe.inputCosts),
-    version: line.version + 1
-  };
-  const nextLine = startArmoryLine(state, queuedLine, building, recipe, state.root.tick, context);
-  const nextBuilding = {
-    ...building,
-    productionLines: { ...building.productionLines, [recipe.outputResourceKey]: nextLine },
-    version: building.version + 1
-  };
-  const nextResources: ResourceState = {
-    ...resources,
-    balances: debitCosts(resources.balances, inputCosts),
-    lastUpdatedTick: state.root.tick,
-    version: resources.version + (stored ? 1 : 0)
-  };
-  return {
-    nextState: {
-      ...state,
-      buildingsById: { ...state.buildingsById, [building.id]: nextBuilding },
-      resourceStatesById: { ...state.resourceStatesById, [nextResources.id]: nextResources }
-    },
-    events: [createEvent(CORE_EVENT_TYPES.itemProcessingStarted, {
-      playerId: player.id,
-      districtId: building.districtId,
-      buildingId: building.id,
-      recipeId: recipe.outputResourceKey,
-      outputResourceKey: recipe.outputResourceKey,
-      outputAmount: 1,
-      completesAtTick: nextLine.activeCompletesAtTick
-    })],
-    errors: []
-  };
+  return executeInstantProduction({
+    state,
+    context,
+    playerId: command.playerId,
+    buildingId: building.id,
+    districtId: building.districtId,
+    recipeId: command.payload.recipeId,
+    quantity,
+    issuedAt: command.issuedAt,
+    recipe,
+    errors: {
+      playerMissing: { code: "armory_not_owned", message: "Hráč nevlastní cílovou Zbrojovku." },
+      insufficientCash: { code: "armory_insufficient_clean_cash", message: "Na výrobu nemáš dost clean cash." },
+      missingInputs: { code: "armory_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." }
+    }
+  });
 };
 
 export const handleCancelArmoryProduction = (

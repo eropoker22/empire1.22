@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, createDistrictOccupyTargetViews, runTick, type CoreGameState } from "@empire/game-core";
+import { applyCommand, createDistrictOccupyTargetViews, type CoreGameState } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import { PRODUCTION_GAME_LIFECYCLE_PHASES } from "@empire/shared-types";
 import {
@@ -168,46 +168,21 @@ describe("occupy district command", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(5);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(1000);
+    expect(result.nextState.playersById["player:1"].population).toBe(955);
     expect(result.nextState.districtsById["district:2"]).toMatchObject({
-      ownerPlayerId: null,
-      status: "neutral",
-      heat: 0
-    });
-    expect(result.nextState.buildingsById["building:district-2:warehouse:1"]).toMatchObject({
-      ownerPlayerId: "player:neutral"
-    });
-    expect(occupyCooldownTicks * context.config.tickRateMs).toBe(12 * 60 * 1000);
-    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(occupyCooldownTicks);
-    expect(result.nextState.notificationsById["notification:command:occupy:1:occupy-report"]).toBeUndefined();
-    expect(result.events).toEqual([]);
-    expect(Object.values(result.nextState.cityFeedEventsById)).toEqual([]);
-    expect(Object.values(result.nextState.pendingOccupyOperationsById ?? {})).toEqual([
-      expect.objectContaining({
-        playerId: "player:1",
-        targetDistrictId: "district:2",
-        influenceCost: 5,
-        resolveAtTick: occupyCooldownTicks
-      })
-    ]);
-
-    const beforeResolution = advanceTicks(result.nextState, occupyCooldownTicks - 1, context);
-    expect(beforeResolution.nextState.districtsById["district:2"].ownerPlayerId).toBeNull();
-    expect(beforeResolution.nextState.notificationsById["notification:command:occupy:1:occupy-report"]).toBeUndefined();
-
-    const completed = advanceTicks(beforeResolution.nextState, 1, context);
-    expect(completed.nextState.resourceStatesById["resource:1"].balances.population).toBe(955);
-    expect(completed.nextState.districtsById["district:2"]).toMatchObject({
       ownerPlayerId: "player:1",
       status: "claimed",
       heat: 2
     });
-    expect(completed.nextState.buildingsById["building:district-2:warehouse:1"]).toMatchObject({
+    expect(result.nextState.buildingsById["building:district-2:warehouse:1"]).toMatchObject({
       ownerPlayerId: "player:1",
       status: "active"
     });
-    expect(completed.nextState.policeStatesById["police:1"]?.heat).toBe(2);
-    expect(completed.nextState.notificationsById["notification:command:occupy:1:occupy-report"]).toMatchObject({
+    expect(occupyCooldownTicks * context.config.tickRateMs).toBe(12 * 60 * 1000);
+    expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(occupyCooldownTicks);
+    expect(Object.values(result.nextState.pendingOccupyOperationsById ?? {})).toEqual([]);
+    expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(2);
+    expect(result.nextState.notificationsById["notification:command:occupy:1:occupy-report"]).toMatchObject({
       category: "report.occupy",
       payload: expect.objectContaining({
         actionType: "occupy-district",
@@ -222,7 +197,7 @@ describe("occupy district command", () => {
         cooldownTicks: occupyCooldownTicks
       })
     });
-    expect(completed.events).toEqual([
+    expect(result.events).toEqual([
       expect.objectContaining({
         type: "district-captured",
         payload: expect.objectContaining({
@@ -247,7 +222,7 @@ describe("occupy district command", () => {
         })
       })
     ]);
-    expect(Object.values(completed.nextState.cityFeedEventsById)).toEqual(expect.arrayContaining([
+    expect(Object.values(result.nextState.cityFeedEventsById)).toEqual(expect.arrayContaining([
       expect.objectContaining({
         sourceType: "district_occupy",
         districtId: "district:2"
@@ -296,24 +271,19 @@ describe("occupy district command", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(5);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(1000);
-    expect(result.nextState.notificationsById["notification:command:occupy:fail:1:occupy-report"]).toBeUndefined();
-    expect(result.events).toEqual([]);
-
-    const completed = advanceTicks(result.nextState, context.config.balance.conflict!.occupyCooldownTicks ?? 0, context);
-    expect(completed.nextState.resourceStatesById["resource:1"].balances.population).toBe(950);
-    expect(completed.nextState.playersById["player:1"].recoveryPool).toEqual([
+    expect(result.nextState.playersById["player:1"].population).toBe(950);
+    expect(result.nextState.playersById["player:1"].recoveryPool).toEqual([
       expect.objectContaining({ itemType: "population", amount: 50, source: "occupy" })
     ]);
-    expect(completed.nextState.districtsById["district:2"]).toMatchObject({
+    expect(result.nextState.districtsById["district:2"]).toMatchObject({
       ownerPlayerId: null,
       status: "neutral",
       heat: 2
     });
-    expect(completed.nextState.buildingsById["building:district-2:warehouse:1"]).toMatchObject({
+    expect(result.nextState.buildingsById["building:district-2:warehouse:1"]).toMatchObject({
       ownerPlayerId: "player:neutral"
     });
-    expect(completed.nextState.notificationsById["notification:command:occupy:fail:1:occupy-report"]).toMatchObject({
+    expect(result.nextState.notificationsById["notification:command:occupy:fail:1:occupy-report"]).toMatchObject({
       category: "report.occupy",
       payload: expect.objectContaining({
         result: "failure",
@@ -323,7 +293,7 @@ describe("occupy district command", () => {
         populationRefunded: 0
       })
     });
-    expect(completed.events.find((event) => event.type === "district-occupy-resolved")).toMatchObject({
+    expect(result.events.find((event) => event.type === "district-occupy-resolved")).toMatchObject({
       type: "district-occupy-resolved",
       payload: expect.objectContaining({
         result: "failure",
@@ -332,7 +302,7 @@ describe("occupy district command", () => {
         populationRefunded: 0
       })
     });
-    expect(Object.values(completed.nextState.cityFeedEventsById)).toEqual(expect.arrayContaining([
+    expect(Object.values(result.nextState.cityFeedEventsById)).toEqual(expect.arrayContaining([
       expect.objectContaining({
         sourceType: "district_occupy",
         districtId: "district:2",
@@ -356,13 +326,10 @@ describe("occupy district command", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(3);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(1000);
-    expect(result.nextState.districtsById["district:2"].heat).toBe(0);
+    expect(result.nextState.playersById["player:1"].population).toBe(955);
+    expect(result.nextState.districtsById["district:2"].heat).toBe(3);
     expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(4);
-    const completed = advanceTicks(result.nextState, 4, { config });
-    expect(completed.nextState.resourceStatesById["resource:1"].balances.population).toBe(955);
-    expect(completed.nextState.districtsById["district:2"].heat).toBe(3);
-    expect(completed.nextState.policeStatesById["police:1"]?.heat).toBe(3);
+    expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(3);
   });
 
   it("reduces occupy cooldown for Motorkářský gang faction", () => {
@@ -382,7 +349,7 @@ describe("occupy district command", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(9);
-    expect(Object.values(result.nextState.pendingOccupyOperationsById ?? {})[0]).toMatchObject({
+    expect(result.nextState.notificationsById["notification:command:occupy:1:occupy-report"]?.payload).toMatchObject({
       cooldownTicks: 9
     });
   });
@@ -403,11 +370,9 @@ describe("occupy district command", () => {
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), { config });
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.districtsById["district:2"].heat).toBe(0);
-    const completed = advanceTicks(result.nextState, 10, { config });
-    expect(completed.nextState.districtsById["district:2"].heat).toBe(3);
-    expect(completed.nextState.policeStatesById["police:1"]?.heat).toBe(3);
-    expect(completed.events.find((event) => event.type === "district-captured")?.payload).toMatchObject({
+    expect(result.nextState.districtsById["district:2"].heat).toBe(3);
+    expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(3);
+    expect(result.events.find((event) => event.type === "district-captured")?.payload).toMatchObject({
       heatGained: 3
     });
   });
@@ -491,12 +456,9 @@ describe("occupy district command", () => {
 
   it("rejects occupation when the player lacks the population cost", () => {
     const state = createNeutralOccupyState();
-    state.resourceStatesById["resource:1"] = {
-      ...state.resourceStatesById["resource:1"],
-      balances: {
-        ...state.resourceStatesById["resource:1"].balances,
-        population: 49
-      }
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      population: 49
     };
     seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
     const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
@@ -587,10 +549,8 @@ describe("occupy district command", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(4_990);
-    expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBe(1000);
-    const completed = advanceTicks(result.nextState, context.config.balance.conflict!.occupyCooldownTicks ?? 0, context);
-    expect(completed.nextState.resourceStatesById["resource:1"].balances.population).toBe(955);
-    expect(createDistrictOccupyTargetViews(completed.nextState, "player:1", "district:2")[0]?.cost).toEqual({
+    expect(result.nextState.playersById["player:1"].population).toBe(955);
+    expect(createDistrictOccupyTargetViews(result.nextState, "player:1", "district:2")[0]?.cost).toEqual({
       influence: 10,
       population: 51
     });
@@ -599,12 +559,7 @@ describe("occupy district command", () => {
   it("rejects repeated occupation of an already owned district", () => {
     const state = createNeutralOccupyState();
     seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
-    const pending = applyCommand(state, createOccupyDistrictCommandFixture(), context).nextState;
-    const claimed = advanceTicks(
-      pending,
-      context.config.balance.conflict!.occupyCooldownTicks ?? 0,
-      context
-    ).nextState;
+    const claimed = applyCommand(state, createOccupyDistrictCommandFixture(), context).nextState;
 
     const repeated = applyCommand(
       claimed,
@@ -678,30 +633,18 @@ const createNeutralOccupyState = (): CoreGameState => {
     influence: 10
   };
   state.buildingsById[building.id] = building;
+  state.playersById["player:1"] = {
+    ...state.playersById["player:1"],
+    population: 1000
+  };
+  const canonicalBalances = { ...state.resourceStatesById["resource:1"].balances };
+  delete canonicalBalances.population;
   state.resourceStatesById["resource:1"] = {
     ...state.resourceStatesById["resource:1"],
-    balances: {
-      ...state.resourceStatesById["resource:1"].balances,
-      population: 1000
-    }
+    balances: canonicalBalances
   };
 
   return state;
-};
-
-const advanceTicks = (
-  state: CoreGameState,
-  tickCount: number,
-  tickContext: typeof context
-): { nextState: CoreGameState; events: ReturnType<typeof runTick>["events"] } => {
-  let nextState = state;
-  const events: ReturnType<typeof runTick>["events"] = [];
-  for (let index = 0; index < tickCount; index += 1) {
-    const result = runTick(nextState, tickContext);
-    nextState = result.nextState;
-    events.push(...result.events);
-  }
-  return { nextState, events };
 };
 
 const createAlliedEncirclementOccupyState = (): CoreGameState => {

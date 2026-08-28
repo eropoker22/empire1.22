@@ -25,7 +25,8 @@ export const PRODUCTION_MIGRATION_CONTRACT = [
   ["022_single_player_hosted_start.sql", "1e0e17115c9abd046fad29cd825db9422fda642d1356e1091f3c8a5306208206"],
   ["023_archived_server_memberships.sql", "3198f0a4109054a474e64ded517c3c34e385e55bf798f3a681aa7ece9b2fe784"],
   ["024_hosted_starting_player_state.sql", "2decfcd75ffcbc3097cd7f07784b1145b91c1c006bb6153ae697bbd687485e42"],
-  ["025_open_registration_purge_start.sql", "084ae34f558d437a0c8c3479c11cebb4a7484f0736ea7da22b9119f0f76a28d7"]
+  ["025_open_registration_purge_start.sql", "084ae34f558d437a0c8c3479c11cebb4a7484f0736ea7da22b9119f0f76a28d7"],
+  ["026_control_server_elimination_timing.sql", "95625140505fbc6b738d4881116f41e519a360b898784a08aac2c6612132cd02"]
 ] as const;
 
 export interface ProductionSchemaStatus {

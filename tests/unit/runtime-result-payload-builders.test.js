@@ -138,6 +138,29 @@ describe("result payload builders", () => {
     expect(payload.policeWarningLabel).toBe("Sleduj police feed");
   });
 
+  it("separates an instant attack result from its real post-action cooldown", () => {
+    const payload = createBuilders().createAttackResultPayload({
+      order: {
+        estimatedAttackPower: 120,
+        createdAt: new Date(1_000).toISOString(),
+        resolveAt: new Date(1_000).toISOString(),
+        cooldownUntil: new Date(11_000).toISOString(),
+        executionMode: "instant"
+      },
+      targetDistrictId: 3,
+      outcome: { key: "failure", capturesDistrict: false, destroysDistrict: false },
+      deployedMembers: 10,
+      memberLoss: 2,
+      currentDefense: 100,
+      nextDefense: 80
+    });
+
+    expect(payload.durationValue).toBe("Okamžitě");
+    expect(payload.cooldownLabel).toBe("10000ms");
+    expect(payload.extraRows).toContainEqual({ label: "Vyhodnocení", value: "Okamžitě", nowrap: true });
+    expect(payload.extraRows).toContainEqual({ label: "Cooldown", value: "10000ms", nowrap: true });
+  });
+
   it("keeps explicit attack heat values when core/runtime payload provides them", () => {
     const payload = createBuilders().createAttackResultPayload({
       order: {
@@ -184,6 +207,24 @@ describe("result payload builders", () => {
     expect(withoutLoot.raidResultPayload.title).toBe("VYKRÁST DISTRICT: BEZ LOOTU");
   });
 
+  it("shows an instant robbery result independently from its cooldown", () => {
+    const { raidResultPayload } = createBuilders().createRobberyResultPayload({
+      order: {
+        targetDistrictId: 5,
+        createdAt: new Date(1_000).toISOString(),
+        resolveAt: new Date(1_000).toISOString(),
+        cooldownUntil: new Date(6_000).toISOString(),
+        executionMode: "instant"
+      },
+      deployedMembers: 5,
+      memberLoss: 0,
+      lootEntries: [["tech-core", 1]]
+    });
+
+    expect(raidResultPayload.rows).toContainEqual({ label: "Vyhodnocení", value: "Okamžitě", nowrap: true });
+    expect(raidResultPayload.rows).toContainEqual({ label: "Cooldown", value: "5000ms", nowrap: true });
+  });
+
   it("creates spy result payloads for success and capture states", () => {
     const builders = createBuilders();
     const success = builders.createSpyResultPayload({
@@ -221,5 +262,25 @@ describe("result payload builders", () => {
     ]);
     expect(critical.title).toBe("Špehování: Kritický neúspěch");
     expect(critical.rows).toContainEqual({ label: "Heat", value: "+7" });
+  });
+
+  it("uses the authoritative spy cooldown timestamp after an instant result", () => {
+    const success = createBuilders().createSpyResultPayload({
+      mission: {
+        targetDistrictId: 3,
+        status: "cooldown",
+        cooldownUntil: new Date(6_000).toISOString()
+      },
+      scenarioLabel: "Úspěch",
+      knownDefensePower: 100,
+      isUnownedDistrict: false
+    });
+
+    expect(success.rows).toContainEqual({
+      label: "Cooldown",
+      value: "5000ms",
+      nowrap: true,
+      countdownUntil: 6_000
+    });
   });
 });

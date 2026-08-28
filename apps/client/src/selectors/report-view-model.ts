@@ -69,7 +69,7 @@ const formatReportSummary = (report: ConflictReportView): string => {
     return `Distrikt obsazen. Vliv -${report.influenceCost} · hledanost +${report.heatGained}.`;
   }
   if (report.reportType === "heist") {
-    return `Kořist ${formatNumberRecord(report.loot)} · ztráty gangu ${report.gangLosses} · hledanost +${report.heatGained}.`;
+    return `Kořist ${formatNumberRecord(report.loot)} · ztráty gangu ${report.populationLosses} · hledanost +${report.heatGained}.`;
   }
   if (report.reportType === "rob") {
     return `Kořist ${formatNumberRecord(report.loot)} · hledanost +${report.playerHeat}.`;
@@ -134,7 +134,7 @@ const formatReportDetails = (report: ConflictReportView): string[] => {
       `Cíl ${report.targetDistrictId}`,
       `Styl ${toTitleCase(report.style)}`,
       `Kořist ${formatNumberRecord(report.loot)}`,
-      `Ztráty gangu ${report.gangLosses}`,
+      `Ztráty gangu ${report.populationLosses}`,
       `Hledanost +${report.heatGained}`
     ];
   }

@@ -2,10 +2,7 @@ import type { PharmacyProductionBuildingView, PharmacyProductionLineView } from 
 import type { PharmacyRecipeId, ResolvedGameModeConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import {
-  getPharmacyProducedAmount,
-  getPharmacyLine,
-  PHARMACY_BUILDING_TYPE_ID,
-  resolvePharmacyDurationTicks
+  PHARMACY_BUILDING_TYPE_ID
 } from "../handlers/pharmacyProductionShared";
 import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "../handlers/warehouseBuilding";
 
@@ -25,54 +22,47 @@ export const createPharmacyProductionBuildingView = (input: {
     ? resolveWarehouseStorageCapacity(input.state, player.id, input.config.balance.warehouse)
     : null;
   const lines = (Object.entries(pharmacy.recipes) as Array<[PharmacyRecipeId, typeof pharmacy.recipes[PharmacyRecipeId]]>).map(([recipeId, recipe]) => {
-    const line = getPharmacyLine(input.building, recipeId);
-    const producedAmount = getPharmacyProducedAmount(input.state, input.building, recipe.outputResourceKey);
-    const activeAmount = line.activeCompletesAtTick === null ? 0 : 1;
-    const waitingAmount = Math.max(0, line.queuedAmount - activeAmount);
-    const remainingTicks = activeAmount ? Math.max(0, line.activeCompletesAtTick! - input.state.root.tick) : 0;
-    const effectiveUnitDurationTicks = resolvePharmacyDurationTicks(input.state, input.building, recipe, { config: input.config! });
     const cleanCash = Math.max(0, Number(balances.cash || 0));
-    const queueSpace = Math.max(0, recipe.queueCap - line.queuedAmount);
-    const localFull = producedAmount >= recipe.localOutputCap;
-    const maxStartQuantity = isOwner && !localFull
-      ? Math.max(0, Math.min(queueSpace, Math.floor(cleanCash / recipe.cleanCashCostPerUnit)))
+    const playerStoredAmount = Math.max(0, Number(balances[recipe.outputResourceKey] ?? 0));
+    const playerStoredCapacity = storage ? getWarehouseCapacityForResource(storage, recipe.outputResourceKey) : 0;
+    const maxByStorage = storage
+      ? Math.max(0, Math.floor((playerStoredCapacity - playerStoredAmount) / recipe.outputAmount))
+      : Number.MAX_SAFE_INTEGER;
+    const maxByCash = recipe.cleanCashCostPerUnit > 0
+      ? Math.floor(cleanCash / recipe.cleanCashCostPerUnit)
+      : Number.MAX_SAFE_INTEGER;
+    const maxStartQuantity = isOwner
+      ? Math.max(0, Math.min(recipe.queueCap, maxByCash, maxByStorage))
       : 0;
+    const storageFull = maxByStorage <= 0;
     const disabledReason = !isOwner
       ? input.building.status !== "active" ? "Lékárna musí být aktivní." : "Lékárna patří jinému hráči."
-      : localFull ? "Lokální zásoba Lékárny je plná."
-      : queueSpace <= 0 ? "Fronta této výrobní linky je plná."
+      : storageFull ? "Sklad je pro tento produkt plný."
       : maxStartQuantity <= 0 ? "Na spuštění výroby nemáš dost clean cash."
       : null;
-    const status = localFull
-      ? "full"
-      : activeAmount
-        ? "processing"
-        : line.queuedAmount > 0
-          ? "waiting"
-          : producedAmount > 0
-            ? "completed"
-            : "ready";
+    const status = storageFull ? "full" : "ready";
     return {
+      executionMode: "instant",
       recipeId,
       resourceKey: recipe.outputResourceKey,
       label: recipe.label,
-      producedAmount,
-      producedCapacity: recipe.localOutputCap,
-      playerStoredAmount: Math.max(0, Number(balances[recipe.outputResourceKey] ?? 0)),
-      playerStoredCapacity: storage ? getWarehouseCapacityForResource(storage, recipe.outputResourceKey) : 0,
-      queuedAmount: line.queuedAmount,
+      producedAmount: 0,
+      producedCapacity: playerStoredCapacity,
+      playerStoredAmount,
+      playerStoredCapacity,
+      queuedAmount: 0,
       queueCapacity: recipe.queueCap,
-      activeAmount: activeAmount as 0 | 1,
-      waitingAmount,
+      activeAmount: 0,
+      waitingAmount: 0,
       unitCleanCashCost: recipe.cleanCashCostPerUnit,
-      baseUnitDurationTicks: recipe.durationTicksPerUnit,
-      effectiveUnitDurationTicks,
-      remainingTicks,
-      remainingMs: remainingTicks * Math.max(1, Number(input.tickRateMs || input.config?.tickRateMs || 5000)),
+      baseUnitDurationTicks: 0,
+      effectiveUnitDurationTicks: 0,
+      remainingTicks: 0,
+      remainingMs: 0,
       status,
       canStart: maxStartQuantity > 0,
-      canCancelWaiting: waitingAmount > 0,
-      canCollect: isOwner && producedAmount > 0,
+      canCancelWaiting: false,
+      canCollect: false,
       maxStartQuantity,
       disabledReason
     } satisfies PharmacyProductionLineView;

@@ -112,6 +112,8 @@ describe("login about encyclopedia", () => {
     overlay.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     opener.click();
     expect(finalTab.getAttribute("aria-selected")).toBe("true");
+    overlay.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(overlay.hidden).toBe(true);
   });
 
   it("closes from the backdrop and keeps the original story in the overview", () => {
@@ -120,6 +122,30 @@ describe("login about encyclopedia", () => {
     expect(overlay.querySelector('[data-login-about-panel="overview"]')?.textContent).toContain("Město sleduje každý tvůj krok.");
     overlay.querySelector("[data-login-about-close]").click();
     expect(overlay.hidden).toBe(true);
+  });
+
+  it("resynchronizes after a compatibility fallback close and reopens", () => {
+    const { opener, overlay } = mountModal();
+    opener.focus();
+    opener.click();
+    expect(overlay.hidden).toBe(false);
+    expect(document.body.classList.contains("login-modal-open")).toBe(true);
+
+    overlay.hidden = true;
+    overlay.classList.add("hidden");
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.dispatchEvent(new CustomEvent("empire:overlay-fallback-closed", {
+      bubbles: true,
+      detail: { overlay }
+    }));
+
+    expect(document.body.classList.contains("login-modal-open")).toBe(false);
+    expect(document.activeElement).toBe(opener);
+    opener.click();
+    expect(overlay.hidden).toBe(false);
+    expect(overlay.classList.contains("hidden")).toBe(false);
+    expect(document.body.classList.contains("login-modal-open")).toBe(true);
+    overlay.querySelector("[data-login-about-close]").click();
   });
 
   it("uses player-facing copy and responsive accessibility rules", () => {

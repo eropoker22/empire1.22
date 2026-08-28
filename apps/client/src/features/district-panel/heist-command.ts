@@ -18,7 +18,7 @@ export const createHeistDistrictCommand = (
   const district = input.slice.district;
   const target = district?.targetActions?.heistTargets.find((entry) => entry.districtId === input.targetDistrictId)
     ?? district?.heistTargets?.find((entry) => entry.districtId === input.targetDistrictId);
-  const styleFallback = { style: "balanced" as HeistDistrictStyle, defaultGangMembersSent: 1 };
+  const styleFallback = { style: "balanced" as HeistDistrictStyle, defaultPopulationSent: 1 };
   const style = target?.styles.find((entry) => entry.style === target.recommendedStyle)
     ?? target?.styles.find((entry) => entry.enabled !== false)
     ?? target?.styles.find((entry) => entry.style === "balanced")
@@ -42,7 +42,7 @@ export const createHeistDistrictCommand = (
       sourceDistrictId: corridor?.sourceDistrictId ?? target?.sourceDistrictId
         ?? (() => { throw new Error("Heist target is missing a source district."); })(),
       style: style.style,
-      gangMembersSent: style.defaultGangMembersSent,
+      populationSent: style.defaultPopulationSent,
       expectedConflictRevision: target?.expectedConflictRevision
         ?? (() => { throw new Error("Heist target is missing a conflict revision."); })(),
       ...(target?.expectedTargetVersion !== undefined ? { expectedTargetVersion: target.expectedTargetVersion } : {}),

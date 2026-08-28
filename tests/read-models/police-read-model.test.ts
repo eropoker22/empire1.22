@@ -260,10 +260,10 @@ describe("police read model projection", () => {
       balances: {
         cash: 1000,
         "dirty-cash": 500,
-        chemicals: 20,
-        "gang-members": 30
+        chemicals: 20
       }
     };
+    state.playersById["player:1"] = { ...state.playersById["player:1"], population: 30 };
 
     const raidResult = triggerRaid(state, createPoliceContext());
     const model = createPoliceReadModel(raidResult.nextState, "player:1", createPoliceContext());
@@ -282,7 +282,7 @@ describe("police read model projection", () => {
         resourcesSeized: {
           chemicals: 1
         },
-        gangMembersLost: 0,
+        populationLost: 0,
         districtLockdownTicks: 0,
         heatReduced: 25
       }

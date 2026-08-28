@@ -108,7 +108,7 @@ describe("emergency recovery", () => {
     state.playersById[player.id] = { ...player, population: 0 };
     state.resourceStatesById[resources.id] = {
       ...resources,
-      balances: { cash: 0, "dirty-cash": 0, population: 0 },
+      balances: { cash: 0, "dirty-cash": 0 },
       version: resources.version
     };
     state.districtsById["district:1"] = { ...state.districtsById["district:1"], adjacentDistrictIds: [] };
@@ -117,7 +117,9 @@ describe("emergency recovery", () => {
     const result = handleClaimEmergencyRecovery(state, emergencyCommand("command:recovery"), context);
     expect(result.errors).toEqual([]);
     expect(result.nextState.playersById[player.id].emergencyRecoveryUsedAtTick).toBe(state.root.tick);
-    expect(result.nextState.resourceStatesById[resources.id].balances).toMatchObject({ cash: 500, population: 5 });
+    expect(result.nextState.playersById[player.id].population).toBe(5);
+    expect(result.nextState.resourceStatesById[resources.id].balances).toMatchObject({ cash: 500 });
+    expect(result.nextState.resourceStatesById[resources.id].balances.population).toBeUndefined();
     const second = handleClaimEmergencyRecovery(result.nextState, emergencyCommand("command:recovery-2"), context);
     expect(second.errors[0]?.code).toBe("emergency_recovery_not_eligible");
     expect(second.nextState.resourceStatesById[resources.id].balances.cash).toBe(500);

@@ -1,4 +1,4 @@
-import { MAX_SPIES, DEFAULT_GANG_MEMBERS } from "../../../../packages/game-config/src/legacy-page/combat-config.js";
+import { MAX_SPIES, DEFAULT_POPULATION } from "../../../../packages/game-config/src/legacy-page/combat-config.js";
 import {
   DEFAULT_DRUG_INVENTORY,
   FACTORY_RECIPES,
@@ -256,7 +256,7 @@ export function createDefaultPreviewSession(_factionId = "mafian") {
       dirtyMoney: DEFAULT_PREVIEW_ECONOMY.dirtyMoney
     },
     gang: {
-      members: DEFAULT_GANG_MEMBERS,
+      population: DEFAULT_POPULATION,
       influence: DEFAULT_PREVIEW_GANG.influence,
       heat: DEFAULT_PREVIEW_GANG.heat,
       policeRaidProtectionUntil: 0,
@@ -343,6 +343,8 @@ function normalizePreviewSession(session) {
   }
 
   const activeMarketState = marketByServerId[marketServerId];
+  const normalizedGangSource = { ...(session?.gang || {}) };
+  delete normalizedGangSource.members;
 
   return {
     ...base,
@@ -359,8 +361,11 @@ function normalizePreviewSession(session) {
     economy: { ...base.economy, ...(session?.economy || {}) },
     gang: {
       ...base.gang,
-      ...(session?.gang || {}),
-      members: Number.parseInt(String(session?.gang?.members ?? base.gang.members), 10) || base.gang.members,
+      ...normalizedGangSource,
+      // `members` is a read-only migration fallback for old local sessions.
+      population: Number.parseInt(String(
+        session?.gang?.population ?? session?.gang?.members ?? base.gang.population
+      ), 10) || base.gang.population,
       influence: Math.max(0, Number.parseInt(String(session?.gang?.influence ?? base.gang.influence), 10) || 0),
       heat: Math.max(0, Number.parseInt(String(session?.gang?.heat ?? base.gang.heat), 10) || 0),
       policeRaidProtectionUntil: Math.max(0, Number(session?.gang?.policeRaidProtectionUntil || 0) || 0),

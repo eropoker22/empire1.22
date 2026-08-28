@@ -28,7 +28,7 @@ export const restoreRuntimeFromSnapshot = (
   runtime: ServerInstanceRuntime,
   snapshot: InstanceSnapshotDto
 ): ServerInstanceRuntime => {
-  runtime.state = restoreInstanceState(snapshot);
+  runtime.state = restoreInstanceState(snapshot, { config: runtime.config });
   runtime.processedCommandIds = new Set(snapshot.runtime?.processedCommandIds ?? []);
   runtime.commandRateLimitWindow = snapshot.runtime?.commandRateLimitWindow
     ? {

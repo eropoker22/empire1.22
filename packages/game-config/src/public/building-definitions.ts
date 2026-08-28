@@ -135,7 +135,7 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
   building("court", "Soud", "downtown", "Ultra vzácná / právní ochrana / zmírnění razií / vliv", "Soud nevypne policii. Jen zařídí, aby její zásah bolel míň. Když máš rozsudky, odklady a správné právníky, i razie ztratí zuby.", perMinuteStat(105, 0, 0.08 * 60 * 24, 0.72 * 60 * 24, 1), []),
   building("vip_lounge", "VIP Salonek", "downtown", "Vzácná / elitní drby / přesnější intel / vliv", "VIP Salonek je luxusní informační uzel. Za tlumeným světlem a drahým stolem se mluví rychleji než ve městě dole. Nedává jistotu, ale jeho zákulisní drby bývají nebezpečně blízko pravdě.", perMinuteStat(105, 30, 0.13 * 60 * 24, 0.48 * 60 * 24, 1), []),
   building("airport", "Letiště", "downtown", "Ultra vzácná / logistika / import / černý trh / mobilita", "Letiště je brána města. Co ostatní musí vyrábět, ty můžeš dovézt. Co ostatní musí vozit ulicemi, ty pošleš přes runway. Ale každý kontejner má papíry. A každý falešný papír jednou někdo zkontroluje.", perMinuteStat(180, 45, 0.2 * 60 * 24, 0.2 * 60 * 24, 1), [
-    action({ actionId: "express_import", label: "Expresní dovoz", description: "Po 90 sekundách doručí materiálovou importní zásilku do SKLADU hráče.", effectSummary: "Cena 2000 clean, heat +6, customs risk 10 %", cooldownMs: 18 * minute, durationMs: 90 * 1000, heatGain: 6, inputCost: out("cash", 2000) }),
+    action({ actionId: "express_import", label: "Expresní dovoz", description: "Okamžitě doručí materiálovou importní zásilku do SKLADU hráče.", effectSummary: "Cena 2000 clean, heat +6, customs risk 10 %", cooldownMs: 18 * minute, durationMs: 0, heatGain: 6, inputCost: out("cash", 2000) }),
     action({ actionId: "black_charter", label: "Černý charter", description: "Na 8 minut otevře speciální Black Market nabídku.", effectSummary: "Cena 2500 dirty, heat +9, nabídka -6 %, celní zátah při nákupu 15 %", cooldownMs: 24 * minute, durationMs: 8 * minute, heatGain: 9, inputCost: out("dirty-cash", 2500) }),
     action({ actionId: "evacuation_corridor", label: "Evakuační koridor", description: "Na 7 minut zlepší únik, ztráty při neúspěchu a návratovou logistiku.", effectSummary: "Cena 1800 clean, heat +5, escape +18 %, ztráty -10 %", cooldownMs: 26 * minute, durationMs: 7 * minute, heatGain: 5, inputCost: out("cash", 1800) })
   ]),
@@ -166,8 +166,8 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
   building("exchange", "Směnárna", "commercial", "Ekonomika / praní / síť", "Směnárna pere menší částky bezpečněji než kasino. Jedna směnárna je služba. Síť směnáren je finanční pavouk přes celé město.", perMinuteStat(70, 95, 70, 60, 1), [
     action({ actionId: "good_rate", label: "Výhodný kurz", description: "Ve dne vypere 16 % aktuálního dirty cash hráče přes síť směnáren.", effectSummary: "-dirty cash, +clean cash po 12 % poplatku, heat +12, vliv +3, +audit risk", cooldownMs: 18 * minute, heatGain: 12, influenceChange: 3 })
   ]),
-  building("apartment_block", "Bytový blok", "residential", "Populace / členové gangu", "Bytový blok negeneruje peníze ani heat. Jen lidi. A lidi jsou munice města.", stat(0, 0, 0, 0, 1), [
-    action({ actionId: "collect_population", label: "Vybrat obyvatele", description: "Přesune lokálně uložené obyvatele do globální populace hráče a členů gangu.", effectSummary: "+obyvatelé, +gang members, bez heatu a bez peněz", cooldownMs: 0 })
+  building("apartment_block", "Bytový blok", "residential", "Populace", "Bytový blok negeneruje peníze ani heat. Jen lidi. A lidi jsou munice města.", stat(0, 0, 0, 0, 1), [
+    action({ actionId: "collect_population", label: "Vybrat obyvatele", description: "Přesune lokálně uložené obyvatele do globální populace hráče.", effectSummary: "+populace, bez heatu a bez peněz", cooldownMs: 0 })
   ]),
   building("recruitment_center", "Rekrutační centrum", "residential", "Podpora / populace / bojový bonus", "Rekrutační centrum nevyrábí lidi. Dělá z obyvatel použitelný gang a z výbavy skutečnou sílu. Lidi přijdou z bloků. Tady se z nich stává armáda ulice.", perMinuteStat(35, 0, 0.07 * 60 * 24, 0, 1), []),
   building("garage", "Garáž", "residential", "Ekonomika / logistika / kratší cooldowny", "Garáž generuje čistý příjem a snižuje cooldowny logistických, pohybových a přípravných akcí. Motory běží pod plechovou střechou, kufry mizí ve tmě a někdo vždycky ví, kudy projet bez kamer. Garáž není jen místo pro auta. Je to tempo celého gangu.", perMinuteStat(42, 0, 0.06 * 60 * 24, 0, 1), []),
@@ -185,7 +185,7 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
   building("school", "Škola", "residential", "Populace / vzdělání / městský život", "Škola generuje malé peníze a trochu obyvatel. Není to kasárna. Je to místo, kde město vyrábí chytřejší lidi. Rozbité lavice, studené chodby a tabule popsané věcmi, které se v učebnicích neučí.", perMinuteStat(18, 0, 0, 0.05 * 60 * 24, 1), [
     action({ actionId: "evening_course", label: "Večerní kurz", description: "Na 20 minut zrychlí nábor členů v bytových blocích. Nestackuje se.", effectSummary: "Cena 1000 clean cash, +60 % nábor členů na 20 minut", cooldownMs: 35 * minute, durationMs: 20 * minute, inputCost: out("cash", 1000), effectModifiers: {} })
   ], [
-    action({ actionId: "collect_school_population", label: "Vybrat obyvatele", description: "Přesune celé obyvatele uložené ve Škole do globální populace hráče a členů gangu.", effectSummary: "+obyvatelé, +gang members, bez heatu a bez peněz", cooldownMs: 0 })
+    action({ actionId: "collect_school_population", label: "Vybrat obyvatele", description: "Přesune celé obyvatele uložené ve Škole do globální populace hráče.", effectSummary: "+populace, bez heatu a bez peněz", cooldownMs: 0 })
   ]),
 
   building("factory", "Továrna", "industrial", "Výroba", "Tři nezávislé linky vyrábějí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je strategická průmyslová komponenta pro high-tier výzbroj a pokročilé boost protokoly.", stat(0, 0, 3, 10, 14), []),
@@ -200,13 +200,13 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
     action({ actionId: "extract_losses", label: "Vytěžit ztráty", description: "Vrátí část neexpirovaných itemových ztrát ze zásobníku ztrát. Nikdy nevrací populaci ani členy gangu.", effectSummary: "Cena 900 clean cash, návrat itemů podle sítě Recyklačních center, heat +2", cooldownMs: 16 * minute, inputCost: out("cash", 900), heatGain: 2 })
   ]),
 
-  building("pharmacy", "Lékárna", "commercial", "Výroba", "Tři nezávislé linky vyrábějí Chemicals, Biomass a Stim Pack po jednom kusu za clean cash. Hotové položky čekají v Lékárně na vyzvednutí do SKLADU.", stat(0, 0, 3, 8, 14), []),
+  building("pharmacy", "Lékárna", "commercial", "Výroba", "Chemicals, Biomass a Stim Pack vznikají okamžitě: server atomicky odečte clean cash a připíše výrobek do SKLADU.", stat(0, 0, 3, 8, 14), []),
   building("drug_lab", "Drug Lab", "park", "Výroba drog", "Pět nezávislých linek vyrábí Neon Dust, Pulse Shot, Velvet Smoke, Ghost Serum a Overdrive X. Vzácné komponenty napájejí strategické boost protokoly a nelze je aktivovat samostatně.", stat(0, 0, 6, 20, 14), []),
   building("smuggling_tunnel", "Pašovací tunel", "park", "Dirty cash / smuggling / dealer support / risk reward", "Pašovací tunel pasivně vytváří dirty cash a podporuje rychlost i bezpečnost pouliční distribuce. Cenu prodeje neurčuje: ta zůstává pevně odvozená z výroby v Drug Labu.", perMinuteStat(0, 54, 0.07 * 60 * 24, 0, 1), [
     action({ actionId: "open_channel", label: "Otevřít kanál", description: "Na 15 minut posílí dirty cash tunelů a zrychlí prodej Pouličních dealerů. Nestackuje se.", effectSummary: "Cena 1800 clean cash, heat +5, +45 % dirty tok tunelů, rychlejší prodej a vyšší riziko incidentu", cooldownMs: 30 * minute, durationMs: 15 * minute, inputCost: out("cash", 1800), heatGain: 5 })
   ]),
   building("convenience_store", "Večerka", "park", "Economy / populace / rumors / influence / street life", "Večerka generuje malé čisté peníze, drobné dirty cash, vliv, lokální pouliční drby a postupně nabírá nové lidi pro gang.", perMinuteStat(32, 18, 72, 144, 1), [
-    action({ actionId: "collect_convenience_store_population", label: "Vybrat obyvatele", description: "Přesune obyvatele uložené ve Večerce do globální populace hráče a členů gangu.", effectSummary: "+obyvatelé, +gang members, bez heatu a bez peněz", cooldownMs: 0 })
+    action({ actionId: "collect_convenience_store_population", label: "Vybrat obyvatele", description: "Přesune obyvatele uložené ve Večerce do globální populace hráče.", effectSummary: "+populace, bez heatu a bez peněz", cooldownMs: 0 })
   ]),
   building("strip_club", "Strip Club", "park", "Economy / influence / rumors / social network", "Strip Club pasivně vytváří peníze, vliv a drby. Vybrání cash, VIP klienti a soukromá party jsou samostatné akce s náklady, heatem a cooldownem.", perMinuteStat(75, 65, 85, 90, 1), [
     action({ actionId: "strip_club_collect_cash", label: "Vybrat cash", description: "Okamžitě vybere noční dirty cash ze Strip Clubu.", effectSummary: "+360 dirty cash, heat +3", cooldownMs: 10 * minute, outputGain: out("dirty-cash", 360), heatGain: 3 }),
@@ -214,7 +214,7 @@ export const publicBuildingDefinitions: PublicBuildingDefinition[] = [
     action({ actionId: "private_party", label: "Soukromá party", description: "Přidá okamžitý vliv, dočasně zvýší jeho tvorbu a může přinést extra drb nebo skandál.", effectSummary: "Cena 1500 clean cash, +8 influence, +70 % influence na 10 minut, heat +6, riziko skandálu 12 %", cooldownMs: 30 * minute, durationMs: 10 * minute, inputCost: out("cash", 1500), heatGain: 6, influenceChange: 8, effectModifiers: { influenceMultiplier: 1.7 } })
   ]),
   building("street_dealers", "Pouliční dealeři", "park", "Dirty cash / drug distribution / street economy", "Pouliční dealeři pasivně vytváří slabší dirty cash a prodávají Neon Dust, Pulse Shot nebo Velvet Smoke ze SKLADU. Jeden prodej vždy spotřebuje zvolenou látku a současně může běžet jen jeden.", perMinuteStat(0, 36, 0.06 * 60 * 24, 0, 1), [
-    action({ actionId: "start_drug_sale", label: "Spustit prodej", description: "Vyber jednu z dostupných látek a nastav alespoň 10 ks. Cena je pevně odvozená z výroby v Drug Labu; současně může běžet jen jeden prodej.", effectSummary: "dirty cash, heat, pouliční riziko" })
+    action({ actionId: "start_drug_sale", label: "Prodat zásobu", description: "Vyber jednu z dostupných látek a nastav alespoň 10 ks. Prodej se vyhodnotí okamžitě; případný cooldown omezuje až další použití.", effectSummary: "dirty cash, heat, pouliční riziko" })
   ])
 ];
 

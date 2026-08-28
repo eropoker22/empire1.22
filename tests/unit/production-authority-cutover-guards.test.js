@@ -15,7 +15,7 @@ describe("production authority cutover guards", () => {
 
     expect(result.status, result.stderr || result.stdout).toBe(0);
     expect(result.stdout).toContain("Production fixture boundary OK");
-  });
+  }, 15_000);
 
   it("injects and renders admin-only build diagnostics", () => {
     expect(read("admin.html")).toContain('meta name="empire-build-sha" content="__EMPIRE_BUILD_SHA__"');

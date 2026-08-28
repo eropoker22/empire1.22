@@ -13,6 +13,8 @@ const PURGE_PANEL_STATUS_SELECTOR = "[data-elimination-ai-panel-status]";
 const COUNTDOWN_WARNING_SELECTOR = "[data-elimination-countdown-warning]";
 const COUNTDOWN_WARNING_TIME_SELECTOR = "[data-elimination-countdown-warning-time]";
 const COUNTDOWN_WARNING_CLOSE_SELECTOR = "[data-elimination-countdown-warning-close]";
+const COUNTDOWN_WARNING_DISMISSED_MILESTONE_STORAGE_KEY =
+  "empire:elimination-countdown-warning-dismissed.v1";
 const RESULT_POPUP_SELECTOR = "[data-elimination-result-popup]";
 const RESULT_POPUP_BODY_SELECTOR = "[data-elimination-result-popup-body]";
 const RESULT_POPUP_CARD_SELECTOR = ".elimination-result-popup__card";
@@ -107,6 +109,34 @@ function ensureSharedMockCountdownEndsAt(timerApi, initialRemainingMs = DEMO_ELI
 
 function getCountdownResetMs(value) {
   return Math.max(1000, Number(value) || DEMO_ELIMINATION_RESET_COUNTDOWN_MS);
+}
+
+function resolveCountdownWarningStorage(deps, documentRef) {
+  if (Object.prototype.hasOwnProperty.call(deps, "storage")) {
+    return deps.storage;
+  }
+  try {
+    return documentRef?.defaultView?.sessionStorage
+      || (typeof window !== "undefined" ? window.sessionStorage : null);
+  } catch {
+    return null;
+  }
+}
+
+function readDismissedCountdownWarningMilestone(storage) {
+  try {
+    const value = storage?.getItem?.(COUNTDOWN_WARNING_DISMISSED_MILESTONE_STORAGE_KEY);
+    return typeof value === "string" && value.trim() ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistDismissedCountdownWarningMilestone(storage, milestoneKey) {
+  if (!milestoneKey) return;
+  try {
+    storage?.setItem?.(COUNTDOWN_WARNING_DISMISSED_MILESTONE_STORAGE_KEY, milestoneKey);
+  } catch {}
 }
 
 function getAuthoritativeCountdownRemainingMs(deps, timerApi, mode = "elimination") {
@@ -828,6 +858,7 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
   const warning = root?.querySelector?.(COUNTDOWN_WARNING_SELECTOR) || documentRef?.querySelector?.(COUNTDOWN_WARNING_SELECTOR);
   if (!root || !warning) return false;
   const timerApi = deps.timerApi || (typeof window !== "undefined" ? window : globalThis);
+  const dismissalStorage = resolveCountdownWarningStorage(deps, documentRef);
   const timeNode = warning.querySelector?.(COUNTDOWN_WARNING_TIME_SELECTOR);
   const closeButton = warning.querySelector?.(COUNTDOWN_WARNING_CLOSE_SELECTOR);
   let intervalId = null;
@@ -882,7 +913,7 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
     if (observedCountdownKey !== activeCountdownKey) {
       observedCountdownKey = activeCountdownKey;
       activeWarningMilestoneKey = null;
-      dismissedWarningMilestoneKey = null;
+      dismissedWarningMilestoneKey = readDismissedCountdownWarningMilestone(dismissalStorage);
       previousRemainingMs = null;
     }
     const milestoneMs = resolveCountdownWarningMilestone(previousRemainingMs, remainingMs);
@@ -908,6 +939,7 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
 
   const closeWarning = () => {
     dismissedWarningMilestoneKey = activeWarningMilestoneKey;
+    persistDismissedCountdownWarningMilestone(dismissalStorage, activeWarningMilestoneKey);
     warning.hidden = true;
     warning.classList?.toggle?.("is-visible", false);
   };
@@ -926,12 +958,18 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
     intervalId = timerApi.setInterval(render, 1000);
   }
   closeButton?.addEventListener?.("click", handleCloseClick);
+  if (warning.dataset) {
+    warning.dataset.eliminationCountdownBound = "true";
+  }
 
   return {
     close: closeWarning,
     render,
     destroy() {
       closeButton?.removeEventListener?.("click", handleCloseClick);
+      if (warning.dataset) {
+        delete warning.dataset.eliminationCountdownBound;
+      }
       if (intervalId && typeof timerApi?.clearInterval === "function") {
         timerApi.clearInterval(intervalId);
       }

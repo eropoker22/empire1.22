@@ -8,6 +8,7 @@ import { addCosts, creditCosts, debitCosts, equalCosts, hasRequiredResources, li
 import { normalizeResourceCosts } from "./productionLineShared";
 import { createFactoryPlayerResourceState, factoryFailure as failure, type FactoryHandlerResult, validateFactoryTarget } from "./factoryProductionSupport";
 import { getFactoryBuildingResourceState, getFactoryLine, getFactoryProducedAmount, startFactoryLine } from "./factoryProductionShared";
+import { executeInstantProduction } from "./instantProduction";
 
 type FactoryLineCommand = { playerId: string; payload: { districtId: string; buildingId: string; recipeId: string } };
 
@@ -18,76 +19,38 @@ export const handleFactoryProductionStart = (
 ): FactoryHandlerResult => {
   const validation = validateFactoryTarget(state, command, context);
   if (validation.errors.length || !validation.building || !validation.recipe) return { nextState: state, events: [], errors: validation.errors };
-  const quantity = Number(command.payload.quantity);
+  const quantity = Number(command.payload.quantity ?? 1);
   if (!Number.isInteger(quantity) || quantity <= 0) return failure(state, "factory_invalid_quantity", "Množství výroby musí být kladné celé číslo.");
 
   const { building, recipe } = validation;
-  const line = getFactoryLine(building, command.payload.recipeId);
-  if (getFactoryProducedAmount(state, building, recipe.outputResourceKey) >= recipe.localOutputCap) {
-    return failure(state, "factory_output_full", "Lokální zásoba Továrny je plná.");
-  }
-  if (line.queuedAmount + quantity > recipe.queueCap) {
-    return failure(state, "factory_queue_full", "Fronta této výrobní linky je plná.");
-  }
-  const player = state.playersById[command.playerId];
-  if (!player) return failure(state, "factory_not_owned", "Hráč nevlastní cílovou Továrnu.");
-  const stored = state.resourceStatesById[player.resourceStateId];
-  const resources = stored
-    ? { ...stored, balances: normalizeStorageBalances(stored.balances) }
-    : createFactoryPlayerResourceState(player, state.root.tick);
-  const cleanCost = quantity * recipe.cleanCashCostPerUnit;
-  const inputCosts = scaleCosts(recipe.inputCosts, quantity);
-  if (Math.max(0, Number(resources.balances.cash || 0)) < cleanCost) {
-    return failure(state, "factory_insufficient_clean_cash", "Na spuštění výroby nemáš dost clean cash.");
-  }
-  if (!hasRequiredResources(resources.balances, inputCosts)) {
-    return failure(state, "factory_missing_inputs", "Na spuštění výroby nemáš dost materiálových vstupů.");
-  }
-  if (line.queuedAmount && (
-    line.unitCleanCashCost !== recipe.cleanCashCostPerUnit
-    || !equalCosts(normalizeResourceCosts(line.unitResourceCosts), recipe.inputCosts)
-  )) {
-    return failure(state, "factory_line_reservation_locked", "Fronta obsahuje rezervaci podle předchozího receptu a musí se nejdřív dokončit nebo zrušit.");
-  }
-  const queuedLine = {
-    ...line,
-    queuedAmount: line.queuedAmount + quantity,
-    reservedCleanCash: line.reservedCleanCash + cleanCost,
-    reservedResourceCosts: addCosts(line.reservedResourceCosts, inputCosts),
-    unitCleanCashCost: recipe.cleanCashCostPerUnit,
-    unitResourceCosts: normalizeResourceCosts(recipe.inputCosts),
-    version: line.version + 1
-  };
-  const nextLine = startFactoryLine(state, queuedLine, building, recipe, state.root.tick, context);
-  const nextBuilding = {
-    ...building,
-    ownerPlayerId: player.id,
-    productionLines: { ...building.productionLines, [recipe.outputResourceKey]: nextLine },
-    version: building.version + 1
-  };
-  const nextResources: ResourceState = {
-    ...resources,
-    balances: debitCosts({ ...resources.balances, cash: Math.max(0, Number(resources.balances.cash || 0)) - cleanCost }, inputCosts),
-    lastUpdatedTick: state.root.tick,
-    version: resources.version + (stored ? 1 : 0)
-  };
-  return {
-    nextState: {
-      ...state,
-      buildingsById: { ...state.buildingsById, [building.id]: nextBuilding },
-      resourceStatesById: { ...state.resourceStatesById, [nextResources.id]: nextResources }
-    },
-    events: [createEvent(CORE_EVENT_TYPES.itemProcessingStarted, {
-      playerId: player.id,
-      districtId: building.districtId,
-      buildingId: building.id,
-      recipeId: recipe.outputResourceKey,
-      outputResourceKey: recipe.outputResourceKey,
-      outputAmount: 1,
-      completesAtTick: nextLine.activeCompletesAtTick
-    })],
-    errors: []
-  };
+  // A legacy neutral Factory in a district already owned by the player is a
+  // valid compatibility shape. Repair its physical owner in this same atomic
+  // production transition so subsequent commands no longer need the fallback.
+  const canonicalState = building.ownerPlayerId === command.playerId
+    ? state
+    : {
+        ...state,
+        buildingsById: {
+          ...state.buildingsById,
+          [building.id]: { ...building, ownerPlayerId: command.playerId }
+        }
+      };
+  return executeInstantProduction({
+    state: canonicalState,
+    context,
+    playerId: command.playerId,
+    buildingId: building.id,
+    districtId: building.districtId,
+    recipeId: command.payload.recipeId,
+    quantity,
+    issuedAt: command.issuedAt,
+    recipe,
+    errors: {
+      playerMissing: { code: "factory_not_owned", message: "Hráč nevlastní cílovou Továrnu." },
+      insufficientCash: { code: "factory_insufficient_clean_cash", message: "Na výrobu nemáš dost clean cash." },
+      missingInputs: { code: "factory_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." }
+    }
+  });
 };
 
 export const handleCancelFactoryProduction = (

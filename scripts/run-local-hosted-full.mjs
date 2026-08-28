@@ -25,6 +25,7 @@ import {
   parseUiParityDebugBuildingTypes,
   UI_PARITY_DEBUG_BUILDING_TYPES_ENV
 } from "../tests/e2e/helpers/uiParityDebugBuildingFilter.js";
+import { fetchServedSourceAsset } from "./local-hosted/vite-source-asset.mjs";
 
 if (process.env.CI === "true") {
   if (existsSync(".env.local")) {
@@ -224,6 +225,22 @@ const hostedSuites = Object.freeze([
     scenario: "multiplayer-core",
     playerCount: 3,
     identityPrefix: "HostedVisible",
+    playwrightGroups: Object.freeze([
+      Object.freeze({
+        name: "visible-actions",
+        specs: Object.freeze(["tests/e2e/manual-hosted-district-actions-ui.spec.js"])
+      }),
+      ...["01", "02", "03", "04", "05"].map((batchNumber) => Object.freeze({
+        name: `district-action-parity-${batchNumber}`,
+        environment: Object.freeze({
+          EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS: `district-action-${batchNumber}`
+        }),
+        grep: batchNumber === "01"
+          ? "canonical lock|district-action-01|district action overlay parity coverage guard"
+          : `district-action-${batchNumber}|district action overlay parity coverage guard`,
+        specs: Object.freeze(["tests/e2e/live-demo-district-action-overlay-parity.spec.js"])
+      }))
+    ]),
     specs: Object.freeze([
       "tests/e2e/manual-hosted-district-actions-ui.spec.js",
       "tests/e2e/live-demo-district-action-overlay-parity.spec.js"
@@ -291,6 +308,13 @@ const requestedSuiteNames = new Set(
     .map((name) => name.trim())
     .filter(Boolean)
 );
+const requestedUiParityGroupNames = new Set(
+  process.argv
+    .filter((argument) => argument.startsWith("--ui-parity-group="))
+    .flatMap((argument) => argument.slice("--ui-parity-group=".length).split(","))
+    .map((name) => name.trim())
+    .filter(Boolean)
+);
 const selectedSuites = requestedSuiteNames.size
   ? hostedSuites.filter((suite) => requestedSuiteNames.has(suite.name))
   : hostedSuites;
@@ -301,6 +325,34 @@ if (selectedSuites.length === 0 || selectedSuites.length !== requestedSuiteNames
 const uiParityDebugBuildingTypeIds = parseUiParityDebugBuildingTypes(
   process.env[UI_PARITY_DEBUG_BUILDING_TYPES_ENV]
 );
+if (
+  requestedUiParityGroupNames.size > 0
+  && (selectedSuites.length !== 1 || selectedSuites[0]?.name !== "ui-parity")
+) {
+  throw new Error(
+    "--ui-parity-group is debug-only and requires --suite=ui-parity as the only suite."
+  );
+}
+if (requestedUiParityGroupNames.size > 0 && uiParityDebugBuildingTypeIds.length > 0) {
+  throw new Error(
+    `--ui-parity-group cannot be combined with ${UI_PARITY_DEBUG_BUILDING_TYPES_ENV}.`
+  );
+}
+if (requestedUiParityGroupNames.size > 0) {
+  const availableUiParityGroupNames = new Set(
+    (selectedSuites[0]?.playwrightGroups || []).map((group) => group.name)
+  );
+  const unknownUiParityGroupNames = [...requestedUiParityGroupNames]
+    .filter((name) => !availableUiParityGroupNames.has(name));
+  if (unknownUiParityGroupNames.length > 0) {
+    throw new Error(
+      `Unknown ui-parity group: ${unknownUiParityGroupNames.join(", ")}. Available groups: ${[...availableUiParityGroupNames].join(", ")}.`
+    );
+  }
+  console.warn(
+    `[local-hosted] DEBUG-ONLY ui-parity groups: ${[...requestedUiParityGroupNames].join(", ")}. This is not a comprehensive parity gate.`
+  );
+}
 if (
   uiParityDebugBuildingTypeIds.length > 0
   && (selectedSuites.length !== 1 || selectedSuites[0]?.name !== "ui-parity")
@@ -539,6 +591,7 @@ try {
   staleServerCleanup = await stopStaleDisposableHostedServers(admin);
   console.log(`[local-hosted] Stale disposable servers stopped: ${staleServerCleanup.stopped}.`);
   for (const suite of selectedSuites) {
+    let manualDisplayName = null;
     const result = {
       name: suite.name,
       specs: suite.specs,
@@ -555,8 +608,10 @@ try {
         gameplayInteraction: suite.gameplayInteraction,
         qualifiesAsManualAdminFlow: suite.manualProvisioning === true,
         ...(suite.name === "ui-parity" ? {
-          comprehensiveParityGate: uiParityDebugBuildingTypeIds.length === 0,
-          debugBuildingTypeIds: uiParityDebugBuildingTypeIds
+          comprehensiveParityGate: uiParityDebugBuildingTypeIds.length === 0
+            && requestedUiParityGroupNames.size === 0,
+          debugBuildingTypeIds: uiParityDebugBuildingTypeIds,
+          debugPlaywrightGroupNames: [...requestedUiParityGroupNames]
         } : {}),
         playwrightArtifactDirectories: [],
         playwrightRuns: []
@@ -588,7 +643,7 @@ try {
       );
       if (suite.manualProvisioning) {
         const displaySuffix = randomBytes(4).toString("hex");
-        const manualDisplayName = `Local Hosted Manual ${displaySuffix}`;
+        manualDisplayName = `Local Hosted Manual ${displaySuffix}`;
         environment.EMPIRE_MANUAL_HOSTED_E2E = "1";
         environment.EMPIRE_ADMIN_HOSTED_LIVE_E2E = "1";
         environment.EMPIRE_MANUAL_HOSTED_DISPLAY_NAME = manualDisplayName;
@@ -738,7 +793,9 @@ try {
             name: "spawn-building-matrix-debug",
             grep: "live/demo spawn-reachable canonical building matrix"
           }]
-        : configuredPlaywrightGroups;
+        : suite.name === "ui-parity" && requestedUiParityGroupNames.size > 0
+          ? configuredPlaywrightGroups.filter((group) => requestedUiParityGroupNames.has(group.name))
+          : configuredPlaywrightGroups;
       for (const group of playwrightGroups) {
         const groupArtifactDirectory = retainPlaywrightArtifacts(result, group.name);
         await runReleasePlaywright({
@@ -749,7 +806,7 @@ try {
             "test",
             "--output",
             groupArtifactDirectory,
-            ...suite.specs,
+            ...(group.specs || suite.specs),
             ...(group.grep ? [`--grep=${group.grep}`] : [])
           ],
           timeoutMs: 1_800_000,
@@ -764,8 +821,29 @@ try {
       result.cleanup = "stopped";
     } catch (error) {
       result.status = "failed";
-      result.cleanup = result.serverInstanceId ? "preserved-for-diagnostics" : "not-created";
       result.failure = error instanceof Error ? error.message : String(error);
+      try {
+        if (!result.serverInstanceId && manualDisplayName) {
+          const controlPlane = await admin.request("/api/admin/control-plane");
+          const manualServer = controlPlane.servers.find((server) => (
+            server.displayName === manualDisplayName
+          ));
+          result.serverInstanceId = manualServer?.serverInstanceId || null;
+        }
+        if (result.serverInstanceId) {
+          result.cleanup = "stopping-after-failure";
+          await stopDisposableHostedServer(admin, result.serverInstanceId);
+          result.cleanup = "stopped-after-failure";
+        } else {
+          result.cleanup = "not-created";
+        }
+      } catch (cleanupError) {
+        result.cleanup = "failed-after-suite-failure";
+        const cleanupMessage = cleanupError instanceof Error
+          ? cleanupError.message
+          : String(cleanupError);
+        result.failure = `${result.failure} Cleanup also failed: ${cleanupMessage}`;
+      }
     }
   }
   const failedSuites = suiteResults.filter((result) => result.status === "failed");
@@ -983,17 +1061,6 @@ async function collectSourceFiles(inputPath, files) {
 
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
-}
-
-async function fetchServedSourceAsset(url) {
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: { accept: "text/css,*/*;q=0.1" }
-  });
-  if (!response.ok) {
-    throw new Error(`Served source asset ${url} returned HTTP ${response.status}.`);
-  }
-  return Buffer.from(await response.arrayBuffer());
 }
 
 function stripInlineSourceMap(source) {

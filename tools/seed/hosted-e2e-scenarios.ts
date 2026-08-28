@@ -97,6 +97,13 @@ const applyHostedBuildingActionScenario = (
       .filter((entry) => entry.phase === phase)
       .map((entry) => entry.districtId)
   );
+  const storageWarehouse = Object.values(snapshot.state.buildingsById)
+    .filter((building) => building.buildingTypeId === config.balance.warehouse?.buildingTypeId)
+    .sort((left, right) => left.id.localeCompare(right.id))[0];
+  if (!storageWarehouse) {
+    throw new Error("Hosted building action scenario requires a canonical Warehouse.");
+  }
+  targetDistrictIds.add(storageWarehouse.districtId);
 
   snapshot.state.root.tick = scenarioTick;
   snapshot.state.serverInstance.currentTick = scenarioTick;
@@ -120,6 +127,7 @@ const applyHostedBuildingActionScenario = (
       if (!building) throw new Error(`Hosted building action building is missing: ${buildingId}.`);
       building.ownerPlayerId = player.id;
       building.status = "active";
+      if (building.id === storageWarehouse.id) building.level = 4;
       building.actionCooldowns = {};
       building.metadata = prepareBuildingMetadata(
         building.buildingTypeId,
@@ -147,8 +155,6 @@ const applyHostedBuildingActionScenario = (
     ...resourceState.balances,
     cash: 1_000_000,
     "dirty-cash": 1_000_000,
-    "gang-members": 500,
-    population: 500,
     chemicals: 0,
     biomass: 0,
     "metal-parts": 0,

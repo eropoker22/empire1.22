@@ -8,6 +8,7 @@ import type { ResolvedGameModeConfig } from "../contracts";
 import { getAttackWeaponInventory, validateAttack } from "../validation";
 import { hasValidAttackAuthorization } from "../validation/spyIntel";
 import { calculateAttackPopulationRequired } from "../rules";
+import { resolvePlayerPopulation } from "../state/playerPopulation";
 
 /**
  * Responsibility: Builds attack target options for one selected source district.
@@ -34,9 +35,7 @@ export const createDistrictAttackTargetViews = (
       const player = state.playersById[playerId];
       const attackWeapons = config?.balance.attackWeapons;
       const inventory = player ? getAttackWeaponInventory(state, player) : {};
-      const availablePopulation = Math.max(0, Math.floor(Number(
-        player?.population ?? state.resourceStatesById[player?.resourceStateId ?? ""]?.balances?.population ?? 0
-      )));
+      const availablePopulation = Math.max(0, Math.floor(resolvePlayerPopulation(state, player)));
       const previewLoadout = resolveSmallestAttackPreviewLoadout(
         inventory,
         availablePopulation,

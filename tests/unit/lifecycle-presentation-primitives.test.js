@@ -9,6 +9,7 @@ const gameHtml = read("pages/game.html");
 const lifecycleCss = read("page-assets/css/styles-closed-alpha-ux.css");
 const milestoneCss = read("page-assets/css/styles-server-milestone-cards.css");
 const gameCss = read("page-assets/css/styles.css");
+const onboardingCss = read("page-assets/css/styles-onboarding.css");
 const runtimeSource = read("page-assets/js/app/runtime.js");
 
 const parseGameDocument = () => new DOMParser().parseFromString(gameHtml, "text/html");
@@ -58,5 +59,20 @@ describe("server lifecycle presentation primitives", () => {
       "if (getCurrentGameplayExecutionMode() !== GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {"
     );
     expect(runtimeSource).toMatch(/onCountdownElapsed:\s*allowDemoFixtures\s*\?\s*\(\) => null/u);
+  });
+
+  it("keeps the elimination countdown visible without intercepting an active modal", () => {
+    expect(onboardingCss).toMatch(
+      /\.elimination-countdown-warning__card \{[\s\S]*?pointer-events: none;/u
+    );
+    expect(onboardingCss).toMatch(
+      /\.elimination-countdown-warning__close \{[\s\S]*?pointer-events: auto;/u
+    );
+    expect(onboardingCss).toContain(
+      "body.game-modal-scroll-locked .elimination-countdown-warning__card *"
+    );
+    expect(onboardingCss).toMatch(
+      /body\.game-modal-scroll-locked \.elimination-countdown-warning__card,\s*body\.game-modal-scroll-locked \.elimination-countdown-warning__card \* \{\s*pointer-events: none !important;/u
+    );
   });
 });

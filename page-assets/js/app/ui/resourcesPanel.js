@@ -1,5 +1,5 @@
 import {
-  GANG_MEMBERS_SELECTOR,
+  POPULATION_SELECTOR,
   STORAGE_DRUG_COUNT_SELECTOR,
   STORAGE_FACTORY_COUNT_SELECTOR,
   STORAGE_MATERIAL_COUNT_SELECTOR,
@@ -395,12 +395,12 @@ export function renderResourcesPanel(playerState = {}, options = {}) {
     return;
   }
 
-  if (playerState.gangMembers !== undefined) {
-    const gangMembers = safeQuery(root, GANG_MEMBERS_SELECTOR);
-    if (gangMembers) {
-      gangMembers.textContent = playerState.available === false
+  if (playerState.population !== undefined) {
+    const population = safeQuery(root, POPULATION_SELECTOR);
+    if (population) {
+      population.textContent = playerState.available === false
         ? "—"
-        : String(normalizeCount(playerState.gangMembers));
+        : String(normalizeCount(playerState.population));
     }
   }
 

@@ -9,11 +9,8 @@ export function resolveServerPlayerPopulation(playerView) {
 
   const candidates = [
     playerView.economy?.population,
-    playerView.economy?.gangMembers,
     playerView.resourceBalances?.population,
-    playerView.resourceBalances?.["gang-members"],
     playerView.economy?.resources?.population,
-    playerView.economy?.resources?.["gang-members"],
     playerView.attackWeapons?.availablePopulation
   ];
 

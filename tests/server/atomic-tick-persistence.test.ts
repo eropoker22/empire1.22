@@ -177,7 +177,7 @@ describe("atomic hosted tick persistence", () => {
     });
   });
 
-  it("persists tick income and completed Pharmacy production in the recovery head", async () => {
+  it("persists tick income and instant Pharmacy production in the recovery head", async () => {
     const fixture = await createFixture("production-income", "district:26");
     fixture.runtime.atomicCommandTransaction = createSerializedBoundary(fixture.repositories);
     const district = fixture.runtime.state.districtsById[fixture.districtId];
@@ -226,6 +226,9 @@ describe("atomic hosted tick persistence", () => {
     await fixture.repositories.snapshotRepository.saveRecoveryHead(
       createInstanceSnapshot(fixture.runtime)
     );
+    const chemicalsBeforeCraft = Number(
+      fixture.runtime.state.resourceStatesById[player.resourceStateId]?.balances.chemicals ?? 0
+    );
 
     const crafted = await fixture.server.instanceManager.dispatchCommand(
       fixture.instanceId,
@@ -246,29 +249,24 @@ describe("atomic hosted tick persistence", () => {
     const cashAfterCraft = Number(
       fixture.runtime.state.resourceStatesById[player.resourceStateId]?.balances.cash ?? 0
     );
-    const completionTick = fixture.runtime.state.buildingsById[pharmacy.id]
-      ?.productionLines?.chemicals?.activeCompletesAtTick;
-    expect(completionTick).toBeGreaterThan(fixture.runtime.state.root.tick);
+    expect(fixture.runtime.state.resourceStatesById[player.resourceStateId]?.balances.chemicals)
+      .toBe(chemicalsBeforeCraft + 1);
+    expect(fixture.runtime.state.buildingsById[pharmacy.id]?.processing).toBeNull();
+    expect(fixture.runtime.state.buildingsById[pharmacy.id]?.productionLines?.chemicals).toBeUndefined();
 
-    while (
-      typeof completionTick === "number"
-      && fixture.runtime.state.root.tick < completionTick
-    ) {
-      fixture.runtime.scheduler.lastTickAtMs = null;
-      await fixture.server.instanceManager.tickInstanceDurably(fixture.instanceId);
-    }
+    fixture.runtime.scheduler.lastTickAtMs = null;
+    await fixture.server.instanceManager.tickInstanceDurably(fixture.instanceId);
 
     const latest = await fixture.repositories.snapshotRepository.loadRecoveryHead(fixture.instanceId);
     const persistedPharmacy = latest?.state.buildingsById[pharmacy.id];
     const persistedOutput = latest?.state.resourceStatesById[`resource:${pharmacy.id}`];
     const persistedPlayerResources = latest?.state.resourceStatesById[player.resourceStateId];
 
-    expect(latest?.state.root.tick).toBe(completionTick);
-    expect(persistedPharmacy?.productionLines?.chemicals).toMatchObject({
-      queuedAmount: 0,
-      activeCompletesAtTick: null
-    });
-    expect(persistedOutput?.balances.chemicals).toBe(1);
+    expect(latest?.state.root.tick).toBe(1);
+    expect(persistedPharmacy?.processing).toBeNull();
+    expect(persistedPharmacy?.productionLines?.chemicals).toBeUndefined();
+    expect(Number(persistedOutput?.balances.chemicals ?? 0)).toBe(0);
+    expect(persistedPlayerResources?.balances.chemicals).toBe(chemicalsBeforeCraft + 1);
     expect(Number(persistedPlayerResources?.balances.cash ?? 0)).toBeGreaterThan(cashAfterCraft);
     expect(fixture.runtime.state).toEqual(latest?.state);
   });

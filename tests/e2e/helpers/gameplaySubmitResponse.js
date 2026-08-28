@@ -1,3 +1,8 @@
+import {
+  isDurableStateVersionConflictResponse,
+  MAX_DURABLE_STATE_VERSION_REBASES
+} from "../../../page-assets/js/app/runtime/serverGameplayConflictPolicy.js";
+
 const gameplaySubmitPath = "/api/gameplay-slice/submit";
 
 const readRequestBody = (request) => {
@@ -16,17 +21,12 @@ const readResponseBody = async (response) => {
   }
 };
 
-export const isDurableStateVersionConflict = (body) => {
-  const errors = Array.isArray(body?.errors) ? body.errors : [];
-  return body?.accepted === false
-    && body?.pending !== true
-    && body?.transportFailure !== true
-    && errors.length === 1
-    && String(errors[0]?.code || "") === "server.state_version_conflict";
-};
+export const isDurableStateVersionConflict = isDurableStateVersionConflictResponse;
+export { MAX_DURABLE_STATE_VERSION_REBASES };
 
 export const isTerminalGameplaySubmitAttempt = (body, previousStateVersionConflictCount = 0) => (
-  !isDurableStateVersionConflict(body) || previousStateVersionConflictCount >= 1
+  !isDurableStateVersionConflict(body)
+  || previousStateVersionConflictCount >= MAX_DURABLE_STATE_VERSION_REBASES
 );
 
 const isGameplaySubmitRequest = (request) => {

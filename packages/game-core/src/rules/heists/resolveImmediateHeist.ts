@@ -11,7 +11,7 @@ export interface ImmediateHeistResolution {
   detectionChance: number;
   lootMultiplier: number;
   lootRoll: number;
-  gangLosses: number;
+  populationLosses: number;
   heatGain: number;
   trapId: string | null;
   attackerIdentified: boolean;
@@ -28,10 +28,10 @@ const LOSS_RANGES: Record<ImmediateHeistOutcome, Record<HeistDistrictStyle, [num
 export const calculateImmediateHeistChances = (input: {
   defenseLoadout: CoreGameState["districtsById"][string]["defenseLoadout"];
   style: NonNullable<ConflictBalanceConfig["heist"]>["styles"][HeistDistrictStyle];
-  members: number;
+  populationSent: number;
   config: NonNullable<ConflictBalanceConfig["heist"]>;
 }): { successChance: number; detectionChance: number; cameraBonus: number } => {
-  const memberProgress = (input.members - input.style.minMembers)
+  const memberProgress = (input.populationSent - input.style.minMembers)
     / Math.max(1, input.style.maxMembers - input.style.minMembers);
   const resistance = Number(input.defenseLoadout["defense-tower"] ?? 0)
       * input.config.security.defenseTowerResistancePerUnit
@@ -69,11 +69,11 @@ export const resolveImmediateHeist = (
   const source = state.districtsById[sourceDistrictId];
   const target = state.districtsById[command.payload.targetDistrictId];
   const style = config.styles[command.payload.style];
-  const members = command.payload.gangMembersSent;
+  const populationSent = command.payload.populationSent;
   const { successChance, detectionChance, cameraBonus } = calculateImmediateHeistChances({
     defenseLoadout: target.defenseLoadout,
     style,
-    members,
+    populationSent,
     config
   });
   const seed = [
@@ -86,7 +86,7 @@ export const resolveImmediateHeist = (
     target.securityRevision,
     state.root.tick,
     command.payload.style,
-    members
+    populationSent
   ].join(":");
   const successRoll = deterministicUnitInterval(`${seed}:success`);
   const detectionRoll = deterministicUnitInterval(`${seed}:detection`);
@@ -109,10 +109,10 @@ export const resolveImmediateHeist = (
     ? clamp(lossRoll * (0.75 + style.detectedLossMultiplier * 0.5), 0, 1)
     : lossRoll;
   const lossPct = minLossPct + (maxLossPct - minLossPct) * styleLossRoll;
-  const rawLosses = Math.floor(members * lossPct);
-  const gangLosses = outcome === "clean_success"
-    ? Math.min(members, rawLosses)
-    : Math.min(members, Math.max(1, rawLosses));
+  const rawLosses = Math.floor(populationSent * lossPct);
+  const populationLosses = outcome === "clean_success"
+    ? Math.min(populationSent, rawLosses)
+    : Math.min(populationSent, Math.max(1, rawLosses));
   const outcomeLootMultiplier = outcome === "clean_success" ? 1
     : outcome === "success" ? 0.85
       : outcome === "detected" ? 0.55
@@ -124,7 +124,7 @@ export const resolveImmediateHeist = (
     detectionChance,
     lootMultiplier: style.lootMultiplier * outcomeLootMultiplier,
     lootRoll,
-    gangLosses,
+    populationLosses,
     heatGain: outcome === "clean_success" || outcome === "success"
       ? style.heatOnSuccess
       : style.heatOnDetected,

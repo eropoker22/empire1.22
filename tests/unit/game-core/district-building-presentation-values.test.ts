@@ -235,6 +235,32 @@ describe("district building presentation values", () => {
     });
   });
 
+  it("does not advertise a fixed-output building action when its warehouse item is full", () => {
+    const fixture = createCoreStateWithFixedBuildingFixture("port", {
+      includeWarehouse: true,
+      playerBalances: { "metal-parts": 90 }
+    });
+    const [portView] = createDistrictPanelBuildingViews({
+      state: fixture.state,
+      buildings: [fixture.building],
+      buildCatalog: getAllPublicBuildingDefinitions(),
+      actionCatalog: config.balance.buildingActions ?? {},
+      config,
+      district: fixture.state.districtsById[fixture.building.districtId],
+      playerId: "player:1",
+      playerBalances: fixture.state.resourceStatesById["resource:1"].balances,
+      tick: 0,
+      tickRateMs: config.tickRateMs
+    });
+    const containerCut = portView.actions.find((action) => action.actionId === "port_container_cut");
+
+    expect(containerCut).toMatchObject({
+      enabled: false,
+      status: "blocked",
+      disabledReason: "Sklad je pro tuto položku plný."
+    });
+  });
+
   it("projects the actual recruitment camera bonus separately from its cap", () => {
     const fixture = createCoreStateWithFixedBuildingFixture("recruitment_center");
     const stats = createCivilBuildingStats({

@@ -9,6 +9,7 @@ import { normalizeResourceCosts } from "./productionLineShared";
 import { addCosts, creditCosts, debitCosts, equalCosts, hasRequiredResources, limitCosts, scaleCosts, subtractCosts } from "./productionLineCosts";
 import { createPlayerResourceState, drugLabFailure as failure, type DrugLabHandlerResult, validateDrugLabTarget } from "./drugLabProductionSupport";
 import { getDrugLabBuildingResourceState, getDrugLabLine, getDrugLabProducedAmount, startDrugLabLine } from "./drugLabProductionShared";
+import { executeInstantProduction } from "./instantProduction";
 
 export const handleDrugLabProductionStart = (
   state: CoreGameState,
@@ -19,82 +20,28 @@ export const handleDrugLabProductionStart = (
   if (validation.errors.length > 0 || !validation.building || !validation.recipe) {
     return { nextState: state, events: [], errors: validation.errors };
   }
-  const quantity = Number(command.payload.quantity);
+  const quantity = Number(command.payload.quantity ?? 1);
   if (!Number.isInteger(quantity) || quantity <= 0) {
     return failure(state, "drug_lab_invalid_quantity", "Množství výroby musí být kladné celé číslo.");
   }
 
   const { building, recipe } = validation;
-  const line = getDrugLabLine(building, command.payload.recipeId);
-  if (getDrugLabProducedAmount(state, building, recipe.outputResourceKey) >= recipe.localOutputCap) {
-    return failure(state, "drug_lab_output_full", "Lokální zásoba Labu je plná.");
-  }
-  if (line.queuedAmount + quantity > recipe.queueCap) {
-    return failure(state, "drug_lab_queue_full", "Fronta této výrobní linky je plná.");
-  }
-  const player = state.playersById[command.playerId];
-  if (!player) return failure(state, "drug_lab_not_owned", "Hráč nevlastní cílový Lab.");
-  const stored = state.resourceStatesById[player.resourceStateId];
-  const resourceState = stored
-    ? { ...stored, balances: normalizeStorageBalances(stored.balances) }
-    : createPlayerResourceState(player, state.root.tick);
-  const totalCleanCash = quantity * recipe.cleanCashCostPerUnit;
-  const totalInputs = scaleCosts(recipe.inputCosts, quantity);
-  if (Math.max(0, Number(resourceState.balances.cash || 0)) < totalCleanCash) {
-    return failure(state, "drug_lab_insufficient_clean_cash", "Na spuštění výroby nemáš dost clean cash.");
-  }
-  if (!hasRequiredResources(resourceState.balances, totalInputs)) {
-    return failure(state, "drug_lab_missing_inputs", "Na spuštění výroby nemáš dost materiálových vstupů.");
-  }
-  const existingUnitInputs = normalizeResourceCosts(line.unitResourceCosts);
-  if (line.queuedAmount > 0 && (
-    line.unitCleanCashCost !== recipe.cleanCashCostPerUnit
-    || !equalCosts(existingUnitInputs, recipe.inputCosts)
-  )) {
-    return failure(state, "drug_lab_line_reservation_locked", "Fronta obsahuje rezervaci podle předchozího receptu a musí se nejdřív dokončit nebo zrušit.");
-  }
-
-  const queuedLine = {
-    ...line,
-    queuedAmount: line.queuedAmount + quantity,
-    reservedCleanCash: line.reservedCleanCash + totalCleanCash,
-    reservedResourceCosts: addCosts(line.reservedResourceCosts, totalInputs),
-    unitCleanCashCost: recipe.cleanCashCostPerUnit,
-    unitResourceCosts: normalizeResourceCosts(recipe.inputCosts),
-    version: line.version + 1
-  };
-  const nextLine = startDrugLabLine(state, queuedLine, building, recipe, state.root.tick, context);
-  const nextBuilding = {
-    ...building,
-    productionLines: { ...building.productionLines, [recipe.outputResourceKey]: nextLine },
-    version: building.version + 1
-  };
-  const nextResourceState: ResourceState = {
-    ...resourceState,
-    balances: debitCosts(
-      { ...resourceState.balances, cash: Math.max(0, Number(resourceState.balances.cash || 0)) - totalCleanCash },
-      totalInputs
-    ),
-    lastUpdatedTick: state.root.tick,
-    version: resourceState.version + (stored ? 1 : 0)
-  };
-  return {
-    nextState: {
-      ...state,
-      buildingsById: { ...state.buildingsById, [building.id]: nextBuilding },
-      resourceStatesById: { ...state.resourceStatesById, [nextResourceState.id]: nextResourceState }
-    },
-    events: [createEvent(CORE_EVENT_TYPES.itemProcessingStarted, {
-        playerId: command.playerId,
-        districtId: command.payload.districtId,
-        buildingId: building.id,
-        recipeId: recipe.outputResourceKey,
-        outputResourceKey: recipe.outputResourceKey,
-        outputAmount: 1,
-        completesAtTick: nextLine.activeCompletesAtTick
-    })],
-    errors: []
-  };
+  return executeInstantProduction({
+    state,
+    context,
+    playerId: command.playerId,
+    buildingId: building.id,
+    districtId: building.districtId,
+    recipeId: command.payload.recipeId,
+    quantity,
+    issuedAt: command.issuedAt,
+    recipe,
+    errors: {
+      playerMissing: { code: "drug_lab_not_owned", message: "Hráč nevlastní cílový Lab." },
+      insufficientCash: { code: "drug_lab_insufficient_clean_cash", message: "Na výrobu nemáš dost clean cash." },
+      missingInputs: { code: "drug_lab_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." }
+    }
+  });
 };
 
 export const handleCancelDrugLabProduction = (

@@ -95,6 +95,11 @@ const passingOpenRegistrationEvidence = () => ({
   registrationMode: "open",
   registrationOpen: true,
   registrationClosed: false,
+  registrationExpiresAt: null
+});
+
+const passingBoundedOpenRegistrationEvidence = () => ({
+  ...passingOpenRegistrationEvidence(),
   registrationExpiresAt: "2026-08-07T11:00:00.000Z"
 });
 
@@ -453,6 +458,7 @@ describe("pre-alpha staging orchestrator contract", () => {
     expect(validateClosedRegistrationEvidence(passingClosedRegistrationEvidence(), SHA)).toBe(true);
     expect(validateFinalRegistrationEvidence(passingClosedRegistrationEvidence(), SHA, "closed")).toBe(true);
     expect(validateFinalRegistrationEvidence(passingOpenRegistrationEvidence(), SHA, "open", NOW)).toBe(true);
+    expect(validateFinalRegistrationEvidence(passingBoundedOpenRegistrationEvidence(), SHA, "open", NOW)).toBe(true);
     expect(() => validateClosedRegistrationEvidence({
       ...passingClosedRegistrationEvidence(),
       registrationMode: "open",
@@ -460,12 +466,8 @@ describe("pre-alpha staging orchestrator contract", () => {
       registrationClosed: false,
       registrationExpiresAt: "2026-08-07T11:00:00.000Z"
     }, SHA)).toThrow(/PRE_ALPHA_STAGING_CLOSED_EVIDENCE_INVALID/u);
-    expect(() => validateFinalRegistrationEvidence({
-      ...passingOpenRegistrationEvidence(),
-      registrationExpiresAt: null
-    }, SHA, "open", NOW)).toThrow(/PRE_ALPHA_STAGING_FINAL_REGISTRATION_EVIDENCE_INVALID/u);
     expect(() => validateFinalRegistrationEvidence(
-      passingOpenRegistrationEvidence(),
+      passingBoundedOpenRegistrationEvidence(),
       SHA,
       "open",
       new Date("2026-08-07T11:00:00.001Z")

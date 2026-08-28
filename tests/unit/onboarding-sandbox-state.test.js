@@ -12,7 +12,7 @@ describe("onboarding sandbox state", () => {
     const serverSession = {
       registration: { playerId: "player-9", startDistrictId: 27 },
       economy: { cleanMoney: 9000, dirtyMoney: 4000 },
-      gang: { members: 150, influence: 42, heat: 12, allianceId: "alliance-1" },
+      gang: { population: 150, influence: 42, heat: 12, allianceId: "alliance-1" },
       inventory: {
         weapons: { pistol: 5 },
         materials: { chemicals: 8 },
@@ -62,7 +62,8 @@ describe("onboarding sandbox state", () => {
       }
     });
     expect(sandbox.economy).toEqual({ cleanMoney: 0, dirtyMoney: 0 });
-    expect(sandbox.gang).toMatchObject({ members: 0, influence: 0, heat: 0, allianceId: null });
+    expect(sandbox.gang).toMatchObject({ population: 0, influence: 0, heat: 0, allianceId: null });
+    expect(sandbox.gang).not.toHaveProperty("members");
     expect(Object.values(sandbox.inventory.weapons)).toEqual([0, 0]);
     expect(Object.values(sandbox.inventory.materials)).toEqual([0, 0]);
     expect(Object.values(sandbox.inventory.drugs)).toEqual([0]);

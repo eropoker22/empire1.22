@@ -248,19 +248,13 @@ export const resolveSchoolAction = (input: {
     };
 
     return {
-      balances: {
-        ...input.balances,
-        "gang-members": Math.max(0, Number(input.balances["gang-members"] || 0) + collected)
-      },
+      balances: { ...input.balances },
       buildingMetadata: withSchoolMetadata(input.building, nextMetadata),
       heatGain: 0,
       influenceChange: 0,
       inputCost: {},
-      outputGain: {
-        population: collected,
-        "gang-members": collected
-      },
-      reportText: `Vybral jsi ${collected} nových členů gangu ze Školy.`,
+      outputGain: { population: collected },
+      reportText: `Vybral jsi ${collected} populace ze Školy.`,
       schoolResult: {
         type: "collect_population",
         collectedPopulation: collected,

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   applyCommand,
-  completePendingOccupations,
   createEliminationReadModel,
   createInitialState,
   createPlayerEliminationScore,
@@ -427,12 +426,9 @@ describe("scheduled elimination system", () => {
       ...state.districtsById["district:1"],
       influence: 10
     };
-    state.resourceStatesById["resource:1"] = {
-      ...state.resourceStatesById["resource:1"],
-      balances: {
-        ...state.resourceStatesById["resource:1"]?.balances,
-        population: 1_000
-      }
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      population: 1_000
     };
     state.buildingsById[buildingId] = createFixedBuildingFixture("restaurant", {
       id: buildingId,
@@ -461,15 +457,9 @@ describe("scheduled elimination system", () => {
         }
       }
     };
-    const started = applyCommand(state, createOccupyDistrictCommandFixture(), occupyContext);
-    const operation = Object.values(started.nextState.pendingOccupyOperationsById ?? {})[0]!;
-    const dueState = {
-      ...started.nextState,
-      root: { ...started.nextState.root, tick: operation.resolveAtTick }
-    };
-    const result = completePendingOccupations(dueState, occupyContext);
+    const result = applyCommand(state, createOccupyDistrictCommandFixture(), occupyContext);
 
-    expect(started.errors).toEqual([]);
+    expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"]).toMatchObject({
       ownerPlayerId: "player:1",
       status: "claimed"

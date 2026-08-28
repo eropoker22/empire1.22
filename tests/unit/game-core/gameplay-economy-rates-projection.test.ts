@@ -172,7 +172,7 @@ describe("gameplay economy rates projection", () => {
     const afterPlayerView = createPlayerView(ticked, "player:1", context);
 
     expect(ticked.resourceStatesById["resource:1"].balances.population).toBeUndefined();
-    expect(ticked.resourceStatesById["resource:1"].balances["gang-members"]).toBeCloseTo(0.5);
+    expect(ticked.resourceStatesById["resource:1"].balances).not.toHaveProperty("gang-members");
     expect(ticked.playersById["player:1"].population).toBeCloseTo(50.5);
     expect(beforePlayerView.economy.population).toBe(50);
     expect(afterPlayerView.economy.population).toBeCloseTo(50.5);

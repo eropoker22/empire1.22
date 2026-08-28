@@ -225,13 +225,13 @@ describe("gameplay slice session membership", () => {
     expect(collected.nextState.resourceStatesById[`resource:${playerId}`]?.balances.population).toBeUndefined();
     expect(createPlayerView(collected.nextState, playerId, context)).toMatchObject({
       resourceBalances: {
-        population: 260,
-        "gang-members": 10
+        population: 260
       },
       economy: {
-        population: 260,
-        gangMembers: 10
+        population: 260
       }
     });
+    expect(createPlayerView(collected.nextState, playerId, context).resourceBalances)
+      .not.toHaveProperty("gang-members");
   });
 });

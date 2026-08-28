@@ -204,7 +204,7 @@ describe("server district selection coordinator", () => {
     expect(onReady).toHaveBeenCalledOnce();
   });
 
-  it("reopens a recently visited district from its authoritative detail cache", async () => {
+  it("revalidates a recently visited district before changing authoritative focus", async () => {
     let currentReadModel = readModel("district:21");
     let currentRenderState = { districtPanel: { districtId: "district:21" } };
     const selectDistrict = vi.fn(async (districtId) => {
@@ -220,7 +220,6 @@ describe("server district selection coordinator", () => {
       getReadModel: () => currentReadModel,
       getRenderState: () => currentRenderState,
       selectDistrict,
-      cacheTtlMs: 20_000,
       now: () => 1_000
     });
 
@@ -231,12 +230,14 @@ describe("server district selection coordinator", () => {
     expect(reopened).toMatchObject({
       accepted: true,
       canonicalDistrictId: "district:22",
-      cached: true,
       renderState: {
         districtPanel: { districtId: "district:22" }
       }
     });
-    expect(selectDistrict).toHaveBeenCalledTimes(2);
+    expect(reopened).not.toHaveProperty("cached");
+    expect(currentReadModel.district.districtId).toBe("district:22");
+    expect(selectDistrict).toHaveBeenCalledTimes(3);
+    expect(selectDistrict).toHaveBeenLastCalledWith("district:22");
   });
 
   it("shares one in-flight server load when the same district is tapped twice", async () => {

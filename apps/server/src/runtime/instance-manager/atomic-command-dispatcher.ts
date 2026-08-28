@@ -8,7 +8,7 @@ import {
 } from "../persistence";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 import type { CommandDispatchOptions, InstanceCommandDispatchResult } from "../orchestration";
-import { writeCommandRejectionDiagnostic, writeDiagnosticLog } from "../logging";
+import { writeCommandRejectionDiagnostic } from "../logging";
 import {
   createCommandReservationPayload,
   createCommandReservationPayloadHash
@@ -25,16 +25,24 @@ import {
   createRejectedCommandResult,
   createReservationUnavailableError
 } from "./atomic-command-records";
-import { publishOutbox } from "./atomic-command-outbox";
 import { replayReservedCommand } from "./atomic-command-replay";
 import {
   HostedRuntimeStatusFenceRejectedError,
   type AtomicCommandTransactionRepositories
 } from "./atomic-command-transaction";
+import {
+  beginRuntimeCommandPerformance,
+  markRuntimeCommandResolved,
+  recordRuntimeCommandCompleted,
+  type RuntimeCommandPerformanceTracker
+} from "../monitoring/runtime-performance-diagnostics";
+import {
+  finalizeCommittedCommand,
+  type AtomicCommandCrashPoint,
+  type BoundaryDispatchResult
+} from "./atomic-command-finalizer";
 
-export type AtomicCommandCrashPoint = "afterReserve" | "afterCommandLog" | "afterApplyBeforeSnapshot" |
-  "afterSnapshotBeforeMarkApplied" | "afterMarkAppliedBeforeCommit" | "afterCommitBeforePublish" |
-  "duringOutboxPublish";
+export type { AtomicCommandCrashPoint } from "./atomic-command-finalizer";
 
 export interface AtomicCommandDispatcherOptions {
   crashInjector?: (point: AtomicCommandCrashPoint) => void | Promise<void>;
@@ -45,16 +53,26 @@ export const dispatchAtomicInstanceCommand = async (
   command: GameCommand,
   options: CommandDispatchOptions = {},
   dispatcherOptions: AtomicCommandDispatcherOptions = {}
-): Promise<InstanceCommandDispatchResult> =>
-  withInstanceCommandLock(runtime.record.id, () =>
-    dispatchAtomicInstanceCommandUnlocked(runtime, command, options, dispatcherOptions)
-  );
+): Promise<InstanceCommandDispatchResult> => {
+  const performanceTracker = beginRuntimeCommandPerformance(runtime, command);
+  try {
+    const result = await withInstanceCommandLock(runtime.record.id, () =>
+      dispatchAtomicInstanceCommandUnlocked(runtime, command, options, dispatcherOptions, performanceTracker)
+    );
+    recordRuntimeCommandCompleted(runtime, performanceTracker, result.errors.length > 0 ? "rejected" : "applied");
+    return result;
+  } catch (error) {
+    recordRuntimeCommandCompleted(runtime, performanceTracker, "error");
+    throw error;
+  }
+};
 
 const dispatchAtomicInstanceCommandUnlocked = async (
   runtime: ServerInstanceRuntime,
   command: GameCommand,
   options: CommandDispatchOptions,
-  dispatcherOptions: AtomicCommandDispatcherOptions
+  dispatcherOptions: AtomicCommandDispatcherOptions,
+  performanceTracker: RuntimeCommandPerformanceTracker | null
 ): Promise<InstanceCommandDispatchResult> => {
   const reservationRepository = runtime.commandReservationRepository;
   const commandResultRepository = runtime.commandResultRepository;
@@ -72,6 +90,7 @@ const dispatchAtomicInstanceCommandUnlocked = async (
     !outboxRepository ||
     !snapshotRepository
   ) {
+    markRuntimeCommandResolved(performanceTracker);
     const errors = [createReservationUnavailableError()];
     await writeCommandRejectionDiagnostic({
       runtime,
@@ -98,11 +117,12 @@ const dispatchAtomicInstanceCommandUnlocked = async (
     try {
       committed = await runtime.atomicCommandTransaction.run(
         runtime.record.id,
-        (txRepositories) => dispatchAtomicInstanceCommandInBoundary(runtime, command, options, crash, txRepositories),
+        (txRepositories) => dispatchAtomicInstanceCommandInBoundary(runtime, command, options, crash, txRepositories, performanceTracker),
         { hostedStatusFence: "running-if-present" }
       );
     } catch (error) {
       if (error instanceof HostedRuntimeStatusFenceRejectedError) {
+        markRuntimeCommandResolved(performanceTracker);
         return { runtime, errors: [{ code: "server.instance_not_running",
           message: "Server instance is not accepting gameplay commands." }], commandResult: null };
       }
@@ -111,24 +131,17 @@ const dispatchAtomicInstanceCommandUnlocked = async (
     return finalizeCommittedCommand(runtime, command, options, committed, crash);
   }
 
-  const committed = await dispatchAtomicInstanceCommandInBoundary(runtime, command, options, crash, repositories);
+  const committed = await dispatchAtomicInstanceCommandInBoundary(runtime, command, options, crash, repositories, performanceTracker);
   return finalizeCommittedCommand(runtime, command, options, committed, crash);
 };
-
-interface BoundaryDispatchResult {
-  errors: InstanceCommandDispatchResult["errors"];
-  commandResult: InstanceCommandDispatchResult["commandResult"];
-  nextState: CoreGameState | null;
-  appliedEvent: InstanceRuntimeEvent | null;
-  commandRateLimitWindow: ServerInstanceRuntime["commandRateLimitWindow"] | null;
-}
 
 const dispatchAtomicInstanceCommandInBoundary = async (
   runtime: ServerInstanceRuntime,
   command: GameCommand,
   options: CommandDispatchOptions,
   crash: ((point: AtomicCommandCrashPoint) => void | Promise<void>) | undefined,
-  repositories: AtomicCommandTransactionRepositories
+  repositories: AtomicCommandTransactionRepositories,
+  performanceTracker: RuntimeCommandPerformanceTracker | null
 ): Promise<BoundaryDispatchResult> => {
   const latestSnapshot = await repositories.snapshotRepository.loadRecoveryHead(runtime.record.id);
   if (latestSnapshot && latestSnapshot.integrity.rootVersion > runtime.state.root.version) {
@@ -154,6 +167,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
 
   if (!reservation.created) {
     const replay = await replayReservedCommand(runtime, command, reservation.record, payloadHash, repositories.commandResultRepository);
+    markRuntimeCommandResolved(performanceTracker);
     return {
       errors: replay.errors,
       commandResult: replay.commandResult,
@@ -168,6 +182,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
     skipProcessedCommandIdGate: true
   });
   if (gateErrors.length > 0) {
+    markRuntimeCommandResolved(performanceTracker);
     const result = createRejectedCommandResult(runtime, authoritativeCommand, payloadHash, runtime.state.root.version, gateErrors, reservedAt);
     await repositories.commandResultRepository.save(result);
     await repositories.commandReservationRepository.markRejected(runtime.record.id, command.id, gateErrors);
@@ -202,6 +217,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   });
 
   if (result.errors.length > 0) {
+    markRuntimeCommandResolved(performanceTracker);
     const commandResult = createRejectedCommandResult(runtime, authoritativeCommand, payloadHash, previousRootVersion, result.errors, reservedAt);
     await repositories.commandResultRepository.save(commandResult);
     await repositories.commandReservationRepository.markRejected(runtime.record.id, command.id, result.errors);
@@ -239,6 +255,7 @@ const dispatchAtomicInstanceCommandInBoundary = async (
     snapshotIntervalTicks: runtime.config.technical.snapshotIntervalTicks,
     includePeriodic: false
   });
+  markRuntimeCommandResolved(performanceTracker);
 
   await repositories.snapshotRepository.saveRecoveryHead(snapshot);
   if (checkpoint) await repositories.snapshotRepository.saveCheckpoint(checkpoint);
@@ -275,38 +292,6 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   };
 };
 
-const finalizeCommittedCommand = async (
-  runtime: ServerInstanceRuntime,
-  command: GameCommand,
-  options: CommandDispatchOptions,
-  committed: BoundaryDispatchResult,
-  crash: ((point: AtomicCommandCrashPoint) => void | Promise<void>) | undefined
-): Promise<InstanceCommandDispatchResult> => {
-  if (!committed.nextState || !committed.appliedEvent) {
-    if (committed.errors.length > 0) {
-      await writeCommandRejectionDiagnostic({
-        runtime,
-        command,
-        errors: committed.errors,
-        category: "command_rejected",
-        message: "Command rejected.",
-        expectedStateVersion: options.expectedStateVersion
-      }).catch(() => undefined);
-    }
-    return { runtime, errors: committed.errors, commandResult: committed.commandResult };
-  }
-  await writeDiagnosticLog(runtime.replayLogWriter, runtime.record.id, "info", "command", "Command dispatched.", {
-    commandId: command.id,
-    commandType: command.type
-  }, runtime.clock).catch(() => undefined);
-  runtime.processedCommandIds.add(command.id);
-  if (committed.commandRateLimitWindow) runtime.commandRateLimitWindow = committed.commandRateLimitWindow;
-  runtime.state = committed.nextState;
-  runtime.eventQueue.enqueue(committed.appliedEvent);
-  await crash?.("afterCommitBeforePublish");
-  await publishOutbox(runtime, crash);
-  return { runtime, errors: committed.errors, commandResult: committed.commandResult };
-};
 const ensureAdvancedRootVersion = (state: CoreGameState, previousRootVersion: number): CoreGameState =>
   state.root.version > previousRootVersion
     ? state

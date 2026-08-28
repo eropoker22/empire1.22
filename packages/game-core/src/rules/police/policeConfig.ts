@@ -60,7 +60,7 @@ export const DEFAULT_POLICE_SYSTEM_CONFIG: PoliceSystemBalanceConfig = {
   },
   maxPoliticalRaidTriggerReductionPct: 45,
   extremePoliticalRaidReductionMultiplier: 0.5,
-  protectedResources: ["cash", "gang-members", "population"],
+  protectedResources: ["cash", "population"],
   autoResolveExpiredPendingRaids: true
 };
 

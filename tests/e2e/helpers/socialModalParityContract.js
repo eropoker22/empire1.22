@@ -57,6 +57,8 @@ export const socialModalParitySurfaces = Object.freeze({
       ".market-popup-dashboard__chip",
       ".market-popup-dashboard__recent"
     ].join(","),
+    stableTargetDevicePixelAlignment: true,
+    stableTargetDevicePixelAlignmentMode: "translate",
     semanticDatasetKeys: Object.freeze([
       "marketCategory",
       "marketFactTone",
@@ -349,6 +351,7 @@ export async function closeSocialModalParitySurface(page, surfaceName) {
   await page.evaluate(() => new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   }));
+  await expect(page.locator("body")).not.toHaveClass(/\bgame-mobile-close-guard\b/u);
   return page.evaluate(({ expectedFocusRestore, triggerSelector }) => {
     const activeElement = document.activeElement instanceof HTMLElement
       ? document.activeElement

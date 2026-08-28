@@ -115,7 +115,9 @@ export function createAuthoritySessionAccessors(deps = {}) {
     if (!mission || typeof mission !== "object") {
       return "active";
     }
-    return mission.status === "captured" ? "captured" : "active";
+    if (mission.status === "captured") return "captured";
+    if (mission.status === "cooldown") return "cooldown";
+    return "active";
   };
 
   const normalizeDistrictId = (value) => {
@@ -130,7 +132,9 @@ export function createAuthoritySessionAccessors(deps = {}) {
 
   const getSpyMissionExpiryTimestamp = (mission) => {
     const phase = getSpyMissionPhase(mission);
-    const rawTimestamp = phase === "captured" ? mission.cooldownUntil : (mission.returnAt || mission.createdAt);
+    const rawTimestamp = phase === "active"
+      ? (mission.returnAt || mission.createdAt)
+      : (mission.cooldownUntil || mission.returnAt || mission.createdAt);
     const timestamp = new Date(rawTimestamp || Date.now()).getTime();
     return Number.isFinite(timestamp) ? timestamp : Date.now();
   };
@@ -143,7 +147,7 @@ export function createAuthoritySessionAccessors(deps = {}) {
       const now = Date.now();
       const missions = storedState.missions
         .filter((mission) => mission && mission.id)
-        .filter((mission) => getSpyMissionPhase(mission) !== "captured" || getSpyMissionExpiryTimestamp(mission) > now);
+        .filter((mission) => getSpyMissionPhase(mission) === "active" || getSpyMissionExpiryTimestamp(mission) > now);
       const available = deps.clamp(deps.maxSpies - missions.length, 0, deps.maxSpies);
 
       if (

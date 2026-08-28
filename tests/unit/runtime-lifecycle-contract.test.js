@@ -52,6 +52,20 @@ describe("runtime lifecycle contract", () => {
     expect(allianceSource).not.toContain("ensureAllianceCountdownTimer");
   });
 
+  it("rerenders an already-open building card after the E2E population fixture changes", () => {
+    const runtimeSource = read("page-assets/js/app/runtime.js");
+    const bridgeStart = runtimeSource.indexOf("export function setE2eDistrictBuildingPopulationBuffer");
+    const bridgeEnd = runtimeSource.indexOf(
+      "function resetOwnedApartmentBlockPopulationEntries",
+      bridgeStart
+    );
+    const bridgeSource = runtimeSource.slice(bridgeStart, bridgeEnd);
+
+    expect(bridgeStart).toBeGreaterThanOrEqual(0);
+    expect(bridgeEnd).toBeGreaterThan(bridgeStart);
+    expect(bridgeSource).toContain("refreshOpenDistrictBuildingDetailPopups(getDefaultRuntimeRoot());");
+  });
+
   it("remounts the local demo after BFCache without duplicating page lifecycle handlers", () => {
     const appDemoSource = read("page-assets/js/app-demo.js");
 

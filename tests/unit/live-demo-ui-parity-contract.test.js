@@ -14,7 +14,16 @@ describe("live/demo UI parity source contract", () => {
 
   it("keeps the tablet game shell on the canonical three-column layout", () => {
     expect(gameRedesignCss).toMatch(
-      /@media \(min-width: 721px\) and \(max-width: 900px\) \{\s*\.game-layout--shell \{\s*display: grid;\s*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 3\.01fr\) minmax\(0, 1\.945fr\);\s*\}\s*#game-rail-left,\s*#game-main-region,\s*#game-rail-right \{\s*min-width: 0;\s*\}\s*\}/u
+      /@media \(min-width: 721px\) and \(max-width: 900px\) \{\s*\.game-layout--shell \{\s*display: grid;\s*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 3\.01fr\) minmax\(0, 1\.945fr\);/u
+    );
+  });
+
+  it("keeps the essential profile and settings triggers reachable at tablet widths", () => {
+    expect(gameRedesignCss).toMatch(
+      /@media \(min-width: 721px\) and \(max-width: 900px\) \{[\s\S]*?\.player-profile-trigger\.nav-btn--profile \{\s*display: inline-flex;\s*align-items: center;\s*justify-content: center;/u
+    );
+    expect(gameRedesignCss).toMatch(
+      /@media \(min-width: 721px\) and \(max-width: 900px\) \{[\s\S]*?\.game-utility-actions \{\s*display: flex;\s*width: 100%;\s*margin-left: 0;\s*justify-content: center;/u
     );
   });
 
@@ -27,9 +36,11 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain(
       'stableRasterSelector: surfaceName === "district" ? ".district-modal-hero__image" : ""'
     );
-    expect(paritySpec).toContain(
-      '".district-popup-card,.district-popup-buildings,.district-popup-action"'
-    );
+    expect(parityCapture).toContain("export const districtPopupStableBackdropFilterSelector");
+    expect(parityCapture).toContain('".district-popup-card"');
+    expect(parityCapture).toContain('".district-popup-buildings"');
+    expect(parityCapture).toContain('".district-popup-action"');
+    expect(paritySpec).toContain("? districtPopupStableBackdropFilterSelector");
     expect(paritySpec).toContain(
       'stableTargetStyleProperties: surfaceName === "district"'
     );
@@ -56,12 +67,15 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain(
       'stableTargetDevicePixelAlignment: surfaceName === "district"'
     );
-    expect(paritySpec).toContain('stableTargetDevicePixelAlignmentMode: "translate"');
+    expect(paritySpec).toContain(
+      'stableTargetDevicePixelAlignmentMode: surfaceName === "district"'
+    );
+    expect(paritySpec).toContain('? "position-offset"');
     expect(parityCapture).toContain(
       'stableTargetDevicePixelAlignmentMode = "relative-offset"'
     );
     expect(parityCapture).toContain(
-      '["relative-offset", "translate"].includes(alignmentMode)'
+      '["position-offset", "relative-offset", "translate"].includes(alignmentMode)'
     );
     expect(parityCapture).toContain("stableTargetStyleProperties = {}");
     expect(parityCapture).toContain(
@@ -81,8 +95,9 @@ describe("live/demo UI parity source contract", () => {
       'setProperty("transform", "none", "important")'
     );
     expect(parityCapture).toContain(
-      'removeAttribute("data-parity-capture-stable-raster")'
+      'const captureAttribute = "data-parity-capture-stable-raster"'
     );
+    expect(parityCapture).toContain("removeAttribute(captureAttribute)");
     expect(paritySpec).toContain(
       'surfaceName === "pharmacy" ? ".pharmacy-slot__metric" : ""'
     );
@@ -170,12 +185,29 @@ describe("live/demo UI parity source contract", () => {
   });
 
   it("rechecks the hosted population snapshot before local-demo opening", () => {
-    const serverOpen = paritySpec.indexOf("await openBuildingFromDistrict(serverPage, buildingTypeId);");
-    const stableCapture = paritySpec.indexOf("await captureStableHostedPopulationParitySnapshot(");
-    const serverRead = paritySpec.indexOf("() => readOpenBuildingParity(serverPage, buildingTypeId)");
-    const stableRead = paritySpec.indexOf("const serverStats = stablePopulationCapture.hostedSnapshot;");
-    const localOpen = paritySpec.indexOf("await openBuildingFromDistrict(localPage, buildingTypeId);");
+    const compareOpenBuilding = paritySpec.indexOf("async function compareOpenBuildingParity(");
+    const serverOpen = paritySpec.indexOf(
+      "await openBuildingFromDistrict(serverPage, buildingTypeId);",
+      compareOpenBuilding
+    );
+    const stableCapture = paritySpec.indexOf(
+      "await captureStableHostedPopulationParitySnapshot(",
+      serverOpen
+    );
+    const serverRead = paritySpec.indexOf(
+      "() => readOpenBuildingParity(serverPage, buildingTypeId)",
+      stableCapture
+    );
+    const stableRead = paritySpec.indexOf(
+      "const serverStats = stablePopulationCapture.hostedSnapshot;",
+      serverRead
+    );
+    const localOpen = paritySpec.indexOf(
+      "await openBuildingFromDistrict(localPage, buildingTypeId);",
+      stableRead
+    );
 
+    expect(compareOpenBuilding).toBeGreaterThan(-1);
     expect(serverOpen).toBeGreaterThan(-1);
     expect(stableCapture).toBeGreaterThan(serverOpen);
     expect(serverRead).toBeGreaterThan(stableCapture);

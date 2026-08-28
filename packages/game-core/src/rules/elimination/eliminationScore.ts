@@ -2,6 +2,7 @@ import type { PlayerId } from "@empire/shared-types";
 import type { GameCoreContext } from "../../engine/context";
 import type { CoreGameState } from "../../entities";
 import { DEFAULT_ELIMINATION_SCORE_WEIGHTS, resolveEliminationConfig } from "./eliminationConfig";
+import { resolvePlayerPopulation } from "../../state/playerPopulation";
 
 export interface PlayerEliminationScore {
   playerId: PlayerId;
@@ -32,7 +33,7 @@ export const createPlayerEliminationScore = (
   const resourceBalances = state.resourceStatesById[player?.resourceStateId ?? ""]?.balances ?? {};
   const cleanCash = positiveNumber(resourceBalances.cash);
   const dirtyCash = positiveNumber(resourceBalances["dirty-cash"]);
-  const population = positiveNumber(player?.population ?? resourceBalances.population);
+  const population = resolvePlayerPopulation(state, player);
   const totalResourceValue = Object.entries(resourceBalances)
     .filter(([key]) => key !== "cash" && key !== "dirty-cash" && key !== "population")
     .reduce((sum, [key, value]) => sum + (positiveNumber(value) * resolveResourceScoreValue(weights.resourceScoreValues, key)), 0);

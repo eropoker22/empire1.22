@@ -231,7 +231,7 @@ function renderPlayers(state) {
               player.server,
               player.online ? "online" : "offline",
               player.districtCount,
-              player.gangMembers,
+              player.population,
               money(player.cleanCash),
               money(player.dirtyCash),
               heatBadge(player.heat),

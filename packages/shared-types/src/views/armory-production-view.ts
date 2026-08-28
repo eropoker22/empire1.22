@@ -13,6 +13,7 @@ export interface ArmoryMaterialInputView {
 }
 
 export interface ArmoryProductionLineView {
+  executionMode?: "instant" | "legacy-timed";
   recipeId: string;
   category: ArmoryProductionCategory;
   resourceKey: string;

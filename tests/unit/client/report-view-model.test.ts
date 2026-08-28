@@ -63,7 +63,7 @@ describe("report view models", () => {
       style: "balanced",
       result: "detected",
       loot: { cash: 120 },
-      gangLosses: 3,
+      populationLosses: 3,
       heatGained: 5,
       successChance: 0.7,
       detectionChance: 0.4,

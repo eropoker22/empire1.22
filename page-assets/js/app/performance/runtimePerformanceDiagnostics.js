@@ -25,7 +25,9 @@ export function isDevelopmentRuntime(windowRef = typeof window === "undefined" ?
 }
 
 export function isPerformanceDebugEnabled(windowRef = typeof window === "undefined" ? null : window) {
-  if (!isDevelopmentRuntime(windowRef)) return false;
+  const hostname = String(windowRef?.location?.hostname || "").trim().toLowerCase();
+  const stagingHost = hostname === "staging.empirestreets.cz" || hostname.startsWith("staging.");
+  if (!isDevelopmentRuntime(windowRef) && !stagingHost) return false;
   try {
     return new URLSearchParams(String(windowRef?.location?.search || "")).get("performanceDebug") === "1";
   } catch (_error) {

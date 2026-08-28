@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { applyCommand, buyResource, calculateMarketPrice, collectIncome, completeProduction, createCityFeedProjection, createConflictReportViews, runTick } from "@empire/game-core";
+import {
+  applyCommand,
+  applyDayNightActionHeat,
+  buyResource,
+  calculateMarketPrice,
+  collectIncome,
+  completeProduction,
+  createCityFeedProjection,
+  createConflictReportViews,
+  getOwnedStreetDealerCount,
+  resolveStreetDealerNetworkMultipliers,
+  runTick
+} from "@empire/game-core";
 import { getAllPublicBuildingDefinitions, getPublicBuildingCatalog, resolveDistrictBuildingTypes, resolveModeConfig } from "@empire/game-config";
 import {
   createCoreStateWithFixedBuildingFixture,
@@ -213,58 +225,78 @@ describe("run-building-action command flow", () => {
       saleContext
     );
 
+    const neonDustSale = context.config.balance.streetDealers?.sellableDrugs.find(
+      (drug) => drug.itemId === "neon-dust"
+    );
+    const neonDustSaleMinutes = neonDustSale?.cooldownMinutes ?? 4;
+    const streetDealerConfig = saleContext.config.balance.streetDealers!;
+    const network = resolveStreetDealerNetworkMultipliers(
+      getOwnedStreetDealerCount(state, "player:1", streetDealerConfig),
+      streetDealerConfig
+    );
+    const baseHeatGain = Math.ceil(10 * Number(neonDustSale?.baseHeatPerUnit ?? 0) * network.heatMultiplier);
+    const expectedHeatGain = mafianIllegalHeat(applyDayNightActionHeat(
+      baseHeatGain,
+      state,
+      saleContext,
+      "start_drug_sale",
+      building.buildingTypeId
+    ));
+    const cooldownTicks = ticksForMinutes(neonDustSaleMinutes);
     expect(started.errors).toEqual([]);
     expect(started.nextState.resourceStatesById["resource:1"].balances["neon-dust"]).toBe(2);
-    expect(started.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
-    expect(started.nextState.districtsById["district:1"].heat).toBe(0);
+    expect(started.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(6250);
+    expect(started.nextState.districtsById["district:1"].heat).toBe(expectedHeatGain);
     expect(started.nextState.playersById["player:1"].metadata?.streetDealers).toMatchObject({
       slots: [
         {
           slotId: "slot-1",
-          itemId: "neon-dust",
-          amount: 10,
-          rewardDirtyCash: 6250,
-          heatGain: 26,
-          streetRiskPct: 0
+          cooldownUntilTick: cooldownTicks
         }
-      ]
-    });
-
-    const neonDustSaleMinutes = context.config.balance.streetDealers?.sellableDrugs.find(
-      (drug) => drug.itemId === "neon-dust"
-    )?.cooldownMinutes ?? 4;
-    let completedState = started.nextState;
-    for (let index = 0; index < ticksForMinutes(neonDustSaleMinutes); index += 1) {
-      completedState = runTick(completedState, saleContext).nextState;
-    }
-    const completedBalances = completedState.resourceStatesById["resource:1"].balances;
-    const completedReport = createConflictReportViews(completedState, { playerId: "player:1", limit: 1 })[0];
-
-    expect(completedBalances["dirty-cash"]).toBe(6250);
-    expect(completedBalances.cash ?? 0).toBe(0);
-    expect(completedState.districtsById["district:1"].heat).toBe(26);
-    expect(completedState.districtsById["district:1"].influence).toBe(0);
-    expect(completedState.playersById["player:1"].population ?? 0).toBe(0);
-    expect(completedState.playersById["player:1"].metadata?.streetDealers).toMatchObject({
-      slots: [],
+      ],
       saleHistory: [
         {
           type: "sale_completed",
           slotId: "slot-1",
           itemId: "neon-dust",
           rewardDirtyCash: 6250,
-          heatGain: 26
+          heatGain: expectedHeatGain,
+          instant: true
         }
       ]
     });
-    expect(completedReport).toMatchObject({
+    const immediateReport = createConflictReportViews(started.nextState, { playerId: "player:1", limit: 1 })[0];
+    expect(immediateReport).toMatchObject({
       buildingActionId: "start_drug_sale",
       streetDealerResult: {
         type: "sale_completed",
         rewardDirtyCash: 6250,
-        heatGain: 26
+        heatGain: expectedHeatGain,
+        cooldownUntilTick: cooldownTicks,
+        instant: true
       }
     });
+
+    const duplicateTick = runTick(started.nextState, saleContext).nextState;
+    expect(duplicateTick.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(6250);
+    expect(duplicateTick.districtsById["district:1"].heat).toBe(expectedHeatGain);
+
+    const blockedByCooldown = applyCommand(
+      started.nextState,
+      createRunBuildingActionCommandFixture({
+        id: "command:street-dealers:cooldown",
+        payload: {
+          districtId: "district:1",
+          buildingId: building.id,
+          actionId: "start_drug_sale",
+          dealerSlotId: "slot-1",
+          itemId: "neonDust",
+          amount: 1
+        }
+      }),
+      saleContext
+    );
+    expect(blockedByCooldown.errors.map((error) => error.code)).toContain("street_dealers_sale_active");
   });
 
   it("rejects removed Street Dealer shortcuts, fractional amounts, and strategic components", () => {
@@ -368,14 +400,24 @@ describe("run-building-action command flow", () => {
     );
 
     expect(started.errors).toEqual([]);
+    expect(started.nextState.resourceStatesById["resource:1"].balances).toMatchObject({
+      "neon-dust": 2,
+      "dirty-cash": 6250
+    });
     expect(started.nextState.playersById["player:1"].metadata?.streetDealers).toMatchObject({
       slots: [
         {
           slotId: "slot-1",
+          cooldownUntilTick: expectedSaleDurationTicks
+        }
+      ],
+      saleHistory: [
+        {
+          type: "sale_completed",
           itemId: "neon-dust",
           amount: 10,
           rewardDirtyCash: 6250,
-          completesAtTick: expectedSaleDurationTicks
+          instant: true
         }
       ]
     });
@@ -808,30 +850,30 @@ describe("run-building-action command flow", () => {
     expect(importStarted.errors).toEqual([]);
     expect(importStarted.nextState.resourceStatesById["resource:1"].balances.cash).toBe(8000);
     expectMafianHeat(importStarted.nextState.districtsById["district:1"].heat, 6);
-    const expressImportTicks = ticksForMs(
-      (context.config.balance.airport?.expressImport.durationSeconds ?? 90) * 1000
-    );
+    const importedBalances = importStarted.nextState.resourceStatesById["resource:1"].balances;
+    const importedTotal = (importedBalances["metal-parts"] ?? 0)
+      + (importedBalances.chemicals ?? 0)
+      + (importedBalances.biomass ?? 0);
+    expect(importedTotal).toBeGreaterThan(0);
     expect(importStarted.nextState.buildingsById[building.id].metadata?.airport).toMatchObject({
-      pendingImports: [{ category: "materials", completesAtTick: expressImportTicks }]
-    });
-
-    let completedState = importStarted.nextState;
-    for (let index = 0; index < expressImportTicks; index += 1) {
-      completedState = runTick(completedState, airportContext).nextState;
-    }
-    const completedBalances = completedState.resourceStatesById["resource:1"].balances;
-    expect(
-      (completedBalances["metal-parts"] ?? 0)
-      + (completedBalances.chemicals ?? 0)
-      + (completedBalances.biomass ?? 0)
-    ).toBeGreaterThan(0);
-    expect(completedState.buildingsById[building.id].metadata?.airport).toMatchObject({
       pendingImports: [],
       lastImportShipment: {
         category: "materials",
         customsTriggered: false
       }
     });
+    const importReport = createConflictReportViews(importStarted.nextState, { playerId: "player:1", limit: 1 })[0];
+    expect(importReport).toMatchObject({
+      buildingActionId: "express_import",
+      airportResult: {
+        type: "express_import_completed",
+        instant: true
+      }
+    });
+
+    const postImportTick = runTick(importStarted.nextState, airportContext).nextState;
+    const postTickBalances = postImportTick.resourceStatesById["resource:1"].balances;
+    expect((postTickBalances["metal-parts"] ?? 0) + (postTickBalances.chemicals ?? 0) + (postTickBalances.biomass ?? 0)).toBe(importedTotal);
 
     const nightStartTick = context.config.balance.dayNight?.phases.day.durationTicks ?? 1440;
     const nightState = {
@@ -1587,7 +1629,7 @@ describe("run-building-action command flow", () => {
     expect((context.config.balance.buildingActions ?? {}).mall_expand_shops).toBeUndefined();
   });
 
-  it("collects stored apartment block population into player population and gang members", () => {
+  it("collects stored apartment block residents into canonical player population", () => {
     const { state, building } = createStateWithFixedBuilding("apartment_block", {
       metadata: {
         apartmentBlock: {
@@ -1620,7 +1662,7 @@ describe("run-building-action command flow", () => {
     expect(result.errors).toEqual([]);
     expect(result.nextState.playersById["player:1"].population).toBe(32);
     expect(result.nextState.resourceStatesById["resource:1"].balances.population).toBeUndefined();
-    expect(result.nextState.resourceStatesById["resource:1"].balances["gang-members"]).toBe(12);
+    expect(result.nextState.resourceStatesById["resource:1"].balances).not.toHaveProperty("gang-members");
     expect(result.nextState.districtsById["district:1"].heat).toBe(0);
     expect(result.nextState.districtsById["district:1"].influence).toBe(0);
     expect(Number((nextBuilding.metadata?.apartmentBlock as { storedPopulation?: number })?.storedPopulation)).toBeCloseTo(0.7);
@@ -1946,8 +1988,7 @@ describe("run-building-action command flow", () => {
     const { state, building } = createStateWithFixedBuilding("school", {
       playerBalances: {
         cash: 1_000,
-        "dirty-cash": 250,
-        "gang-members": 3
+        "dirty-cash": 250
       },
       metadata: {
         school: {
@@ -1980,7 +2021,7 @@ describe("run-building-action command flow", () => {
 
     expect(result.errors).toEqual([]);
     expect(restoredState.playersById["player:1"].population).toBe(15);
-    expect(restoredState.resourceStatesById["resource:1"].balances["gang-members"]).toBe(7);
+    expect(restoredState.resourceStatesById["resource:1"].balances).not.toHaveProperty("gang-members");
     expect(restoredState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(250);
     expect(restoredState.districtsById["district:1"].heat).toBe(0);
     expect(restoredState.districtsById["district:1"].influence).toBe(0);

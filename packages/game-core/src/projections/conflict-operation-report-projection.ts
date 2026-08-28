@@ -20,7 +20,7 @@ export const mapConflictOperationNotificationToReport = (
       style: asHeistStyle(payload.style),
       result: asHeistOutcome(payload.result),
       loot: asNumberRecord(payload.loot),
-      gangLosses: Number(payload.gangLosses ?? 0),
+      populationLosses: Number(payload.populationLosses ?? 0),
       heatGained: Number(payload.heatGained ?? 0),
       successChance: Number(payload.successChance ?? 0),
       detectionChance: Number(payload.detectionChance ?? 0),

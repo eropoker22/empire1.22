@@ -422,7 +422,10 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
   const timeMetric = options.timeMetric;
   const queueMetric = options.queueMetric;
   const costMetric = options.costMetric || null;
-  const effectiveDurationMs = Math.max(1000, Number(viewModel.effectiveDurationMs || recipe.durationMs || 1000));
+  const isInstant = viewModel.executionMode === "instant";
+  const effectiveDurationMs = isInstant
+    ? 0
+    : Math.max(1000, Number(viewModel.effectiveDurationMs || recipe.durationMs || 1000));
   const resetQuantityOnJob = Boolean(options.resetQuantityOnJob);
   const useQuantityAsOutput = Boolean(options.useQuantityAsOutput);
   const onQuantityRefresh = typeof options.onQuantityRefresh === "function" ? options.onQuantityRefresh : null;
@@ -472,10 +475,14 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
       startButton.disabled = (!canTryStartWithoutInputs && viewModel.canStart === false) || !canQueueMore;
       startButton.title = startButton.disabled
         ? (viewModel.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
-        : "Spustit výrobu.";
+        : isInstant ? "Vyrobit okamžitě." : "Spustit výrobu.";
     }
-    setMetricValue(timeMetric, formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options, viewModel.durationBonusLabel));
-    setMetricValue(queueMetric, formatQueuedOutput(job, recipe, { useQuantityAsOutput, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
+    setMetricValue(timeMetric, isInstant
+      ? "Okamžitě"
+      : formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options, viewModel.durationBonusLabel));
+    setMetricValue(queueMetric, isInstant
+      ? "Bez fronty"
+      : formatQueuedOutput(job, recipe, { useQuantityAsOutput, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
     if (costMetric) {
       const visibleCleanCost = job && !canQueueMore
         ? Math.max(0, Number(job.cleanMoneyCost ?? cleanCost * visibleBatches))
@@ -494,7 +501,7 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
     refresh();
   });
 
-  if (job?.status === "running") {
+  if (!isInstant && job?.status === "running") {
     bindMetricCountdown(timeMetric, () => formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options, viewModel.durationBonusLabel), options);
   }
 
@@ -545,7 +552,10 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   const recipeId = String(viewModel.recipeId || "");
   const visual = viewModel.visual || null;
   const slotState = viewModel.slotState || getSlotState(job);
-  const effectiveDurationMs = Math.max(1000, Number(viewModel.effectiveDurationMs || recipe.durationMs || 1000));
+  const isInstant = viewModel.executionMode === "instant";
+  const effectiveDurationMs = isInstant
+    ? 0
+    : Math.max(1000, Number(viewModel.effectiveDurationMs || recipe.durationMs || 1000));
   const outputInventoryAmount = Math.max(0, Number(viewModel.outputInventoryAmount || 0));
   const outputInventoryCapacity = Math.max(0, Number(viewModel.outputInventoryCapacity || 0));
   const card = createElement(options.mount, "article");
@@ -588,12 +598,20 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titleWrap, [title]);
     appendChildren(titleLine, [icon, titleWrap]);
     appendChildren(head, [titleLine, state]);
-    const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel));
-    const queueMetric = createPharmacyMetricBlock(options.mount, "Ve frontě", formatQueuedOutput(job, recipe, { useQuantityAsOutput: true, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
+    const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", isInstant ? "Okamžitě" : formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel));
+    const queueMetric = createPharmacyMetricBlock(options.mount, "Fronta", isInstant ? "Bez fronty" : formatQueuedOutput(job, recipe, { useQuantityAsOutput: true, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
     const cleanCost = Math.max(0, Number(recipe.cleanMoneyCost || 0));
     const costMetric = createPharmacyMetricBlock(options.mount, "Cena", cleanCost ? `${formatMoney(cleanCost, options)} clean` : "-");
     appendChildren(metrics, [
-      createPharmacyMetricBlock(options.mount, "Vyrobeno", formatCapacityOutput(job, recipe, { useQuantityAsOutput: true, outputCap: viewModel.outputCap })),
+      createPharmacyMetricBlock(
+        options.mount,
+        isInstant ? "Ve skladu" : "Vyrobeno",
+        isInstant
+          ? (outputInventoryCapacity > 0
+              ? `${outputInventoryAmount}/${outputInventoryCapacity} ks`
+              : `${outputInventoryAmount} ks`)
+          : formatCapacityOutput(job, recipe, { useQuantityAsOutput: true, outputCap: viewModel.outputCap })
+      ),
       timeMetric,
       costMetric,
       queueMetric
@@ -604,7 +622,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     refreshQuantityControl = quantityControl.refresh;
     startButton.className = "button pharmacy-slot__btn pharmacy-slot__btn--start";
     collectButton.className = "button pharmacy-slot__btn pharmacy-slot__btn--stop";
-    appendChildren(actions, [quantityControl.control, startButton, collectButton]);
+    appendChildren(actions, [quantityControl.control, startButton, isInstant ? null : collectButton]);
     appendChildren(card, [head, metrics, actions]);
   } else {
     const isArmory = buildingName !== "druglab";
@@ -640,10 +658,10 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titles, [productLabel ? product : null, title, strengthLabel]);
     appendChildren(titleWrap, [icon, titles]);
     appendChildren(head, [titleWrap, state]);
-    const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel) });
-    const queueMetric = createMetricBlock(options.mount, { label: "Ve frontě", value: formatQueuedOutput(job, recipe, { outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }), inline: true });
+    const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: isInstant ? "Okamžitě" : formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel) });
+    const queueMetric = createMetricBlock(options.mount, { label: "Fronta", value: isInstant ? "Bez fronty" : formatQueuedOutput(job, recipe, { outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }), inline: true });
     appendChildren(metrics, [
-      createMetricBlock(options.mount, {
+      isInstant ? null : createMetricBlock(options.mount, {
         label: "Vyrobeno",
         value: formatCapacityOutput(job, recipe, { outputCap: viewModel.outputCap })
       }),
@@ -695,17 +713,17 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
       startButton.dataset.drugLabSlotStart = "true";
       collectButton.dataset.drugLabSlotStop = "true";
     }
-    appendChildren(actions, [quantityControl.control, startButton, collectButton]);
+    appendChildren(actions, [quantityControl.control, startButton, isInstant ? null : collectButton]);
     appendChildren(card, [head, metrics, actions]);
   }
 
   startButton.type = "button";
-  startButton.textContent = "Spustit";
+  startButton.textContent = isInstant ? "Vyrobit" : "Spustit";
   startButton.disabled = (Boolean(job) && job.status !== "running" && job.status !== "ready")
     || (viewModel.canStart === false && !viewModel.allowStartWithMissingInputs);
   startButton.title = startButton.disabled
     ? (viewModel.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
-    : "Spustit výrobu.";
+    : isInstant ? "Vyrobit okamžitě." : "Spustit výrobu.";
   startButton.addEventListener("click", () => {
     const binding = resolveRecipeCardBinding(options.mount, bindingKey, viewModel, callbacks);
     if (typeof binding.callbacks?.onStart === "function") {
@@ -718,6 +736,12 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   refreshQuantityControl();
 
   collectButton.type = "button";
+  collectButton.hidden = isInstant;
+  collectButton.disabled = isInstant;
+  if (isInstant) {
+    applyPendingProductionSlotStartEffect(options.mount, bindingKey, card);
+    return card;
+  }
   if (buildingName === "druglab" || buildingName === "pharmacy" || buildingName === "armory") {
     collectButton.textContent = "Zrušit";
     const activeAmount = job?.isProducing || job?.status === "running" ? 1 : 0;

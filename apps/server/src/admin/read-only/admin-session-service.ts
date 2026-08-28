@@ -91,6 +91,7 @@ export const createAdminSessionService = (options: {
         return reject("ADMIN_SESSION_REVOKED", "Admin session is invalid.");
       }
       if (Date.parse(session.expiresAt) <= checkedAt.getTime()) {
+        await options.repositories.sessions.revokeSession(session.adminSessionId, checkedAt.toISOString());
         await audit(session, "session-expired", "failure", correlationId);
         return reject("ADMIN_SESSION_EXPIRED", "Admin session expired.");
       }

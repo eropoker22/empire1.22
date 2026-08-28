@@ -162,7 +162,7 @@ test.describe("hosted multiplayer direct-command integration", () => {
           targetDistrictId: heistTarget.districtId,
           sourceDistrictId: heistTarget.sourceDistrictId,
           style: heistStyle.style,
-          gangMembersSent: heistStyle.defaultGangMembersSent,
+          populationSent: heistStyle.defaultPopulationSent,
           expectedTargetVersion: heistTarget.expectedTargetVersion,
           expectedSourceVersion: heistTarget.expectedSourceVersion,
           expectedConflictRevision: heistTarget.expectedConflictRevision

@@ -2,9 +2,13 @@ export const createHostedRuntimeWorkerRunLoop = (options: {
   runOnce(): Promise<void>;
   requestDrain(): void;
   intervalMs?: number;
+  heartbeat?(): Promise<void>;
+  heartbeatIntervalMs?: number;
 }) => {
   let activeRun: Promise<void> | null = null;
+  let activeHeartbeat: Promise<void> | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let draining = false;
   let rerunRequested = false;
 
@@ -27,9 +31,28 @@ export const createHostedRuntimeWorkerRunLoop = (options: {
     return tracked;
   };
 
+  const heartbeatNow = (): Promise<void> => {
+    if (draining || !options.heartbeat) return Promise.resolve();
+    if (activeHeartbeat) return activeHeartbeat;
+    const operation = Promise.resolve().then(options.heartbeat);
+    let tracked!: Promise<void>;
+    tracked = operation.finally(() => {
+      if (activeHeartbeat === tracked) activeHeartbeat = null;
+    });
+    activeHeartbeat = tracked;
+    return tracked;
+  };
+
   const start = (): void => {
     if (draining || timer) return;
     timer = setInterval(() => { void runNow().catch(() => undefined); }, options.intervalMs ?? 5_000);
+    if (options.heartbeat) {
+      heartbeatTimer = setInterval(
+        () => { void heartbeatNow().catch(() => undefined); },
+        options.heartbeatIntervalMs ?? 5_000
+      );
+      void heartbeatNow().catch(() => undefined);
+    }
     void runNow().catch(() => undefined);
   };
 
@@ -40,11 +63,16 @@ export const createHostedRuntimeWorkerRunLoop = (options: {
       options.requestDrain();
       if (timer) clearInterval(timer);
       timer = null;
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
     }
-    if (activeRun) await activeRun;
+    await Promise.all([
+      activeRun ?? Promise.resolve(),
+      activeHeartbeat ?? Promise.resolve()
+    ]);
   };
 
-  return { start, runNow, drain };
+  return { start, runNow, heartbeatNow, drain };
 };
 
 export const shutdownHostedRuntimeWorker = async (options: {

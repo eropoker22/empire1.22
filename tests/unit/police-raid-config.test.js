@@ -14,7 +14,7 @@ describe("police raid runtime config", () => {
     expect(impact.dirtyPct).toBe(0);
     expect(impact.drugPct).toBe(0);
     expect(impact.materialPct).toBe(0);
-    expect(impact.membersPct).toBe(0);
+    expect(impact.populationPct).toBe(0);
   });
 
   it("matches empire2-style operation-specific confiscation categories", () => {

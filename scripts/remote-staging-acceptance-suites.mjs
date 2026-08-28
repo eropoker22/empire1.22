@@ -161,12 +161,26 @@ export const REMOTE_STAGING_ACCEPTANCE_SUITES = Object.freeze([
   }),
   suite("multiplayer-visible-actions", {
     bootstrapCount: 3,
-    workflowTimeoutMinutes: 60,
+    workflowTimeoutMinutes: 90,
     scenario: "multiplayer-core",
-    playwrightRuns: [run("multiplayer-visible-actions", [
-      "tests/e2e/manual-hosted-district-actions-ui.spec.js",
-      "tests/e2e/live-demo-district-action-overlay-parity.spec.js"
-    ], { timeoutMs: 1_800_000 })]
+    playwrightRuns: [
+      run("multiplayer-visible-actions", [
+        "tests/e2e/manual-hosted-district-actions-ui.spec.js"
+      ], { timeoutMs: 1_800_000 }),
+      ...["01", "02", "03", "04", "05"].map((batchNumber) => run(
+        `district-action-parity-${batchNumber}`,
+        ["tests/e2e/live-demo-district-action-overlay-parity.spec.js"],
+        {
+          environment: {
+            EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS: `district-action-${batchNumber}`
+          },
+          grep: batchNumber === "01"
+            ? "canonical lock|district-action-01|district action overlay parity coverage guard"
+            : `district-action-${batchNumber}|district action overlay parity coverage guard`,
+          timeoutMs: 1_800_000
+        }
+      ))
+    ]
   }),
   suite("city-events", {
     scenario: "city-events",

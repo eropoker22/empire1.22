@@ -38,7 +38,7 @@ import { resolveCombinedCameraAlarmBonuses, resolveRecruitmentCenterSupportBonus
 import { resolveFitnessAttackWeaponModifiers, resolveFitnessDefenseItemModifiers } from "./fitnessClubBuildingActions";
 import { applyAttackWeaponLosses, writeAttackWeaponInventory } from "./attackWeaponInventory";
 import { consumeTacticalGridCombat, resolveTacticalGridCombat } from "./tacticalGridCombat";
-import { bumpDistrictSecurityRevision } from "../state";
+import { bumpDistrictSecurityRevision, resolvePlayerPopulation } from "../state";
 import { countActiveOwnedDistricts, reconcilePlayerTerritoryLifecycle } from "../rules/liveness";
 
 /**
@@ -206,9 +206,7 @@ export const handleAttackDistrict = (
     ? state.playersById[targetDistrict.ownerPlayerId]
     : null;
   const defenderAvailablePopulation = defenderPlayer
-    ? Math.max(0, Math.floor(Number(
-        defenderPlayer.population ?? state.resourceStatesById[defenderPlayer.resourceStateId]?.balances.population ?? 0
-      )))
+    ? Math.max(0, Math.floor(resolvePlayerPopulation(state, defenderPlayer)))
     : 0;
   const baseDefenderPopulationLoss = defenderAvailablePopulation > 0
     ? Math.min(
@@ -309,11 +307,7 @@ export const handleAttackDistrict = (
   const defenderReport = notificationEntries[1] ?? null;
   const notificationIds = notificationEntries.map((notification) => notification.id);
   const nextWeaponInventory = applyAttackWeaponLosses(weaponInventory, escapeMitigation.losses);
-  let nextResourceStatesById = writeAttackWeaponInventory(state, attacker, nextWeaponInventory);
-  nextResourceStatesById = applyPlayerPopulationLoss(nextResourceStatesById, attacker, occupationPopulationLoss, state.root.tick);
-  if (defenderPlayer) {
-    nextResourceStatesById = applyPlayerPopulationLoss(nextResourceStatesById, defenderPlayer, defenderPopulationLoss, state.root.tick);
-  }
+  const nextResourceStatesById = writeAttackWeaponInventory(state, attacker, nextWeaponInventory);
   const nextBuildingsById = districtDestroyed
     ? markDestroyedDistrictBuildings(state, targetDistrict.buildingIds)
     : attackSucceeded
@@ -342,18 +336,14 @@ export const handleAttackDistrict = (
         ? {
             [defenderPlayer.id]: {
               ...defenderPlayer,
-              ...(defenderPlayer.population !== undefined
-                ? { population: Math.max(0, Number(defenderPlayer.population) - defenderPopulationLoss) }
-                : {}),
+              population: Math.max(0, resolvePlayerPopulation(state, defenderPlayer) - defenderPopulationLoss),
               version: defenderPlayer.version + 1
             }
           }
         : {}),
       [attacker.id]: {
         ...attacker,
-        ...(attacker.population !== undefined
-          ? { population: Math.max(0, Number(attacker.population) - occupationPopulationLoss) }
-          : {}),
+        population: Math.max(0, resolvePlayerPopulation(state, attacker) - occupationPopulationLoss),
         attackLoadout: nextWeaponInventory,
         lastActionAt: command.issuedAt,
         version: attacker.version + 1
@@ -558,31 +548,5 @@ export const handleAttackDistrict = (
     nextState: lifecycleState,
     events: [...events, ...bountyResult.events, ...boostResult.events, ...lifecycleEvents],
     errors: []
-  };
-};
-
-const applyPlayerPopulationLoss = (
-  resourceStatesById: CoreGameState["resourceStatesById"],
-  player: CoreGameState["playersById"][string],
-  loss: number,
-  tick: number
-): CoreGameState["resourceStatesById"] => {
-  if (!player || loss <= 0) return resourceStatesById;
-  const resourceState = resourceStatesById[player.resourceStateId];
-  if (!resourceState) return resourceStatesById;
-  return {
-    ...resourceStatesById,
-    [resourceState.id]: {
-      ...resourceState,
-      balances: {
-        ...resourceState.balances,
-        population: Math.max(
-          0,
-          Number(resourceState.balances.population ?? player.population ?? 0) - loss
-        )
-      },
-      lastUpdatedTick: tick,
-      version: resourceState.version + 1
-    }
   };
 };

@@ -4,7 +4,10 @@ import {
   loginAndResumeHostedUiParityGame,
   waitForLiveGame
 } from "./helpers/hostedUiParityEntry.js";
-import { waitForTerminalGameplaySubmit } from "./helpers/gameplaySubmitResponse.js";
+import {
+  MAX_DURABLE_STATE_VERSION_REBASES,
+  waitForTerminalGameplaySubmit
+} from "./helpers/gameplaySubmitResponse.js";
 
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
@@ -750,7 +753,10 @@ async function clickAndReadTypedSubmit(page, commandType, button) {
   }
   const { body, request, response } = submission;
   expect(response.status(), `${commandType} response status`).toBe(200);
-  expect(submission.stateVersionConflicts.length, `${commandType} single OCC rebase`).toBeLessThanOrEqual(1);
+  expect(
+    submission.stateVersionConflicts.length,
+    `${commandType} bounded OCC rebase`
+  ).toBeLessThanOrEqual(MAX_DURABLE_STATE_VERSION_REBASES);
   return {
     request,
     body,

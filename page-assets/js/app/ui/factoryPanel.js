@@ -27,7 +27,10 @@ export function renderFactoryDashboardPanel(elements = {}, viewModel = {}, callb
   }
 
   if (elements.collectButton) {
-    elements.collectButton.disabled = Boolean(viewModel.collectButton?.disabled);
+    const showCollect = viewModel.collectButton?.visible !== false;
+    elements.collectButton.hidden = !showCollect;
+    elements.collectButton.style.display = showCollect ? "" : "none";
+    elements.collectButton.disabled = !showCollect || Boolean(viewModel.collectButton?.disabled);
     elements.collectButton.textContent = viewModel.collectButton?.text || "+";
     elements.collectButton.title = viewModel.collectButton?.title || "";
     elements.collectButton.setAttribute?.("aria-label", elements.collectButton.title);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveModeConfig } from "@empire/game-config";
-import { applyCommand, runTick } from "../../../packages/game-core/src/engine";
+import { applyCommand } from "../../../packages/game-core/src/engine";
 import { createCollectProductionCommandFixture, createCraftItemCommandFixture } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
 
@@ -8,7 +8,7 @@ describe("production collect command flow", () => {
   it.each([
     ["factory", "metal-parts", "metal-parts", { cash: 300 }],
     ["drug_lab", "neon-dust", "neon-dust", { cash: 500, chemicals: 2 }]
-  ])("moves a completed %s line output to player resources on collect", (
+  ])("credits a completed %s output to player resources in the craft command", (
     buildingTypeId,
     recipeId,
     resourceKey,
@@ -32,49 +32,24 @@ describe("production collect command flow", () => {
     const started = applyCommand(state, createCraftItemCommandFixture({
       payload: { districtId: "district:1", buildingId, recipeId, quantity: 1 }
     }), context);
-    const baseDuration = buildingTypeId === "factory"
-      ? context.config.balance.factory!.recipes[recipeId as "metal-parts"].durationTicksPerUnit
-      : context.config.balance.drugLab!.recipes[recipeId as "neon-dust"].durationTicksPerUnit;
-    const duration = Math.ceil(baseDuration * context.config.balance.cooldownMultiplier);
-    let completedState = started.nextState;
-    for (let index = 0; index < duration + 1; index += 1) {
-      completedState = runTick(completedState, context).nextState;
-    }
-
     expect(started.errors).toEqual([]);
-    expect(completedState.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(1);
-
-    const collectCommand = createCollectProductionCommandFixture({
-      payload: {
-        districtId: "district:1",
-        buildingId,
-        resourceKey
-      }
+    expect(started.nextState.root.tick).toBe(state.root.tick);
+    expect(started.nextState.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(0);
+    expect(started.nextState.resourceStatesById["resource:1"]?.balances[resourceKey]).toBe(1);
+    expect(started.nextState.buildingsById[buildingId]?.processing).toBeNull();
+    expect(Object.values(started.nextState.buildingsById[buildingId]?.productionLines ?? {})).toEqual([]);
+    expect(started.events).toHaveLength(1);
+    expect(started.events[0]).toMatchObject({
+      type: "item-crafted",
+      payload: expect.objectContaining({
+        outputResourceKey: resourceKey,
+        outputAmount: 1,
+        instant: true
+      })
     });
-    const collected = applyCommand(completedState, collectCommand, context);
-
-    expect(collected.errors).toEqual([]);
-    expect(collected.nextState.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(0);
-    expect(collected.nextState.resourceStatesById["resource:1"]?.balances[resourceKey]).toBe(1);
-    expect(collected.events).toHaveLength(1);
-    expect(collected.events[0]?.type).toBe("production-collected");
-    const reportIds = collected.nextState.root.notificationIds.filter((notificationId) => (
-      collected.nextState.notificationsById[notificationId]?.payload.eventId === collectCommand.id
-    ));
-    expect(reportIds).toHaveLength(1);
-
-    collected.nextState.resourceStatesById[buildingResourceStateId] = {
-      ...collected.nextState.resourceStatesById[buildingResourceStateId],
-      balances: { [resourceKey]: 1 }
-    };
-    const replayed = applyCommand(collected.nextState, collectCommand, context);
-    expect(replayed.errors).toEqual([]);
-    expect(replayed.nextState.root.notificationIds.filter((notificationId) => (
-      replayed.nextState.notificationsById[notificationId]?.payload.eventId === collectCommand.id
-    ))).toEqual(reportIds);
   });
 
-  it("collects only available capacity and leaves the remainder in the production building", () => {
+  it("collects only available capacity from a legacy ready output and leaves the remainder", () => {
     const context = {
       config: resolveModeConfig("free")
     };
@@ -102,7 +77,7 @@ describe("production collect command flow", () => {
     expect(collected.nextState.resourceStatesById["resource:1"]?.balances["metal-parts"]).toBe(90);
   });
 
-  it("rejects collect-production when the global capacity is full", () => {
+  it("rejects legacy collect-production when the global capacity is full", () => {
     const context = { config: resolveModeConfig("free") };
     const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
       includeWarehouse: true,

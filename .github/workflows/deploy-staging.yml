@@ -34,11 +34,6 @@ on:
         required: true
         default: false
         type: boolean
-      leave_registration_open:
-        description: Legacy compatibility input; staging registration is permanently open after every deploy
-        required: true
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -59,7 +54,6 @@ jobs:
     outputs:
       release_sha: ${{ steps.release.outputs.sha }}
       acceptance_run_id: ${{ steps.release.outputs.acceptance_run_id }}
-      leave_registration_open: ${{ steps.release.outputs.leave_registration_open }}
       owner_deploy: ${{ steps.release.outputs.owner_deploy }}
 
     steps:
@@ -75,7 +69,6 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_SHA: ${{ inputs.sha }}
           DISPATCH_RUN_ID: ${{ inputs.acceptance_run_id }}
-          DISPATCH_LEAVE_REGISTRATION_OPEN: ${{ inputs.leave_registration_open }}
           DISPATCH_RELEASE_MODE: ${{ inputs.release_mode }}
           WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
@@ -104,7 +97,6 @@ jobs:
           if [[ "$owner_deploy" != "true" ]]; then [[ "$run_id" =~ ^[0-9]+$ ]]; fi
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "acceptance_run_id=$run_id" >> "$GITHUB_OUTPUT"
-          echo "leave_registration_open=true" >> "$GITHUB_OUTPUT"
           echo "owner_deploy=$owner_deploy" >> "$GITHUB_OUTPUT"
 
       - name: Verify acceptance workflow and every required job
@@ -142,7 +134,6 @@ jobs:
     environment: staging
     env:
       RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
-      LEAVE_REGISTRATION_OPEN: ${{ needs.gate.outputs.leave_registration_open }}
       STAGING_ORIGIN: https://staging.empirestreets.cz
       NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
       NETLIFY_PRODUCTION_SITE_ID: ${{ vars.NETLIFY_PRODUCTION_SITE_ID }}
@@ -163,7 +154,7 @@ jobs:
       EMPIRE_ADMIN_WRITES_ENABLED: "true"
       EMPIRE_HOSTED_CONTROL_PLANE_ENABLED: "true"
       EMPIRE_SERVER_PROVISIONING_ENABLED: "true"
-      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: ${{ needs.gate.outputs.leave_registration_open }}
+      EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true"
       EMPIRE_LEGACY_MATCHMAKING_ENABLED: "false"
       EMPIRE_WAR_HOSTING_ENABLED: "false"
       EMPIRE_PUBLIC_ORIGIN: https://staging.empirestreets.cz
@@ -186,15 +177,6 @@ jobs:
         with:
           node-version-file: .node-version
           cache: npm
-
-      - name: Resolve permanently-open staging registration policy
-        id: registration
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$LEAVE_REGISTRATION_OPEN" == "true" ]]
-          # Empty expiry is the durable, owner-controlled permanently-open mode.
-          echo "expires_at=" >> "$GITHUB_OUTPUT"
 
       - name: Verify exact clean checkout
         shell: bash
@@ -302,7 +284,6 @@ jobs:
           EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
           EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
           EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.STAGING_ACCOUNT_TERMS_VERSION }}
-          EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: ${{ steps.registration.outputs.expires_at }}
         run: |
           npm run verify:staging-env -- --allow-registration-enabled
           npm run release:staging:manifest -- --allow-registration-enabled
@@ -426,7 +407,6 @@ jobs:
           EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
           EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
           EMPIRE_ACCOUNT_TERMS_VERSION: ${{ vars.STAGING_ACCOUNT_TERMS_VERSION }}
-          EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: ${{ steps.registration.outputs.expires_at }}
         shell: bash
         run: |
           set -euo pipefail
@@ -570,8 +550,6 @@ jobs:
         run: npm run verify:remote-release
 
       - name: Verify deployed registration policy
-        env:
-          EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: ${{ steps.registration.outputs.expires_at }}
         shell: bash
         run: |
           set -euo pipefail
@@ -672,7 +650,6 @@ jobs:
           EMPIRE_ADMIN_SESSION_SECRET: ${{ secrets.STAGING_ADMIN_SESSION_SECRET }}
           EMPIRE_AUTH_THROTTLE_PEPPER: ${{ secrets.STAGING_AUTH_THROTTLE_PEPPER }}
           EMPIRE_ADMIN_BOOTSTRAP_USERNAME: ${{ vars.STAGING_ADMIN_USERNAME }}
-          EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT: ${{ steps.registration.outputs.expires_at }}
         run: npm run verify:hosted-control-plane
 
       - name: Upload staging release evidence

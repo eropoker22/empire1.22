@@ -200,34 +200,25 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
           targetDistrictId: target.districtId
         })
       });
-      const pendingReadModel = spy.readModel as GameplaySliceView;
-      const pendingEffect = pendingReadModel.mapEffects.find((effect) =>
-        effect.type === "spy" && effect.districtId === target.districtId
+      const immediateReadModel = spy.readModel as GameplaySliceView;
+      const candidateReport = immediateReadModel.reports.find((report) =>
+        report.reportType === "spy" && report.targetDistrictId === target.districtId
       );
 
       expect(spy.accepted).toBe(true);
       expect(spy.errors).toEqual([]);
       expect(spy.metadata?.serverTick).toBe(submittedAtTick);
-      expect(pendingReadModel.reports).not.toContainEqual(expect.objectContaining({
+      expect(immediateReadModel.reports).toContainEqual(expect.objectContaining({
         reportType: "spy",
         targetDistrictId: target.districtId
       }));
-      expect(pendingEffect).toBeTruthy();
-
-      advanceInstanceToEffectResolution(server, serverInstanceId, pendingEffect!);
-      const resolved = await server.gameplaySliceTransport.load({
-        ...firstRequest,
-        sessionToken: initial.sessionToken,
-        districtId: sourceDistrictId
-      });
-      const candidateReadModel = resolved.readModel as GameplaySliceView;
-      const candidateReport = candidateReadModel.reports.find((report) =>
-        report.reportType === "spy" && report.targetDistrictId === target.districtId
-      );
       if (candidateReport?.result === "success") {
         targetDistrictId = target.districtId;
-        spyReadModel = candidateReadModel;
+        spyReadModel = immediateReadModel;
         break;
+      }
+      if (candidateReport?.reportType === "spy" && candidateReport.blockedUntilTick !== null) {
+        advanceInstanceToTick(server, serverInstanceId, candidateReport.blockedUntilTick);
       }
     }
 
@@ -313,39 +304,15 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         targetDistrictId
       })
     });
-    const pendingSpyReadModel = spy.readModel as GameplaySliceView;
-    const pendingSpyEffect = pendingSpyReadModel.mapEffects.find((effect) =>
-      effect.type === "spy" && effect.districtId === targetDistrictId
-    );
+    const spyReadModel = spy.readModel as GameplaySliceView;
 
     expect(spy.accepted).toBe(true);
     expect(spy.errors).toEqual([]);
-    expect(pendingSpyReadModel.reports).not.toContainEqual(expect.objectContaining({
-      reportType: "spy",
-      targetDistrictId
-    }));
-    expect(pendingSpyReadModel.district?.occupyTargets).toContainEqual(
-      expect.objectContaining({
-        districtId: targetDistrictId,
-        enabled: false,
-        disabledCode: "OCCUPY_SPY_REQUIRED"
-      })
-    );
-    expect(pendingSpyEffect).toBeTruthy();
-
-    advanceInstanceToEffectResolution(server, serverInstanceId, pendingSpyEffect!);
-    const resolvedSpy = await server.gameplaySliceTransport.load({
-      ...request,
-      sessionToken: initial.sessionToken,
-      districtId: sourceDistrictId
-    });
-    const spyReadModel = resolvedSpy.readModel as GameplaySliceView;
-
-    expect(spyReadModel.reports[0]).toMatchObject({
+    expect(spyReadModel.reports).toContainEqual(expect.objectContaining({
       reportType: "spy",
       result: "success",
       targetDistrictId
-    });
+    }));
     expect(spyReadModel.district?.occupyTargets).toContainEqual(
       expect.objectContaining({
         districtId: targetDistrictId,
@@ -379,22 +346,20 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         )!.expectedConflictRevision
       })
     });
-    const pendingOccupyReadModel = occupy.readModel as GameplaySliceView;
-    const pendingOccupyEffect = pendingOccupyReadModel.mapEffects.find((effect) =>
-      effect.type === "occupy" && effect.districtId === targetDistrictId
-    );
+    const occupyReadModel = occupy.readModel as GameplaySliceView;
+    const occupyReport = occupyReadModel.reports.find((report) => report.reportType === "occupy");
 
     expect(occupy.accepted).toBe(true);
     expect(occupy.errors).toEqual([]);
-    expect(pendingOccupyReadModel.reports).not.toContainEqual(expect.objectContaining({
+    expect(occupyReadModel.reports).toContainEqual(expect.objectContaining({
       reportType: "occupy",
       targetDistrictId
     }));
-    expect(pendingOccupyEffect).toBeTruthy();
-    if (!pendingOccupyEffect) {
-      throw new Error("Expected a pending authoritative occupy effect.");
+    expect(occupyReport).toBeDefined();
+    if (!occupyReport || occupyReport.reportType !== "occupy") {
+      throw new Error("Expected immediate authoritative occupy report.");
     }
-    const effectiveCooldownTicks = pendingOccupyEffect.expiresAtTick - occupyStartedAtTick;
+    const effectiveCooldownTicks = occupyReport.cooldownTicks;
 
     expect(effectiveCooldownTicks).toBe(71);
     expect(effectiveCooldownTicks).toBeLessThan(configuredCooldownTicks);
@@ -402,23 +367,8 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       sourceInfluenceBeforeOccupy - 5,
       10
     );
-    expect(runtime.state.districtsById[targetDistrictId]?.ownerPlayerId).toBeNull();
-
-    advanceInstanceToEffectResolution(server, serverInstanceId, pendingOccupyEffect);
-    const resolvedOccupy = await server.gameplaySliceTransport.load({
-      ...request,
-      sessionToken: initial.sessionToken,
-      districtId: sourceDistrictId
-    });
-    const occupyReadModel = resolvedOccupy.readModel as GameplaySliceView;
-    const occupyReport = occupyReadModel.reports.find((report) => report.reportType === "occupy");
-
-    expect(occupyReport).toBeDefined();
-    if (!occupyReport || occupyReport.reportType !== "occupy") {
-      throw new Error("Expected authoritative occupy report.");
-    }
-    expect(occupyReport.cooldownTicks).toBe(effectiveCooldownTicks);
     expect(runtime.state.districtsById[targetDistrictId]?.ownerPlayerId).toBe(request.playerId);
+    expect(Object.values(runtime.state.pendingOccupyOperationsById ?? {})).toEqual([]);
     expect(runtime.state.districtsById[targetDistrictId]?.heat).toBe(2);
     expect(
       runtime.state.cooldownStatesById[
@@ -440,7 +390,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       populationLost: 45,
       populationRefunded: 5,
       cooldownTicks: effectiveCooldownTicks,
-      tick: pendingOccupyEffect.expiresAtTick
+      tick: occupyStartedAtTick
     });
     expect(occupyReadModel.district?.occupyTargets.some((target) =>
       target.districtId === targetDistrictId
@@ -448,7 +398,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(occupyReadModel.cityFeed?.currentPlayerFeed.some((event) =>
       event.sourceType === "district_occupy" && event.districtId === targetDistrictId
     )).toBe(true);
-    expect(resolvedOccupy.metadata?.serverTick).toBe(runtime.state.root.tick);
+    expect(occupy.metadata?.serverTick).toBe(runtime.state.root.tick);
   });
 
   it("renders an occupy report from the server read model in the client report panel", async () => {
@@ -473,25 +423,18 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       target.disabledCode === "OCCUPY_SPY_REQUIRED"
     )!.districtId;
 
-    const pendingSpyRender = await client.dispatch(createSpyCommand({
+    const spyRender = await client.dispatch(createSpyCommand({
       id: "command:first-loop:occupy-render-spy:1",
       playerId: request.playerId,
       sourceDistrictId,
       targetDistrictId
     }));
-    const pendingSpyEffect = client.getGameplaySlice()!.mapEffects.find((effect) =>
-      effect.type === "spy" && effect.districtId === targetDistrictId
-    );
-
-    expect(pendingSpyRender.reports).toEqual([]);
-    expect(pendingSpyEffect).toBeTruthy();
-    advanceInstanceToEffectResolution(server, serverInstanceId, pendingSpyEffect!);
-    await client.load({
-      ...sessionRequest,
-      districtId: sourceDistrictId
+    expect(spyRender.reports[0]).toMatchObject({
+      category: "spy",
+      result: "success"
     });
 
-    const pendingOccupyRender = await client.dispatch(createOccupyCommand({
+    const occupyRender = await client.dispatch(createOccupyCommand({
       id: "command:first-loop:occupy-render:1",
       playerId: request.playerId,
       sourceDistrictId,
@@ -500,20 +443,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         target.districtId === targetDistrictId
       )!.expectedConflictRevision
     }));
-    const pendingOccupyEffect = client.getGameplaySlice()!.mapEffects.find((effect) =>
-      effect.type === "occupy" && effect.districtId === targetDistrictId
-    );
-
-    expect(pendingOccupyRender.errors).toEqual([]);
-    expect(pendingOccupyRender.reports).not.toContainEqual(expect.objectContaining({
-      category: "occupy"
-    }));
-    expect(pendingOccupyEffect).toBeTruthy();
-    advanceInstanceToEffectResolution(server, serverInstanceId, pendingOccupyEffect!);
-    const occupyRender = await client.load({
-      ...sessionRequest,
-      districtId: sourceDistrictId
-    });
+    expect(occupyRender.errors).toEqual([]);
 
     expect(occupyRender.reports[0]).toMatchObject({
       category: "occupy",
@@ -681,29 +611,16 @@ const setPlayerPopulation = (
   if (!player) return;
 
   player.population = population;
-  state.resourceStatesById[player.resourceStateId] = {
-    ...state.resourceStatesById[player.resourceStateId],
-    id: player.resourceStateId,
-    ownerType: "player",
-    ownerId: player.id,
-    balances: {
-      ...state.resourceStatesById[player.resourceStateId]?.balances,
-      population
-    },
-    incomeModifiers: state.resourceStatesById[player.resourceStateId]?.incomeModifiers ?? {},
-    lastUpdatedTick: state.root.tick,
-    version: state.resourceStatesById[player.resourceStateId]?.version ?? 1
-  };
 };
 
-const advanceInstanceToEffectResolution = (
+const advanceInstanceToTick = (
   server: ReturnType<typeof createServerApp>,
   instanceId: string,
-  effect: GameplaySliceView["mapEffects"][number]
+  targetTick: number
 ): void => {
   const runtime = server.instanceManager.getInstanceById(instanceId);
   if (!runtime) throw new Error(`Missing runtime ${instanceId}.`);
-  while (runtime.state.root.tick < effect.expiresAtTick) {
+  while (runtime.state.root.tick < targetTick) {
     runtime.state = runTick(runtime.state, { config: runtime.config }).nextState;
   }
 };

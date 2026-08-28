@@ -557,6 +557,52 @@ describe("gameplay session security", () => {
     });
   });
 
+  it("durably revokes expired gameplay sessions in persistent and in-memory repositories", async () => {
+    const persistentRepository = createFakeGameplayIdentitySessionRepository();
+    const services = [
+      createPersistentGameplaySessionService(persistentRepository, { productionReady: true }),
+      createInMemoryGameplaySessionService()
+    ];
+    let persistentSessionId = "";
+
+    for (const [index, service] of services.entries()) {
+      const accountId = `account:expired:${index}`;
+      const registration = await service.getOrCreateRegistration({
+        accountId,
+        serverInstanceId,
+        nowIso: "2026-06-24T00:00:00.000Z"
+      });
+      const session = await service.createSession({
+        registration,
+        nowIso: "2026-06-24T00:00:00.000Z",
+        ttlMs: 1_000
+      });
+      if (index === 0) persistentSessionId = session.sessionId;
+
+      await expect(service.validateSession({
+        sessionId: session.sessionId,
+        accountId,
+        serverInstanceId,
+        nowIso: "2026-06-24T00:00:02.000Z"
+      })).resolves.toMatchObject({
+        accepted: false,
+        errors: [{ code: "SESSION_EXPIRED" }]
+      });
+      await expect(service.validateSession({
+        sessionId: session.sessionId,
+        accountId,
+        serverInstanceId,
+        nowIso: "2026-06-24T00:00:03.000Z"
+      })).resolves.toMatchObject({
+        accepted: false,
+        errors: [{ code: "SESSION_REVOKED" }]
+      });
+    }
+
+    const persisted = await persistentRepository.getSessionById(persistentSessionId);
+    expect(persisted?.revokedAt).toBe("2026-06-24T00:00:02.000Z");
+  });
+
   it("validates persistent sessions on every request without writing last-seen on every poll", async () => {
     const repository = createFakeGameplayIdentitySessionRepository();
     const originalGetSessionById = repository.getSessionById.bind(repository);

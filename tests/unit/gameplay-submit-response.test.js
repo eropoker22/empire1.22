@@ -58,8 +58,12 @@ describe("gameplay submit response waiter", () => {
     expect(isTerminalGameplaySubmitAttempt(stateVersionConflict, 0)).toBe(false);
   });
 
-  it("treats the second durable conflict as the transport terminal response", () => {
-    expect(isTerminalGameplaySubmitAttempt(stateVersionConflict, 1)).toBe(true);
+  it("waits past the second durable state-version conflict", () => {
+    expect(isTerminalGameplaySubmitAttempt(stateVersionConflict, 1)).toBe(false);
+  });
+
+  it("treats the third durable conflict as the bounded transport response", () => {
+    expect(isTerminalGameplaySubmitAttempt(stateVersionConflict, 2)).toBe(true);
   });
 
   it("returns immediately for a non-conflict response", () => {
@@ -85,22 +89,40 @@ describe("gameplay submit response waiter", () => {
     expect(page.listenerCount("close")).toBe(0);
   });
 
-  it("treats the second durable conflict response as terminal", async () => {
+  it("waits through two durable conflicts and returns the subsequent success", async () => {
     const page = new FakePage();
     const first = createSubmitAttempt({ responseBody: stateVersionConflict });
     const second = createSubmitAttempt({ responseBody: stateVersionConflict });
+    const third = createSubmitAttempt({ responseBody: { accepted: true, errors: [] } });
     const waiting = waitForTerminalGameplaySubmit(page, matchesInvite);
 
     emitSubmitAttempt(page, first);
     emitSubmitAttempt(page, second);
+    emitSubmitAttempt(page, third);
 
     const result = await waiting;
-    expect(result.response).toBe(second.response);
+    expect(result.response).toBe(third.response);
     expect(result.attempts.map((attempt) => attempt.response)).toEqual([
       first.response,
-      second.response
+      second.response,
+      third.response
     ]);
     expect(result.stateVersionConflicts).toHaveLength(2);
+  });
+
+  it("treats a third durable conflict response as the bounded terminal result", async () => {
+    const page = new FakePage();
+    const attempts = Array.from({ length: 3 }, () => (
+      createSubmitAttempt({ responseBody: stateVersionConflict })
+    ));
+    const waiting = waitForTerminalGameplaySubmit(page, matchesInvite);
+
+    attempts.forEach((attempt) => emitSubmitAttempt(page, attempt));
+
+    const result = await waiting;
+    expect(result.response).toBe(attempts[2].response);
+    expect(result.attempts).toHaveLength(3);
+    expect(result.stateVersionConflicts).toHaveLength(3);
   });
 
   it("does not spend the terminal response budget before the matching request", async () => {

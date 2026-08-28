@@ -69,7 +69,7 @@ function trackPropertyAssignments(element, propertyName) {
 }
 
 describe("production building popup runtime", () => {
-  it("does not rewrite unchanged production header controls on authoritative polls", async () => {
+  it("keeps obsolete collect controls hidden and stable on authoritative polls", async () => {
     const documentRef = createEventTarget();
     const openButton = createElement();
     const popup = createElement();
@@ -183,10 +183,12 @@ describe("production building popup runtime", () => {
       productionLines: [{ canCollect: true }]
     };
     await documentRef.dispatch("empire:gameplay-slice-rendered");
-    expect(collectWrites.disabled()).toBe(stableCounts.collectDisabled + 1);
+    expect(collectWrites.disabled()).toBe(stableCounts.collectDisabled);
     expect(collectWrites.text()).toBe(stableCounts.collectText);
-    expect(collectWrites.title()).toBe(stableCounts.collectTitle + 1);
-    expect(collectButton.disabled).toBe(false);
+    expect(collectWrites.title()).toBe(stableCounts.collectTitle);
+    expect(collectButton.hidden).toBe(true);
+    expect(collectButton.style.display).toBe("none");
+    expect(collectButton.disabled).toBe(true);
   });
 
   it.each([
@@ -354,7 +356,7 @@ describe("production building popup runtime", () => {
     expect(runtime.getProductionSlotState({ status: "ready" })).toEqual({ label: "Hotovo", isActive: true });
   });
 
-  it("renders a production panel through UI callbacks without owning gameplay state", () => {
+  it("produces locally in one immediate debit-and-credit step without creating a timed job", () => {
     const recipeCallbacks = {};
     const persistProductionJob = vi.fn();
     const setStoredEconomyState = vi.fn();
@@ -366,8 +368,11 @@ describe("production building popup runtime", () => {
       return { viewModel };
     });
     const renderProductionPanelUi = vi.fn(() => true);
+    const applyInventoryOutput = vi.fn((output) => output.amount);
     const runtime = createProductionBuildingPopupRuntime({
+      applyInventoryOutput,
       getInventoryAmount: () => 10,
+      getReceivableInventoryOutputAmount: (_output, amount) => amount,
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => null,
       getArmoryRecipeStrengthPreview: vi.fn(() => ({ label: "Síla útoku", basePower: 10, bonusLabel: "+0.8" })),
@@ -398,21 +403,15 @@ describe("production building popup runtime", () => {
 
     expect(renderProductionPanelUi).toHaveBeenCalledTimes(2);
     expect(setStoredEconomyState).toHaveBeenCalledWith({ cleanMoney: 280 });
-    expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:chemicals", expect.objectContaining({
-      status: "running",
-      quantity: 2,
-      queuedAmount: 2,
-      producedAmount: 0,
-      inputs: {},
-      cleanMoneyCost: 720,
-      output: expect.objectContaining({ amount: 0 })
-    }));
+    expect(applyInventoryOutput).toHaveBeenCalledWith({ inventory: "materials", itemId: "chemicals", amount: 2 });
+    expect(persistProductionJob).not.toHaveBeenCalled();
   });
 
-  it("adds the active production boost reduction to recipe timing", () => {
+  it("does not turn a production boost into an execution delay", () => {
     const renderedCards = [];
     const runtime = createProductionBuildingPopupRuntime({
       getInventoryAmount: () => 10,
+      getReceivableInventoryOutputAmount: (_output, amount) => amount,
       getPlayerProductionBoostSnapshot: () => ({ multiplier: 1.25 }),
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => null,
@@ -439,8 +438,9 @@ describe("production building popup runtime", () => {
     });
 
     expect(renderedCards[0]).toMatchObject({
-      effectiveDurationMs: 8_000,
-      durationBonusLabel: "−20 %"
+      executionMode: "instant",
+      effectiveDurationMs: 0,
+      durationBonusLabel: ""
     });
   });
 
@@ -665,6 +665,7 @@ describe("production building popup runtime", () => {
     const runtime = createProductionBuildingPopupRuntime({
       allowLegacyLocalProduction: true,
       getInventoryAmount: () => 20,
+      getReceivableInventoryOutputAmount: (_output, amount) => amount,
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => null,
       getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
@@ -695,6 +696,68 @@ describe("production building popup runtime", () => {
     expect(renderRecipeCard).toHaveBeenCalledTimes(2);
     expect(renderRecipeCard.mock.calls[0][0]).toMatchObject({ buildingName: "druglab", canStart: true });
     expect(renderRecipeCard.mock.calls[1][0]).toMatchObject({ buildingName: "armory", canStart: true });
+  });
+
+  it.each([
+    {
+      name: "full storage before every other shortage",
+      receivable: 0,
+      cleanMoney: 0,
+      hasMaterials: false,
+      expected: "Sklad je pro tento produkt plný."
+    },
+    {
+      name: "clean cash before material inputs",
+      receivable: 99,
+      cleanMoney: 0,
+      hasMaterials: false,
+      expected: "Na spuštění výroby nemáš dost clean cash."
+    },
+    {
+      name: "material inputs after storage and cash",
+      receivable: 99,
+      cleanMoney: 1_000,
+      hasMaterials: false,
+      expected: "Na spuštění výroby nemáš dost materiálových vstupů."
+    }
+  ])("matches the authoritative production disabled-reason priority for $name", ({
+    receivable,
+    cleanMoney,
+    hasMaterials,
+    expected
+  }) => {
+    let renderedViewModel = null;
+    const runtime = createProductionBuildingPopupRuntime({
+      allowLegacyLocalProduction: true,
+      getInventoryAmount: () => 0,
+      getReceivableInventoryOutputAmount: () => receivable,
+      getProductionBuildingMultiplier: () => 1,
+      getProductionJob: () => null,
+      getResolvedEconomyState: () => ({ cleanMoney }),
+      getStoredProductionBuildingState: () => ({ level: 1 }),
+      hasEnoughMaterials: () => hasMaterials,
+      renderProductionPanelUi: vi.fn(() => true),
+      renderRecipeCard: vi.fn((viewModel) => {
+        renderedViewModel = viewModel;
+        return {};
+      }),
+      syncCompletedProductionJobs: vi.fn()
+    });
+    const root = createRoot({ '[data-production-panel="pharmacy"]': {} });
+
+    runtime.renderProductionPanel(root, "pharmacy", {
+      chemicals: {
+        cleanMoneyCost: 100,
+        durationMs: 1_000,
+        inputs: { biomass: 1 },
+        output: { inventory: "materials", itemId: "chemicals", amount: 1 }
+      }
+    });
+
+    expect(renderedViewModel).toMatchObject({
+      canStart: false,
+      disabledReason: expected
+    });
   });
 
   it("passes recipe-specific local output and queue capacities to Pharmacy and Drug Lab cards", () => {
@@ -1274,9 +1337,9 @@ describe("production building popup runtime", () => {
     expect(clearProductionJob).not.toHaveBeenCalled();
   });
 
-  it("keeps ready local output in the building when starting a new production batch", () => {
+  it("credits a new local batch immediately while legacy ready output is migrated separately", () => {
     const recipeCallbacks = {};
-    const applyInventoryOutput = vi.fn();
+    const applyInventoryOutput = vi.fn((output) => output.amount);
     const clearProductionJob = vi.fn();
     const persistProductionJob = vi.fn();
     const renderRecipeCard = vi.fn((viewModel, callbacks) => {
@@ -1288,6 +1351,7 @@ describe("production building popup runtime", () => {
       clearProductionJob,
       consumeMaterials: vi.fn(),
       getInventoryAmount: () => 20,
+      getReceivableInventoryOutputAmount: (_output, amount) => amount,
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => ({
         status: "ready",
@@ -1322,15 +1386,9 @@ describe("production building popup runtime", () => {
 
     recipeCallbacks.onStart({ batchCount: 1 });
 
-    expect(applyInventoryOutput).not.toHaveBeenCalled();
+    expect(applyInventoryOutput).toHaveBeenCalledWith({ inventory: "materials", itemId: "chemicals", amount: 1 });
     expect(clearProductionJob).not.toHaveBeenCalled();
-    expect(persistProductionJob).toHaveBeenCalledWith("pharmacy:chemicals", expect.objectContaining({
-      status: "running",
-      quantity: 1,
-      queuedAmount: 1,
-      producedAmount: 2,
-      output: expect.objectContaining({ amount: 2 })
-    }));
+    expect(persistProductionJob).not.toHaveBeenCalled();
   });
 
   it("keeps the production remainder in a building when the local storage is full", () => {
@@ -1545,18 +1603,21 @@ describe("production building popup runtime", () => {
     expect(syncCompletedProductionJobs).not.toHaveBeenCalled();
   });
 
-  it("uses the canonical Armory queue cap and rejects an oversized start atomically", () => {
+  it("credits an Armory batch immediately and rejects an oversized start atomically", () => {
     const recipeCallbacks = {};
     const consumeMaterials = vi.fn();
     const persistProductionJob = vi.fn();
     const setBuildingActionFeedback = vi.fn();
+    const applyInventoryOutput = vi.fn((output) => output.amount);
     const renderRecipeCard = vi.fn((viewModel, callbacks) => {
       Object.assign(recipeCallbacks, callbacks);
       return { viewModel };
     });
     const runtime = createProductionBuildingPopupRuntime({
+      applyInventoryOutput,
       consumeMaterials,
       getInventoryAmount: () => 100,
+      getReceivableInventoryOutputAmount: (_output, amount) => Math.min(amount, 6),
       getProductionBuildingMultiplier: () => 1,
       getProductionJob: () => null,
       getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
@@ -1588,15 +1649,8 @@ describe("production building popup runtime", () => {
 
     recipeCallbacks.onStart({ batchCount: 1 });
 
-    expect(persistProductionJob).toHaveBeenCalledWith("armory:bat", expect.objectContaining({
-      status: "running",
-      quantity: 1,
-      queuedAmount: 1,
-      producedAmount: 0,
-      inputs: { "metal-parts": 2 },
-      output: expect.objectContaining({ amount: 0 }),
-      durationMs: 1000
-    }));
+    expect(applyInventoryOutput).toHaveBeenCalledWith({ inventory: "weapons", itemId: "baseball-bat", amount: 1 });
+    expect(persistProductionJob).not.toHaveBeenCalled();
 
     persistProductionJob.mockClear();
     consumeMaterials.mockClear();
@@ -1663,6 +1717,7 @@ describe("production building popup runtime", () => {
     const runtime = createProductionBuildingPopupRuntime({
       consumeMaterials: vi.fn(),
       getInventoryAmount: () => 100,
+      getReceivableInventoryOutputAmount: (_output, amount) => Math.min(amount, 8),
       getOwnedArmoryCount: () => 3,
       getOwnedWarehouseCount: () => 2,
       getProductionBuildingMultiplier: () => 1,
@@ -1697,8 +1752,9 @@ describe("production building popup runtime", () => {
     expect(renderedCards[0]).toMatchObject({
       outputCap: 8,
       queueCap: 6,
-      maxBatches: 6,
-      maxSelectableBatches: 6
+      executionMode: "instant",
+      maxBatches: 8,
+      maxSelectableBatches: 8
     });
 
     recipeCallbacks.onStart({ batchCount: 99 });

@@ -155,6 +155,38 @@ describe("wanted panel UI module", () => {
     expect(mounts.clearLogButton.disabled).toBe(false);
   });
 
+  it("preserves animated star nodes across identical authoritative refreshes", () => {
+    setupDocument();
+    const mounts = {
+      popupTier: new FakeElement(),
+      popupLevels: new FakeElement(),
+      popupRiseList: new FakeElement(),
+      popupFallList: new FakeElement()
+    };
+    const viewModel = {
+      levelId: 3,
+      title: "Známý problém",
+      levels: [
+        { id: 1, title: "Nízký heat" },
+        { id: 3, title: "Známý problém", active: true }
+      ],
+      riseEntries: [],
+      fallEntries: []
+    };
+
+    renderWantedPanel(viewModel, { mounts });
+    const titleStars = mounts.popupTier.children[0];
+    const firstTier = mounts.popupLevels.children[0];
+    renderWantedPanel({ ...viewModel, now: Date.now() + 1_000 }, { mounts });
+
+    expect(mounts.popupTier.children[0]).toBe(titleStars);
+    expect(mounts.popupLevels.children[0]).toBe(firstTier);
+
+    renderWantedPanel({ ...viewModel, levelId: 4 }, { mounts });
+    expect(mounts.popupTier.children[0]).not.toBe(titleStars);
+    expect(mounts.popupTier.children[0].children[3].classList.contains("is-active")).toBe(true);
+  });
+
   it("keeps the demo layout but renders hosted unavailable values neutrally", () => {
     setupDocument();
     const heatButton = new FakeElement("button");

@@ -254,7 +254,7 @@ describe("building special action registry", () => {
     const streetDealerProfiles = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["poulicni dealeri"];
     const sale = resolveBuildingSpecialActionDefinition({
       buildingName: "Pouliční dealeři",
-      actionLabel: "Spustit prodej",
+      actionLabel: "Prodat zásobu",
       actionIndex: 0,
       actionProfile: streetDealerProfiles[0]
     });
@@ -264,7 +264,7 @@ describe("building special action registry", () => {
     expect(sale.status).toBe("implemented");
     expect(sale.actionId).toBe("start_drug_sale");
     expect(sale.handlerId).toBe("server-run-building-action");
-    expect(streetDealerProfiles[0].summary).toBe("Prodává jednu z 3 povolených laboratorních látek; současně může běžet pouze jeden prodej.");
+    expect(streetDealerProfiles[0].summary).toBe("Okamžitě prodá jednu z 3 povolených laboratorních látek; případný cooldown omezuje až další prodej.");
     expect(sale.rewardSummary).toBe("Efekt podle akce");
     expect(sale.inputSummary).not.toContain("Slot:");
     expect(sale.inputSummary).toContain("Produkt: neon-dust");

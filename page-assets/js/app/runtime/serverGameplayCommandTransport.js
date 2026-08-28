@@ -13,8 +13,11 @@ import {
   isPendingServerGameplayCommandRetryGenerationCurrent,
   waitForPendingServerGameplayCommandRetry
 } from "./serverGameplayCommandRetryLifecycle.js";
+import {
+  isDurableStateVersionConflictResponse,
+  MAX_DURABLE_STATE_VERSION_REBASES
+} from "./serverGameplayConflictPolicy.js";
 export { cancelPendingServerGameplayCommandRetries };
-
 const CONFLICT_ERROR_MESSAGES = Object.freeze({
   DISTRICT_CONFLICT_STATE_CHANGED: "Situace v districtu se mezitím změnila. Načítám aktuální stav.",
   TARGET_OWNER_CHANGED: "District mezitím změnil vlastníka. Původní akci nelze provést.",
@@ -119,7 +122,7 @@ export async function submitServerGameplayCommand({
   if (!slice || !player?.playerId || !player?.instanceId) {
     return { accepted: false, errors: [{ message: "Chybí serverový kontext pro herní akci." }] };
   }
-  const firstPrepared = prepareServerGameplayCommand({
+  let prepared = prepareServerGameplayCommand({
     type,
     payload,
     focusDistrictId,
@@ -127,27 +130,33 @@ export async function submitServerGameplayCommand({
     slice,
     player
   });
-  const firstResponse = await submitPreparedServerGameplayCommand(firstPrepared);
-  if (!hasDurableStateVersionConflict(firstResponse)) return firstResponse;
-
-  const refreshedSlice = isMatchingCommandScope(
-    firstResponse?.readModel,
-    firstPrepared.scope,
-    firstPrepared.request.focusDistrictId
-  )
-    ? firstResponse.readModel
-    : await refreshAuthoritativeGameplaySliceForCommand(firstPrepared.request, firstPrepared.scope);
-  if (!isMatchingCommandScope(refreshedSlice, firstPrepared.scope, firstPrepared.request.focusDistrictId)) {
-    return firstResponse;
+  for (let rebaseCount = 0; ; rebaseCount += 1) {
+    const response = await submitPreparedServerGameplayCommand(prepared);
+    if (
+      !isDurableStateVersionConflictResponse(response)
+      || rebaseCount >= MAX_DURABLE_STATE_VERSION_REBASES
+    ) return response;
+    const refreshedSlice = isMatchingCommandScope(
+      response?.readModel,
+      prepared.scope,
+      prepared.request.focusDistrictId
+    )
+      ? response.readModel
+      : await refreshAuthoritativeGameplaySliceForCommand(prepared.request, prepared.scope);
+    const expectedStateVersion = prepared.request.expectedStateVersion;
+    if (
+      !isMatchingCommandScope(refreshedSlice, prepared.scope, prepared.request.focusDistrictId)
+      || !Number.isSafeInteger(expectedStateVersion)
+      || refreshedSlice.server.stateVersion <= expectedStateVersion
+    ) return response;
+    prepared = prepareServerGameplayCommand({
+      type: prepared.request.command.type,
+      payload: prepared.request.command.payload,
+      focusDistrictId: prepared.request.focusDistrictId,
+      slice: refreshedSlice,
+      player: refreshedSlice.player
+    });
   }
-
-  return submitPreparedServerGameplayCommand(prepareServerGameplayCommand({
-    type: firstPrepared.request.command.type,
-    payload: firstPrepared.request.command.payload,
-    focusDistrictId: firstPrepared.request.focusDistrictId,
-    slice: refreshedSlice,
-    player: refreshedSlice.player
-  }));
 }
 
 export async function submitPreparedServerGameplayCommand(prepared) {
@@ -308,15 +317,6 @@ const normalizeConflictCommandResponse = (response) => {
     }));
   }
   return { ...response, errors };
-};
-
-const hasDurableStateVersionConflict = (response) => {
-  const errors = Array.isArray(response?.errors) ? response.errors : [];
-  return response?.accepted === false
-    && response?.pending !== true
-    && response?.transportFailure !== true
-    && errors.length === 1
-    && String(errors[0]?.code || "") === "server.state_version_conflict";
 };
 
 const refreshAuthoritativeGameplaySliceForCommand = async (request, scope) => {

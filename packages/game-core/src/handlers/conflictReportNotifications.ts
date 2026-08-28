@@ -22,6 +22,7 @@ export const createSpyReportNotification = (input: {
   tick: number;
   resolveAtTick: number;
   resolveAt: string;
+  cooldownEndsAtTick: number;
   eventId: string;
   boostSnapshot: ReturnType<typeof resolvePlayerSpyBoostEffects>;
   authorizationTtlTicks: number;
@@ -47,6 +48,7 @@ export const createSpyReportNotification = (input: {
     issuedAtTick: input.tick,
     resolveAtTick: input.resolveAtTick,
     resolveAt: input.resolveAt,
+    cooldownEndsAtTick: input.cooldownEndsAtTick,
     authorizationExpiresAtTick: input.reportResult.result === "success"
       ? input.resolveAtTick + input.authorizationTtlTicks : null,
     tick: input.tick, createdAt: input.command.issuedAt, eventId: input.eventId
@@ -61,7 +63,7 @@ export const createHeistReportNotification = (input: {
   targetOwnerPlayerId: string;
   outcome: string;
   loot: Record<string, number>;
-  gangLosses: number;
+  populationLosses: number;
   heatGained: number;
   successChance: number;
   detectionChance: number;
@@ -79,7 +81,7 @@ export const createHeistReportNotification = (input: {
     actionType: "heist-district", playerId: input.command.playerId,
     sourceDistrictId: input.sourceDistrictId, targetDistrictId: input.command.payload.targetDistrictId,
     targetOwnerPlayerId: input.targetOwnerPlayerId, style: input.command.payload.style,
-    result: input.outcome, loot: input.loot, gangLosses: input.gangLosses,
+    result: input.outcome, loot: input.loot, populationLosses: input.populationLosses,
     heatGained: input.heatGained, successChance: input.successChance,
     detectionChance: input.detectionChance, attackerIdentified: input.attackerIdentified,
     tick: input.tick, createdAt: input.command.issuedAt
@@ -101,6 +103,7 @@ export const createRobReportNotification = (input: {
   tick: number;
   resolveAtTick: number;
   resolveAt: string;
+  cooldownEndsAtTick: number;
 }): Notification => createNotification({
   id: composeEntityId("notification", `${input.command.id}:rob-report`),
   recipientType: "player",
@@ -120,6 +123,7 @@ export const createRobReportNotification = (input: {
     issuedAtTick: input.tick,
     resolveAtTick: input.resolveAtTick,
     resolveAt: input.resolveAt,
+    cooldownEndsAtTick: input.cooldownEndsAtTick,
     tick: input.tick, createdAt: input.command.issuedAt
   },
   createdAt: input.command.issuedAt,

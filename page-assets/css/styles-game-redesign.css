@@ -3132,6 +3132,19 @@ body.game-body--booting .game-logo-slot {
     grid-template-columns: minmax(0, 1fr) minmax(0, 3.01fr) minmax(0, 1.945fr);
   }
 
+  .player-profile-trigger.nav-btn--profile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .game-utility-actions {
+    display: flex;
+    width: 100%;
+    margin-left: 0;
+    justify-content: center;
+  }
+
   #game-rail-left,
   #game-main-region,
   #game-rail-right {

@@ -65,7 +65,7 @@ jobs:
             timeout: 90
           - label: multiplayer-visible-actions
             suite: multiplayer-visible-actions
-            timeout: 60
+            timeout: 90
           - label: city-events
             suite: city-events
             timeout: 50

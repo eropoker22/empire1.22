@@ -128,10 +128,7 @@ export const handleRobDistrict = (
     garageConfig: context.config.balance.garage,
     category: "districtRobbery"
   }) * cityHallNightPatrol.cooldownMultiplier);
-  const resolveAtTick = state.root.tick + cooldownTicks;
-  const resolveAt = new Date(
-    Date.parse(command.issuedAt) + cooldownTicks * context.config.tickRateMs
-  ).toISOString();
+  const cooldownEndsAtTick = state.root.tick + cooldownTicks;
   const report = createRobReportNotification({
     command,
     sourceDistrictId,
@@ -144,8 +141,9 @@ export const handleRobDistrict = (
       && command.payload.expectedLootPoolRevision !== currentPool.version,
     resolvedLootPoolRevision: currentPool.version,
     tick: state.root.tick,
-    resolveAtTick,
-    resolveAt
+    resolveAtTick: state.root.tick,
+    resolveAt: command.issuedAt,
+    cooldownEndsAtTick
   });
 
   return {
@@ -163,7 +161,7 @@ export const handleRobDistrict = (
           heat: Math.max(0, targetDistrict.heat + districtHeat),
           lastHeatDecayTick: state.root.tick,
           version: targetDistrict.version + 1
-        }, "rob", resolveAtTick))
+        }, "rob", cooldownEndsAtTick))
       },
       resourceStatesById: {
         ...state.resourceStatesById,
@@ -180,8 +178,8 @@ export const handleRobDistrict = (
           ...cooldownState,
           cooldowns: {
             ...cooldownState.cooldowns,
-            [createRobCooldownKey(targetDistrict.id)]: resolveAtTick,
-            [createRobSourceCooldownKey(sourceDistrictId)]: resolveAtTick
+            [createRobCooldownKey(targetDistrict.id)]: cooldownEndsAtTick,
+            [createRobSourceCooldownKey(sourceDistrictId)]: cooldownEndsAtTick
           },
           version: cooldownState.version + (state.cooldownStatesById[cooldownState.id] ? 1 : 0)
         }

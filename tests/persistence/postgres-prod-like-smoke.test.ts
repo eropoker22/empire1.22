@@ -198,7 +198,7 @@ describe("postgres prod-like runtime smoke", () => {
           membershipId: membership.membershipId,
           factionId: index === 1 ? "mafian" : "hackeri",
           avatarId: index === 1 ? "mafian:1" : "hackeri:1",
-          gangColor: index === 1 ? "#22d3ee" : "#3b82f6"
+          gangColor: index === 1 ? "#06b6d4" : "#3b82f6"
         }, `postgres-smoke-ready-setup-${runId}-${index}`);
       }
       await worker.runOnce();

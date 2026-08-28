@@ -24,7 +24,7 @@ export const freeModeFitnessClubConfig: FitnessClubBalanceConfig = {
     combinedRecruitmentFitnessAttackCapPct: 24,
     combinedRecruitmentFitnessDefenseCapPct: 18,
     attackApplication: {
-      baseGangMemberAttack: 0.75,
+      basePopulationAttack: 0.75,
       "baseball-bat": 0.75,
       pistol: 0.35,
       grenade: 0.15,
@@ -32,7 +32,7 @@ export const freeModeFitnessClubConfig: FitnessClubBalanceConfig = {
       bazooka: 0.1
     },
     defenseApplication: {
-      baseGangMemberDefense: 0.75,
+      basePopulationDefense: 0.75,
       vest: 0.4,
       barricades: 0.2,
       cameras: 0,

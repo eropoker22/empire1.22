@@ -36,6 +36,35 @@ describe("hosted runtime worker run loop", () => {
     }
   });
 
+  it("keeps the worker heartbeat fresh while a work cycle is still active", async () => {
+    vi.useFakeTimers();
+    const work = deferred<void>();
+    const runOnce = vi.fn(async () => { await work.promise; });
+    const heartbeat = vi.fn(async () => undefined);
+    const runLoop = createHostedRuntimeWorkerRunLoop({
+      runOnce,
+      requestDrain: vi.fn(),
+      intervalMs: 5_000,
+      heartbeat,
+      heartbeatIntervalMs: 5_000
+    });
+
+    try {
+      runLoop.start();
+      await vi.waitFor(() => expect(runOnce).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(heartbeat).toHaveBeenCalledTimes(1));
+
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(runOnce).toHaveBeenCalledTimes(1);
+      expect(heartbeat.mock.calls.length).toBeGreaterThanOrEqual(5);
+
+      work.resolve();
+      await runLoop.drain();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("requests drain immediately and waits for the active run before refusing later runs", async () => {
     const gate = deferred<void>();
     const runOnce = vi.fn(async () => { await gate.promise; });

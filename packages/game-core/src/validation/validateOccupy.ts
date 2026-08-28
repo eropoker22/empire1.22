@@ -20,6 +20,7 @@ import {
 import { validateOccupyEmptyDistrictAuthorization } from "./spyIntel";
 import { formatTickDuration } from "../utils/time";
 import { calculatePlayerDisplayedInfluence } from "../projections/player-resource-projection";
+import { resolvePlayerPopulation } from "../state/playerPopulation";
 
 /**
  * Responsibility: Pure validator for neutral district occupation after successful intel.
@@ -159,14 +160,7 @@ export const validateOccupy = (
     ];
   }
 
-  const availablePopulation = Math.max(
-    0,
-    Math.floor(Number(
-      state.resourceStatesById[player.resourceStateId]?.balances?.population ??
-        player.population ??
-        0
-    ))
-  );
+  const availablePopulation = Math.max(0, Math.floor(resolvePlayerPopulation(state, player)));
 
   if (availablePopulation < populationCost) {
     return [

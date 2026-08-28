@@ -65,7 +65,7 @@ export const BUILDING_ACTION_FEED_SELECTOR = "[data-building-action-feed]";
 export const BUILDING_ACTION_EMPTY_SELECTOR = "[data-building-action-empty]";
 export const BUILDING_ACTION_REMOVE_SELECTOR = "[data-building-action-remove]";
 
-export const GANG_MEMBERS_SELECTOR = "[data-gang-members]";
+export const POPULATION_SELECTOR = "[data-population]";
 export const GANG_HEAT_SELECTOR = "[data-gang-heat]";
 export const GANG_FACTION_SELECTOR = "[data-gang-faction]";
 export const GANG_DISTRICTS_SELECTOR = "[data-gang-districts]";

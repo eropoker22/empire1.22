@@ -193,6 +193,14 @@ export function createFactoryPopupRuntime(deps = {}) {
           getFactoryUpgradeCost: deps.getFactoryUpgradeCost,
           normalizeResourceColorKey: deps.normalizeProductionResourceColorKey
         }) || {};
+        const collectTitle = dashboardViewModel.collectButton?.title
+          || "Výroba se ukládá do skladu okamžitě.";
+        dashboardViewModel.collectButton = {
+          ...(dashboardViewModel.collectButton || {}),
+          visible: false,
+          disabled: true,
+          title: collectTitle
+        };
         deps.renderFactoryDashboardPanel?.({
           level: levelElement,
           headerLevel: headerLevelElement,
@@ -224,7 +232,7 @@ export function createFactoryPopupRuntime(deps = {}) {
               }
             });
             const error = response?.errors?.[0];
-            deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Výrobní linka byla aktualizována.");
+            deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Výrobek byl okamžitě uložen do skladu.");
             renderFactoryDashboard();
           },
           onPauseSlot: async (slotView) => {
@@ -254,7 +262,11 @@ export function createFactoryPopupRuntime(deps = {}) {
         if (metalElement) metalElement.textContent = "— / —";
         if (techElement) techElement.textContent = "— / —";
         if (combatElement) combatElement.textContent = "— / —";
-        if (collectButton) collectButton.disabled = true;
+        if (collectButton) {
+          collectButton.hidden = true;
+          collectButton.style.display = "none";
+          collectButton.disabled = true;
+        }
         if (upgradeButton) upgradeButton.disabled = true;
         deps.renderServerFactorySlotList?.(
           slotList,
@@ -264,72 +276,46 @@ export function createFactoryPopupRuntime(deps = {}) {
         );
         return;
       }
+      deps.settleLegacyLocalProductionJobs?.();
       const syncResult = deps.syncFactoryProduction?.(deps.getStoredFactoryState?.()) || {};
-      const factoryState = syncResult.state || {};
       const supplyState = deps.getStoredFactorySupplies?.() || {};
       const economyState = deps.getResolvedEconomyState?.() || {};
-      deps.setStoredFactoryState?.(factoryState);
-      const collectableAmount = getFactoryCollectableAmount(factoryState);
-
-      const cancelFactorySlotProduction = (slotId) => {
-        if (!isLegacyLocalProductionEnabled()) {
-          deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionBridgeMessage);
-          return;
-        }
-        const nextState = deps.getStoredFactoryState?.() || {};
-        const targetSlot = (nextState.slots || []).find((item) => item.id === slotId);
-        if (!targetSlot) return;
-        const activeAmount = targetSlot.isProducing && Number(targetSlot.queuedAmount || 0) > 0 ? 1 : 0;
-        const waitingAmount = Math.max(0, Math.floor(Number(targetSlot.queuedAmount || 0)) - activeAmount);
-        if (waitingAmount <= 0) return;
-        const slotView = dashboardViewModel.slots?.find((item) => item.slot?.id === slotId) || {};
-        const unitCost = slotView.displayCost || {};
-        const refundableCleanCash = Math.min(
-          Math.max(0, Number(targetSlot.reservedCleanCash || 0)),
-          waitingAmount * Math.max(0, Number(unitCost.cleanCash || 0))
-        );
-        const refundableInputs = {
-          metalParts: Math.min(Math.max(0, Number(targetSlot.reservedInputs?.metalParts || 0)), waitingAmount * Math.max(0, Number(unitCost.metalParts || 0))),
-          techCore: Math.min(Math.max(0, Number(targetSlot.reservedInputs?.techCore || 0)), waitingAmount * Math.max(0, Number(unitCost.techCore || 0)))
-        };
-        const currentEconomy = deps.getResolvedEconomyState?.() || {};
-        const currentSupplies = deps.getStoredFactorySupplies?.() || {};
-        deps.setStoredEconomyState?.({
-          ...currentEconomy,
-          cleanMoney: Math.max(0, Number(currentEconomy.cleanMoney || 0)) + refundableCleanCash
-        });
-        deps.setStoredFactorySupplies?.({
-          ...currentSupplies,
-          metalParts: Math.max(0, Number(currentSupplies.metalParts || 0)) + refundableInputs.metalParts,
-          techCore: Math.max(0, Number(currentSupplies.techCore || 0)) + refundableInputs.techCore
-        });
-        targetSlot.queuedAmount = activeAmount;
-        targetSlot.reservedCleanCash = Math.max(0, Number(targetSlot.reservedCleanCash || 0) - refundableCleanCash);
-        targetSlot.reservedInputs = {
-          ...targetSlot.reservedInputs,
-          metalParts: Math.max(0, Number(targetSlot.reservedInputs?.metalParts || 0) - refundableInputs.metalParts),
-          techCore: Math.max(0, Number(targetSlot.reservedInputs?.techCore || 0) - refundableInputs.techCore)
-        };
-        targetSlot.isProducing = activeAmount > 0;
-        targetSlot.lastTick = Date.now();
-        deps.setStoredFactoryState?.(nextState);
-        deps.applyTopbarEconomy?.(root);
-        renderFactoryDashboard();
+      const factoryState = {
+        ...(syncResult.state || {}),
+        slots: (syncResult.state?.slots || []).map((slot) => {
+          const storageCapacity = Math.max(0, Number(deps.getInventoryCapacity?.(slot.resourceKey) || slot.slotCap || 0));
+          return {
+            ...slot,
+            executionMode: "instant",
+            producedAmount: Math.max(0, Number(supplyState[slot.resourceKey] || 0)),
+            queuedAmount: 0,
+            queueCap: storageCapacity,
+            slotCap: storageCapacity,
+            isProducing: false,
+            status: "ready"
+          };
+        })
       };
-      const queueFactorySlotProduction = (slotView, batchCount = 1) => {
+      const collectableAmount = 0;
+
+      const produceFactorySlotInstantly = (slotView, batchCount = 1) => {
         if (!isLegacyLocalProductionEnabled()) {
           deps.setBuildingActionFeedback?.(root, "warning", "Továrna", productionBridgeMessage);
           return;
         }
-        const nextState = deps.getStoredFactoryState?.() || {};
-        const targetSlot = (nextState.slots || []).find((item) => item.id === slotView?.slot?.id);
+        const targetSlot = factoryState.slots.find((item) => item.id === slotView?.slot?.id);
         if (!targetSlot) return;
         const safeBatchCount = Math.max(1, Math.floor(Number(batchCount || 1)));
-        const queueCap = Math.max(1, Math.floor(Number(slotView?.queueCap || targetSlot.queueCap || slotView?.slotStorageCap || targetSlot.slotCap || 1)));
-        const currentQueue = Math.max(0, Math.floor(Number(targetSlot.queuedAmount || 0)));
-        const queueSpace = Math.max(0, queueCap - currentQueue);
-        if (safeBatchCount > queueSpace || !slotView?.canStart || safeBatchCount > Number(slotView.maxStartQuantity || 0)) {
-          deps.setBuildingActionFeedback?.(root, "warning", "Továrna", "Fronta je plná.");
+        const currentSupplies = deps.getStoredFactorySupplies?.() || {};
+        const outputKey = String(targetSlot.resourceKey || "");
+        const storageCapacity = Math.max(0, Number(deps.getInventoryCapacity?.(outputKey) || targetSlot.slotCap || 0));
+        const currentOutput = Math.max(0, Number(currentSupplies[outputKey] || 0));
+        if (
+          safeBatchCount > Math.max(0, storageCapacity - currentOutput)
+          || !slotView?.canStart
+          || safeBatchCount > Number(slotView.maxStartQuantity || 0)
+        ) {
+          deps.setBuildingActionFeedback?.(root, "warning", "Továrna", "Ve skladu není místo pro celé zvolené množství.");
           renderFactoryDashboard();
           return;
         }
@@ -338,7 +324,6 @@ export function createFactoryPopupRuntime(deps = {}) {
         const totalMetalParts = safeBatchCount * Math.max(0, Number(unitCost.metalParts || 0));
         const totalTechCore = safeBatchCount * Math.max(0, Number(unitCost.techCore || 0));
         const currentEconomy = deps.getResolvedEconomyState?.() || {};
-        const currentSupplies = deps.getStoredFactorySupplies?.() || {};
         if (
           Number(currentEconomy.cleanMoney || 0) < totalCleanCash
           || Number(currentSupplies.metalParts || 0) < totalMetalParts
@@ -354,21 +339,12 @@ export function createFactoryPopupRuntime(deps = {}) {
         });
         deps.setStoredFactorySupplies?.({
           ...currentSupplies,
-          metalParts: Number(currentSupplies.metalParts || 0) - totalMetalParts,
-          techCore: Number(currentSupplies.techCore || 0) - totalTechCore
+          metalParts: Number(currentSupplies.metalParts || 0) - totalMetalParts + (outputKey === "metalParts" ? safeBatchCount : 0),
+          techCore: Number(currentSupplies.techCore || 0) - totalTechCore + (outputKey === "techCore" ? safeBatchCount : 0),
+          combatModule: Number(currentSupplies.combatModule || 0) + (outputKey === "combatModule" ? safeBatchCount : 0)
         });
-        targetSlot.queueMode = true;
-        targetSlot.queuedAmount = currentQueue + safeBatchCount;
-        targetSlot.reservedCleanCash = Math.max(0, Number(targetSlot.reservedCleanCash || 0)) + totalCleanCash;
-        targetSlot.reservedInputs = {
-          ...targetSlot.reservedInputs,
-          metalParts: Math.max(0, Number(targetSlot.reservedInputs?.metalParts || 0)) + totalMetalParts,
-          techCore: Math.max(0, Number(targetSlot.reservedInputs?.techCore || 0)) + totalTechCore
-        };
-        targetSlot.isProducing = true;
-        targetSlot.lastTick = Date.now();
-        deps.setStoredFactoryState?.(nextState);
         deps.applyTopbarEconomy?.(root);
+        deps.setBuildingActionFeedback?.(root, "success", "Továrna", `${safeBatchCount} ks bylo okamžitě uloženo do skladu.`);
         renderFactoryDashboard();
       };
       const dashboardViewModel = deps.buildFactoryDashboardViewModel?.({
@@ -385,6 +361,12 @@ export function createFactoryPopupRuntime(deps = {}) {
         getFactoryUpgradeCost: deps.getFactoryUpgradeCost,
         normalizeResourceColorKey: deps.normalizeProductionResourceColorKey
       }) || {};
+      dashboardViewModel.collectButton = {
+        ...(dashboardViewModel.collectButton || {}),
+        visible: false,
+        disabled: true,
+        title: "Výroba se ukládá do skladu okamžitě."
+      };
       deps.renderFactoryDashboardPanel?.({
         level: levelElement,
         headerLevel: headerLevelElement,
@@ -405,10 +387,9 @@ export function createFactoryPopupRuntime(deps = {}) {
       }, dashboardViewModel, {
         renderFactoryBuildingInfo,
         renderFactorySlotList: deps.renderFactorySlotList,
-        onPauseSlot: (slotView) => cancelFactorySlotProduction(slotView.slot?.id),
-        onStartSlot: (slotView, payload) => queueFactorySlotProduction(slotView, payload?.batchCount || 1)
+        onPauseSlot: () => {},
+        onStartSlot: (slotView, payload) => produceFactorySlotInstantly(slotView, payload?.batchCount || 1)
       });
-      scheduleLocalCompletionRefresh(dashboardViewModel);
       if (!isLegacyLocalProductionEnabled() && collectButton) {
         collectButton.disabled = true;
         collectButton.title = productionBridgeMessage;

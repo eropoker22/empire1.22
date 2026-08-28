@@ -5,27 +5,37 @@ import {
   migrateArmoryProductionState,
   migrateConflictState,
   migrateStarterDistrictProductionBuildings,
+  migrateLegacyProductionToInstantState,
+  normalizePlayerPopulationState,
   normalizePlayerStorageResourceAliases,
   type CoreGameState
 } from "@empire/game-core";
 import type { InstanceSnapshotDto } from "../dto";
+import type { GameCoreContext } from "@empire/game-core";
 
 /**
  * Responsibility: Restores authoritative state from a validated snapshot DTO.
  * Belongs here: pure mapping from persistence snapshot shape back to core state.
  * Does not belong here: runtime scheduler creation or repository access.
  */
-export const restoreInstanceState = (snapshot: InstanceSnapshotDto): CoreGameState =>
-  migrateConflictState(
+export const restoreInstanceState = (
+  snapshot: InstanceSnapshotDto,
+  context?: Pick<GameCoreContext, "config">
+): CoreGameState => {
+  const migrated = migrateConflictState(
     migrateArmoryProductionState(
       migrateFactoryProductionState(
         migrateDrugLabProductionState(
           migratePharmacyProductionState(
             migrateStarterDistrictProductionBuildings(
-              normalizePlayerStorageResourceAliases(snapshot.state)
+              normalizePlayerPopulationState(
+                normalizePlayerStorageResourceAliases(snapshot.state)
+              )
             )
           )
         )
       )
     )
   );
+  return context ? migrateLegacyProductionToInstantState(migrated, context) : migrated;
+};

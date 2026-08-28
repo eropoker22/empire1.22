@@ -31,7 +31,7 @@ export const validateBasicActionCommandPayload = (
         "targetDistrictId",
         "sourceDistrictId",
         "style",
-        "gangMembersSent",
+        "populationSent",
         "expectedTargetVersion",
         "expectedSourceVersion",
         "expectedConflictRevision",
@@ -41,7 +41,7 @@ export const validateBasicActionCommandPayload = (
       requireStringField(errors, payload, "targetDistrictId", "command.payload.targetDistrictId");
       requireOptionalStringField(errors, payload, "sourceDistrictId", "command.payload.sourceDistrictId");
       requireChoiceField(errors, payload, "style", "command.payload.style", ["stealth", "balanced", "all_in"]);
-      requirePositiveIntegerField(errors, payload, "gangMembersSent", "command.payload.gangMembersSent");
+      requirePositiveIntegerField(errors, payload, "populationSent", "command.payload.populationSent");
       requireOptionalFiniteNumberField(errors, payload, "expectedTargetVersion", "command.payload.expectedTargetVersion");
       requireOptionalFiniteNumberField(errors, payload, "expectedSourceVersion", "command.payload.expectedSourceVersion");
       requireNonNegativeIntegerField(errors, payload, "expectedConflictRevision", "command.payload.expectedConflictRevision");

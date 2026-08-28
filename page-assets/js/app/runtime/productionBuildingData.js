@@ -4,21 +4,21 @@ export const PRODUCTION_BUILDING_CONFIG = Object.freeze({
     title: "Výroba látek",
     upgradeBaseCost: 3200,
     infoText: "Lékárna vyrábí základní materiály pro Lab: Chemicals, Biomass a Stim Pack.",
-    infoActions: Object.freeze(["Každá linka vyrábí položky po jednom kuse.", "⇪ Level mění pouze rychlost výroby.", "Hotové položky se vyzvedávají do globálního SKLADU."])
+    infoActions: Object.freeze(["Každý command vyrobí zvolené množství okamžitě.", "Vstupy se odečtou a výstup uloží atomicky.", "Výsledek se připíše rovnou do globálního SKLADU."])
   }),
   druglab: Object.freeze({
     label: "Lab",
     title: "Výroba drug balíků",
     upgradeBaseCost: 4200,
     infoText: "Lab vyrábí laboratorní látky a komponenty pro Ghost Network, Industrial Overdrive a Tactical Grid.",
-    infoActions: Object.freeze(["Každá látka má vlastní výrobní linku.", "⇪ Level mění pouze rychlost výroby.", "Ghost Serum a Overdrive X se spotřebovávají pouze při aktivaci strategického boostu."])
+    infoActions: Object.freeze(["Každá látka se vyrábí okamžitě bez fronty.", "Vstupy a výstup se zpracují v jednom commandu.", "Ghost Serum a Overdrive X se spotřebovávají pouze při aktivaci strategického boostu."])
   }),
   armory: Object.freeze({
     label: "Zbrojovka",
     title: "Výroba výzbroje",
     upgradeBaseCost: 5200,
     infoText: "Zbrojovka vyrábí útočné i obranné vybavení z Metal Parts, Tech Core a Combat Module.",
-    infoActions: Object.freeze(["Každý cyklus vyrobí právě jeden kus.", "⇪ Level a síť mění pouze rychlost výroby.", "High-tier recepty spotřebovávají Combat Module z globálního SKLADU."])
+    infoActions: Object.freeze(["Zvolené kusy vzniknou okamžitě bez výrobní fronty.", "Náklady a výstup jsou jeden atomický command.", "High-tier recepty spotřebovávají Combat Module z globálního SKLADU."])
   })
 });
 

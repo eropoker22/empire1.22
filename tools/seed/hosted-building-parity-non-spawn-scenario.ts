@@ -11,6 +11,7 @@ interface HostedBuildingParityMatrixEntry {
 const hostedBuildingParityNonSpawnMatrix =
   hostedBuildingParityNonSpawnMatrixJson as HostedBuildingParityMatrixEntry[];
 const STATIC_PARITY_GUARD_TICK = 1_000_000_000;
+const PORT_PARITY_METAL_PARTS_BALANCE = 20;
 
 export const applyHostedBuildingParityNonSpawnScenario = (
   snapshot: InstanceSnapshotDto
@@ -22,6 +23,10 @@ export const applyHostedBuildingParityNonSpawnScenario = (
   }
   const player = players[0];
   const scenarioTick = 5;
+  const resourceState = snapshot.state.resourceStatesById[player.resourceStateId];
+  if (!resourceState) {
+    throw new Error("Hosted non-spawn building parity player resource state is missing.");
+  }
 
   snapshot.state.root.tick = scenarioTick;
   snapshot.state.serverInstance.currentTick = scenarioTick;
@@ -29,6 +34,12 @@ export const applyHostedBuildingParityNonSpawnScenario = (
     tick: scenarioTick,
     commandCountsByPlayerId: {}
   };
+  resourceState.balances = {
+    ...resourceState.balances,
+    "metal-parts": PORT_PARITY_METAL_PARTS_BALANCE
+  };
+  resourceState.lastUpdatedTick = scenarioTick;
+  resourceState.version += 1;
 
   for (const entry of hostedBuildingParityNonSpawnMatrix) {
     const district = snapshot.state.districtsById[entry.districtId];

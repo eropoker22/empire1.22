@@ -77,6 +77,16 @@ const PUBLIC_RELEASE_ROWS = [
   }),
   runtime("EMPIRE_PERSISTENCE_DRIVER", "Netlify API and worker", { safeFormat: "postgres", rotation: "N/A" }),
   runtime("GAMEPLAY_PERSISTENCE_DRIVER", "Netlify API and worker", { safeFormat: "postgres", rotation: "N/A" }),
+  runtime("EMPIRE_COMMAND_LATENCY_DIAGNOSTICS", "Gameplay API and worker diagnostics", {
+    stagingRequired: "No; optional diagnostics",
+    productionRequired: "No; forbidden",
+    secret: "No",
+    netlifyScope: "Functions only when diagnosing staging",
+    workerScope: "Yes only when diagnosing staging",
+    safeFormat: "true only in local development or staging",
+    defaultAllowed: "Yes; disabled",
+    rotation: "Unset after the diagnostic run"
+  }),
   runtime("GAMEPLAY_SLICE_SESSION_SECRET", "Netlify API and worker", {
     secret: "Yes", netlifyScope: "Functions only", workerScope: "Yes",
     safeFormat: "64 hex or 43+ base64url characters; unique", rotation: "Rotate jointly; revoke gameplay sessions"

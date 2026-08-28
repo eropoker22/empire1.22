@@ -2,8 +2,6 @@ import { createInitialState, type CoreGameState } from "@empire/game-core";
 import {
   DEFAULT_PLAYER_COLOR,
   type Building,
-  type CancelProductionLineCommand,
-  type CollectProductionCommand,
   type CraftItemCommand,
   type District,
   type Player,
@@ -93,29 +91,6 @@ export const createCraftCommand = (
   type: "craft-item",
   payload: { districtId: DISTRICT_ID, buildingId, recipeId, quantity }
 });
-
-export const createCollectCommand = (
-  sequence: number,
-  buildingId: string,
-  resourceKey: string
-): CollectProductionCommand => ({
-  ...createCommandEnvelope(sequence, "collect-production"),
-  type: "collect-production",
-  payload: { districtId: DISTRICT_ID, buildingId, resourceKey }
-});
-
-export const createCancelCommand = (
-  sequence: number,
-  buildingId: string,
-  recipeId: string
-): CancelProductionLineCommand => ({
-  ...createCommandEnvelope(sequence, "cancel-production-line"),
-  type: "cancel-production-line",
-  payload: { districtId: DISTRICT_ID, buildingId, recipeId }
-});
-
-export const getBuildingOutput = (state: CoreGameState, buildingId: string, resourceKey: string): number =>
-  Math.max(0, Number(state.resourceStatesById[`resource:${buildingId}`]?.balances[resourceKey] ?? 0));
 
 export const getPlayerBalance = (state: CoreGameState, resourceKey: string): number =>
   Math.max(0, Number(state.resourceStatesById[PLAYER_RESOURCE_ID]?.balances[resourceKey] ?? 0));

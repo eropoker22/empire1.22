@@ -105,6 +105,20 @@ export interface GameplaySliceResponse {
 export interface GameplaySliceResponseMetadata {
   serverTick: number;
   stateVersion: number;
+  /** Present only when server debug diagnostics are enabled. */
+  commandTiming?: GameplayCommandTimingMetadata;
+}
+
+export interface GameplayCommandTimingMetadata {
+  commandId: string;
+  commandType: string;
+  status: "applied" | "rejected" | "error";
+  serverReceivedAtMs: number;
+  serverResolvedAtMs: number;
+  persistenceCompletedAtMs: number;
+  serverResolutionMs: number;
+  persistenceMs: number;
+  totalServerMs: number;
 }
 
 export interface GameplayCommandResultMetadata {

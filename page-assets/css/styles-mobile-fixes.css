@@ -7445,3 +7445,34 @@ html body.game-modal-scroll-locked .district-building-detail-shell .district-bui
     max-height: 100% !important;
   }
 }
+
+/* Wanted close mark is code-drawn so its shape does not depend on a system font raster. */
+html body .wanted-popup-card .wanted-popup-close {
+  font-size: 0 !important;
+}
+
+html body .wanted-popup-card .wanted-popup-close::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: auto !important;
+  top: calc(50% - 9px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: calc(50% - 9px) !important;
+  display: block !important;
+  width: 18px !important;
+  min-width: 18px !important;
+  max-width: 18px !important;
+  height: 18px !important;
+  min-height: 18px !important;
+  max-height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background:
+    linear-gradient(45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 44%, currentColor 44%, currentColor 56%, transparent 56%) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+}

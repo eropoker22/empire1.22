@@ -30,7 +30,7 @@ describe("residential building actions", () => {
     expect(result.nextState).toBe(state);
   });
 
-  it("collects apartment population into player population and gang members at ten people", () => {
+  it("collects apartment population into the canonical player population at ten people", () => {
     const { state, building } = createApartmentBlockState(10);
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 0 };
 
@@ -38,7 +38,7 @@ describe("residential building actions", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.playersById["player:1"].population).toBe(10);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["gang-members"]).toBe(10);
+    expect(result.nextState.resourceStatesById["resource:1"].balances).not.toHaveProperty("gang-members");
     expect(result.nextState.buildingsById[building.id].metadata?.apartmentBlock).toMatchObject({
       storedPopulation: 0,
       wasFull: false
@@ -67,7 +67,7 @@ describe("residential building actions", () => {
     expect(result.nextState).toBe(state);
   });
 
-  it("collects Večerka population into player population and gang members at thirty people", () => {
+  it("collects Večerka population into the canonical player population at thirty people", () => {
     const { state, building } = createConvenienceStoreState(30);
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 0 };
 
@@ -75,7 +75,7 @@ describe("residential building actions", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.playersById["player:1"].population).toBe(30);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["gang-members"]).toBe(30);
+    expect(result.nextState.resourceStatesById["resource:1"].balances).not.toHaveProperty("gang-members");
     expect(result.nextState.buildingsById[building.id].metadata?.convenienceStore).toMatchObject({
       storedPopulation: 0,
       populationWasFull: false
@@ -117,19 +117,11 @@ describe("residential building actions", () => {
     });
     state.root.tick = 12;
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 11 };
-    state.resourceStatesById["resource:1"] = {
-      ...state.resourceStatesById["resource:1"],
-      balances: {
-        ...state.resourceStatesById["resource:1"].balances,
-        "gang-members": 3
-      }
-    };
-
     const result = applyCommand(state, createBuildingActionCommand(building.id, "collect_school_population"), context);
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.playersById["player:1"].population).toBe(15);
-    expect(result.nextState.resourceStatesById["resource:1"].balances["gang-members"]).toBe(7);
+    expect(result.nextState.resourceStatesById["resource:1"].balances).not.toHaveProperty("gang-members");
     expect(result.nextState.buildingsById[building.id].metadata?.school).toMatchObject({
       lastUpdatedTick: 12,
       lastCapacity: 20,
@@ -140,10 +132,9 @@ describe("residential building actions", () => {
     expect(result.events.find((event) => event.type === "building-action-resolved")?.payload).toMatchObject({
       actionId: "collect_school_population",
       outputGain: {
-        population: 4,
-        "gang-members": 4
+        population: 4
       },
-      reportText: "Vybral jsi 4 nových členů gangu ze Školy."
+      reportText: "Vybral jsi 4 populace ze Školy."
     });
   });
 
@@ -331,8 +322,7 @@ function createBuildingActionCommand(buildingId: string, actionId: string) {
 function createApartmentBlockState(storedPopulation: number) {
   return createCoreStateWithFixedBuildingFixture("apartment_block", {
     playerBalances: {
-      cash: 1_000,
-      "gang-members": 0
+      cash: 1_000
     },
     buildingOverrides: {
       metadata: {
@@ -346,7 +336,7 @@ function createApartmentBlockState(storedPopulation: number) {
 
 function createConvenienceStoreState(storedPopulation: number) {
   return createCoreStateWithFixedBuildingFixture("convenience_store", {
-    playerBalances: { cash: 1_000, "gang-members": 0 },
+    playerBalances: { cash: 1_000 },
     buildingOverrides: {
       metadata: {
         convenienceStore: { storedPopulation }
@@ -362,8 +352,7 @@ function getConvenienceStorePopulation(state: ReturnType<typeof collectIncome>, 
 function createApartmentBlockWithSchoolState(courseActive: boolean) {
   const fixture = createCoreStateWithFixedBuildingFixture("apartment_block", {
     playerBalances: {
-      cash: 1_000,
-      "gang-members": 0
+      cash: 1_000
     },
     buildingOverrides: {
       metadata: {

@@ -578,8 +578,10 @@ export async function dismissBlockingGameOverlays(page) {
       await page.waitForFunction(() => {
         const root = document.querySelector("#game-root");
         const milestoneModal = document.querySelector("[data-server-milestone-modal]");
+        const countdownWarning = document.querySelector("[data-elimination-countdown-warning]");
         return root?.dataset?.runtimeInit === "ready"
-          && milestoneModal?.dataset?.serverMilestoneBound === "true";
+          && milestoneModal?.dataset?.serverMilestoneBound === "true"
+          && countdownWarning?.dataset?.eliminationCountdownBound === "true";
       }, undefined, { timeout: 5_000 }).catch(() => void 0);
       await page.waitForTimeout(75);
       await page.evaluate(() => {

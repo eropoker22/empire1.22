@@ -15,7 +15,8 @@ describe("authoritative production-chain simulation", () => {
       "factory:tech-core:1",
       "armory:pistol:1"
     ]);
-    expect(first.steps.every((step) => step.maxCompletedInSingleTick === 1)).toBe(true);
+    expect(first.steps.every((step) => step.ticksElapsed === 0)).toBe(true);
+    expect(first.steps.every((step) => step.producedAmount === step.quantity)).toBe(true);
     expect(first.finalBalances).toMatchObject({
       cash: 5_780,
       chemicals: 0,
@@ -26,22 +27,23 @@ describe("authoritative production-chain simulation", () => {
     });
   });
 
-  it("rejects a conflicting reservation and refunds waiting costs exactly once", () => {
+  it("rejects an unaffordable instant craft without any partial mutation", () => {
     const report = runProductionChainSimulation();
 
-    expect(report.reservationAudit).toEqual({
-      factoryStartAccepted: true,
+    expect(report.atomicityAudit).toEqual({
+      factoryCraftAccepted: true,
       conflictingArmoryError: "armory_missing_inputs",
-      metalPartsAfterFactoryReservation: 1,
-      metalPartsAfterWaitingRefund: 5,
-      cleanCashAfterWaitingRefund: 900,
-      duplicateCancelError: "factory_no_waiting_items"
+      metalPartsAfterFactoryCraft: 1,
+      cleanCashAfterFactoryCraft: 0,
+      techCoreAfterFactoryCraft: 3,
+      rejectedArmoryPreservedBalances: true,
+      legacyProductionJobsRemaining: 0
     });
     expect(report.invariants).toMatchObject({
       noNegativeBalances: true,
-      reservationConflictRejected: true,
-      waitingRefundExact: true,
-      duplicateRefundBlocked: true
+      conflictingCraftRejected: true,
+      rejectedCraftAtomic: true,
+      noLegacyProductionJobs: true
     });
   });
 });

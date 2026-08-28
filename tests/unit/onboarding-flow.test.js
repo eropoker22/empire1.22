@@ -88,7 +88,7 @@ function createOnboardingDom() {
               <span class="is-active" data-gang-star>★</span>
               <span data-gang-star>★</span>
             </p>
-            <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-gang-members>0</span></p>
+            <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Členové</span><span data-population>0</span></p>
             <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button data-gang-heat>10</button></p>
             <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>-</span></p>
             <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>0</span></p>
@@ -727,6 +727,28 @@ describe("Empire onboarding flow", () => {
 
     expect(bridge.getProgress().currentStepId).toBe("building-action");
     expect(document.querySelector("[data-free-onboarding-panel]")?.dataset.onboardingStep).toBe("building-action");
+  });
+
+  it("refocuses a restarted welcome step when focus moved outside the panel", () => {
+    const { document, root, mount } = createOnboardingDom();
+    const outsideButton = document.createElement("button");
+    root.append(mount, outsideButton);
+
+    expect(renderOnboardingPanel({ currentStepId: "welcome" }, {}, {
+      mount,
+      root,
+      readModel: {}
+    })).toBe(true);
+    expect(document.activeElement).toBe(mount.querySelector("[data-onboarding-primary-action]"));
+
+    outsideButton.focus();
+    expect(document.activeElement).toBe(outsideButton);
+    expect(renderOnboardingPanel({ currentStepId: "welcome" }, {}, {
+      mount,
+      root,
+      readModel: {}
+    })).toBe(true);
+    expect(document.activeElement).toBe(mount.querySelector("[data-onboarding-primary-action]"));
   });
 
   it("starts the isolated onboarding state on auto-start and restart", () => {

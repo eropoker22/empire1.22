@@ -314,14 +314,72 @@ describe("server gameplay command transport", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("allows at most one rebased retry when the state version advances again", async () => {
+  it("rebases twice when two consecutive durable conflicts each advance authority", async () => {
+    const payload = {
+      districtId: "district:home",
+      buildingId: "building:restaurant:1",
+      actionId: "collect"
+    };
+    const requests = [];
+    const fetchMock = vi.fn(async (url, options) => {
+      const request = JSON.parse(options.body);
+      requests.push({ url, request });
+      const submitCount = requests.filter((entry) => entry.url.endsWith("/submit")).length;
+      if (submitCount <= 2) {
+        const stateVersion = submitCount === 1 ? 2 : 4;
+        return {
+          json: async () => ({
+            accepted: false,
+            errors: [{ code: "server.state_version_conflict", message: "stale" }],
+            readModel: {
+              ...initialReadModel,
+              server: { serverInstanceId: "instance:transport", stateVersion, status: "running" }
+            }
+          })
+        };
+      }
+      return {
+        json: async () => ({
+          accepted: true,
+          errors: [],
+          readModel: {
+            ...initialReadModel,
+            server: { serverInstanceId: "instance:transport", stateVersion: 5, status: "running" }
+          }
+        })
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const modules = await loadGameplayModules();
+    modules.source.setServerGameplaySliceReadModel(initialReadModel);
+
+    const response = await modules.transport.submitServerGameplayCommand({
+      type: "run-building-action",
+      payload,
+      focusDistrictId: "district:home",
+      commandId: "command:double-rebase"
+    });
+
+    expect(response.accepted).toBe(true);
+    const submitRequests = requests.filter((entry) => entry.url.endsWith("/submit"));
+    expect(submitRequests.map(({ request }) => request.expectedStateVersion)).toEqual([1, 2, 4]);
+    expect(new Set(submitRequests.map(({ request }) => request.command.id)).size).toBe(3);
+    expect(submitRequests.map(({ request }) => request.command.type))
+      .toEqual(Array(3).fill("run-building-action"));
+    expect(submitRequests.map(({ request }) => request.command.payload))
+      .toEqual(Array(3).fill(payload));
+    expect(requests.filter((entry) => entry.url.endsWith("/load"))).toHaveLength(0);
+  });
+
+  it("allows at most two rebased retries when authority keeps advancing", async () => {
     const requests = [];
     const fetchMock = vi.fn(async (url, options) => {
       requests.push({ url, request: JSON.parse(options.body) });
       if (url.endsWith("/load")) {
         return { json: async () => ({ accepted: true, errors: [], readModel: refreshedReadModel }) };
       }
-      const stateVersion = requests.filter((entry) => entry.url.endsWith("/submit")).length === 1 ? 2 : 4;
+      const submitCount = requests.filter((entry) => entry.url.endsWith("/submit")).length;
+      const stateVersion = submitCount === 1 ? 2 : submitCount === 2 ? 4 : 6;
       return {
         json: async () => ({
           accepted: false,
@@ -345,8 +403,35 @@ describe("server gameplay command transport", () => {
 
     expect(response.accepted).toBe(false);
     expect(response.errors[0].code).toBe("server.state_version_conflict");
-    expect(requests.filter((entry) => entry.url.endsWith("/submit"))).toHaveLength(2);
+    expect(requests.filter((entry) => entry.url.endsWith("/submit"))).toHaveLength(3);
     expect(requests.filter((entry) => entry.url.endsWith("/load"))).toHaveLength(0);
+  });
+
+  it("does not rebase against a conflict slice that did not advance stateVersion", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({
+        accepted: false,
+        errors: [{ code: "server.state_version_conflict", message: "stale" }],
+        readModel: initialReadModel
+      })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const modules = await loadGameplayModules();
+    modules.source.setServerGameplaySliceReadModel(initialReadModel);
+
+    const response = await modules.transport.submitServerGameplayCommand({
+      type: "run-building-action",
+      payload: {
+        districtId: "district:home",
+        buildingId: "building:restaurant:1",
+        actionId: "collect"
+      },
+      focusDistrictId: "district:home"
+    });
+
+    expect(response.accepted).toBe(false);
+    expect(response.errors[0].code).toBe("server.state_version_conflict");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry a command while its mounted-client submission is still in flight", async () => {

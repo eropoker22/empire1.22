@@ -1143,7 +1143,12 @@ export function openLeaderboard() {
     focusTarget: leaderboardContext.card,
     restoreFocusOnClose: false
   });
-  window.setTimeout(() => focusWithoutScroll(leaderboardContext.card), 0);
+  window.setTimeout(() => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement) || !popup.contains(activeElement)) {
+      focusWithoutScroll(leaderboardContext.card);
+    }
+  }, 0);
 }
 
 export function closeLeaderboard() {

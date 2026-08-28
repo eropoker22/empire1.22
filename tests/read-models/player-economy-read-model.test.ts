@@ -44,11 +44,10 @@ describe("player economy read model projection", () => {
       dirtyCash: 375,
       influence: 21,
       population: 24,
-      gangMembers: 12,
       resources: {
         cash: 1500,
         "dirty-cash": 375,
-        "gang-members": 12
+        population: 24
       },
       materials: {
         chemicals: 8,
@@ -68,6 +67,8 @@ describe("player economy read model projection", () => {
       "dirty-cash": 375,
       population: 24
     });
+    expect(player.economy).not.toHaveProperty("gangMembers");
+    expect(player.resourceBalances).not.toHaveProperty("gang-members");
     expect("heat" in player.economy).toBe(false);
   });
 
@@ -81,7 +82,6 @@ describe("player economy read model projection", () => {
       dirtyCash: 0,
       influence: 0,
       population: 0,
-      gangMembers: 0,
       resources: {}
     });
   });

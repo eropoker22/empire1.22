@@ -11,7 +11,7 @@ function createLeaderboardShell() {
     <button type="button" data-leaderboard-popup-open>Leaderboard</button>
     <div class="leaderboard-popup-shell" data-leaderboard-popup hidden>
       <button type="button" data-leaderboard-popup-close>Zavřít</button>
-      <div class="leaderboard-popup-card leaderboard-terminal-card">
+      <div class="leaderboard-popup-card leaderboard-terminal-card" tabindex="-1">
         <div class="leaderboard-terminal">
           <header class="leaderboard-terminal__header">
             <span data-leaderboard-server-badge></span>
@@ -147,6 +147,7 @@ function capturePresentation() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   document.body.innerHTML = "";
   window.localStorage.clear();
   delete window.__EMPIRE_GAMEPLAY_EXECUTION_MODE__;
@@ -154,6 +155,18 @@ afterEach(() => {
 });
 
 describe("leaderboard presentation parity", () => {
+  it("does not steal focus from search after the modal has opened", async () => {
+    vi.useFakeTimers();
+    const leaderboard = await renderMode("server-authoritative", createAuthoritativeReadModel());
+
+    leaderboard.openLeaderboard();
+    const searchInput = document.querySelector("[data-leaderboard-search]");
+    searchInput.focus();
+    vi.runOnlyPendingTimers();
+
+    expect(document.activeElement).toBe(searchInput);
+  });
+
   it("uses one visible schema for local demo and authoritative server data", async () => {
     await renderMode("local-demo");
     const demo = capturePresentation();

@@ -14,6 +14,9 @@ import {
 import {
   getGameplaySlicePollerPerformanceOptions,
   recordClientStateRecompute,
+  recordGameplayCommandResponse,
+  recordGameplayCommandSubmitted,
+  recordGameplayCommandUiRenderComplete,
   recordGameplayPollError,
   recordGameplaySliceRefresh
 } from "./gameplay-slice-performance-metrics";
@@ -66,8 +69,14 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       load: (loadRequest) => transport.load(loadRequest),
       send: async (submitRequest) => {
         activeCommandRequestCount += 1;
+        recordGameplayCommandSubmitted(submitRequest.command.id);
         try {
-          return await transport.send(submitRequest);
+          const response = await transport.send(submitRequest);
+          recordGameplayCommandResponse(submitRequest.command.id, response.metadata?.commandTiming);
+          return response;
+        } catch (error) {
+          recordGameplayCommandResponse(submitRequest.command.id);
+          throw error;
         } finally {
           activeCommandRequestCount -= 1;
         }
@@ -146,6 +155,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       }
     }));
     publishConnectionState(state);
+    recordGameplayCommandUiRenderComplete();
   };
 
   const poller = createGameplaySlicePoller<ClientRenderState>({

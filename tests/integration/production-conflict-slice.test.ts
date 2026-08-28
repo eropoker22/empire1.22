@@ -9,7 +9,7 @@ import {
 } from "../../apps/client/src/features";
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
-import { applyCommand, runTick } from "../../packages/game-core/src/engine";
+import { applyCommand } from "../../packages/game-core/src/engine";
 import {
   createPlaceTrapCommandFixture as createCorePlaceTrapCommandFixture,
   createSpyDistrictCommandFixture as createCoreSpyDistrictCommandFixture
@@ -95,36 +95,25 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(spied.errors).toEqual([]);
-    expect(spied.reports).toEqual([]);
-    const pendingSpyView = (await server.gameplaySliceTransport.load({
-      ...attackerSession.loadRequest,
-      districtId: sourceDistrictId
-    })).readModel as GameplaySliceView;
-    const pendingSpyEffect = pendingSpyView.mapEffects.find((effect) => effect.type === "spy");
-
-    expect(pendingSpyView.reports).toEqual([]);
-    expect(pendingSpyEffect).toMatchObject({
-      type: "spy",
-      source: "server-pending-operation",
-      playerId: attackerId,
-      districtId: targetDistrictId
-    });
-    expect((await server.gameplaySliceTransport.load(defenderSession.loadRequest)).readModel?.mapEffects)
-      .not.toContainEqual(expect.objectContaining({ type: "spy", playerId: attackerId }));
-
-    await advanceInstanceToEffectResolution(server, instanceId, pendingSpyEffect!);
-    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
+    expect(spied.reports[0]).toMatchObject({ category: "spy", result: "success" });
     const resolvedSpyView = (await server.gameplaySliceTransport.load({
       ...attackerSession.loadRequest,
       districtId: sourceDistrictId
     })).readModel as GameplaySliceView;
 
-    expect(resolvedSpyView.mapEffects).not.toContainEqual(expect.objectContaining({ type: "spy" }));
     expect(resolvedSpyView.reports[0]).toMatchObject({
       reportType: "spy",
       targetDistrictId,
       trapDetected: true
     });
+    expect(resolvedSpyView.mapEffects).not.toContainEqual(expect.objectContaining({
+      type: "spy",
+      source: "server-pending-operation"
+    }));
+    expect((await server.gameplaySliceTransport.load(defenderSession.loadRequest)).readModel?.mapEffects)
+      .not.toContainEqual(expect.objectContaining({ type: "spy", playerId: attackerId }));
+
+    const resolvedSpy = spied;
     expect(resolvedSpy.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
@@ -219,12 +208,7 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(spied.errors).toEqual([]);
-    expect(spied.reports).toEqual([]);
-    const pendingSpyView = (await server.gameplaySliceTransport.load(attackerSession.loadRequest)).readModel as GameplaySliceView;
-    const pendingSpyEffect = pendingSpyView.mapEffects.find((effect) => effect.type === "spy");
-    expect(pendingSpyEffect).toBeTruthy();
-    await advanceInstanceToEffectResolution(server, instanceId, pendingSpyEffect!);
-    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
+    const resolvedSpy = spied;
     expect(resolvedSpy.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
@@ -271,7 +255,7 @@ describe("production conflict gameplay slice", () => {
     expect(renderGameplaySliceStatus(attacked)).toContain("Akce přijata");
   });
 
-  it("shows a server rejection while the first spy operation is still pending", async () => {
+  it("rejects a duplicate spy while immediately resolved intel remains active", async () => {
     const server = createServerApp();
     const instanceId = "instance:production-conflict-cooldown";
     const attackerId = "player:1";
@@ -312,10 +296,7 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(firstSpy.errors).toEqual([]);
-    expect(firstSpy.reports).toEqual([]);
-    const pendingSpyView = (await server.gameplaySliceTransport.load(attackerSession.loadRequest)).readModel as GameplaySliceView;
-    const pendingSpyEffect = pendingSpyView.mapEffects.find((effect) => effect.type === "spy");
-    expect(pendingSpyEffect).toBeTruthy();
+    expect(firstSpy.reports[0]).toMatchObject({ category: "spy", result: "success" });
 
     const rejectedSpy = await attackerClient.dispatch(
       createSpyDistrictCommand({
@@ -327,27 +308,23 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(rejectedSpy.errors[0]).toMatchObject({
-      code: "spy_cooldown_active"
+      code: "SPY_INTEL_ALREADY_ACTIVE"
     });
     expect(rejectedSpy.connection).toMatchObject({
       status: "ready",
       staleData: true,
-      lastErrorMessage: expect.stringContaining("čeká ještě")
+      lastErrorMessage: expect.stringContaining("stále platné informace")
     });
     expect(rejectedSpy.lastCommandStatus).toEqual({
       commandId: "command:spy:cooldown:2",
       accepted: false
     });
     expect(renderGameplaySliceStatus(rejectedSpy)).toContain("Akce odmítnuta");
-    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("čeká ještě");
+    expect(renderGameplaySliceStatus(rejectedSpy)).toContain("stále platné informace");
     expect(rejectedSpy.sidePanelHtml).toContain("Poslední reporty");
     expect(rejectedSpy.sidePanelHtml).toContain("Akce odmítnuta");
     expect(rejectedSpy.sidePanelHtml).not.toContain("data-report-command-status=\"accepted-without-report\"");
-    expect(rejectedSpy.sidePanelHtml).not.toContain("Špehování success v district:2");
-
-    await advanceInstanceToEffectResolution(server, instanceId, pendingSpyEffect!);
-    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
-    expect(resolvedSpy.sidePanelHtml).toContain("Špehování success v district:2");
+    expect(rejectedSpy.sidePanelHtml).toContain("Špehování success v district:2");
   });
 
   it("renders a catastrophe report window and destroyed district state after a catastrophic attack", async () => {
@@ -395,12 +372,7 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(spied.errors).toEqual([]);
-    expect(spied.reports).toEqual([]);
-    const pendingSpyView = (await server.gameplaySliceTransport.load(attackerSession.loadRequest)).readModel as GameplaySliceView;
-    const pendingSpyEffect = pendingSpyView.mapEffects.find((effect) => effect.type === "spy");
-    expect(pendingSpyEffect).toBeTruthy();
-    await advanceInstanceToEffectResolution(server, instanceId, pendingSpyEffect!);
-    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
+    const resolvedSpy = spied;
     expect(resolvedSpy.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
@@ -458,19 +430,6 @@ describe("production conflict gameplay slice", () => {
     });
   });
 });
-
-const advanceInstanceToEffectResolution = (
-  server: ReturnType<typeof createServerApp>,
-  instanceId: string,
-  effect: GameplaySliceView["mapEffects"][number]
-): Promise<void> => {
-  const runtime = server.instanceManager.getInstanceById(instanceId);
-  if (!runtime) throw new Error(`Missing runtime ${instanceId}.`);
-  while (runtime.state.root.tick < effect.expiresAtTick) {
-    runtime.state = runTick(runtime.state, { config: runtime.config }).nextState;
-  }
-  return Promise.resolve();
-};
 
 const seedSearchContext = {
   config: {

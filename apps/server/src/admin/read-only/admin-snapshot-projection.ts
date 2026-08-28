@@ -1,5 +1,5 @@
 import { resolveModeConfig } from "@empire/game-config";
-import { resolvePlayerOperationalLiveness } from "@empire/game-core";
+import { resolvePlayerOperationalLiveness, resolvePlayerPopulation } from "@empire/game-core";
 import type {
   AdminCommandSummaryView,
   AdminDiagnosticSummaryView,
@@ -47,7 +47,7 @@ export const createAdminDetailFromSnapshot = (input: {
       ownedDistrictCount: Object.values(state.districtsById).filter((district) => district.ownerPlayerId === player.id).length,
       cash: safeNumber(resources.cash),
       dirtyCash: safeNumber(resources["dirty-cash"]),
-      population: safeNumber(player.population),
+      population: resolvePlayerPopulation(state, player),
       heat: safeNumber(police?.heat),
       wantedLevel: safeNumber(police?.wantedLevel),
       lastActionAt: player.lastActionAt

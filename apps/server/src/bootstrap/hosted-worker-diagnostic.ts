@@ -1,6 +1,6 @@
 export const writeHostedWorkerDiagnostic = (input: {
   level: "info" | "warn" | "error";
-  event: "worker_started" | "worker_run_failed" | "worker_shutdown_started" | "worker_stopped";
+  event: "worker_started" | "worker_heartbeat_failed" | "worker_run_failed" | "worker_shutdown_started" | "worker_stopped";
   buildSha: string;
   workerId: string;
   environment: string;

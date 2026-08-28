@@ -232,6 +232,6 @@ export function getDistrictPopupElements(root) {
     buildingActionState: query(root, selectors.BUILDING_ACTION_STATE_SELECTOR),
     buildingActionSummary: query(root, selectors.BUILDING_ACTION_SUMMARY_SELECTOR),
     buildingActionMeta: query(root, selectors.BUILDING_ACTION_META_SELECTOR),
-    gangMembersValue: query(root, selectors.GANG_MEMBERS_SELECTOR)
+    populationValue: query(root, selectors.POPULATION_SELECTOR)
   };
 }

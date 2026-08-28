@@ -49,9 +49,9 @@ test.describe("manual hosted district actions through visible UI", () => {
       expect(attack.request.command.payload.sourceDistrictId).toBe(attack.projection.sourceDistrictId);
       expect(occupy.request.command.payload.sourceDistrictId).toBe(occupy.projection.sourceDistrictId);
 
-      await assertPersistedPendingEffect(creator.page, "district:6", "occupy", occupy.pendingEffect);
-      await assertPersistedPendingEffect(creator.page, "district:25", "spy", spy.pendingEffect);
-      await assertPersistedPendingEffect(creator.page, "district:24", "robbery", rob.pendingEffect);
+      await assertPersistedReport(creator.page, "district:6", "occupy-district");
+      await assertPersistedReport(creator.page, "district:25", "spy-district");
+      await assertPersistedReport(creator.page, "district:24", "rob-district");
       await assertPersistedReport(target.page, "district:4", "heist-district");
       await assertPersistedReport(hunter.page, "district:2", "attack-district");
 
@@ -86,8 +86,8 @@ async function runSpyThroughVisibleUi(page, districtId) {
     districtId,
     sourceDistrictId: projection.sourceDistrictId
   });
-  const pendingEffect = assertAcceptedPendingEffect(result.body, "spy-district", "spy", districtId);
-  return { ...result, pendingEffect, projection };
+  assertAcceptedReport(result.body, "spy-district", districtId);
+  return { ...result, projection };
 }
 
 async function runRobThroughVisibleUi(page, districtId) {
@@ -116,8 +116,8 @@ async function runRobThroughVisibleUi(page, districtId) {
     expectedConflictRevision: projection.expectedConflictRevision,
     expectedLootPoolRevision: projection.expectedLootPoolRevision
   });
-  const pendingEffect = assertAcceptedPendingEffect(result.body, "rob-district", "robbery", districtId);
-  return { ...result, pendingEffect, projection };
+  assertAcceptedReport(result.body, "rob-district", districtId);
+  return { ...result, projection };
 }
 
 async function runHeistThroughVisibleUi(page, districtId) {
@@ -184,8 +184,13 @@ async function runOccupyThroughVisibleUi(page, districtId) {
     sourceDistrictId: projection.sourceDistrictId,
     expectedConflictRevision: projection.expectedConflictRevision
   });
-  const pendingEffect = assertAcceptedPendingEffect(result.body, "occupy-district", "occupy", districtId);
-  return { ...result, pendingEffect, projection };
+  const report = assertAcceptedReport(result.body, "occupy-district", districtId);
+  expect(report.tick).toBeLessThanOrEqual(result.body.readModel.server.currentTick);
+  if (report.districtCaptured) {
+    expect(result.body.readModel.district.ownerPlayerId)
+      .toBe(result.body.readModel.player.playerId);
+  }
+  return { ...result, projection };
 }
 
 async function openActionTargetFromMap(page, districtId, actionId = null) {
@@ -280,25 +285,13 @@ async function clickAndReadTypedSubmit(page, commandType, button) {
 function assertAcceptedReport(body, commandType, districtId) {
   const errorCodes = body?.errors?.map((error) => error.code).filter(Boolean).join(", ");
   expect(body?.accepted, `${commandType}${errorCodes ? ` (${errorCodes})` : ""}`).toBe(true);
-  expect(body?.readModel?.reports).toEqual(expect.arrayContaining([
-    expect.objectContaining({
-      actionType: commandType,
-      targetDistrictId: districtId
-    })
-  ]));
-}
-
-function assertAcceptedPendingEffect(body, commandType, effectType, districtId) {
-  const errorCodes = body?.errors?.map((error) => error.code).filter(Boolean).join(", ");
-  expect(body?.accepted, `${commandType}${errorCodes ? ` (${errorCodes})` : ""}`).toBe(true);
-  const pendingEffect = body?.readModel?.mapEffects?.find((effect) => (
-    effect.type === effectType
-    && effect.districtId === districtId
-    && effect.expiresAtTick > body.readModel.server.currentTick
+  const report = body?.readModel?.reports?.find((entry) => (
+    entry.actionType === commandType
+    && entry.targetDistrictId === districtId
   ));
-  expect(pendingEffect, `${commandType} must expose its exact authoritative pending operation`)
+  expect(report, `${commandType} must expose its immediate authoritative report`)
     .toBeTruthy();
-  return pendingEffect;
+  return report;
 }
 
 async function waitForRenderedStateVersionAtLeast(page, expectedStateVersion) {
@@ -333,22 +326,6 @@ async function assertPersistedReport(page, districtId, actionType) {
       intervals: [250, 500, 1_000]
     }
   ).toBe(true);
-}
-
-async function assertPersistedPendingEffect(page, districtId, effectType, submittedEffect) {
-  await page.reload({ waitUntil: "load" });
-  await waitForLiveGame(page);
-  const readModel = await page.evaluate(() => (
-    window.EmpireGameplaySliceClient?.getCurrentReadModel?.() || null
-  ));
-  expect(readModel?.mapEffects).toEqual(expect.arrayContaining([
-    expect.objectContaining({
-      effectId: submittedEffect.effectId,
-      type: effectType,
-      districtId,
-      expiresAtTick: submittedEffect.expiresAtTick
-    })
-  ]));
 }
 
 async function dismissVisibleOperationResults(page) {

@@ -5,6 +5,7 @@ import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent, createNotification } from "../events";
 import { resolvePlayerOperationalLiveness } from "../rules/liveness";
+import { resolvePlayerPopulation } from "../state/playerPopulation";
 
 type Result = { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] };
 
@@ -40,7 +41,7 @@ export const handleClaimEmergencyRecovery = (
         ...state.playersById,
         [player.id]: {
           ...player,
-          population: player.population === undefined ? undefined : Math.max(0, player.population) + config.population,
+          population: resolvePlayerPopulation(state, player) + config.population,
           emergencyRecoveryUsedAtTick: state.root.tick,
           lastActionAt: command.issuedAt,
           version: player.version + 1
@@ -52,8 +53,7 @@ export const handleClaimEmergencyRecovery = (
           ...resources,
           balances: {
             ...resources.balances,
-            cash: Math.max(0, Number(resources.balances.cash ?? 0)) + config.cleanCash,
-            population: Math.max(0, Number(resources.balances.population ?? player.population ?? 0)) + config.population
+            cash: Math.max(0, Number(resources.balances.cash ?? 0)) + config.cleanCash
           },
           lastUpdatedTick: state.root.tick,
           version: resources.version + 1

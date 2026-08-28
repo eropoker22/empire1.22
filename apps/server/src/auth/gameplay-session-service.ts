@@ -2,14 +2,11 @@ import * as crypto from "node:crypto";
 import type { DomainError, GameModeId, PlayerFactionId, ServerInstanceId } from "@empire/shared-types";
 import { revokeMatchingGameplaySessions } from "./in-memory-session-revocation";
 import { prepareGameplayJoinTicket } from "./gameplay-join-ticket";
-
 export { prepareGameplayJoinTicket } from "./gameplay-join-ticket";
-
 export interface AccountIdentity {
   accountId: string;
   provider: "dev" | "production";
 }
-
 export interface AccountIdentityProvider {
   readonly productionReady: boolean;
   resolve(input: { headers?: Record<string, string | string[] | undefined>; body?: unknown }): AccountIdentity | null | Promise<AccountIdentity | null>;
@@ -210,6 +207,7 @@ export const createPersistentGameplaySessionService = (
       }
       if (session.revokedAt) return reject("SESSION_REVOKED", "Gameplay session was revoked.");
       if (Date.parse(session.expiresAt) <= Date.parse(input.nowIso)) {
+        await repository.revokeSession(session.sessionId, input.nowIso);
         return reject("SESSION_EXPIRED", "Gameplay session expired.");
       }
       if (!isSessionTouchDue(session.lastSeenAt, input.nowIso)) {
@@ -291,6 +289,8 @@ export const createInMemoryGameplaySessionService = (
       }
       if (session.revokedAt) return reject("SESSION_REVOKED", "Gameplay session was revoked.");
       if (Date.parse(session.expiresAt) <= Date.parse(input.nowIso)) {
+        session.revokedAt = input.nowIso;
+        session.version += 1;
         return reject("SESSION_EXPIRED", "Gameplay session expired.");
       }
       if (!isSessionTouchDue(session.lastSeenAt, input.nowIso)) {

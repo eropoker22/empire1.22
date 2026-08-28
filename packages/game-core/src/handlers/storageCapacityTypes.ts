@@ -20,9 +20,11 @@ const STORAGE_RESOURCE_ALIASES: Readonly<Record<string, string>> = Object.freeze
   combat_module: "combat-module"
 });
 
+// Legacy people aliases are rejected as inventory so hydration can never turn
+// them into warehouse stock. Canonical manpower lives on player.population.
 const NON_STOCKABLE_RESOURCE_KEYS = new Set([
   "cash", "clean-cash", "dirty-cash", "dirtyCash", "influence", "heat", "population",
-  "spies", "gang-members", "gangMembers", "cooldowns"
+  "spies", "gang-members", "gangMembers", "gang_members", "cooldowns"
 ]);
 
 const STORAGE_RESOURCE_LABELS: Readonly<Record<string, string>> = Object.freeze({

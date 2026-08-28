@@ -17,6 +17,7 @@ import {
   PHARMACY_BUILDING_TYPE_ID,
   startPharmacyLine
 } from "./pharmacyProductionShared";
+import { executeInstantProduction } from "./instantProduction";
 
 type HandlerResult = { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] };
 
@@ -29,73 +30,28 @@ export const handlePharmacyProductionStart = (
   if (validation.errors.length > 0 || !validation.building || !validation.recipe) {
     return { nextState: state, events: [], errors: validation.errors };
   }
-  const quantity = Number(command.payload.quantity);
+  const quantity = Number(command.payload.quantity ?? 1);
   if (!Number.isInteger(quantity) || quantity <= 0) {
     return failure(state, "pharmacy_invalid_quantity", "Množství výroby musí být kladné celé číslo.");
   }
 
   const { building, recipe } = validation;
-  const line = getPharmacyLine(building, command.payload.recipeId);
-  const producedAmount = getPharmacyProducedAmount(state, building, recipe.outputResourceKey);
-  if (producedAmount >= recipe.localOutputCap) {
-    return failure(state, "pharmacy_output_full", "Lokální zásoba Lékárny je plná.");
-  }
-  if (line.queuedAmount + quantity > recipe.queueCap) {
-    return failure(state, "pharmacy_queue_full", "Fronta této výrobní linky je plná.");
-  }
-
-  const player = state.playersById[command.playerId];
-  if (!player) return failure(state, "pharmacy_not_owned", "Hráč nevlastní cílovou Lékárnu.");
-  const storedPlayerResourceState = state.resourceStatesById[player.resourceStateId];
-  const playerResourceState = storedPlayerResourceState
-    ? { ...storedPlayerResourceState, balances: normalizeStorageBalances(storedPlayerResourceState.balances) }
-    : createPlayerResourceState(player, state.root.tick);
-  const totalCost = quantity * recipe.cleanCashCostPerUnit;
-  const cleanCash = Math.max(0, Number(playerResourceState.balances.cash || 0));
-  if (cleanCash < totalCost) {
-    return failure(state, "pharmacy_insufficient_clean_cash", "Na spuštění výroby nemáš dost clean cash.");
-  }
-
-  const queuedLine = {
-    ...line,
-    queuedAmount: line.queuedAmount + quantity,
-    reservedCleanCash: line.reservedCleanCash + totalCost,
-    unitCleanCashCost: recipe.cleanCashCostPerUnit,
-    version: line.version + 1
-  };
-  const nextLine = startPharmacyLine(state, queuedLine, building, recipe, state.root.tick, context);
-  const nextBuilding = {
-    ...building,
-    productionLines: {
-      ...building.productionLines,
-      [recipe.outputResourceKey]: nextLine
-    },
-    version: building.version + 1
-  };
-  const nextPlayerResourceState: ResourceState = {
-    ...playerResourceState,
-    balances: { ...playerResourceState.balances, cash: cleanCash - totalCost },
-    lastUpdatedTick: state.root.tick,
-    version: playerResourceState.version + (storedPlayerResourceState ? 1 : 0)
-  };
-
-  return {
-    nextState: {
-      ...state,
-      buildingsById: { ...state.buildingsById, [building.id]: nextBuilding },
-      resourceStatesById: { ...state.resourceStatesById, [nextPlayerResourceState.id]: nextPlayerResourceState }
-    },
-    events: [
-      createEvent(CORE_EVENT_TYPES.itemProcessingStarted, {
-        playerId: command.playerId,
-        districtId: command.payload.districtId,
-        buildingId: building.id,
-        recipeId: recipe.outputResourceKey,
-        completesAtTick: nextLine.activeCompletesAtTick
-      })
-    ],
-    errors: []
-  };
+  return executeInstantProduction({
+    state,
+    context,
+    playerId: command.playerId,
+    buildingId: building.id,
+    districtId: building.districtId,
+    recipeId: command.payload.recipeId,
+    quantity,
+    issuedAt: command.issuedAt,
+    recipe,
+    errors: {
+      playerMissing: { code: "pharmacy_not_owned", message: "Hráč nevlastní cílovou Lékárnu." },
+      insufficientCash: { code: "pharmacy_insufficient_clean_cash", message: "Na výrobu nemáš dost clean cash." },
+      missingInputs: { code: "pharmacy_missing_inputs", message: "Na výrobu nemáš dost vstupních surovin." }
+    }
+  });
 };
 
 export const handleCancelPharmacyProduction = (

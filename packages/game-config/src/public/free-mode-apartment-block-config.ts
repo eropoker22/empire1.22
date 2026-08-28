@@ -4,7 +4,7 @@ export const freeModeApartmentBlockConfig: ApartmentBlockBalanceConfig = {
   id: "apartment_block",
   buildingTypeId: "apartment_block",
   countOnMap: 29,
-  category: ["population", "gang_members"],
+  category: ["population"],
   populationPerMinute: 2,
   baseCapacity: 50,
   cleanCashPerMinute: 0,

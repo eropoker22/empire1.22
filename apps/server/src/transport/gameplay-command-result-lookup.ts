@@ -4,6 +4,7 @@ import type {
 } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../runtime/instance/server-instance-runtime";
 import { createGameplaySliceProjection } from "../runtime/projections";
+import { isRuntimePerformanceDiagnosticsEnabled } from "../runtime/monitoring/runtime-performance-diagnostics";
 
 export const lookupGameplayCommandResult = async (
   runtime: ServerInstanceRuntime,
@@ -12,7 +13,15 @@ export const lookupGameplayCommandResult = async (
 ): Promise<GameplayCommandResultLookupResponse> => {
   const commandId = String(request.commandId ?? "").trim();
   const readModel = createGameplaySliceProjection(runtime, playerId, request.districtId);
-  const metadata = { serverTick: runtime.state.root.tick, stateVersion: runtime.state.root.version };
+  const commandTiming = isRuntimePerformanceDiagnosticsEnabled(runtime)
+    && runtime.runtimeHealth.performanceDiagnostics.lastCommand?.commandId === commandId
+      ? runtime.runtimeHealth.performanceDiagnostics.lastCommand
+      : null;
+  const metadata = {
+    serverTick: runtime.state.root.tick,
+    stateVersion: runtime.state.root.version,
+    ...(commandTiming ? { commandTiming: { ...commandTiming } } : {})
+  };
   if (!commandId) {
     return {
       accepted: false,

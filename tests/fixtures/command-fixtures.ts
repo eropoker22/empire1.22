@@ -211,7 +211,7 @@ export const createHeistDistrictCommandFixture = (
     targetDistrictId: "district:2",
     sourceDistrictId: "district:1",
     style: "balanced",
-    gangMembersSent: 10,
+    populationSent: 10,
     expectedConflictRevision: 1,
     ...payload
   },

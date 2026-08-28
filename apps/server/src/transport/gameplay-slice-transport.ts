@@ -17,6 +17,7 @@ import { validateCommandPlayerIdentity } from "./player-identity-guard";
 import type { GameplaySessionTokenCodec } from "./gameplay-session-token-codec";
 import type { GameplaySessionService } from "../auth";
 import { lookupGameplayCommandResult } from "./gameplay-command-result-lookup";
+import { createGameplaySliceResponseMetadata } from "./gameplay-slice-response-metadata";
 
 export interface GameplaySliceTransportOptions {
   sessionTokenCodec?: GameplaySessionTokenCodec | null;
@@ -166,7 +167,7 @@ export const createGameplaySliceTransport = (
           request.focusDistrictId
         ),
         errors: dispatchResult.errors,
-        metadata: createGameplaySliceResponseMetadata(dispatchResult.runtime),
+        metadata: createGameplaySliceResponseMetadata(dispatchResult.runtime, request.command.id),
         commandResult: dispatchResult.commandResult
           ? {
               commandId: dispatchResult.commandResult.commandId,
@@ -240,10 +241,6 @@ export const createGameplaySliceTransport = (
 };
 const isServerAssignedFocusDistrictId = (districtId: string): districtId is ServerAssignedFocusDistrictId =>
   districtId === SERVER_ASSIGNED_FOCUS_DISTRICT_ID;
-const createGameplaySliceResponseMetadata = (runtime: ServerInstanceRuntime): GameplaySliceResponse["metadata"] => ({
-  serverTick: runtime.state.root.tick,
-  stateVersion: runtime.state.root.version
-});
 const createNotFoundResponse = (message: string): GameplaySliceResponse => ({
   accepted: false, readModel: null, errors: [{ code: "transport.not_found", message }]
 });

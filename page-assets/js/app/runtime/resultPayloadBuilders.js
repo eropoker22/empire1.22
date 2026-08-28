@@ -329,7 +329,13 @@ export function createResultPayloadBuilders(deps = {}) {
     const resolveAtMs = new Date(order.resolveAt).getTime();
     const safeCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : now();
     const safeResolveAtMs = Number.isFinite(resolveAtMs) ? resolveAtMs : safeCreatedAtMs;
-    const durationValue = formatDurationLabel(Math.max(0, safeResolveAtMs - safeCreatedAtMs));
+    const cooldownUntilMs = new Date(order.cooldownUntil || 0).getTime();
+    const durationValue = order.executionMode === "instant"
+      ? "Okamžitě"
+      : formatDurationLabel(Math.max(0, safeResolveAtMs - safeCreatedAtMs));
+    const cooldownLabel = Number.isFinite(cooldownUntilMs) && cooldownUntilMs > safeCreatedAtMs
+      ? formatDurationLabel(cooldownUntilMs - safeCreatedAtMs)
+      : "Bez cooldownu";
     const hasExplicitHeatData = order.heatAdded !== undefined;
     const heatGained = Math.max(0, Number(order.heatAdded ?? 0) || 0);
     const heatGainedLabel = hasExplicitHeatData ? `+${heatGained}` : "Police feed";
@@ -372,14 +378,15 @@ export function createResultPayloadBuilders(deps = {}) {
             ? "Obsazený"
             : "Stojí",
       durationValue,
-      cooldownLabel: durationValue,
+      cooldownLabel,
       nextActionLabel: "Zpět na mapu / vyber další cíl",
       extraRows: [
         ...(tacticalGridLabel ? [{ label: "Boost", value: tacticalGridLabel }] : []),
         { label: "Loot", value: lootLabel },
         { label: "Heat gained", value: heatGainedLabel },
         { label: "Police warning", value: policeWarningLabel },
-        { label: "Cooldown", value: durationValue, nowrap: true },
+        { label: "Vyhodnocení", value: durationValue, nowrap: true },
+        { label: "Cooldown", value: cooldownLabel, nowrap: true },
         { label: "Další krok", value: "Zpět na mapu / vyber další cíl" }
       ],
       showDefensePower: String(outcome.key || "").trim().toLowerCase() === "total-success"
@@ -402,7 +409,14 @@ export function createResultPayloadBuilders(deps = {}) {
     const raidTone = safeLootEntries.length > 0
       ? (memberLoss > 0 ? "is-dirty-fail" : "is-clean-success")
       : (memberLoss >= deployedMembers ? "is-disaster" : "is-alert");
-    const durationLabel = formatDurationLabel(new Date(order.resolveAt).getTime() - new Date(order.createdAt).getTime());
+    const durationLabel = order.executionMode === "instant"
+      ? "Okamžitě"
+      : formatDurationLabel(new Date(order.resolveAt).getTime() - new Date(order.createdAt).getTime());
+    const cooldownUntilMs = new Date(order.cooldownUntil || 0).getTime();
+    const createdAtMs = new Date(order.createdAt || 0).getTime();
+    const cooldownLabel = Number.isFinite(cooldownUntilMs) && Number.isFinite(createdAtMs) && cooldownUntilMs > createdAtMs
+      ? formatDurationLabel(cooldownUntilMs - createdAtMs)
+      : "Bez cooldownu";
 
     const detailRows = [
       ...(zoneLabel ? [{ label: "Zóna", value: zoneLabel }] : []),
@@ -428,19 +442,21 @@ export function createResultPayloadBuilders(deps = {}) {
               ? [
                   { label: "Cíl", value: `District ${order.targetDistrictId}` },
                   { label: "Ztráta členů", value: `${memberLoss}` },
-                  { label: "Cooldown", value: durationLabel, nowrap: true },
+                  { label: "Vyhodnocení", value: durationLabel, nowrap: true },
+                  { label: "Cooldown", value: cooldownLabel, nowrap: true },
                   { label: "Zisk", value: lootLabel }
                 ]
               : [
                   { label: "Cíl", value: `District ${order.targetDistrictId}` },
                   { label: "Získáno", value: lootLabel },
-                  { label: "Trvání", value: durationLabel, nowrap: true },
-                  { label: "Cooldown", value: durationLabel, nowrap: true }
+                  { label: "Vyhodnocení", value: durationLabel, nowrap: true },
+                  { label: "Cooldown", value: cooldownLabel, nowrap: true }
                 ])
             : [
                 { label: "Cíl", value: `District ${order.targetDistrictId}` },
                 { label: "Ztráta členů", value: `${memberLoss}` },
-                { label: "Cooldown", value: durationLabel, nowrap: true },
+                { label: "Vyhodnocení", value: durationLabel, nowrap: true },
+                { label: "Cooldown", value: cooldownLabel, nowrap: true },
                 { label: "Upozornění cíle", value: raidTone === "is-alert" ? "Ano" : "Ne" }
               ])
         ].concat(detailRows)
@@ -456,7 +472,13 @@ export function createResultPayloadBuilders(deps = {}) {
     heatGain = 0,
     extraIntelBlocks = []
   } = {}) => {
-    const captureCooldownUntil = Number(mission.cooldownUntil || 0) || (now() + deps.spyCaptureCooldownMs);
+    const parsedCooldownUntil = new Date(mission.cooldownUntil || 0).getTime();
+    const captureCooldownUntil = Number.isFinite(parsedCooldownUntil) && parsedCooldownUntil > 0
+      ? parsedCooldownUntil
+      : now() + deps.spyCaptureCooldownMs;
+    const normalCooldownRow = captureCooldownUntil > now()
+      ? [{ label: "Cooldown", value: formatDurationLabel(captureCooldownUntil - now()), nowrap: true, countdownUntil: captureCooldownUntil }]
+      : [];
     return {
       tone: scenarioLabel === "Úspěch" ? "is-success" : scenarioLabel === "Částečný úspěch" ? "is-medium-fail" : "is-major-fail",
       title: scenarioLabel === "Úspěch"
@@ -491,7 +513,7 @@ export function createResultPayloadBuilders(deps = {}) {
         }).concat((Array.isArray(extraIntelBlocks) ? extraIntelBlocks : []).map((block) => ({
           label: block.label || "Rozšířený intel",
           value: block.value || "Odhalen"
-        })))
+        })), normalCooldownRow)
       : scenarioLabel === "Částečný úspěch"
         ? buildSpyResultRows(mission.targetDistrictId, mission, {
             defensePower: knownDefensePower,
@@ -501,7 +523,7 @@ export function createResultPayloadBuilders(deps = {}) {
             showAtmosphere: true,
             showBuildings: false,
             fullWidthBuildings: true
-          })
+          }).concat(normalCooldownRow)
         : [
             { label: "Stav špeha", value: "Zajat" },
             { label: "Cooldown", value: formatDurationLabel(Math.max(0, captureCooldownUntil - now())), nowrap: true, countdownUntil: captureCooldownUntil },

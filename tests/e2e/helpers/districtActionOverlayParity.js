@@ -514,6 +514,12 @@ export async function openDistrictActionOverlayFromVisibleUi(page, surfaceName, 
   const shell = page.locator(`${definition.shellSelector}:visible`).last();
   const target = page.locator(`${definition.targetSelector}:visible`).last();
   await expect(shell, `${surfaceName} shell must be visible`).toBeVisible();
+  if (definition.shellSelector === "[data-district-popup]") {
+    await expect(
+      shell,
+      `${surfaceName} district popup must finish its interaction-entry lifecycle`
+    ).toHaveAttribute("data-district-popup-interaction-ready", "ready");
+  }
   await expect(target, `${surfaceName} presentation target must be visible`).toBeVisible();
   for (const selector of definition.requiredSectionSelectors) {
     await expect(
@@ -521,6 +527,13 @@ export async function openDistrictActionOverlayFromVisibleUi(page, surfaceName, 
       `${surfaceName} must keep required section ${selector}`
     ).toBeVisible();
   }
+  // The trusted district click leaves the real mouse pointer at the selected
+  // map coordinate. Depending on the viewport, the newly opened overlay can
+  // place a stepper button under that pointer and activate its genuine hover
+  // treatment. Move the pointer to the inert page corner before comparing
+  // presentation contracts so local and hosted captures observe the same
+  // resting UI state.
+  await page.mouse.move(1, 1);
   await settleActionOverlay(target);
   for (const selector of definition.dynamicAssetSelectors) {
     const asset = target.locator(selector).first();
@@ -622,8 +635,7 @@ async function prepareRobberyConfirmation(page) {
   const setup = page.locator("[data-robbery-setup-popup]:visible");
   await expect(setup).toBeVisible();
   const input = setup.locator("[data-robbery-member-input]");
-  await input.fill("10");
-  await input.dispatchEvent("input");
+  await setParityNumberInput(input, "10");
   const prepare = setup.locator("[data-robbery-confirm]");
   await expect(prepare).toBeEnabled();
   await prepare.click();
@@ -635,11 +647,22 @@ async function prepareAttackConfirmation(page) {
   const source = setup.locator("[data-attack-source-select]");
   await source.selectOption({ index: 1 });
   const bazooka = setup.locator('[data-attack-weapon-input="bazooka"]');
-  await bazooka.fill("1");
-  await bazooka.dispatchEvent("input");
+  await setParityNumberInput(bazooka, "1");
   const prepare = setup.locator("[data-attack-confirm]");
   await expect(prepare).toBeEnabled();
   await prepare.click();
+}
+
+async function setParityNumberInput(input, value) {
+  await input.evaluate((element, nextValue) => {
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value"
+    )?.set;
+    valueSetter?.call(element, nextValue);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+  }, value);
+  await expect(input).toHaveValue(value);
 }
 
 async function settleActionOverlay(target) {
@@ -1015,6 +1038,21 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
           : String(style[propertyName] || "")
       ]));
     };
+    const pseudoElementStyle = (pseudoElement) => {
+      const style = getComputedStyle(targetElement, pseudoElement);
+      return {
+        backgroundColor: style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        boxShadow: style.boxShadow,
+        content: style.content,
+        display: style.display,
+        filter: style.filter,
+        mixBlendMode: style.mixBlendMode,
+        opacity: style.opacity,
+        transform: style.transform,
+        zIndex: style.zIndex
+      };
+    };
     const dataset = (element) => ({
       keys: Object.keys(element.dataset || {}).sort(),
       semanticValues: Object.fromEntries(config.semanticDatasetKeys
@@ -1117,6 +1155,10 @@ export async function getDistrictActionOverlayPresentationSignature(page, surfac
         style: computedStyle(element),
         tag: element.tagName.toLowerCase()
       })),
+      pseudoElements: {
+        after: pseudoElementStyle("::after"),
+        before: pseudoElementStyle("::before")
+      },
       sections: sectionNodes.map((element) => ({
         classes: classNames(element),
         path: elementPath(element),
@@ -1246,9 +1288,18 @@ export async function captureDistrictActionOverlayScreenshot(page, {
 }) {
   const definition = resolveDistrictActionOverlayDefinition(surfaceName);
   const stabilizeInlineAction = definition.stage === "inline-pre-submit";
+  const inlineRasterStabilizationSelector = stabilizeInlineAction
+    ? [
+        definition.targetSelector,
+        ".district-popup-card",
+        ".district-popup-body",
+        ".district-popup-action-section"
+      ].join(",")
+    : "";
   const target = page.locator(`${definition.targetSelector}:visible`).last();
   await expect(target).toBeVisible();
   return captureIsolatedParityScreenshot(page, {
+    includeStabilizationDiagnostics: stabilizeInlineAction,
     ignoreSelector: [
       ...definition.dynamicAssetSelectors,
       ...definition.dynamicLeafSelectors
@@ -1257,13 +1308,26 @@ export async function captureDistrictActionOverlayScreenshot(page, {
     roundedCompositeSelector: stabilizeInlineAction
       ? definition.targetSelector
       : definition.roundedCompositeSelector || "",
-    stableBackdropFilterSelector: stabilizeInlineAction
-      ? definition.targetSelector
-      : "",
+    stableAnimationSelector: inlineRasterStabilizationSelector,
+    stableBackdropFilterSelector: inlineRasterStabilizationSelector,
     stableBackdropShellSelector: definition.shellSelector,
+    stableRasterRootSelector: definition.shellSelector,
+    stableRasterSelector: inlineRasterStabilizationSelector,
     stableTargetDevicePixelAlignment: stabilizeInlineAction,
+    stableTargetPaintOrigin: stabilizeInlineAction,
+    stableTargetPseudoElements: stabilizeInlineAction,
     stableTargetStyleProperties: stabilizeInlineAction
-      ? { "background-color": "rgb(6, 10, 18)" }
+      // The real computed background is asserted by the presentation signature.
+      // Replace every translucent background layer only for the isolated raster:
+      // otherwise two identical glass buttons composite different district artwork.
+       ? {
+          transition: "none",
+          background: "rgb(6, 10, 18)",
+          // The live 8px/9px optical padding is asserted by the presentation
+          // signature. Use symmetric capture padding so the 14px glyph range
+          // starts on an integer pixel instead of Chromium's unstable y=15.5.
+          "padding-bottom": "8px"
+        }
       : {},
     target
   });

@@ -1,5 +1,6 @@
 import type { PlayerEconomyView, PlayerView } from "@empire/shared-types";
 import type { DayNightReadModel } from "@empire/shared-types";
+import { formatHeatLabel } from "./district-panel-view-model-formatters";
 
 /**
  * Responsibility: Maps server-fed player projections into UI-safe view model fields.
@@ -23,7 +24,6 @@ export interface PlayerEconomyViewModel {
   dirtyCashLabel: string;
   influenceLabel: string;
   populationLabel: string;
-  gangMembersLabel: string;
 }
 
 export interface PoliceViewModel {
@@ -59,8 +59,7 @@ const createEconomyViewModel = (economy: PlayerEconomyView): PlayerEconomyViewMo
   cleanCashLabel: String(Math.max(0, Number(economy.cleanCash || 0))),
   dirtyCashLabel: String(Math.max(0, Number(economy.dirtyCash || 0))),
   influenceLabel: String(Math.max(0, Number(economy.influence || 0))),
-  populationLabel: String(Math.max(0, Number(economy.population || 0))),
-  gangMembersLabel: String(Math.max(0, Number(economy.gangMembers || 0)))
+  populationLabel: String(Math.max(0, Number(economy.population || 0)))
 });
 
 const createPoliceViewModel = (view: PlayerView): PoliceViewModel | null => {
@@ -74,13 +73,15 @@ const createPoliceViewModel = (view: PlayerView): PoliceViewModel | null => {
     : `+${Math.abs(raidConsequenceChangePct)} % následky raidu`;
 
   return {
-    heatLabel: String(Math.max(0, Number(police.heat || 0))),
+    heatLabel: formatHeatLabel(Math.max(0, Number(police.heat || 0))),
     wantedLevelLabel: police.wantedLevelLabel || police.wantedLabel || `${police.wantedLevel} / 5`,
     pendingRaidLabel: police.pendingRaid
       ? `${police.pendingRaid.severity.toUpperCase()} raid`
       : null,
     raidConsequenceStatus: police.raidConsequenceStatus || "none",
-    selectedDistrictHeatLabel: String(Math.max(0, Number(police.selectedDistrictHeat || 0))),
+    selectedDistrictHeatLabel: formatHeatLabel(
+      Math.max(0, Number(police.selectedDistrictHeat || 0))
+    ),
     protectionLabel: police.protection.sources.length > 0
       ? `${police.protection.sources.join(", ")} ${raidConsequenceLabel}`
       : "žádná"
@@ -88,7 +89,9 @@ const createPoliceViewModel = (view: PlayerView): PoliceViewModel | null => {
 };
 
 const formatEconomySummary = (economy: PlayerEconomyView): string => {
-  const seenResourceIds = new Set(["cash", "dirty-cash", "population", "gang-members"]);
+  // Legacy aliases are presentation-only dedupe guards for an old cached API
+  // payload. New projections expose only the canonical population field.
+  const seenResourceIds = new Set(["cash", "dirty-cash", "population", "gang-members", "gangMembers", "gang_members"]);
   const parts = [
     `Cash ${Math.max(0, Number(economy.cleanCash || 0))}`,
     `Dirty Cash ${Math.max(0, Number(economy.dirtyCash || 0))}`,

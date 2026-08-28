@@ -56,6 +56,8 @@ describe("social modal parity coverage contract", () => {
     expect(socialModalParitySurfaces.market.stableBackdropFilterSelector).toBe(
       ".market-popup-dashboard__chip,.market-popup-dashboard__recent"
     );
+    expect(socialModalParitySurfaces.market.stableTargetDevicePixelAlignment).toBe(true);
+    expect(socialModalParitySurfaces.market.stableTargetDevicePixelAlignmentMode).toBe("translate");
     expect(socialModalParitySurfaces.market.responsiveHiddenSectionRules).toEqual([
       {
         maxViewportWidth: 720,
@@ -215,6 +217,9 @@ describe("social modal parity coverage contract", () => {
     );
     expect(helperSource).toContain(
       "requestAnimationFrame(() => requestAnimationFrame(resolve));"
+    );
+    expect(helperSource).toContain(
+      'expect(page.locator("body")).not.toHaveClass(/\\bgame-mobile-close-guard\\b/u)'
     );
     expect(helperSource).toContain(
       'roundedCompositeSelector: definition.roundedCompositeSelector || ""'

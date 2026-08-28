@@ -41,11 +41,9 @@ describe("public release workflows", () => {
     ].map((label) => staging.indexOf(label));
     expect(order.every((index) => index >= 0)).toBe(true);
     expect(order).toEqual([...order].sort((left, right) => left - right));
-    expect(staging).toContain("leave_registration_open:");
-    expect(staging).toContain(
-      "EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: ${{ needs.gate.outputs.leave_registration_open }}"
-    );
-    expect(staging).toContain("Resolve bounded staging registration policy");
+    expect(staging).not.toContain("leave_registration_open:");
+    expect(staging).toContain('EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true"');
+    expect(staging).not.toContain("steps.registration.outputs.expires_at");
     expect(staging).toContain("--allow-registration-enabled");
     expect(staging).toContain(
       'set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED "$EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED"'
@@ -63,7 +61,7 @@ describe("public release workflows", () => {
       staging.indexOf("Deploy Netlify staging site")
     );
     expect(registrationConfiguration.indexOf(
-      'set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT'
+      'env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT'
     )).toBeLessThan(registrationConfiguration.indexOf(
       'set_function EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED'
     ));
@@ -77,7 +75,9 @@ describe("public release workflows", () => {
     expect(staging).toContain(".schemaVersion == $schema");
     expect(staging).toContain("inputs.bootstrap_admin");
     expect(staging).toContain("set_function_secret EMPIRE_ADMIN_SESSION_SECRET");
-    expect(staging).toContain("--secret --scope functions --context production");
+    expect(staging).toContain("--secret --context production");
+    expect(staging).toContain("--scope functions");
+    expect(staging).not.toMatch(/--secret[^\n]+--scope[^\n]+--context|--secret[^\n]+--context[^\n]+--scope/u);
   });
 
   it("pins every staging deploy mutation to the non-production Netlify site", () => {
@@ -242,9 +242,9 @@ describe("public release workflows", () => {
     expect(remote).toContain('.head_sha == $sha');
     expect(remote).toContain('staging-release-${RELEASE_SHA}');
     expect(remote).toContain('gate-evidence/artifacts/release/staging/registration-policy.json');
-    expect(remote).toContain('LEAVE_REGISTRATION_OPEN: ${{ steps.release.outputs.leave_registration_open }}');
+    expect(remote).not.toContain('leave_registration_open');
     expect(remote).toContain('.registrationMode == "open" and .registrationOpen == true');
-    expect(remote).toContain('.registrationMode == "closed" and .registrationOpen == false');
+    expect(remote).toContain('.registrationExpiresAt == null');
     expect(remote).toContain('https://staging.empirestreets.cz');
     expect(remote).not.toContain('http://localhost');
     for (const suite of REMOTE_STAGING_ACCEPTANCE_SUITE_NAMES) {
@@ -282,7 +282,7 @@ describe("public release workflows", () => {
     expect(remote).toContain('.endpointIdHash == $binding[0].endpointIdHash');
   });
 
-  it("measures staging load and finalizes the explicitly selected registration policy", () => {
+  it("measures staging load and always restores permanent-open registration", () => {
     expect(remote).toContain("npm run test:remote-staging:load-soak");
     expect(remote).toContain("EMPIRE_REMOTE_MAX_DB_CONNECTIONS");
     expect(remote).toContain("EMPIRE_REMOTE_MAX_WORKER_MEMORY_BYTES");
@@ -300,12 +300,7 @@ describe("public release workflows", () => {
     expect(remote).toContain('.performance.metrics.actionMix.distinctAcceptedActionCount >= 4');
     expect(remote).toContain('.performance.metrics.rejectionClassification.unexpected == 0');
     expect(remote).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT");
-    const finalPolicyInput = remote.slice(
-      remote.indexOf("      leave_registration_open:"), remote.indexOf("permissions:")
-    );
-    expect(finalPolicyInput).toContain("required: true");
-    expect(finalPolicyInput).toContain("default: false");
-    expect(finalPolicyInput).toContain("type: boolean");
+    expect(remote).not.toContain("leave_registration_open:");
     const finalizationJob = remote.slice(
       remote.indexOf("  finalize-registration-policy:"), remote.indexOf("  automated-verdict:")
     );
@@ -324,23 +319,24 @@ describe("public release workflows", () => {
       .toBeLessThan(openRegistrationJob.indexOf("netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT"));
     expect(finalizationJob.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]'))
       .toBeLessThan(finalizationJob.indexOf("Verify final registration policy and exact release parity"));
-    expect(finalizationJob.indexOf("Verify exact staging Netlify site target before closure mutation"))
-      .toBeLessThan(finalizationJob.indexOf("netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false"));
+    expect(finalizationJob.indexOf("Verify exact staging Netlify site target before permanent-open mutation"))
+      .toBeLessThan(finalizationJob.indexOf("netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true"));
     expect(finalizationJob).toContain("if: always() && needs.gate.result == 'success'");
-    expect(finalizationJob).toContain("if: env.LEAVE_REGISTRATION_OPEN != 'true'");
-    expect(finalizationJob).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false");
+    expect(finalizationJob).not.toContain("LEAVE_REGISTRATION_OPEN");
+    expect(finalizationJob).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true");
     expect(finalizationJob).toContain("env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT");
     expect(finalizationJob).toContain("staging-registration-build-${RELEASE_SHA}");
     expect(finalizationJob).toContain('expected_mode="open"');
     expect(finalizationJob).toContain('expected_enabled="true"');
-    expect(finalizationJob).toContain("validatePublicRegistrationWindow");
+    expect(openRegistrationJob).toContain("validatePublicRegistrationWindow");
     expect(finalizationJob).toContain("npm run verify:remote-release");
     expect(finalizationJob).toContain("staging-registration-final-${{ env.RELEASE_SHA }}");
     const immutableBuildDownload = finalizationJob.slice(
       finalizationJob.indexOf("      - name: Download immutable registration build"),
-      finalizationJob.indexOf("      - name: Verify exact staging Netlify site target before closure mutation")
+      finalizationJob.indexOf("      - name: Verify exact staging Netlify site target before permanent-open mutation")
     );
-    expect(immutableBuildDownload).not.toContain("if: env.LEAVE_REGISTRATION_OPEN != 'true'");
+    expect(immutableBuildDownload).not.toContain("LEAVE_REGISTRATION_OPEN");
+    expect(remote).not.toMatch(/--scope[^\n]+--context|--context[^\n]+--scope/u);
     expect(remote.match(/EMPIRE_HOSTED_WORKER_REGION: fra/gu)).toHaveLength(2);
     expect(remote).toContain('manualNetlifyObservabilityReview:"required-before-production"');
   });
@@ -415,7 +411,7 @@ describe("public release workflows", () => {
     expect(production).toContain("environment: production");
   });
 
-  it("keeps the production deploy ordered, immutable and registration closed", () => {
+  it("keeps the production deploy ordered, immutable and registration permanently open", () => {
     const order = [
       "Validate production environments and create manifest",
       "Capture rollback pointers",
@@ -424,12 +420,12 @@ describe("public release workflows", () => {
       "Apply production migrations exactly once",
       "Verify current production schema",
       "Build frontend, API and immutable worker image",
-      "Deploy Netlify production with registration closed",
+      "Deploy Netlify production with permanent registration",
       "Deploy exactly one persistent production worker",
       "Wait for production API and worker health",
       "Verify remote production SHA and asset parity",
       "Run guarded production browser smoke",
-      "Force final closed registration and redeploy the same SHA",
+      "Persist permanent registration and redeploy the same SHA",
       "Verify final production registration, domain and SHA parity"
     ].map((label) => production.indexOf(label));
     expect(order.every((index) => index >= 0)).toBe(true);
@@ -441,10 +437,10 @@ describe("public release workflows", () => {
     expect(production).toContain("npm run verify:remote-release");
     expect(production).toContain("npm run test:remote-production:smoke");
     expect(production).toContain("EMPIRE_PRODUCTION_DATABASE_TARGET_HASH");
-    expect(production).toContain('EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "false"');
+    expect(production).toContain('EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED: "true"');
     expect(production).toContain('EMPIRE_WAR_HOSTING_ENABLED: "false"');
     expect(production).not.toMatch(/EMPIRE_WAR_HOSTING_ENABLED true/u);
-    expect(production).not.toMatch(/env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true/u);
+    expect(production).not.toMatch(/env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false/u);
     expect(production).not.toContain("--context deploy-preview");
     expect(production).toContain('registry.fly.io/${FLY_PRODUCTION_APP}:${RELEASE_SHA}');
     expect(production).toContain("--ha=false");
@@ -507,17 +503,19 @@ describe("public release workflows", () => {
     expect(rollback).toContain("workerReplicas:1");
     expect(rollback).not.toContain("NEON_API_KEY");
     expect(rollback).not.toContain("snapshot");
-    expect(rollback).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false");
+    expect(rollback).toContain("EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true");
   });
 
-  it("rehearses rollback only after exact closed remote staging acceptance", () => {
+  it("rehearses rollback only after exact permanent-open remote staging acceptance", () => {
     expect(rollback).toContain("name: Staging Rollback Rehearsal");
     expect(rollback).toContain("workflow_dispatch:");
     expect(rollback).toContain('.name == "Deploy Staging"');
     expect(rollback).toContain('.path == ".github/workflows/deploy-staging.yml"');
     expect(rollback).toContain('.name == "Staging Remote Acceptance"');
     expect(rollback).toContain('.path == ".github/workflows/staging-remote-acceptance.yml"');
-    expect(rollback).toContain('.registrationClosed == true');
+    expect(rollback).toContain('.registrationOpen == true');
+    expect(rollback).toContain('.registrationClosed == false');
+    expect(rollback).toContain('.registrationExpiresAt == null');
     expect(rollback).toContain("group: empire-staging-release");
     expect(rollback).toContain("environment: staging");
   });
@@ -535,10 +533,10 @@ describe("public release workflows", () => {
     expect(rollback).not.toMatch(/db:migrate|snapshot/u);
   });
 
-  it("always restores the candidate and keeps one worker with registration closed", () => {
+  it("always restores the candidate and keeps one worker with registration open", () => {
     const order = [
-      "Restore previous staging code with registration closed",
-      "Verify previous staging release is healthy and closed",
+      "Restore previous staging code with permanent registration open",
+      "Verify previous staging release is healthy and registration remains open",
       "Restore exact staging candidate",
       "Verify exact candidate was restored",
       "Verify restored candidate frontend and asset parity",
@@ -549,8 +547,9 @@ describe("public release workflows", () => {
     expect(rollback).toContain("if: always() && steps.capture.outcome == 'success'");
     expect(rollback.match(/flyctl scale count 1/gu)).toHaveLength(2);
     expect(rollback).not.toMatch(/flyctl scale count [2-9]/u);
-    expect(rollback.match(/EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false/gu)).toHaveLength(2);
-    expect(rollback).not.toMatch(/EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true/u);
+    expect(rollback.match(/EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true/gu)).toHaveLength(4);
+    expect(rollback).not.toMatch(/EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED false/u);
+    expect(rollback.match(/env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT/gu)).toHaveLength(2);
     expect(rollback).toContain("candidateRestored:true");
     expect(rollback).toContain("candidateAssetParityVerified:true");
     expect(rollback).toContain("npm run verify:remote-release");
@@ -587,7 +586,7 @@ describe("public release workflows", () => {
     expect(targetGuard).toBeGreaterThan(0);
     expect(rollback.indexOf('[[ "$FLY_STAGING_APP" == "empire-streets-staging-worker" ]]'))
       .toBeLessThan(rollback.indexOf("flyctl auth docker"));
-    expect(targetGuard).toBeLessThan(rollback.indexOf("Restore previous staging code with registration closed"));
+    expect(targetGuard).toBeLessThan(rollback.indexOf("Restore previous staging code with permanent registration open"));
     expect(targetGuard).toBeLessThan(rollback.indexOf("Restore exact staging candidate"));
   });
 });

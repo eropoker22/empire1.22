@@ -262,12 +262,10 @@ test.describe("live/demo utility modal parity", () => {
               `${viewport.name} ${surfaceName} scroll availability, extent and reset behavior`
             ).toEqual(localScroll);
 
-            const localScreenshotPath = testInfo.outputPath(
-              `${surfaceName}--local-demo--${viewport.name}.png`
-            );
-            const hostedScreenshotPath = testInfo.outputPath(
-              `${surfaceName}--hosted--${viewport.name}.png`
-            );
+            const localAttachmentName = `${surfaceName}--local-demo--${viewport.name}.png`;
+            const hostedAttachmentName = `${surfaceName}--hosted--${viewport.name}.png`;
+            const localScreenshotPath = testInfo.outputPath(localAttachmentName);
+            const hostedScreenshotPath = testInfo.outputPath(hostedAttachmentName);
             const [localCapture, hostedCapture] = await Promise.all([
               captureUtilityParityScreenshot(localPage, {
                 path: localScreenshotPath,
@@ -276,16 +274,6 @@ test.describe("live/demo utility modal parity", () => {
               captureUtilityParityScreenshot(hostedPage, {
                 path: hostedScreenshotPath,
                 surfaceName
-              })
-            ]);
-            await Promise.all([
-              testInfo.attach(`${surfaceName}--local-demo--${viewport.name}.png`, {
-                contentType: "image/png",
-                path: localScreenshotPath
-              }),
-              testInfo.attach(`${surfaceName}--hosted--${viewport.name}.png`, {
-                contentType: "image/png",
-                path: hostedScreenshotPath
               })
             ]);
             const screenshotComparison = compareParityPngScreenshots(
@@ -299,10 +287,20 @@ test.describe("live/demo utility modal parity", () => {
                 ]
               }
             );
-            await testInfo.attach(`${surfaceName}--${viewport.name}--png-diff.json`, {
-              body: Buffer.from(`${JSON.stringify(screenshotComparison, null, 2)}\n`, "utf8"),
-              contentType: "application/json"
-            });
+            await Promise.all([
+              testInfo.attach(localAttachmentName, {
+                contentType: "image/png",
+                path: localScreenshotPath
+              }),
+              testInfo.attach(hostedAttachmentName, {
+                contentType: "image/png",
+                path: hostedScreenshotPath
+              }),
+              testInfo.attach(`${surfaceName}--${viewport.name}--png-diff.json`, {
+                body: Buffer.from(`${JSON.stringify(screenshotComparison, null, 2)}\n`, "utf8"),
+                contentType: "application/json"
+              })
+            ]);
             expect(screenshotComparison.dimensionsEqual).toBe(true);
             expect(
               screenshotComparison.meaningfulPixelCount,

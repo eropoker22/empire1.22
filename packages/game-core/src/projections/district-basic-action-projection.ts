@@ -17,6 +17,7 @@ import {
   validateMapAction
 } from "../rules";
 import { validateHeist } from "../validation";
+import { resolvePlayerPopulation } from "../state/playerPopulation";
 export { createDistrictRobTargetViews } from "./district-rob-target-projection";
 
 export const createDistrictHeistTargetViews = (
@@ -33,10 +34,7 @@ export const createDistrictHeistTargetViews = (
     .map((districtId) => state.districtsById[districtId])
     .filter((target) => target !== undefined)
     .map((target) => {
-      const availablePopulation = Math.max(
-        0,
-        Math.floor(Number(state.playersById[playerId]?.population ?? 0))
-      );
+      const availablePopulation = Math.max(0, Math.floor(resolvePlayerPopulation(state, playerId)));
       const styleConfig = conflictConfig?.heist?.styles;
       const styleMinimum = (style: "stealth" | "balanced" | "all_in") => (
         styleConfig?.[style]?.minMembers ?? (style === "stealth" ? 5 : style === "balanced" ? 10 : 25)
@@ -59,7 +57,7 @@ export const createDistrictHeistTargetViews = (
           targetDistrictId: target.id,
           sourceDistrictId: source.id,
           style: recommendedStyle,
-          gangMembersSent: styleMinimum(recommendedStyle),
+          populationSent: styleMinimum(recommendedStyle),
           expectedTargetVersion: target.version,
           expectedSourceVersion: source.version,
           expectedConflictRevision: target.conflictRevision
@@ -85,7 +83,7 @@ export const createDistrictHeistTargetViews = (
           ? calculateImmediateHeistChances({
               defenseLoadout: target.defenseLoadout,
               style: config,
-              members: minMembers,
+              populationSent: minMembers,
               config: heistConfig
             })
           : {
@@ -96,7 +94,7 @@ export const createDistrictHeistTargetViews = (
           style,
           label,
           enabled: availablePopulation >= minMembers,
-          defaultGangMembersSent: minMembers,
+          defaultPopulationSent: minMembers,
           minMembers,
           maxMembers,
           successChance: chances.successChance,

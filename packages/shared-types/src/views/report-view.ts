@@ -107,7 +107,7 @@ export interface HeistReport {
   style: "stealth" | "balanced" | "all_in";
   result: "clean_success" | "success" | "detected" | "failed" | "trap_triggered";
   loot: Record<string, number>;
-  gangLosses: number;
+  populationLosses: number;
   heatGained: number;
   successChance: number;
   detectionChance: number;

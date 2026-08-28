@@ -26,25 +26,12 @@ import {
   isRaidCooldownActive,
   resolveRaidSeverity
 } from "./raidTriggerHelpers";
-import { isMiddayRaidBoundary, isScheduledRaidBoundary } from "./raidSchedule";
+import { isScheduledRaidBoundary } from "./raidSchedule";
+import { resolveRaidOpeningCandidates } from "./raidOpeningTarget";
+import type { RaidTriggerDecision } from "./raidTriggerTypes";
+export type { RaidTriggerDecision, RaidTriggerDecisionType } from "./raidTriggerTypes";
 
 const RAID_PENDING_FLAG = "raid:pending";
-
-export type RaidTriggerDecisionType =
-  | "no_raid"
-  | "warning_only"
-  | "pending_raid_created"
-  | "political_cover_delayed"
-  | "existing_pending_raid_kept"
-  | "concurrent_raid_limit_active"
-  | "cooldown_active";
-
-export interface RaidTriggerDecision {
-  playerId: string;
-  type: RaidTriggerDecisionType;
-  aggregatePressure: number;
-  raidId?: string;
-}
 
 /**
  * Responsibility: Creates warning and pending-raid police state from aggregate pressure.
@@ -69,22 +56,11 @@ export const triggerRaid = (
   }
   const maxConcurrentRaids = resolveMaxConcurrentRaidsForPhase(config, phaseId);
   const raidDurationTicks = Math.max(1, Math.floor(Number(config.raidDurationTicks || config.pendingRaidTtlTicks || 1)));
-  const activePlayers = Object.values(state.playersById).filter((player) => player.status === "active");
-  const firstRaidHasNotStarted = Object.values(state.policeStatesById).every((policeState) => (
-    policeState.lastRaidCreatedAtTick === undefined
-    && policeState.lastRaidResolvedAtTick === undefined
-    && (policeState.pendingRaids ?? []).length === 0
-  ));
-  const openingMiddayTargetId = firstRaidHasNotStarted && isMiddayRaidBoundary(state, context, currentTick)
-    ? activePlayers
-      .filter((player) => Object.values(state.districtsById).some((district) => district.ownerPlayerId === player.id))
-      .map((player) => calculatePlayerPolicePressure(state, player.id, context))
-      .sort((left, right) => (
-        right.aggregatePressure - left.aggregatePressure
-        || right.hottestDistrictHeat - left.hottestDistrictHeat
-        || left.playerId.localeCompare(right.playerId)
-      ))[0]?.playerId ?? null
-    : null;
+  const { activePlayers, openingMiddayTargetId } = resolveRaidOpeningCandidates(
+    state,
+    context,
+    currentTick
+  );
 
   for (const player of activePlayers) {
     const pressure = calculatePlayerPolicePressure(
@@ -243,7 +219,7 @@ export const triggerRaid = (
           "dirty-cash": previewConsequences.seizedDirtyCash
         },
         resourcesSeized: previewConsequences.seizedResources,
-        gangMembersLost: 0,
+        populationLost: 0,
         districtLockdownTicks: previewConsequences.lockdownUntilTick
           ? Math.max(0, previewConsequences.lockdownUntilTick - currentTick)
           : 0,

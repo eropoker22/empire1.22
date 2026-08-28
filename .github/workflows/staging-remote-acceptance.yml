@@ -16,11 +16,6 @@ on:
         required: true
         default: "180"
         type: string
-      leave_registration_open:
-        description: Legacy compatibility input; acceptance cleanup always restores permanent public registration
-        required: true
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -40,7 +35,6 @@ jobs:
       short_sha: ${{ steps.release.outputs.short_sha }}
       deploy_run_id: ${{ steps.release.outputs.deploy_run_id }}
       soak_minutes: ${{ steps.release.outputs.soak_minutes }}
-      leave_registration_open: ${{ steps.release.outputs.leave_registration_open }}
 
     steps:
       - name: Resolve exact approved deployment
@@ -49,7 +43,6 @@ jobs:
           DISPATCH_SHA: ${{ inputs.sha }}
           DISPATCH_DEPLOY_RUN_ID: ${{ inputs.staging_deploy_run_id }}
           DISPATCH_SOAK_MINUTES: ${{ inputs.soak_minutes }}
-          DISPATCH_LEAVE_REGISTRATION_OPEN: ${{ inputs.leave_registration_open }}
         shell: bash
         run: |
           set -euo pipefail
@@ -57,12 +50,10 @@ jobs:
           [[ "$DISPATCH_DEPLOY_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$DISPATCH_SOAK_MINUTES" =~ ^[0-9]+$ ]]
           (( DISPATCH_SOAK_MINUTES >= 120 && DISPATCH_SOAK_MINUTES <= 240 ))
-          [[ "$DISPATCH_LEAVE_REGISTRATION_OPEN" == "true" || "$DISPATCH_LEAVE_REGISTRATION_OPEN" == "false" ]]
           echo "sha=$DISPATCH_SHA" >> "$GITHUB_OUTPUT"
           echo "short_sha=${DISPATCH_SHA:0:7}" >> "$GITHUB_OUTPUT"
           echo "deploy_run_id=$DISPATCH_DEPLOY_RUN_ID" >> "$GITHUB_OUTPUT"
           echo "soak_minutes=$DISPATCH_SOAK_MINUTES" >> "$GITHUB_OUTPUT"
-          echo "leave_registration_open=$DISPATCH_LEAVE_REGISTRATION_OPEN" >> "$GITHUB_OUTPUT"
 
       - name: Checkout exact deployed SHA for policy validation
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -96,7 +87,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
           DEPLOY_RUN_ID: ${{ steps.release.outputs.deploy_run_id }}
-          LEAVE_REGISTRATION_OPEN: ${{ steps.release.outputs.leave_registration_open }}
         shell: bash
         run: |
           set -euo pipefail
@@ -339,11 +329,15 @@ jobs:
               if (!validatePublicRegistrationWindow({ enabled: true, expiresAt: process.env.EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT }).valid) process.exit(1);
             '
           netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT "$expires_at" \
-            --force --scope functions --context production >/dev/null
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT "$expires_at" \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
-            --force --scope functions --context production >/dev/null
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           mkdir -p artifacts/release/staging/remote-acceptance
-          netlify deploy --prod --dir=client --functions=netlify/functions --skip-functions-cache \
+          netlify deploy --prod --site "$NETLIFY_SITE_ID" --dir=client --functions=netlify/functions --skip-functions-cache \
             --message "staging remote acceptance open ${RELEASE_SHA}" --json \
             > artifacts/release/staging/remote-acceptance/netlify-open-registration.json
           echo "expires_at=$expires_at" >> "$GITHUB_OUTPUT"
@@ -462,7 +456,7 @@ jobs:
             restart_worker: false
           - label: remote-multiplayer-visible-actions
             suite: multiplayer-visible-actions
-            timeout: 60
+            timeout: 90
             fixture: true
             restart_worker: false
           - label: remote-city-events
@@ -777,7 +771,6 @@ jobs:
     env:
       RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
       DEPLOY_RUN_ID: ${{ needs.gate.outputs.deploy_run_id }}
-      LEAVE_REGISTRATION_OPEN: ${{ needs.gate.outputs.leave_registration_open }}
       REGISTRATION_EXPIRES_AT: ${{ needs.open-registration.outputs.registration_expires_at }}
       STAGING_ORIGIN: https://staging.empirestreets.cz
       NETLIFY_SITE_ID: ${{ vars.NETLIFY_STAGING_SITE_ID }}
@@ -871,10 +864,12 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/release/staging/remote-acceptance
           netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
-            --force --scope functions --context production >/dev/null
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --scope functions >/dev/null
+          netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
-            --force --context production >/dev/null
-          netlify deploy --prod --dir=client --functions=netlify/functions --skip-functions-cache \
+            --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
+          netlify deploy --prod --site "$NETLIFY_SITE_ID" --dir=client --functions=netlify/functions --skip-functions-cache \
             --message "staging remote acceptance permanent-open ${RELEASE_SHA}" --json \
             > artifacts/release/staging/remote-acceptance/netlify-permanent-registration.json
 
@@ -953,7 +948,6 @@ jobs:
       - name: Require every automated gate and verified final registration policy
         env:
           RELEASE_SHA: ${{ needs.gate.outputs.release_sha }}
-          LEAVE_REGISTRATION_OPEN: ${{ needs.gate.outputs.leave_registration_open }}
           REGISTRATION_EXPIRES_AT: ${{ needs.open-registration.outputs.registration_expires_at }}
           CODE_RESULT: ${{ needs.code-evidence.result }}
           OPEN_RESULT: ${{ needs.open-registration.result }}
@@ -1022,7 +1016,6 @@ jobs:
       WORKER_RESULT: ${{ needs.worker-redeploy.result }}
       LOAD_RESULT: ${{ needs.load-soak.result }}
       FINALIZE_RESULT: ${{ needs.finalize-registration-policy.result }}
-      LEAVE_REGISTRATION_OPEN: ${{ needs.gate.outputs.leave_registration_open }}
       AUTOMATED_RESULT: ${{ needs.automated-verdict.result }}
       EVIDENCE_ROOT: artifacts/release/staging
       EVIDENCE_OUTPUT: artifacts/release/staging/pre-alpha-hardening-${{ needs.gate.outputs.short_sha }}

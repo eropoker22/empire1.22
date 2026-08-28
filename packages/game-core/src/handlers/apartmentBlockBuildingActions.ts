@@ -169,19 +169,13 @@ export const resolveApartmentBlockAction = (input: {
   };
 
   return {
-    balances: {
-      ...input.balances,
-      "gang-members": Math.max(0, Number(input.balances["gang-members"] || 0) + collected)
-    },
+    balances: { ...input.balances },
     buildingMetadata: withApartmentBlockMetadata(input.building, nextMetadata),
     heatGain: 0,
     influenceChange: 0,
     inputCost: {},
-    outputGain: {
-      population: collected,
-      "gang-members": collected
-    },
-    reportText: `Vybral jsi ${collected} nových členů gangu z Bytového bloku.`,
+    outputGain: { population: collected },
+    reportText: `Vybral jsi ${collected} populace z Bytového bloku.`,
     apartmentResult: {
       type: "collect",
       collectedPopulation: collected,

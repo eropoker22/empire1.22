@@ -64,6 +64,8 @@ describe("production building network gameplay slice", () => {
     const factoryId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "factory")?.buildingId;
     const drugLabId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "drug_lab")?.buildingId;
     const armoryId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "armory")?.buildingId;
+    const initialPulseShot = Number(runtime.state.resourceStatesById[resourceStateId]?.balances["pulse-shot"] || 0);
+    const initialPistol = Number(runtime.state.resourceStatesById[resourceStateId]?.balances.pistol || 0);
 
     expect(factoryId).toBeTruthy();
     expect(drugLabId).toBeTruthy();
@@ -96,7 +98,13 @@ describe("production building network gameplay slice", () => {
     expect(drugAction.errors).toEqual([]);
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === drugLabId)?.drugLab?.lines.find(
       (line) => line.recipeId === "pulse-shot"
-    )).toMatchObject({ queuedAmount: 1, activeAmount: 1 });
+    )).toMatchObject({
+      executionMode: "instant",
+      queuedAmount: 0,
+      activeAmount: 0,
+      playerStoredAmount: initialPulseShot + 1
+    });
+    expect(runtime.state.resourceStatesById[resourceStateId]?.balances["pulse-shot"]).toBe(initialPulseShot + 1);
 
     const armoryCraft = await client.dispatch(
       {
@@ -115,6 +123,12 @@ describe("production building network gameplay slice", () => {
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === armoryId)?.armory?.productionLines).toHaveLength(10);
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === armoryId)?.armory?.productionLines.find(
       (line) => line.recipeId === "pistol"
-    )).toMatchObject({ queuedAmount: 1, activeAmount: 1 });
+    )).toMatchObject({
+      executionMode: "instant",
+      queuedAmount: 0,
+      activeAmount: 0,
+      playerStoredAmount: initialPistol + 1
+    });
+    expect(runtime.state.resourceStatesById[resourceStateId]?.balances.pistol).toBe(initialPistol + 1);
   });
 });

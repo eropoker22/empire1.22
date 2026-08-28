@@ -34,7 +34,7 @@ describe("immediate deterministic heist", () => {
         targetDistrictId: "district:2",
         sourceDistrictId: "district:1",
         style: "all_in",
-        gangMembersSent: 25
+        populationSent: 25
       }
     }), "district:1", heistConfig);
     expect(allIn.detectionChance).toBeGreaterThan(expected.detectionChance);
@@ -80,7 +80,7 @@ describe("immediate deterministic heist", () => {
         targetDistrictId: "district:3",
         sourceDistrictId: "district:1",
         style: "balanced",
-        gangMembersSent: 10
+        populationSent: 10
       }
     }), context);
 
@@ -214,9 +214,6 @@ describe("finite neutral robbery", () => {
     const reportNotificationId = result.nextState.root.notificationIds.at(-1)!;
     const reportNotification = result.nextState.notificationsById[reportNotificationId];
     expect(reportNotification?.category).toBe("report.rob");
-    expect(createConflictReportViews(result.nextState, { playerId: "player:1", limit: 10 }))
-      .not.toContainEqual(expect.objectContaining({ reportType: "rob" }));
-    result.nextState.root.tick = Number(reportNotification?.payload.resolveAtTick);
     expect(createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0])
       .toMatchObject({
         reportType: "rob",

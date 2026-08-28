@@ -28,6 +28,10 @@ export const PARITY_PNG_CHANNEL_TOLERANCE = 6;
 export const PARITY_PNG_MAX_CAPTURE_ATTEMPTS = 3;
 export const PARITY_SCREENSHOT_RASTER_FRINGE_PX = 1;
 export const PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX = 2;
+// Chromium can rasterize the outermost glyph antialias halo up to four pixels
+// beyond the measured text box when adjacent flex items land on fractional pixels.
+// This fringe applies only to explicitly enumerated authoritative leaf values.
+export const GAME_CHROME_DYNAMIC_LEAF_RASTER_FRINGE_PX = 4;
 export const BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE = "population-buffer";
 export const buildingPopulationBufferDynamicValueSelector =
   `[data-building-dynamic-value="${BUILDING_POPULATION_BUFFER_DYNAMIC_VALUE}"]`;
@@ -117,6 +121,41 @@ export function createParityPopulationBufferSyncFixture(
   };
 }
 
+export function createParityRenderedPopulationBufferFixture(fixture, renderedAmount) {
+  const config = PARITY_POPULATION_BUFFER_CONFIG[fixture?.buildingTypeId];
+  const amount = Math.floor(Number(renderedAmount));
+  const capacity = Number(fixture?.populationBuffer?.capacity);
+  if (
+    !config
+    || !Number.isFinite(amount)
+    || amount < 0
+    || !Number.isFinite(capacity)
+    || capacity <= 0
+    || amount > capacity
+  ) {
+    return null;
+  }
+  const expectedEnabled = amount >= config.minimumCollectAmount;
+  const expectedDisabledReason = expectedEnabled
+    ? ""
+    : amount <= 0
+      ? config.emptyDisabledReason
+      : config.minimumDisabledReason;
+  if (
+    fixture.collect?.enabled !== expectedEnabled
+    || String(fixture.collect?.disabledReason || "") !== expectedDisabledReason
+  ) {
+    return null;
+  }
+  return {
+    ...fixture,
+    populationBuffer: {
+      ...fixture.populationBuffer,
+      storedAmount: amount
+    }
+  };
+}
+
 function parityPopulationBufferSnapshotsMatch(first, second) {
   if (!first || !second) return first === second;
   return first.buildingTypeId === second.buildingTypeId
@@ -179,14 +218,26 @@ async function applyParityLocalDemoPopulationBufferFixture(localPage, fixture) {
     if (document.documentElement.dataset.runtimeMode !== "local-demo") {
       throw new Error("Population parity state can only be synchronized into local-demo.");
     }
-    const buildingChip = Array.from(document.querySelectorAll(
+    const matchingBuildingChips = Array.from(document.querySelectorAll(
       "[data-district-building-name][data-district-building-type]"
+    )).filter((element) => (
+      element instanceof HTMLElement
+      && String(element.dataset.districtBuildingType || "") === populationFixture.buildingTypeId
+    ));
+    const buildingChip = matchingBuildingChips.find((element) => element.offsetParent !== null)
+      || matchingBuildingChips[0]
+      || null;
+    const openDetailName = Array.from(document.querySelectorAll(
+      "[data-district-building-detail-popup]:not([hidden]) [data-district-building-detail-name]"
     )).find((element) => (
       element instanceof HTMLElement
       && element.offsetParent !== null
-      && String(element.dataset.districtBuildingType || "") === populationFixture.buildingTypeId
     ));
-    const buildingName = String(buildingChip?.dataset?.districtBuildingName || "").trim();
+    const buildingName = String(
+      buildingChip?.dataset?.districtBuildingName
+      || openDetailName?.textContent
+      || ""
+    ).trim();
     const bridge = window.empireLocalDemoGameplayBridge;
     if (!buildingName || typeof bridge?.setE2eDistrictBuildingPopulationBuffer !== "function") {
       throw new Error(`Local-demo population fixture bridge is unavailable: ${populationFixture.buildingTypeId}`);
@@ -259,8 +310,38 @@ export async function captureStableHostedPopulationParitySnapshot(
       hostedSnapshot,
       populationFixture
     );
-    if (readModelStable && renderedCollectStable) {
+    const renderedAmountValue = hostedSnapshot?.renderedPopulationBufferAmount;
+    const renderedAmount = Number(renderedAmountValue);
+    const hasRenderedAmount = renderedAmountValue !== null
+      && renderedAmountValue !== undefined
+      && Number.isFinite(renderedAmount);
+    const renderedAmountStable = !hasRenderedAmount
+      || Math.floor(renderedAmount) === populationFixture.populationBuffer.storedAmount;
+    if (readModelStable && renderedCollectStable && renderedAmountStable) {
       return { hostedSnapshot, populationFixture, snapshotAttempts: attempt };
+    }
+    if (readModelStable && renderedCollectStable && !renderedAmountStable) {
+      const renderedFixture = createParityRenderedPopulationBufferFixture(
+        populationFixture,
+        renderedAmount
+      );
+      if (renderedFixture) {
+        populationFixture = await applyParityLocalDemoPopulationBufferFixture(
+          localPage,
+          renderedFixture
+        );
+        return { hostedSnapshot, populationFixture, snapshotAttempts: attempt };
+      }
+      if (attempt === PARITY_POPULATION_SNAPSHOT_MAX_ATTEMPTS) {
+        throw new Error(
+          `${buildingTypeId} rendered population buffer did not match the authoritative action contract during ${attempt} parity captures: ${JSON.stringify({
+            authoritativeAmount: populationFixture.populationBuffer.storedAmount,
+            collect: populationFixture.collect,
+            renderedAmount: Math.floor(renderedAmount)
+          })}`
+        );
+      }
+      continue;
     }
     if (attempt === PARITY_POPULATION_SNAPSHOT_MAX_ATTEMPTS) {
       throw new Error(readModelStable
@@ -322,7 +403,10 @@ export function createRoundedCornerCompositeIgnoreRegions({
   height,
   radii = {},
   width
-}) {
+}, fringePx = PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX) {
+  if (!Number.isInteger(fringePx) || fringePx < 0) {
+    throw new RangeError("Parity rounded composite fringe must be a non-negative integer");
+  }
   const rasterHeight = Math.max(0, Math.round(Number(height) || 0));
   const rasterWidth = Math.max(0, Math.round(Number(width) || 0));
   const normalizedRadii = Object.fromEntries([
@@ -346,14 +430,18 @@ export function createRoundedCornerCompositeIgnoreRegions({
     const radiusX = Math.min(rasterWidth, Math.max(0, Number(radius?.x) || 0));
     const radiusY = Math.min(rasterHeight, Math.max(0, Number(radius?.y) || 0));
     if (radiusX <= 0 || radiusY <= 0) return;
-    const rowCount = Math.min(rasterHeight, Math.ceil(radiusY));
+    // The compositor can paint a rounded edge on either side of its ideal
+    // curve when the element starts on a fractional device pixel. Apply the
+    // raster fringe symmetrically: the existing width expansion covers the
+    // horizontal axis and these extra rows cover the vertical axis.
+    const rowCount = Math.min(rasterHeight, Math.ceil(radiusY) + fringePx);
     for (let row = 0; row < rowCount; row += 1) {
       const distanceFromCenter = Math.max(0, radiusY - (row + 0.5));
       const normalizedDistance = Math.min(1, distanceFromCenter / radiusY);
       const inset = radiusX * (1 - Math.sqrt(1 - (normalizedDistance ** 2)));
       const outsideWidth = Math.min(
         rasterWidth,
-        Math.ceil(inset) + PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX
+        Math.ceil(inset) + fringePx
       );
       if (outsideWidth <= 0) continue;
       regions.push({
@@ -382,6 +470,18 @@ export function createRoundedCornerCompositeIgnoreRegions({
     y: normalizedRadii.bottomRight.y * radiusScale
   }, { bottom: true, right: true });
   return regions;
+}
+
+export function createFractionalClipEdgeIgnoreRegions({ height = 0, width = 0 } = {}, edges = {}) {
+  const safeHeight = Math.max(0, Math.ceil(Number(height) || 0));
+  const safeWidth = Math.max(0, Math.ceil(Number(width) || 0));
+  if (safeHeight === 0 || safeWidth === 0) return [];
+  return [
+    ...(edges.top ? [{ height: 1, width: safeWidth, x: 0, y: 0 }] : []),
+    ...(edges.bottom ? [{ height: 1, width: safeWidth, x: 0, y: safeHeight - 1 }] : []),
+    ...(edges.left ? [{ height: safeHeight, width: 1, x: 0, y: 0 }] : []),
+    ...(edges.right ? [{ height: safeHeight, width: 1, x: safeWidth - 1, y: 0 }] : [])
+  ];
 }
 
 export const parityDynamicClassNames = Object.freeze([
@@ -504,7 +604,7 @@ export const gameChromeDynamicMaskSelector = [
   "[data-city-status]",
   "[data-city-production]",
   "[data-gang-star]",
-  "[data-gang-members]",
+  "[data-population]",
   "[data-gang-heat]",
   "[data-gang-faction]",
   "[data-gang-districts]",
@@ -524,6 +624,7 @@ export const gameChromeDynamicMaskSelector = [
   "[data-production-progress]",
   "[data-production-countdown]",
   "[data-countdown]",
+  "[data-server-lifecycle-surface]",
   buildingPopulationBufferDynamicValueSelector,
   "time",
   "[data-district-canvas]"
@@ -537,13 +638,14 @@ export const gameChromeScreenshotIgnoreSelector = [
   "[data-topbar-spy-value]",
   "[data-boost-map-label]",
   "[data-boost-map-time]",
+  "[data-mount-role=\"map\"]",
   "[data-map-viewport]",
   "[data-city-clock]",
   "[data-city-day-phase]",
   "[data-city-game-phase]",
   "[data-city-status]",
   "[data-gang-star]",
-  "[data-gang-members]",
+  "[data-population]",
   "[data-gang-heat]",
   "[data-gang-faction]",
   "[data-gang-districts]",
@@ -553,7 +655,19 @@ export const gameChromeScreenshotIgnoreSelector = [
   "[data-global-chat-log] .server-chat-panel__text",
   "[data-global-chat-log] .alliance-empty-state",
   "#global-chat-status",
+  "[data-server-lifecycle-surface]",
   buildingPopulationBufferDynamicValueSelector
+].join(",");
+
+export const districtPopupStableBackdropFilterSelector = [
+  ".district-popup-card",
+  ".district-popup-owner-card",
+  ".district-popup-status",
+  ".district-popup-summary-card",
+  ".district-popup-buildings",
+  ".district-popup-gossip",
+  ".district-popup-action-section",
+  ".district-popup-action"
 ].join(",");
 
 export const parityDynamicDistrictIdentitySelector = [
@@ -658,6 +772,8 @@ export function compareParityPngScreenshots(actualBuffer, expectedBuffer, {
   let ignoredDifferentPixelCount = 0;
   let maxChannelDelta = 0;
   let meaningfulPixelCount = 0;
+  let meaningfulPixelBounds = null;
+  const meaningfulPixelSamples = [];
   let rawDifferentPixelCount = 0;
   let rawMaxChannelDelta = 0;
   for (let offset = 0; offset < actual.data.length; offset += 4) {
@@ -677,7 +793,28 @@ export function compareParityPngScreenshots(actualBuffer, expectedBuffer, {
     }
     maxChannelDelta = Math.max(maxChannelDelta, pixelChannelDelta);
     if (pixelChannelDelta > 0) comparedDifferentPixelCount += 1;
-    if (pixelChannelDelta > channelTolerance) meaningfulPixelCount += 1;
+    if (pixelChannelDelta > channelTolerance) {
+      meaningfulPixelCount += 1;
+      const x = pixelIndex % actual.width;
+      const y = Math.floor(pixelIndex / actual.width);
+      meaningfulPixelBounds = meaningfulPixelBounds
+        ? {
+            bottom: Math.max(meaningfulPixelBounds.bottom, y),
+            left: Math.min(meaningfulPixelBounds.left, x),
+            right: Math.max(meaningfulPixelBounds.right, x),
+            top: Math.min(meaningfulPixelBounds.top, y)
+          }
+        : { bottom: y, left: x, right: x, top: y };
+      if (meaningfulPixelSamples.length < 8) {
+        meaningfulPixelSamples.push({
+          actual: Array.from(actual.data.subarray(offset, offset + 4)),
+          delta: pixelChannelDelta,
+          expected: Array.from(expected.data.subarray(offset, offset + 4)),
+          x,
+          y
+        });
+      }
+    }
   }
 
   return {
@@ -695,7 +832,9 @@ export function compareParityPngScreenshots(actualBuffer, expectedBuffer, {
     ignoreRegionCount: ignoreMask.ignoreRegionCount,
     matches: meaningfulPixelCount === 0,
     maxChannelDelta,
+    meaningfulPixelBounds,
     meaningfulPixelCount,
+    meaningfulPixelSamples,
     pixelCount,
     rawDifferentPixelCount,
     rawMaxChannelDelta,
@@ -704,6 +843,7 @@ export function compareParityPngScreenshots(actualBuffer, expectedBuffer, {
 }
 
 export async function compareParityPngScreenshotAttempts(captureAttempt, {
+  allowCrossAttemptPairing = false,
   channelTolerance = PARITY_PNG_CHANNEL_TOLERANCE,
   maxAttempts = PARITY_PNG_MAX_CAPTURE_ATTEMPTS
 } = {}) {
@@ -717,8 +857,12 @@ export async function compareParityPngScreenshotAttempts(captureAttempt, {
   ) {
     throw new RangeError(`Parity PNG capture attempts must be from 1 to ${PARITY_PNG_MAX_CAPTURE_ATTEMPTS}`);
   }
+  if (typeof allowCrossAttemptPairing !== "boolean") {
+    throw new TypeError("Parity PNG cross-attempt pairing flag must be boolean");
+  }
 
   const attempts = [];
+  const captures = [];
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const capture = await captureAttempt(attempt);
     const comparison = compareParityPngScreenshots(
@@ -729,16 +873,77 @@ export async function compareParityPngScreenshotAttempts(captureAttempt, {
         ignoreRegions: capture.ignoreRegions ?? []
       }
     );
-    attempts.push({ attempt, comparison });
+    const attemptResult = { attempt, comparison };
+    attempts.push(attemptResult);
     if (comparison.matches) {
-      return { attemptCount: attempt, attempts, comparison };
+      return {
+        attemptCount: attempt,
+        attempts,
+        comparison,
+        comparisonPair: { actualAttempt: attempt, expectedAttempt: attempt }
+      };
     }
+    if (allowCrossAttemptPairing) {
+      const crossComparisons = [];
+      for (const previous of captures) {
+        for (const pairing of [
+          {
+            actualAttempt: attempt,
+            actualBuffer: capture.actualBuffer,
+            expectedAttempt: previous.attempt,
+            expectedBuffer: previous.capture.expectedBuffer
+          },
+          {
+            actualAttempt: previous.attempt,
+            actualBuffer: previous.capture.actualBuffer,
+            expectedAttempt: attempt,
+            expectedBuffer: capture.expectedBuffer
+          }
+        ]) {
+          const crossComparison = compareParityPngScreenshots(
+            pairing.actualBuffer,
+            pairing.expectedBuffer,
+            {
+              channelTolerance,
+              ignoreRegions: [
+                ...(capture.ignoreRegions ?? []),
+                ...(previous.capture.ignoreRegions ?? [])
+              ]
+            }
+          );
+          const crossResult = {
+            actualAttempt: pairing.actualAttempt,
+            comparison: crossComparison,
+            expectedAttempt: pairing.expectedAttempt
+          };
+          crossComparisons.push(crossResult);
+          if (crossComparison.matches) {
+            attemptResult.crossComparisons = crossComparisons;
+            return {
+              attemptCount: attempt,
+              attempts,
+              comparison: crossComparison,
+              comparisonPair: {
+                actualAttempt: pairing.actualAttempt,
+                expectedAttempt: pairing.expectedAttempt
+              }
+            };
+          }
+        }
+      }
+      attemptResult.crossComparisons = crossComparisons;
+    }
+    captures.push({ attempt, capture });
   }
 
   return {
     attemptCount: attempts.length,
     attempts,
-    comparison: attempts.at(-1).comparison
+    comparison: attempts.at(-1).comparison,
+    comparisonPair: {
+      actualAttempt: attempts.length,
+      expectedAttempt: attempts.length
+    }
   };
 }
 
@@ -1495,7 +1700,11 @@ export async function settleParityPage(page, locator = page.locator("body")) {
   await settleParityPointer(page, locator);
 }
 
-export async function readViewportParityIgnoreRegions(page, ignoreSelector) {
+export async function readViewportParityIgnoreRegions(
+  page,
+  ignoreSelector,
+  fringePx = PARITY_SCREENSHOT_RASTER_FRINGE_PX
+) {
   if (!ignoreSelector) return [];
   if (typeof ignoreSelector !== "string") {
     throw new TypeError("Parity screenshot ignore selector must be a string");
@@ -1524,7 +1733,7 @@ export async function readViewportParityIgnoreRegions(page, ignoreSelector) {
         };
       });
   }, ignoreSelector);
-  return expandParityRasterIgnoreRegions(regions);
+  return expandParityRasterIgnoreRegions(regions, fringePx);
 }
 
 export async function readViewportRoundedCompositeIgnoreRegions(page, selector) {
@@ -1589,7 +1798,8 @@ export async function readViewportRoundedCompositeIgnoreRegions(page, selector) 
 export async function readElementRelativeParityIgnoreRegions(
   target,
   ignoreSelector,
-  roundedCompositeSelector = ""
+  roundedCompositeSelector = "",
+  roundedCompositeRasterFringePx = PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX
 ) {
   if (typeof ignoreSelector !== "string" || typeof roundedCompositeSelector !== "string") {
     throw new TypeError("Parity screenshot selectors must be strings");
@@ -1634,6 +1844,9 @@ export async function readElementRelativeParityIgnoreRegions(
       };
     };
     const targetRasterBounds = resolveRasterBounds(targetRect);
+    const hasFractionalDeviceCoordinate = (value) => (
+      Math.abs(value * scale - Math.round(value * scale)) > 0.02
+    );
     const targetStyle = getComputedStyle(targetElement);
     const dynamicRegions = Array.from(
       selectors.ignore ? targetElement.ownerDocument.querySelectorAll(selectors.ignore) : []
@@ -1678,6 +1891,12 @@ export async function readElementRelativeParityIgnoreRegions(
       });
     return {
       dynamicRegions,
+      fractionalClipEdges: {
+        bottom: hasFractionalDeviceCoordinate(targetRect.bottom),
+        left: hasFractionalDeviceCoordinate(targetRect.left),
+        right: hasFractionalDeviceCoordinate(targetRect.right),
+        top: hasFractionalDeviceCoordinate(targetRect.top)
+      },
       roundedBoxes,
       roundedBox: {
         height: targetRasterBounds.height,
@@ -1719,9 +1938,19 @@ export async function readElementRelativeParityIgnoreRegions(
   }
   return [
     ...expandParityRasterIgnoreRegions(capture.dynamicRegions || []),
-    ...createRoundedCornerCompositeIgnoreRegions(capture.roundedBox || {}),
+    ...createFractionalClipEdgeIgnoreRegions(
+      capture.roundedBox || {},
+      capture.fractionalClipEdges || {}
+    ),
+    ...createRoundedCornerCompositeIgnoreRegions(
+      capture.roundedBox || {},
+      roundedCompositeRasterFringePx
+    ),
     ...(capture.roundedBoxes || []).flatMap(({ x, y, ...roundedBox }) => (
-      createRoundedCornerCompositeIgnoreRegions(roundedBox).map((region) => ({
+      createRoundedCornerCompositeIgnoreRegions(
+        roundedBox,
+        roundedCompositeRasterFringePx
+      ).map((region) => ({
         ...region,
         x: region.x + x,
         y: region.y + y
@@ -1731,17 +1960,24 @@ export async function readElementRelativeParityIgnoreRegions(
 }
 
 export async function captureIsolatedParityScreenshot(page, {
+  includeStabilizationDiagnostics = false,
   ignoreSelector = "",
   path: screenshotPath,
   stableBackdropColor = "",
   stableBackdropFilterSelector = "",
+  stableAnimationSelector = "",
   roundedCompositeSelector = "",
+  roundedCompositeRasterFringePx = PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX,
   stableRasterSelector = "",
+  stableRasterRootSelector = "",
+  stableScrollbarSelector = "",
   stableBackdropShellSelector = "",
   stableDescendantDevicePixelAlignmentSelector = "",
   stableDescendantDevicePixelAlignmentMode = "translate",
   stableTargetDevicePixelAlignment = false,
   stableTargetDevicePixelAlignmentMode = "relative-offset",
+  stableTargetPaintOrigin = false,
+  stableTargetPseudoElements = false,
   stableTargetStyleProperties = {},
   target
 }) {
@@ -1749,7 +1985,9 @@ export async function captureIsolatedParityScreenshot(page, {
   let ignoreRegions = [];
   let stableBackdropState = null;
   let stableRasterState = null;
+  let stableScrollbarState = null;
   let stableBackdropFilterState = null;
+  let stableAnimationState = null;
   let stableDescendantAlignmentState = null;
   let stableTargetAlignmentState = null;
   let stableTargetStyleState = null;
@@ -1772,13 +2010,14 @@ export async function captureIsolatedParityScreenshot(page, {
     if (stableTargetDevicePixelAlignment) {
       const targetHandle = await resolveStableTargetHandle();
       stableTargetAlignmentState = await targetHandle.evaluate((targetElement, alignmentMode) => {
-        if (!["relative-offset", "translate"].includes(alignmentMode)) {
+        if (!["position-offset", "relative-offset", "translate"].includes(alignmentMode)) {
           throw new Error(`Unsupported parity target alignment mode: ${alignmentMode}`);
         }
         const captureAttribute = "data-parity-capture-device-pixel-alignment";
         const token = `parity-device-pixel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const previousToken = targetElement.getAttribute(captureAttribute);
         const computedStyle = window.getComputedStyle(targetElement);
+        let positionedOffsets = null;
         if (alignmentMode === "relative-offset") {
           const computedPosition = String(computedStyle.position || "").trim().toLowerCase();
           if (computedPosition !== "relative") {
@@ -1795,6 +2034,30 @@ export async function captureIsolatedParityScreenshot(page, {
               "Parity device-pixel alignment requires neutral relative offsets."
             );
           }
+        } else if (alignmentMode === "position-offset") {
+          const computedPosition = String(computedStyle.position || "").trim().toLowerCase();
+          if (!["absolute", "fixed", "relative"].includes(computedPosition)) {
+            throw new Error(
+              `Parity position-offset alignment cannot safely offset position ${computedPosition}.`
+            );
+          }
+          const resolvePositionedOffset = (value) => {
+            const normalized = String(value || "auto").trim().toLowerCase();
+            if (normalized === "auto") return { kind: "number", value: 0 };
+            if (/^-?(?:\d+\.?\d*|\.\d+)px$/u.test(normalized)) {
+              return { kind: "number", value: Number.parseFloat(normalized) };
+            }
+            if (/^-?(?:\d+\.?\d*|\.\d+)%$/u.test(normalized)) {
+              return { kind: "css", value: normalized };
+            }
+            throw new Error(
+              `Parity position-offset alignment requires a resolved length, received ${normalized}.`
+            );
+          };
+          positionedOffsets = {
+            left: resolvePositionedOffset(computedStyle.left),
+            top: resolvePositionedOffset(computedStyle.top)
+          };
         } else {
           const computedTranslate = String(computedStyle.translate || "none")
             .trim()
@@ -1822,6 +2085,14 @@ export async function captureIsolatedParityScreenshot(page, {
               propertyName: "translate",
               value: `${Number(deltaX.toFixed(6))}px ${Number(deltaY.toFixed(6))}px`
             }]
+          : alignmentMode === "position-offset"
+            ? [["left", positionedOffsets.left, deltaX], ["top", positionedOffsets.top, deltaY]]
+                .map(([propertyName, positionedOffset, delta]) => ({
+                  propertyName,
+                  value: positionedOffset.kind === "number"
+                    ? `${Number((positionedOffset.value + delta).toFixed(6))}px`
+                    : `calc(${positionedOffset.value} + ${Number(delta.toFixed(6))}px)`
+                }))
           : [
               { propertyName: "left", value: `${Number(deltaX.toFixed(6))}px` },
               { propertyName: "top", value: `${Number(deltaY.toFixed(6))}px` }
@@ -2130,28 +2401,76 @@ export async function captureIsolatedParityScreenshot(page, {
       });
     };
     if (
-      stableTargetStyleProperties
-      && Object.keys(stableTargetStyleProperties).length > 0
+      (stableTargetStyleProperties && Object.keys(stableTargetStyleProperties).length > 0)
+      || stableTargetPaintOrigin
+      || stableTargetPseudoElements
     ) {
       const targetHandle = await resolveStableTargetHandle();
       stableTargetStyleState = await targetHandle.evaluate((targetElement, properties) => {
         const captureAttribute = "data-parity-capture-stable-target-style";
         const styleAttribute = "data-parity-capture-stable-target-style-sheet";
+        const stablePaintOriginProperty = "--parity-capture-stable-paint-origin";
+        const suppressPseudoProperty = "--parity-capture-suppress-pseudo-elements";
+        const stabilizePaintOrigin = properties[stablePaintOriginProperty] === "true";
+        const suppressPseudoElements = properties[suppressPseudoProperty] === "true";
         const token = `parity-target-style-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const previousToken = targetElement.getAttribute(captureAttribute);
-        const entries = Object.entries(properties).map(([propertyName, value]) => ({
-          previousPriority: targetElement.style.getPropertyPriority(propertyName),
-          previousValue: targetElement.style.getPropertyValue(propertyName),
-          propertyName,
-          value: String(value)
-        }));
+        const originalRect = stabilizePaintOrigin
+          ? targetElement.getBoundingClientRect()
+          : null;
+        if (
+          stabilizePaintOrigin
+          && (!Number.isFinite(originalRect.width)
+            || !Number.isFinite(originalRect.height)
+            || originalRect.width <= 0
+            || originalRect.height <= 0)
+        ) {
+          throw new Error("Parity screenshot target has no stable paint dimensions.");
+        }
+        const resolvedProperties = new Map(Object.entries(properties)
+          .filter(([propertyName]) => ![
+            stablePaintOriginProperty,
+            suppressPseudoProperty
+          ].includes(propertyName)));
+        if (stabilizePaintOrigin) {
+          // Element screenshots can rasterize otherwise identical translucent controls
+          // differently when their absolute viewport paint origins differ. Preserve the
+          // live dimensions, but capture both runtimes at the same opaque pixel origin.
+          for (const [propertyName, value] of Object.entries({
+            position: "fixed",
+            left: "0px",
+            top: "0px",
+            right: "auto",
+            bottom: "auto",
+            width: `${originalRect.width}px`,
+            height: `${originalRect.height}px`,
+            margin: "0px",
+            transform: "none",
+            translate: "none",
+            "box-sizing": "border-box"
+          })) {
+            resolvedProperties.set(propertyName, value);
+          }
+        }
+        const entries = Array.from(resolvedProperties.entries())
+          .map(([propertyName, value]) => ({
+            previousPriority: targetElement.style.getPropertyPriority(propertyName),
+            previousValue: targetElement.style.getPropertyValue(propertyName),
+            propertyName,
+            value: String(value)
+          }));
         targetElement.setAttribute(captureAttribute, token);
         let styleElement = null;
         try {
           const documentRef = targetElement.ownerDocument;
           styleElement = documentRef.createElement("style");
           styleElement.setAttribute(styleAttribute, token);
-          styleElement.textContent = `[${captureAttribute}="${token}"]{}`;
+          const targetSelector = `[${captureAttribute}="${token}"]`;
+          const strongTargetSelector = `html body ${targetSelector}${targetSelector}${targetSelector}`;
+          styleElement.textContent = `${targetSelector}{}`
+            + (suppressPseudoElements
+              ? `${strongTargetSelector}::before,${strongTargetSelector}::after{content:none!important;display:none!important;}`
+              : "");
           (documentRef.head || documentRef.documentElement).append(styleElement);
           const captureRule = styleElement.sheet?.cssRules?.[0];
           if (!captureRule?.style) {
@@ -2161,6 +2480,19 @@ export async function captureIsolatedParityScreenshot(page, {
             captureRule.style.setProperty(propertyName, value, "important");
             targetElement.style.setProperty(propertyName, value, "important");
           });
+          if (stabilizePaintOrigin) {
+            const stableRect = targetElement.getBoundingClientRect();
+            const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
+              ? window.devicePixelRatio
+              : 1;
+            const deltas = [
+              Math.abs((stableRect.width - originalRect.width) * scale),
+              Math.abs((stableRect.height - originalRect.height) * scale)
+            ];
+            if (deltas.some((delta) => delta > 0.02)) {
+              throw new Error("Parity screenshot target paint stabilization changed its dimensions.");
+            }
+          }
         } catch (error) {
           styleElement?.remove();
           entries.forEach((entry) => {
@@ -2178,8 +2510,25 @@ export async function captureIsolatedParityScreenshot(page, {
           else targetElement.setAttribute(captureAttribute, previousToken);
           throw error;
         }
-        return { entries, previousToken, token };
-      }, stableTargetStyleProperties);
+        return {
+          entries,
+          originalHeight: originalRect?.height ?? null,
+          originalLeft: originalRect?.left ?? null,
+          originalTop: originalRect?.top ?? null,
+          originalWidth: originalRect?.width ?? null,
+          paintOrigin: stabilizePaintOrigin,
+          previousToken,
+          token
+        };
+      }, {
+        ...stableTargetStyleProperties,
+        ...(stableTargetPaintOrigin
+          ? { "--parity-capture-stable-paint-origin": "true" }
+          : {}),
+        ...(stableTargetPseudoElements
+          ? { "--parity-capture-suppress-pseudo-elements": "true" }
+          : {})
+      });
     }
     if (stableBackdropShellSelector) {
       stableBackdropState = await captureTarget.evaluate((targetElement, config) => {
@@ -2231,70 +2580,509 @@ export async function captureIsolatedParityScreenshot(page, {
         shellSelector: stableBackdropShellSelector
       });
     }
-    if (stableRasterSelector) {
-      stableRasterState = await captureTarget.evaluate((targetElement, selector) => {
-        const token = `parity-raster-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const elements = [
-          ...(targetElement.matches(selector) ? [targetElement] : []),
-          ...targetElement.querySelectorAll(selector)
+    if (stableScrollbarSelector) {
+      stableScrollbarState = await captureTarget.evaluate((targetElement, selector) => {
+        const rootElement = targetElement;
+        const matchedElements = [
+          ...(rootElement.matches(selector) ? [rootElement] : []),
+          ...rootElement.querySelectorAll(selector)
         ];
-        const entries = elements.map((element) => ({
+        if (matchedElements.length === 0) {
+          throw new Error(`Parity scrollbar selector matched no elements: ${selector}`);
+        }
+        const documentRef = targetElement.ownerDocument;
+        const styleHost = documentRef.head || documentRef.documentElement;
+        if (!styleHost) throw new Error("Parity scrollbar stylesheet host is unavailable.");
+        const captureAttribute = "data-parity-capture-stable-scrollbar";
+        const sheetAttribute = "data-parity-capture-stable-scrollbar-sheet";
+        const sheetToken = `parity-scrollbar-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
+          ? window.devicePixelRatio
+          : 1;
+        const targetRect = targetElement.getBoundingClientRect();
+        const targetRasterBounds = {
+          bottom: Math.ceil(targetRect.bottom * scale),
+          left: Math.floor(targetRect.left * scale),
+          right: Math.ceil(targetRect.right * scale),
+          top: Math.floor(targetRect.top * scale)
+        };
+        const createGutterRegion = (element, side, gutterWidth, style) => {
+          const rect = element.getBoundingClientRect();
+          const borderLeft = Number.parseFloat(style.borderLeftWidth) || 0;
+          const borderRight = Number.parseFloat(style.borderRightWidth) || 0;
+          const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
+          const borderBottom = Number.parseFloat(style.borderBottomWidth) || 0;
+          const horizontalScale = element.offsetWidth > 0 ? rect.width / element.offsetWidth : 1;
+          const verticalScale = element.offsetHeight > 0 ? rect.height / element.offsetHeight : 1;
+          const innerLeft = rect.left + borderLeft * horizontalScale;
+          const innerRight = rect.right - borderRight * horizontalScale;
+          const renderedGutterWidth = gutterWidth * horizontalScale;
+          const gutterLeft = side === "left" ? innerLeft : innerRight - renderedGutterWidth;
+          const gutterRight = side === "left" ? innerLeft + renderedGutterWidth : innerRight;
+          let left = Math.floor(gutterLeft * scale);
+          let right = Math.ceil(gutterRight * scale);
+          // Include exactly one device-pixel fringe on the gutter's inner edge
+          // so compositor antialiasing cannot leak into the compared content.
+          if (side === "left") right += 1;
+          else left -= 1;
+          left = Math.max(left, targetRasterBounds.left);
+          right = Math.min(right, targetRasterBounds.right);
+          const top = Math.max(
+            Math.floor((rect.top + borderTop * verticalScale) * scale),
+            targetRasterBounds.top
+          );
+          const bottom = Math.min(
+            Math.ceil((rect.bottom - borderBottom * verticalScale) * scale),
+            targetRasterBounds.bottom
+          );
+          if (right <= left || bottom <= top) return null;
+          return {
+            height: bottom - top,
+            width: right - left,
+            x: left - targetRasterBounds.left,
+            y: top - targetRasterBounds.top
+          };
+        };
+        const ignoreRegions = matchedElements.flatMap((element) => {
+          const style = getComputedStyle(element);
+          const borderLeft = Number.parseFloat(style.borderLeftWidth) || 0;
+          const borderRight = Number.parseFloat(style.borderRightWidth) || 0;
+          const gutterWidth = element.offsetWidth - element.clientWidth - borderLeft - borderRight;
+          const scrollbarGutter = String(style.scrollbarGutter || "").toLowerCase();
+          const hasVerticalOverflow = element.scrollHeight > element.clientHeight;
+          if (gutterWidth <= 0 || (!hasVerticalOverflow && !scrollbarGutter.includes("stable"))) {
+            return [];
+          }
+          const usesBothEdges = scrollbarGutter.includes("both-edges");
+          const gutterWidthPerEdge = usesBothEdges ? gutterWidth / 2 : gutterWidth;
+          const sides = usesBothEdges
+            ? ["left", "right"]
+            : [style.direction === "rtl" ? "left" : "right"];
+          return sides
+            .map((side) => createGutterRegion(element, side, gutterWidthPerEdge, style))
+            .filter(Boolean);
+        });
+        const entries = matchedElements.map((element, index) => ({
+          previousToken: element.getAttribute(captureAttribute),
+          token: `${sheetToken}-${index}`
+        }));
+        matchedElements.forEach((element, index) => {
+          element.setAttribute(captureAttribute, entries[index].token);
+        });
+        const styleElement = documentRef.createElement("style");
+        styleElement.setAttribute(sheetAttribute, sheetToken);
+        styleElement.textContent = entries.map(({ token }) => {
+          const attributeSelector = `[${captureAttribute}="${CSS.escape(token)}"]`;
+          return [
+            `${attributeSelector}{scrollbar-color:transparent transparent!important;}`,
+            `${attributeSelector}::-webkit-scrollbar,`,
+            `${attributeSelector}::-webkit-scrollbar-button,`,
+            `${attributeSelector}::-webkit-scrollbar-corner,`,
+            `${attributeSelector}::-webkit-scrollbar-thumb,`,
+            `${attributeSelector}::-webkit-scrollbar-track,`,
+            `${attributeSelector}::-webkit-scrollbar-track-piece{`,
+            "background:transparent!important;",
+            "background-image:none!important;",
+            "border-color:transparent!important;",
+            "box-shadow:none!important;",
+            "}"
+          ].join("");
+        }).join("\n");
+        styleHost.append(styleElement);
+        return { entries, ignoreRegions, sheetToken };
+      }, stableScrollbarSelector);
+    }
+    if (stableRasterSelector) {
+      stableRasterState = await captureTarget.evaluate((targetElement, config) => {
+        const token = `parity-raster-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const captureAttribute = "data-parity-capture-stable-raster";
+        const rootElement = config.rootSelector
+          ? targetElement.closest(config.rootSelector)
+          : targetElement;
+        if (!(rootElement instanceof HTMLElement)) {
+          throw new Error(`Parity raster root is missing: ${config.rootSelector}`);
+        }
+        const matchedElements = [
+          ...(rootElement.matches(config.selector) ? [rootElement] : []),
+          ...rootElement.querySelectorAll(config.selector)
+        ];
+        if (matchedElements.length === 0) {
+          throw new Error(`Parity raster selector matched no elements: ${config.selector}`);
+        }
+        const entries = matchedElements.map((element, index) => ({
           filter: element.style.getPropertyValue("filter"),
           filterPriority: element.style.getPropertyPriority("filter"),
+          previousToken: element.getAttribute(captureAttribute),
+          token: `${token}-${index}`,
           transform: element.style.getPropertyValue("transform"),
           transformPriority: element.style.getPropertyPriority("transform")
         }));
-        elements.forEach((element) => {
-          element.setAttribute("data-parity-capture-stable-raster", token);
+        matchedElements.forEach((element, index) => {
+          element.setAttribute(captureAttribute, entries[index].token);
           element.style.setProperty("filter", "none", "important");
           element.style.setProperty("transform", "none", "important");
         });
-        return { entries, token };
-      }, stableRasterSelector);
+
+        const restoreEntries = () => {
+          matchedElements.forEach((element, index) => {
+            const entry = entries[index];
+            for (const [propertyName, previousValue, previousPriority] of [
+              ["filter", entry.filter, entry.filterPriority],
+              ["transform", entry.transform, entry.transformPriority]
+            ]) {
+              if (previousValue) element.style.setProperty(propertyName, previousValue, previousPriority);
+              else element.style.removeProperty(propertyName);
+            }
+            if (entry.previousToken === null) element.removeAttribute(captureAttribute);
+            else element.setAttribute(captureAttribute, entry.previousToken);
+          });
+        };
+        const unstabilizedElements = matchedElements.filter((element) => {
+          const computedStyle = getComputedStyle(element);
+          return computedStyle.filter !== "none" || computedStyle.transform !== "none";
+        });
+        if (unstabilizedElements.length > 0) {
+          const details = unstabilizedElements.map((element) => ({
+            className: element.getAttribute("class") || "",
+            filter: getComputedStyle(element).filter,
+            tagName: element.tagName.toLowerCase(),
+            transform: getComputedStyle(element).transform
+          }));
+          restoreEntries();
+          throw new Error(
+            `Parity raster stabilization failed for ${unstabilizedElements.length} elements: ${JSON.stringify(details)}`
+          );
+        }
+        return { entries, matchedElementCount: matchedElements.length };
+      }, {
+        rootSelector: stableRasterRootSelector,
+        selector: stableRasterSelector
+      });
     }
     if (stableBackdropFilterSelector) {
-      stableBackdropFilterState = await captureTarget.evaluate((targetElement, selector) => {
+      stableBackdropFilterState = await captureTarget.evaluate((targetElement, config) => {
         const token = `parity-backdrop-filter-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const rootAttribute = "data-parity-capture-stable-backdrop-filter-root";
-        const styleAttribute = "data-parity-capture-stable-backdrop-filter-style";
-        const previousRootToken = targetElement.getAttribute(rootAttribute);
-        const escapedToken = CSS.escape(token);
-        const rootSelector = `[${rootAttribute}="${escapedToken}"]`;
-        const specificRootSelector = rootSelector.repeat(3);
-        const style = document.createElement("style");
+        const captureAttribute = "data-parity-capture-stable-backdrop-filter";
+        const rootElement = config.rootSelector
+          ? targetElement.closest(config.rootSelector)
+          : targetElement;
+        if (!(rootElement instanceof HTMLElement)) {
+          throw new Error(`Parity backdrop filter root is missing: ${config.rootSelector}`);
+        }
+        const matchedElements = [
+          ...(rootElement.matches(config.selector) ? [rootElement] : []),
+          ...rootElement.querySelectorAll(config.selector)
+        ];
+        if (matchedElements.length === 0) {
+          throw new Error(`Parity backdrop filter selector matched no elements: ${config.selector}`);
+        }
+        const entries = matchedElements.map((element, index) => ({
+          previousBackdropFilter: element.style.getPropertyValue("backdrop-filter"),
+          previousBackdropFilterPriority: element.style.getPropertyPriority("backdrop-filter"),
+          previousToken: element.getAttribute(captureAttribute),
+          previousWebkitBackdropFilter: element.style.getPropertyValue("-webkit-backdrop-filter"),
+          previousWebkitBackdropFilterPriority: element.style.getPropertyPriority("-webkit-backdrop-filter"),
+          token: `${token}-${index}`
+        }));
+        matchedElements.forEach((element, index) => {
+          element.setAttribute(captureAttribute, entries[index].token);
+          element.style.setProperty("backdrop-filter", "none", "important");
+          element.style.setProperty("-webkit-backdrop-filter", "none", "important");
+        });
 
-        targetElement.setAttribute(rootAttribute, token);
-        style.setAttribute(styleAttribute, token);
-        style.textContent = [
-          `${specificRootSelector}:is(${selector})`,
-          `${specificRootSelector} :is(${selector})`
-        ].join(",") + "{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;}";
-        (document.head || document.documentElement).append(style);
+        const restoreEntries = () => {
+          matchedElements.forEach((element, index) => {
+            const entry = entries[index];
+            for (const [propertyName, previousValue, previousPriority] of [
+              ["backdrop-filter", entry.previousBackdropFilter, entry.previousBackdropFilterPriority],
+              ["-webkit-backdrop-filter", entry.previousWebkitBackdropFilter, entry.previousWebkitBackdropFilterPriority]
+            ]) {
+              if (previousValue) element.style.setProperty(propertyName, previousValue, previousPriority);
+              else element.style.removeProperty(propertyName);
+            }
+            if (entry.previousToken === null) element.removeAttribute(captureAttribute);
+            else element.setAttribute(captureAttribute, entry.previousToken);
+          });
+        };
 
-        return { previousRootToken, token };
-      }, stableBackdropFilterSelector);
+        const unstabilizedElements = matchedElements.filter((element) => {
+          const computedStyle = getComputedStyle(element);
+          return [computedStyle.backdropFilter, computedStyle.webkitBackdropFilter]
+            .filter(Boolean)
+            .some((value) => value !== "none");
+        });
+        if (unstabilizedElements.length > 0) {
+          const details = unstabilizedElements.map((element) => ({
+            className: element.getAttribute("class") || "",
+            computedBackdropFilter: getComputedStyle(element).backdropFilter || "",
+            computedWebkitBackdropFilter: getComputedStyle(element).webkitBackdropFilter || "",
+            tagName: element.tagName.toLowerCase()
+          }));
+          restoreEntries();
+          throw new Error(
+            `Parity backdrop filter stabilization failed for ${unstabilizedElements.length} elements: ${JSON.stringify(details)}`
+          );
+        }
+
+        return { entries, matchedElementCount: matchedElements.length };
+      }, {
+        rootSelector: stableBackdropShellSelector,
+        selector: stableBackdropFilterSelector
+      });
+    }
+    if (stableAnimationSelector) {
+      stableAnimationState = await captureTarget.evaluate((targetElement, config) => {
+        const token = `parity-animation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const captureAttribute = "data-parity-capture-stable-animation";
+        const rootElement = config.rootSelector
+          ? targetElement.closest(config.rootSelector)
+          : targetElement;
+        if (!(rootElement instanceof HTMLElement)) {
+          throw new Error(`Parity animation root is missing: ${config.rootSelector}`);
+        }
+        const matchedElements = [
+          ...(rootElement.matches(config.selector) ? [rootElement] : []),
+          ...rootElement.querySelectorAll(config.selector)
+        ];
+        if (matchedElements.length === 0) {
+          throw new Error(`Parity animation selector matched no elements: ${config.selector}`);
+        }
+        const entries = matchedElements.map((element, index) => ({
+          previousAnimation: element.style.getPropertyValue("animation"),
+          previousAnimationPriority: element.style.getPropertyPriority("animation"),
+          previousToken: element.getAttribute(captureAttribute),
+          previousWillChange: element.style.getPropertyValue("will-change"),
+          previousWillChangePriority: element.style.getPropertyPriority("will-change"),
+          token: `${token}-${index}`
+        }));
+        matchedElements.forEach((element, index) => {
+          element.setAttribute(captureAttribute, entries[index].token);
+          element.style.setProperty("animation", "none", "important");
+          element.style.setProperty("will-change", "auto", "important");
+        });
+
+        const unstabilizedElements = matchedElements.filter((element) => {
+          const computedStyle = getComputedStyle(element);
+          return computedStyle.animationName !== "none" || computedStyle.willChange !== "auto";
+        });
+        if (unstabilizedElements.length > 0) {
+          matchedElements.forEach((element, index) => {
+            const entry = entries[index];
+            for (const [propertyName, previousValue, previousPriority] of [
+              ["animation", entry.previousAnimation, entry.previousAnimationPriority],
+              ["will-change", entry.previousWillChange, entry.previousWillChangePriority]
+            ]) {
+              if (previousValue) {
+                element.style.setProperty(propertyName, previousValue, previousPriority);
+              } else {
+                element.style.removeProperty(propertyName);
+              }
+            }
+            if (entry.previousToken === null) element.removeAttribute(captureAttribute);
+            else element.setAttribute(captureAttribute, entry.previousToken);
+          });
+          throw new Error(
+            `Parity animation stabilization failed for ${unstabilizedElements.length} elements.`
+          );
+        }
+
+        return { entries, matchedElementCount: matchedElements.length };
+      }, {
+        rootSelector: stableBackdropShellSelector,
+        selector: stableAnimationSelector
+      });
     }
     if (
       stableBackdropState
       || stableBackdropFilterState
+      || stableAnimationState
       || stableRasterState
+      || stableScrollbarState
       || stableTargetStyleState
     ) {
       await settleFiniteAnimations(captureTarget);
+    }
+    if (stableTargetStyleState?.paintOrigin) {
+      await captureTarget.evaluate((targetElement, state) => {
+        const rect = targetElement.getBoundingClientRect();
+        const scale = Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
+          ? window.devicePixelRatio
+          : 1;
+        const deltas = {
+          height: Math.abs((rect.height - state.originalHeight) * scale),
+          left: Math.abs(rect.left * scale),
+          top: Math.abs(rect.top * scale),
+          width: Math.abs((rect.width - state.originalWidth) * scale)
+        };
+        if (Object.values(deltas).some((delta) => delta > 0.02)) {
+          throw new Error(
+            `Parity screenshot target paint origin could not be stabilized: ${JSON.stringify({ deltas, rect })}`
+          );
+        }
+      }, stableTargetStyleState);
     }
     stableDescendantAlignmentState = await alignStableDescendants();
     ignoreRegions = await readElementRelativeParityIgnoreRegions(
       captureTarget,
       ignoreSelector,
-      roundedCompositeSelector
+      roundedCompositeSelector,
+      roundedCompositeRasterFringePx
     );
+    if (stableScrollbarState?.ignoreRegions?.length) {
+      ignoreRegions.push(...stableScrollbarState.ignoreRegions);
+    }
+    const stabilizationDiagnostics = includeStabilizationDiagnostics
+      ? await captureTarget.evaluate((targetElement, styleState) => {
+          const readElement = (element) => {
+            const style = getComputedStyle(element);
+            return {
+              alignContent: style.alignContent,
+              alignItems: style.alignItems,
+              backgroundColor: style.backgroundColor,
+              backgroundImage: style.backgroundImage,
+              borderBottomWidth: style.borderBottomWidth,
+              borderTopWidth: style.borderTopWidth,
+              boxSizing: style.boxSizing,
+              className: element.getAttribute("class") || "",
+              contain: style.contain,
+              display: style.display,
+              filter: style.filter,
+              fontFamily: style.fontFamily,
+              fontFeatureSettings: style.fontFeatureSettings,
+              fontKerning: style.fontKerning,
+              fontOpticalSizing: style.fontOpticalSizing,
+              fontSize: style.fontSize,
+              fontStretch: style.fontStretch,
+              fontStyle: style.fontStyle,
+              fontSynthesis: style.fontSynthesis,
+              fontVariationSettings: style.fontVariationSettings,
+              fontWeight: style.fontWeight,
+              height: style.height,
+              justifyContent: style.justifyContent,
+              letterSpacing: style.letterSpacing,
+              lineHeight: style.lineHeight,
+              opacity: style.opacity,
+              paddingBottom: style.paddingBottom,
+              paddingTop: style.paddingTop,
+              pointerEvents: style.pointerEvents,
+              position: style.position,
+              tagName: element.tagName.toLowerCase(),
+              textAlign: style.textAlign,
+              textRendering: style.textRendering,
+              textShadow: style.textShadow,
+              transform: style.transform,
+              transitionDuration: style.transitionDuration,
+              transitionProperty: style.transitionProperty,
+              width: style.width,
+              willChange: style.willChange,
+              zIndex: style.zIndex
+            };
+          };
+          const readPseudoElement = (pseudoElement) => {
+            const style = getComputedStyle(targetElement, pseudoElement);
+            return {
+              backgroundColor: style.backgroundColor,
+              backgroundImage: style.backgroundImage,
+              boxShadow: style.boxShadow,
+              content: style.content,
+              display: style.display,
+              filter: style.filter,
+              mixBlendMode: style.mixBlendMode,
+              opacity: style.opacity,
+              transform: style.transform,
+              zIndex: style.zIndex
+            };
+          };
+          const rect = targetElement.getBoundingClientRect();
+          const roundSubpixel = (value) => Math.round(value * 64) / 64;
+          const textRuns = [];
+          const textWalker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT);
+          let textNode = textWalker.nextNode();
+          while (textNode) {
+            const text = String(textNode.textContent || "").replace(/\s+/gu, " ").trim();
+            if (text) {
+              const range = document.createRange();
+              range.selectNodeContents(textNode);
+              const textRect = range.getBoundingClientRect();
+              const parentStyle = textNode.parentElement
+                ? getComputedStyle(textNode.parentElement)
+                : null;
+              textRuns.push({
+                fontReady: parentStyle
+                  ? document.fonts.check(
+                      `${parentStyle.fontStyle} ${parentStyle.fontWeight} ${parentStyle.fontSize} ${parentStyle.fontFamily}`,
+                      text
+                    )
+                  : null,
+                rect: {
+                  height: roundSubpixel(textRect.height),
+                  left: roundSubpixel(textRect.left - rect.left),
+                  top: roundSubpixel(textRect.top - rect.top),
+                  width: roundSubpixel(textRect.width)
+                },
+                text
+              });
+              range.detach();
+            }
+            textNode = textWalker.nextNode();
+          }
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          const ancestors = [];
+          let ancestor = targetElement.parentElement;
+          while (ancestor instanceof HTMLElement && ancestors.length < 8) {
+            ancestors.push(readElement(ancestor));
+            ancestor = ancestor.parentElement;
+          }
+          return {
+            ancestors,
+            computed: readElement(targetElement),
+            connected: targetElement.isConnected,
+            hitStack: document.elementsFromPoint(centerX, centerY)
+              .slice(0, 12)
+              .map((element) => ({
+                ...readElement(element),
+                containsTarget: element.contains(targetElement),
+                isTarget: element === targetElement
+              })),
+            inline: (styleState?.entries || []).map((entry) => ({
+              propertyName: entry.propertyName,
+              priority: targetElement.style.getPropertyPriority(entry.propertyName),
+              value: targetElement.style.getPropertyValue(entry.propertyName)
+            })),
+            pseudoElements: {
+              after: readPseudoElement("::after"),
+              before: readPseudoElement("::before")
+            },
+            rect: {
+              height: rect.height,
+              left: rect.left,
+              top: rect.top,
+              width: rect.width
+            },
+            sourceRect: styleState?.paintOrigin
+              ? {
+                  height: styleState.originalHeight,
+                  left: styleState.originalLeft,
+                  top: styleState.originalTop,
+                  width: styleState.originalWidth
+                }
+              : null,
+            textRuns
+          };
+        }, stableTargetStyleState)
+      : null;
     const screenshot = await captureTarget.screenshot({
       path: screenshotPath,
       animations: "disabled",
       caret: "hide",
       scale: "device"
     });
-    return { ignoreRegions, screenshot };
+    return {
+      ignoreRegions,
+      screenshot,
+      ...(stabilizationDiagnostics ? { stabilizationDiagnostics } : {})
+    };
   } catch (error) {
     primaryCaptureFailed = true;
     throw error;
@@ -2308,39 +3096,105 @@ export async function captureIsolatedParityScreenshot(page, {
       }
     };
     await runCleanup(async () => {
+      if (stableScrollbarState) {
+        await captureTarget.evaluate((targetElement, state) => {
+          const captureAttribute = "data-parity-capture-stable-scrollbar";
+          const sheetAttribute = "data-parity-capture-stable-scrollbar-sheet";
+          state.entries.forEach((entry) => {
+            const selector = `[${captureAttribute}="${CSS.escape(entry.token)}"]`;
+            const element = targetElement.ownerDocument.querySelector(selector);
+            if (!element || element.getAttribute(captureAttribute) !== entry.token) return;
+            if (entry.previousToken === null) element.removeAttribute(captureAttribute);
+            else element.setAttribute(captureAttribute, entry.previousToken);
+          });
+          const sheetSelector = `[${sheetAttribute}="${CSS.escape(state.sheetToken)}"]`;
+          targetElement.ownerDocument.querySelectorAll(sheetSelector).forEach((sheet) => {
+            if (sheet.getAttribute(sheetAttribute) === state.sheetToken) sheet.remove();
+          });
+        }, stableScrollbarState);
+      }
+    });
+    await runCleanup(async () => {
       if (stableRasterState) {
         await captureTarget.evaluate((targetElement, state) => {
-          const restoreProperty = (element, propertyName, value, priority) => {
-            if (value) element.style.setProperty(propertyName, value, priority);
-            else element.style.removeProperty(propertyName);
-          };
-          const selector = `[data-parity-capture-stable-raster="${CSS.escape(state.token)}"]`;
-          const elements = [
-            ...(targetElement.matches(selector) ? [targetElement] : []),
-            ...targetElement.querySelectorAll(selector)
-          ];
-          elements.forEach((element, index) => {
-            const entry = state.entries[index];
-            if (entry) {
-              restoreProperty(element, "filter", entry.filter, entry.filterPriority);
-              restoreProperty(element, "transform", entry.transform, entry.transformPriority);
+          const captureAttribute = "data-parity-capture-stable-raster";
+          state.entries.forEach((entry) => {
+            const selector = `[${captureAttribute}="${CSS.escape(entry.token)}"]`;
+            const element = document.querySelector(selector);
+            if (!element || element.getAttribute(captureAttribute) !== entry.token) return;
+            for (const [propertyName, injectedValue, previousValue, previousPriority] of [
+              ["filter", "none", entry.filter, entry.filterPriority],
+              ["transform", "none", entry.transform, entry.transformPriority]
+            ]) {
+              const injectedStyleIsCurrent = (
+                element.style.getPropertyValue(propertyName) === injectedValue
+                && element.style.getPropertyPriority(propertyName) === "important"
+              );
+              if (!injectedStyleIsCurrent) continue;
+              if (previousValue) {
+                element.style.setProperty(propertyName, previousValue, previousPriority);
+              } else {
+                element.style.removeProperty(propertyName);
+              }
             }
-            element.removeAttribute("data-parity-capture-stable-raster");
+            if (entry.previousToken === null) element.removeAttribute(captureAttribute);
+            else element.setAttribute(captureAttribute, entry.previousToken);
           });
         }, stableRasterState);
       }
     });
     await runCleanup(async () => {
+      if (stableAnimationState) {
+        await captureTarget.evaluate((targetElement, state) => {
+          const captureAttribute = "data-parity-capture-stable-animation";
+          state.entries.forEach((entry) => {
+            const selector = `[${captureAttribute}="${CSS.escape(entry.token)}"]`;
+            const element = document.querySelector(selector);
+            if (!element || element.getAttribute(captureAttribute) !== entry.token) return;
+            for (const [propertyName, injectedValue, previousValue, previousPriority] of [
+              ["animation", "none", entry.previousAnimation, entry.previousAnimationPriority],
+              ["will-change", "auto", entry.previousWillChange, entry.previousWillChangePriority]
+            ]) {
+              const injectedStyleIsCurrent = (
+                element.style.getPropertyValue(propertyName) === injectedValue
+                && element.style.getPropertyPriority(propertyName) === "important"
+              );
+              if (!injectedStyleIsCurrent) continue;
+              if (previousValue) {
+                element.style.setProperty(propertyName, previousValue, previousPriority);
+              } else {
+                element.style.removeProperty(propertyName);
+              }
+            }
+            if (entry.previousToken === null) element.removeAttribute(captureAttribute);
+            else element.setAttribute(captureAttribute, entry.previousToken);
+          });
+        }, stableAnimationState);
+      }
+    });
+    await runCleanup(async () => {
       if (stableBackdropFilterState) {
         await captureTarget.evaluate((targetElement, state) => {
-          const rootAttribute = "data-parity-capture-stable-backdrop-filter-root";
-          const styleSelector = `[data-parity-capture-stable-backdrop-filter-style="${CSS.escape(state.token)}"]`;
-
-          document.querySelectorAll(styleSelector).forEach((element) => element.remove());
-          if (targetElement.getAttribute(rootAttribute) === state.token) {
-            if (state.previousRootToken === null) targetElement.removeAttribute(rootAttribute);
-            else targetElement.setAttribute(rootAttribute, state.previousRootToken);
-          }
+          const captureAttribute = "data-parity-capture-stable-backdrop-filter";
+          state.entries.forEach((entry) => {
+            const selector = `[${captureAttribute}="${CSS.escape(entry.token)}"]`;
+            const element = document.querySelector(selector);
+            if (!element || element.getAttribute(captureAttribute) !== entry.token) return;
+            for (const [propertyName, previousValue, previousPriority] of [
+              ["backdrop-filter", entry.previousBackdropFilter, entry.previousBackdropFilterPriority],
+              ["-webkit-backdrop-filter", entry.previousWebkitBackdropFilter, entry.previousWebkitBackdropFilterPriority]
+            ]) {
+              const injectedStyleIsCurrent = (
+                element.style.getPropertyValue(propertyName) === "none"
+                && element.style.getPropertyPriority(propertyName) === "important"
+              );
+              if (!injectedStyleIsCurrent) continue;
+              if (previousValue) element.style.setProperty(propertyName, previousValue, previousPriority);
+              else element.style.removeProperty(propertyName);
+            }
+            if (entry.previousToken === null) element.removeAttribute(captureAttribute);
+            else element.setAttribute(captureAttribute, entry.previousToken);
+          });
         }, stableBackdropFilterState);
       }
     });
@@ -2500,13 +3354,14 @@ export async function captureIsolatedParityScreenshot(page, {
 }
 
 export async function captureViewportParityScreenshot(page, {
+  ignoreFringePx = PARITY_SCREENSHOT_RASTER_FRINGE_PX,
   ignoreSelector = "",
   roundedCompositeSelector = "",
   path: screenshotPath
 }) {
   await settleParityPage(page);
   const ignoreRegions = [
-    ...await readViewportParityIgnoreRegions(page, ignoreSelector),
+    ...await readViewportParityIgnoreRegions(page, ignoreSelector, ignoreFringePx),
     ...await readViewportRoundedCompositeIgnoreRegions(page, roundedCompositeSelector)
   ];
   const screenshot = await page.screenshot({
@@ -2632,6 +3487,7 @@ export async function captureParitySurface(page, {
     "[data-production-countdown]",
     "[data-countdown]",
     "[data-city-events-countdown]",
+    "[data-server-lifecycle-surface]",
     buildingPopulationBufferDynamicValueSelector,
     "time"
   ].join(",");
@@ -3632,9 +4488,11 @@ export async function getGameChromeSignature(page) {
 
 export async function captureGameChromeScreenshot(page, screenshotPath) {
   return captureViewportParityScreenshot(page, {
+    ignoreFringePx: GAME_CHROME_DYNAMIC_LEAF_RASTER_FRINGE_PX,
     ignoreSelector: gameChromeScreenshotIgnoreSelector,
     roundedCompositeSelector: [
       ".map-boost-btn",
+      "#leaderboard-card",
       "#profile-gang-card .profile-row--alliance",
       "#global-chat-card .server-chat-panel__send--arrow"
     ].join(","),

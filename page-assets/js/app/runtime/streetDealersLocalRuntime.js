@@ -32,11 +32,15 @@ export function normalizeLocalStreetDealerSales(value) {
         amount: Math.max(0, Math.floor(Number(slot.amount || 0))),
         startedAt: Math.max(0, Number(slot.startedAt || 0)),
         completesAt: Math.max(0, Number(slot.completesAt || 0)),
+        cooldownUntil: Math.max(0, Number(slot.cooldownUntil || 0)),
         rewardDirtyCash: Math.max(0, Math.floor(Number(slot.rewardDirtyCash || 0))),
         heatGain: Math.max(0, Math.ceil(Number(slot.heatGain || 0))),
         streetRiskPct: clamp(Number(slot.streetRiskPct || 0), 0, 100)
       }))
-      .filter((slot) => slot.itemId && slot.amount > 0 && slot.completesAt > 0)
+      .filter((slot) => (
+        (String(slot.saleId || "") && slot.itemId && slot.amount > 0)
+        || slot.cooldownUntil > 0
+      ))
   };
 }
 
@@ -52,6 +56,9 @@ export function createLocalStreetDealerSaleView({
   const slotCount = resolveLocalStreetDealerSlotCount(ownedCount, config);
   const normalized = normalizeLocalStreetDealerSales(saleState);
   const slotsById = new Map(normalized.slots.map((slot) => [slot.slotId, slot]));
+  const anySlotLocked = normalized.slots.some((slot) => (
+    Boolean(slot.saleId) || slot.cooldownUntil > now
+  ));
   const phaseModifiers = resolveDayNightModifiers(phase, dayNightRule);
   return {
     phase: phase === "day" ? "day" : "night",
@@ -70,11 +77,13 @@ export function createLocalStreetDealerSaleView({
         ownedAmount,
         unitSalePriceDirtyCash: Number(drug?.unitSalePriceDirtyCash || 0),
         minimumAmountPerSale: Math.max(1, Number(drug?.minimumAmountPerSale || 1)),
-        activeSale,
-        locked: normalized.slots.some((candidate) => candidate.completesAt > now),
-        statusLabel: activeSale && activeSale.completesAt > now
-          ? `Prodej běží · ${formatRemaining(activeSale.completesAt - now)}`
-          : ""
+        activeSale: activeSale?.saleId ? activeSale : null,
+        locked: anySlotLocked,
+        statusLabel: activeSale?.saleId
+          ? "Starý prodej se dokončí při synchronizaci"
+          : activeSale?.cooldownUntil > now
+            ? `Cooldown · ${formatRemaining(activeSale.cooldownUntil - now)}`
+            : ""
       };
     }),
     items: config.sellableDrugs.map((drug) => ({
@@ -129,12 +138,12 @@ export function startLocalStreetDealerSale({
   }
 
   const normalized = normalizeLocalStreetDealerSales(saleState);
-  if (normalized.slots.some((slot) => slot.completesAt > now)) {
-    return failure("street_dealers_sale_active", "Jiný prodej Pouličních dealerů už probíhá.");
+  if (normalized.slots.some((slot) => Boolean(slot.saleId) || slot.cooldownUntil > now)) {
+    return failure("street_dealers_sale_active", "Pouliční dealeři ještě mají cooldown po předchozím prodeji.");
   }
   const currentSlot = normalized.slots.find((slot) => slot.slotId === slotId);
-  if (currentSlot && currentSlot.completesAt > now) {
-    return failure("street_dealers_slot_locked", "Tato látka už zpracovává jiný prodej.");
+  if (currentSlot && (currentSlot.saleId || currentSlot.cooldownUntil > now)) {
+    return failure("street_dealers_slot_locked", "Tato prodejní trasa je ještě v cooldownu.");
   }
 
   const extraDealers = Math.max(0, Math.floor(Number(ownedCount || 0)) - 1);
@@ -145,7 +154,7 @@ export function startLocalStreetDealerSale({
   const supplyHeatBonusPct = Math.max(0, Number(tunnelSupport.saleHeatRiskBonusPct || 0));
   const openSpeedBonusPct = Math.max(0, Number(openChannel.dealerSaleSpeedBonusPct || 0));
   const phaseModifiers = resolveDayNightModifiers(phase, dayNightRule);
-  const durationMs = Math.max(
+  const cooldownMs = Math.max(
     1_000,
     Math.ceil(drug.cooldownMinutes * 60_000 /
       (speedMultiplier * (1 + supplySpeedBonusPct / 100 + openSpeedBonusPct / 100)))
@@ -176,10 +185,12 @@ export function startLocalStreetDealerSale({
     itemLabel: drug.label,
     amount: requestedAmount,
     startedAt: now,
-    completesAt: now + durationMs,
+    completesAt: now,
+    cooldownUntil: now + cooldownMs,
     rewardDirtyCash,
     heatGain,
-    streetRiskPct
+    streetRiskPct,
+    instant: true
   };
   return {
     ok: true,
@@ -191,7 +202,10 @@ export function startLocalStreetDealerSale({
     nextSaleState: {
       slots: [
         ...normalized.slots.filter((candidate) => candidate.slotId !== slotId),
-        sale
+        {
+          slotId,
+          cooldownUntil: sale.cooldownUntil
+        }
       ]
     }
   };
@@ -199,11 +213,19 @@ export function startLocalStreetDealerSale({
 
 export function settleLocalStreetDealerSales(saleState = {}, now = Date.now()) {
   const normalized = normalizeLocalStreetDealerSales(saleState);
-  const completed = normalized.slots.filter((slot) => slot.completesAt <= now);
+  const completed = normalized.slots.filter((slot) => Boolean(slot.saleId));
+  const nextSlots = normalized.slots.flatMap((slot) => {
+    const cooldownUntil = slot.saleId
+      ? Math.max(slot.cooldownUntil, slot.completesAt)
+      : slot.cooldownUntil;
+    return cooldownUntil > now
+      ? [{ slotId: slot.slotId, cooldownUntil }]
+      : [];
+  });
   return {
     completed,
     nextSaleState: {
-      slots: normalized.slots.filter((slot) => slot.completesAt > now)
+      slots: nextSlots
     }
   };
 }

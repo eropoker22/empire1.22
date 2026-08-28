@@ -10,6 +10,7 @@ export interface FactoryProducedSummaryView {
 }
 
 export interface FactoryProductionLineView {
+  executionMode?: "instant" | "legacy-timed";
   recipeId: "metal-parts" | "tech-core" | "combat-module";
   resourceKey: string;
   label: string;

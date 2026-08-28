@@ -146,15 +146,14 @@ export const createStreetDealerSaleView = (input: {
   const config = input.config;
   const player = input.state.playersById[input.playerId];
   if (!config || !player) return null;
-
   const ownedCount = getOwnedStreetDealerCount(input.state, input.playerId, config);
   const slotCount = resolveStreetDealerSlotCount(ownedCount, config);
   const metadata = getStreetDealersPlayerMetadata(player);
-  const activeSales = metadata.slots.filter(
-    (slot) => Boolean(slot.saleId) && Number(slot.completesAtTick || 0) > input.tick
+  const lockedSlots = metadata.slots.filter(
+    (slot) => Boolean(slot.saleId) || Number(slot.cooldownUntilTick || 0) > input.tick
   );
-  const activeSalesBySlotId = new Map(activeSales.map((slot) => [slot.slotId, slot]));
-  const anySaleActive = activeSales.length > 0;
+  const lockedSlotsById = new Map(lockedSlots.map((slot) => [slot.slotId, slot]));
+  const anySaleActive = lockedSlots.length > 0;
   const items = config.sellableDrugs.map((drug) => ({
     itemId: drug.itemId,
     label: drug.label,
@@ -163,14 +162,13 @@ export const createStreetDealerSaleView = (input: {
     unitSalePriceDirtyCash: Math.max(0, Number(drug.unitSalePriceDirtyCash || 0))
   }));
   const itemsById = new Map(items.map((item) => [item.itemId, item]));
-
   return {
     phase: input.currentPhase === "day" ? "day" : "night",
     phaseStatusLabel: createStreetDealerPhaseStatusLabel(input.currentPhase, input.dayNightRule),
     slotCount,
     slots: config.dealerSlots.slice(0, slotCount).map((slot) => {
       const item = itemsById.get(slot.itemId);
-      const activeSale = activeSalesBySlotId.get(slot.slotId);
+      const activeSale = lockedSlotsById.get(slot.slotId);
       return {
         slotId: slot.slotId,
         label: item?.label || slot.itemId,
@@ -180,11 +178,13 @@ export const createStreetDealerSaleView = (input: {
         unitSalePriceDirtyCash: item?.unitSalePriceDirtyCash || 0,
         minimumAmountPerSale: item?.minimumAmountPerSale || 1,
         locked: anySaleActive,
-        statusLabel: activeSale
-          ? `Prodej běží · ${formatRemainingDuration(
-              (Number(activeSale.completesAtTick || input.tick) - input.tick) * input.tickRateMs
-            )}`
-          : ""
+        statusLabel: activeSale?.saleId
+          ? "Starý prodej se dokončí při synchronizaci"
+          : Number(activeSale?.cooldownUntilTick || 0) > input.tick
+            ? `Cooldown · ${formatRemainingDuration(
+                (Number(activeSale?.cooldownUntilTick || input.tick) - input.tick) * input.tickRateMs
+              )}`
+            : ""
       };
     }),
     items

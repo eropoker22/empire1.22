@@ -8309,6 +8309,8 @@
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
     transform: none !important;
   }
 

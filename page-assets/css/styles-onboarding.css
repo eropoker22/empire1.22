@@ -4967,7 +4967,7 @@ html body .elimination-ai-panel.is-open .elimination-ai-panel__metric:nth-child(
     inset 0 -1px 0 rgba(255, 255, 255, 0.08),
     inset 0 0 34px rgba(239, 68, 68, 0.18);
   text-align: center;
-  pointer-events: auto;
+  pointer-events: none;
   backdrop-filter: blur(28px) saturate(1.65);
   -webkit-backdrop-filter: blur(28px) saturate(1.65);
 }
@@ -5099,8 +5099,15 @@ body:has(#police-action-result-modal:not(.hidden):not([hidden])) .elimination-co
     0 0 22px rgba(239, 68, 68, 0.09),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   opacity: 0.38;
+  pointer-events: none;
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+/* Blocking action dialogs always own pointer input; the countdown stays visible as status only. */
+body.game-modal-scroll-locked .elimination-countdown-warning__card,
+body.game-modal-scroll-locked .elimination-countdown-warning__card * {
+  pointer-events: none !important;
 }
 
 body:has(.district-popup-shell:not([hidden])) .elimination-countdown-warning__label,

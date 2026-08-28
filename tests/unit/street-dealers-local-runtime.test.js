@@ -41,7 +41,7 @@ describe("local Street Dealers runtime", () => {
     expect(visibleDirtyPerHour).toBe(2181);
   });
 
-  it("requires at least ten fixed-slot units, debits once, and settles one sale", () => {
+  it("requires at least ten fixed-slot units and completes the sale immediately", () => {
     const tooSmall = startLocalStreetDealerSale({
       config: STREET_DEALERS_CONFIG,
       ownedCount: 1,
@@ -66,11 +66,36 @@ describe("local Street Dealers runtime", () => {
     expect(started).toMatchObject({
       ok: true,
       nextInventory: { "neon-dust": 0 },
-      sale: { amount: 10, rewardDirtyCash: 6250 }
+      sale: { amount: 10, rewardDirtyCash: 6250, completesAt: 1_000, instant: true }
     });
     const settlement = settleLocalStreetDealerSales(started.nextSaleState, started.sale.completesAt);
-    expect(settlement.completed).toEqual([started.sale]);
-    expect(settlement.nextSaleState.slots).toEqual([]);
+    expect(settlement.completed).toEqual([]);
+    expect(settlement.nextSaleState.slots).toEqual([
+      expect.objectContaining({ slotId: "slot-1", cooldownUntil: expect.any(Number) })
+    ]);
+  });
+
+  it("settles a legacy timed sale exactly once and preserves only its remaining cooldown", () => {
+    const legacySale = {
+      saleId: "legacy-sale",
+      slotId: "slot-1",
+      itemId: "neon-dust",
+      itemLabel: "Neon Dust",
+      amount: 10,
+      startedAt: 1_000,
+      completesAt: 11_000,
+      rewardDirtyCash: 6_250,
+      heatGain: 2,
+      streetRiskPct: 5
+    };
+
+    const first = settleLocalStreetDealerSales({ slots: [legacySale] }, 5_000);
+    expect(first.completed).toEqual([expect.objectContaining({ saleId: "legacy-sale" })]);
+    expect(first.nextSaleState.slots).toEqual([{ slotId: "slot-1", cooldownUntil: 11_000 }]);
+
+    const second = settleLocalStreetDealerSales(first.nextSaleState, 5_001);
+    expect(second.completed).toEqual([]);
+    expect(second.nextSaleState).toEqual(first.nextSaleState);
   });
 
   it("binds each slot to its own product and allows only one sale at a time", () => {

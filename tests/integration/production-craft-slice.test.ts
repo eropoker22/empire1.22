@@ -6,7 +6,7 @@ import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 
 describe("production craft gameplay slice", () => {
-  it("starts the server-authoritative pharmacy Stim Pack line from a minimal intent", async () => {
+  it("produces a server-authoritative pharmacy Stim Pack immediately from a minimal intent", async () => {
     const server = createServerApp();
     const instanceId = "instance:production-craft-slice";
     const playerId = "player:producer";
@@ -18,6 +18,8 @@ describe("production craft gameplay slice", () => {
     const session = await createDevGameplaySession(server, { serverInstanceId: instanceId, playerId, districtId });
     const initialRender = await client.load(session.loadRequest);
     const buildingId = initialRender.districtPanel?.buildings.find((building) => building.buildingTypeId === "pharmacy")?.buildingId;
+    const resourceStateId = runtime.state.playersById[playerId]!.resourceStateId;
+    const stimPacksBefore = Number(runtime.state.resourceStatesById[resourceStateId]?.balances["stim-pack"] || 0);
 
     expect(buildingId).toBeTruthy();
     const crafted = await client.dispatch({
@@ -34,6 +36,14 @@ describe("production craft gameplay slice", () => {
     expect(crafted.errors).toEqual([]);
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === buildingId)?.pharmacy?.lines.find(
       (line) => line.recipeId === "stim-pack"
-    )).toMatchObject({ queuedAmount: 1, activeAmount: 1, unitCleanCashCost: 800 });
+    )).toMatchObject({
+      executionMode: "instant",
+      queuedAmount: 0,
+      activeAmount: 0,
+      playerStoredAmount: stimPacksBefore + 1,
+      unitCleanCashCost: 800
+    });
+    expect(runtime.state.resourceStatesById[resourceStateId]?.balances["stim-pack"]).toBe(stimPacksBefore + 1);
+    expect(runtime.state.buildingsById[buildingId!]?.processing).toBeNull();
   });
 });

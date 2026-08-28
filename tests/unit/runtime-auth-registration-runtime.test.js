@@ -34,7 +34,7 @@ function createRuntime(overrides = {}) {
   return createAuthRegistrationRuntime({
     DEFAULT_DRUG_INVENTORY: { meds: 1 },
     DEFAULT_ECONOMY_STATE: { cleanMoney: 1000, dirtyMoney: 250 },
-    DEFAULT_GANG_MEMBERS: 4,
+    DEFAULT_POPULATION: 4,
     DEFAULT_GANG_STATE: { influence: 0, heat: 0 },
     DEFAULT_MATERIAL_INVENTORY: { metal: 2 },
     FACTION_CATALOG: {
@@ -130,7 +130,7 @@ describe("auth registration runtime", () => {
     expect(setStoredGangState).toHaveBeenCalledWith(expect.objectContaining({
       heat: 0,
       influence: 0,
-      members: 4
+      population: 4
     }));
     expect(identity.readOnly).toBe(true);
     expect(option.disabled).toBe(true);

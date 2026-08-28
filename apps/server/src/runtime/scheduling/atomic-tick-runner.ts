@@ -74,7 +74,10 @@ export const runAtomicInstanceTickUnlocked = async (
   try {
     const committed = await runtime.atomicCommandTransaction.run(runtime.record.id, async (repositories) => {
       const latest = await repositories.snapshotRepository.loadRecoveryHead(runtime.record.id);
-      const baseState = prepareHostedTickState(runtime, latest ? restoreInstanceState(latest) : structuredClone(runtime.state));
+      const baseState = prepareHostedTickState(
+        runtime,
+        latest ? restoreInstanceState(latest, { config: runtime.config }) : structuredClone(runtime.state)
+      );
       const previousRootVersion = latest?.integrity.rootVersion ?? baseState.root.version;
       const result = runTick(baseState, { config: runtime.config });
       const nextState = ensureAdvancedRootVersion(result.nextState, previousRootVersion);

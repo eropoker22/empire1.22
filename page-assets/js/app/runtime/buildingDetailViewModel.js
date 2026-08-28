@@ -263,6 +263,7 @@ function normalizeEffectToneLabel(value = "") {
 
 function normalizeClinicRecoveryItemType(itemType = "") {
   const normalized = normalizeBuildingLookupKey(itemType).replace(/\s+/g, "-");
+  // Read-only compatibility for historical clinic recovery records.
   if (normalized === "gang-members" || normalized === "gang-member" || normalized === "members") return "population";
   if (normalized === "population" || normalized === "populace" || normalized === "obyvatele") return "population";
   return normalized;
@@ -1103,7 +1104,7 @@ const FOCUSED_BUILDING_DETAIL_LABELS = Object.freeze({
 });
 
 const FOCUSED_BUILDING_DETAIL_BADGES = Object.freeze({
-  "apartment-block": "Členové gangu",
+  "apartment-block": "Populace",
   garage: "Logistika",
   "recruitment-center": "Nábor",
   clinic: "Recovery",
@@ -1516,9 +1517,9 @@ export function createBuildingDetailMechanicRows({
     );
   } else if (mechanics.mechanicsType === "fitness-club" || buildingKey === "fitness club") {
     mechanicRows.push(
-      createMechanic("Největší efekt", `Gang a baseballová pálka využijí +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.attackApplication?.baseGangMemberAttack)} % fitness bonusu.`),
+      createMechanic("Největší efekt", `Gang a baseballová pálka využijí +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.attackApplication?.basePopulationAttack)} % fitness bonusu.`),
       createMechanic("Střelné zbraně", `Pistole využije +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.attackApplication?.pistol)} %, samopal +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.attackApplication?.smg)} %, granát +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.attackApplication?.grenade)} % a bazuka +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.attackApplication?.bazooka)} % bonusu.`),
-      createMechanic("Obrana", `V obraně se bonus propíše do gangu +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.defenseApplication?.baseGangMemberDefense)} %, do vesty +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.defenseApplication?.vest)} % a do barikád +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.defenseApplication?.barricades)} %.`),
+      createMechanic("Obrana", `V obraně se bonus propíše do gangu +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.defenseApplication?.basePopulationDefense)} %, do vesty +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.defenseApplication?.vest)} % a do barikád +${formatPercentShare(FITNESS_CLUB_SUPPORT_CONFIG.defenseApplication?.barricades)} %.`),
       createMechanic("Bez bonusu", "Kamery, alarm a kulometné stanoviště z fitness clubu žádný bonus nedostávají.")
     );
   } else if (mechanics.mechanicsType === "restaurant" || buildingKey === "restaurace") {

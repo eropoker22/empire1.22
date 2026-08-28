@@ -21,6 +21,7 @@ import { applyConvenienceStorePassiveRumors, applyConvenienceStorePopulationProd
 import { applyExchangeOfficeAuditChecks } from "../../handlers/exchangeOfficeBuildingActions";
 import { applyRestaurantPassiveRumors } from "../../handlers/restaurantBuildingActions";
 import { applySchoolStudentProduction } from "../../handlers/schoolBuildingActions";
+import { LEGACY_POPULATION_RESOURCE_KEYS, resolvePlayerPopulation } from "../../state/playerPopulation";
 import { applyLobbyClubScandalChecks } from "../../handlers/lobbyClubBuildingActions";
 import { applyStripClubPassiveRumors } from "../../handlers/stripClubBuildingActions";
 import { applyVipLoungePassiveRumors } from "../../handlers/vipLoungeBuildingActions";
@@ -216,17 +217,18 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
     const nextBalances = {
       ...currentResourceState.balances
     };
+    for (const resourceKey of LEGACY_POPULATION_RESOURCE_KEYS) delete nextBalances[resourceKey];
 
     for (const [resourceKey, amount] of Object.entries(incomeBalances)) {
+      if ((LEGACY_POPULATION_RESOURCE_KEYS as readonly string[]).includes(resourceKey)) continue;
       nextBalances[resourceKey] = Math.max(0, Number(nextBalances[resourceKey] || 0) + amount);
     }
     if (populationGain > 0) {
-      nextBalances["gang-members"] = Math.max(0, Number(nextBalances["gang-members"] || 0) + populationGain);
       nextPlayersById = {
         ...nextPlayersById,
         [player.id]: {
           ...player,
-          population: Math.max(0, Number(player.population || 0) + populationGain),
+          population: resolvePlayerPopulation(state, player) + populationGain,
           version: player.version + 1
         }
       };

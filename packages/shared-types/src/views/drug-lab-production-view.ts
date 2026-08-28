@@ -8,6 +8,7 @@ export interface DrugLabMaterialInputView {
 }
 
 export interface DrugLabProductionLineView {
+  executionMode?: "instant" | "legacy-timed";
   recipeId: "neon-dust" | "pulse-shot" | "velvet-smoke" | "ghost-serum" | "overdrive-x";
   resourceKey: string;
   label: string;

@@ -380,25 +380,25 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
       ? (config.infoText || "Budova vyrábí materiály pro další produkci.")
       : [
           config.infoText || "",
-          `Level ${state.level}: rychlost ${formatProductionSpeedBonus(multiplier)}.`,
+          `Level ${state.level}: pasivní produkce ${formatProductionSpeedBonus(multiplier)}.`,
           state.level < maxLevel
-            ? `Upgrade stojí ${formatMoney(upgradeCost, options)} a zvedne rychlost na ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}.`
+            ? `Upgrade stojí ${formatMoney(upgradeCost, options)} a zvedne pasivní produkci na ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}.`
             : "Budova je na maximálním levelu.",
-          `Hotovo k vyzvednutí: ${readyCount} receptů.`
+          "Ruční recepty se po potvrzení vyrobí okamžitě do skladu."
         ].filter(Boolean).join(" "));
   }
 
   if (infoEffectsElement) {
     setTextContentIfChanged(infoEffectsElement, isPharmacy
-      ? (effectsLabel || "Lékárna · základní produkční rychlost")
+      ? (effectsLabel || "Lékárna · základní pasivní produkce")
       : isDrugLab
-        ? (effectsLabel || "Lab · základní produkční rychlost")
+        ? (effectsLabel || "Lab · základní pasivní produkce")
       : isArmory
-        ? (effectsLabel || "Zbrojovka · základní produkční rychlost")
+        ? (effectsLabel || "Zbrojovka · základní pasivní produkce")
       : [
-          effectsLabel || `${config.label || "Budova"} · základní produkční rychlost`,
-          state.level < maxLevel ? `Další level: +10 % rychlost craftu.` : "Další upgrade už není dostupný.",
-          "Vyzvednutí přesune hotové kusy do skladu hráče."
+          effectsLabel || `${config.label || "Budova"} · základní pasivní produkce`,
+          state.level < maxLevel ? `Další level zvyšuje pasivní produkci.` : "Další upgrade už není dostupný.",
+          "Ruční výroba ukládá hotové kusy do skladu okamžitě."
         ].join(" · "));
   }
 
@@ -410,9 +410,9 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
       return Boolean(buildingName || Object.keys(recipes || {}).length >= 0);
     }
     const lines = [
-      `+ Vybrat hotové: přesune ${readyCount > 0 ? `${readyCount} hotových receptů` : "hotové recepty"} do skladu.`,
+      "+ Vyrobit: atomicky spotřebuje vstupy a okamžitě uloží výstup do skladu.",
       state.level < maxLevel
-        ? `⇪ Upgrade: cena ${formatMoney(upgradeCost, options)}, nová rychlost ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}.`
+        ? `⇪ Upgrade: cena ${formatMoney(upgradeCost, options)}, pasivní produkce ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}.`
         : "⇪ Upgrade: max level.",
       ...recipeLines
     ];
@@ -518,6 +518,7 @@ export function renderFactoryBuildingInfo(infoPanel, viewModel = {}, options = {
 
 export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {}) {
   const slot = slotView.slot || {};
+  const isInstant = slotView.executionMode === "instant" || slot.executionMode === "instant";
   const batchSelectionKey = getFactoryBatchSelectionKey(slotView, slot, options);
   const card = createElement(options.mount, "article");
   if (!card) return null;
@@ -543,7 +544,9 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   icon.setAttribute("aria-hidden", "true");
   eyebrow.textContent = slotView.typeLabel || "";
   title.textContent = slotView.title || slot.resourceKey || "";
-  status.textContent = slotView.status
+  status.textContent = isInstant
+    ? "Okamžitá výroba"
+    : slotView.status
     ? getFactoryStatusLabel(slotView.status)
     : slot.isProducing
       ? "Výroba"
@@ -575,22 +578,25 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
 
   const timeValue = appendMetric("Čas", slotView.loading
     ? "—"
+    : isInstant
+      ? "Okamžitě"
     : slotView.usesAuthoritativeCountdown
       ? formatDuration(Number(slotView.remainingMs || 0) > 0 ? slotView.remainingMs : slotView.durationMs, options)
       : formatFactorySlotTime(slotView, options));
-  if (!slotView.usesAuthoritativeCountdown && slot.isProducing) {
+  if (!isInstant && !slotView.usesAuthoritativeCountdown && slot.isProducing) {
     bindFactoryMetricCountdown(timeValue, () => formatFactorySlotTime(slotView, options), options);
   }
   const priceValue = appendMetric("Cena", formatFactoryCleanCashCost(slotView, 1));
   const producedAmount = Math.max(0, Math.floor(Number(slot.producedAmount ?? 0)));
   const producedCapacity = Math.max(0, Math.floor(Number(slotView.slotOutputCap ?? slot.slotCap ?? 0)));
-  appendMetric("Vyrobeno", slotView.loading
+  appendMetric(isInstant ? "Ve skladu" : "Vyrobeno", slotView.loading
     ? "—"
     : producedCapacity > 0 ? `${producedAmount}/${producedCapacity} ks` : `${producedAmount} ks`, true);
   const queuedAmount = Math.max(0, Math.floor(Number(slotView.queuedAmount || slot.queuedAmount || 0)));
   const queueCap = Math.max(0, Math.floor(Number(slotView.queueCap || slot.queueCap || slotView.slotStorageCap || slot.slotCap || 0)));
-  appendMetric("Ve frontě", slotView.loading
+  appendMetric(isInstant ? "Fronta" : "Ve frontě", slotView.loading
     ? "—"
+    : isInstant ? "Bez fronty"
     : queueCap > 0 ? `${queuedAmount}/${queueCap} ks` : `${queuedAmount} ks`, true);
   const materialRequirements = createFactoryMaterialRequirements(options.mount, slotView);
   if (materialRequirements.element) {
@@ -660,11 +666,11 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   if (startButton && pauseButton) {
     startButton.type = "button";
     startButton.dataset.factorySlotToggleState = "start";
-    startButton.textContent = "Spustit";
+    startButton.textContent = isInstant ? "Vyrobit" : "Spustit";
     startButton.disabled = !slotView.canStart;
     startButton.title = startButton.disabled
       ? (slotView.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
-      : "Spustit výrobu.";
+      : isInstant ? "Vyrobit okamžitě." : "Spustit výrobu.";
     startButton.addEventListener("click", () => {
       clearProductionQuantitySelection(options.mount, batchSelectionKey);
       const binding = resolveFactorySlotBinding(options.mount, batchSelectionKey, slotView, callbacks);
@@ -674,6 +680,8 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
       }
     });
     pauseButton.type = "button";
+    pauseButton.hidden = isInstant;
+    pauseButton.disabled = isInstant;
     pauseButton.dataset.factorySlotToggleState = "stop";
     pauseButton.textContent = "Zrušit";
     pauseButton.setAttribute(
@@ -693,7 +701,8 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
         binding.callbacks.onPauseSlot(binding.slotView);
       }
     });
-    actions.append(quantityControl, startButton, pauseButton);
+    actions.append(quantityControl, startButton);
+    if (!isInstant) actions.append(pauseButton);
   }
 
   card.append(head, metrics, actions);

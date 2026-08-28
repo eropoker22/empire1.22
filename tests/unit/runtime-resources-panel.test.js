@@ -190,10 +190,10 @@ function createResourceFixture() {
   });
   spyPill.append(spyLabel, spyValue);
 
-  const gangMembers = createElement(document, "strong", { "data-gang-members": "" });
-  root.append(cleanPill, dirtyPill, spyPill, gangMembers);
+  const population = createElement(document, "strong", { "data-population": "" });
+  root.append(cleanPill, dirtyPill, spyPill, population);
 
-  return { root, cleanPill, cleanValue, dirtyPill, dirtyValue, spyPill, spyLabel, spyValue, gangMembers };
+  return { root, cleanPill, cleanValue, dirtyPill, dirtyValue, spyPill, spyLabel, spyValue, population };
 }
 
 function createStorageCounter(document, attribute, itemId) {
@@ -502,10 +502,10 @@ describe("resources panel UI rendering", () => {
   });
 
   it("keeps the runtime facade resource renderer working", () => {
-    const { root, gangMembers } = createResourceFixture();
+    const { root, population } = createResourceFixture();
 
-    renderResourcesPanel({ gangMembers: 42 }, { root, includeMoney: false, includeSpy: false });
+    renderResourcesPanel({ population: 42 }, { root, includeMoney: false, includeSpy: false });
 
-    expect(gangMembers.textContent).toBe("42");
+    expect(population.textContent).toBe("42");
   });
 });

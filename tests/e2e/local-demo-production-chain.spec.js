@@ -94,7 +94,7 @@ async function seedLocalDemo(page) {
 
 async function openLocalGame(page) {
   await seedLocalDemo(page);
-  await page.goto("/pages/game.html", { waitUntil: "load" });
+  await page.goto("/pages/game.html?runtimeMode=local-demo&autoStartLocalDemo=1", { waitUntil: "load" });
   await page.waitForFunction(() => (
     window.EmpireRuntime
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"
@@ -105,10 +105,6 @@ async function openLocalGame(page) {
 
 async function readSession(page) {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}"), SESSION_KEY);
-}
-
-async function readProductionJob(page, jobKey) {
-  return (await readSession(page)).production?.jobs?.[jobKey] || null;
 }
 
 function metric(card, label) {
@@ -125,21 +121,13 @@ function cardByHeading(page, scope, selector, label) {
   });
 }
 
-async function finishProductionJob(page, jobKey) {
-  await page.evaluate((key) => window.EmpireRuntime.advanceLocalProductionJobForE2e(key), jobKey);
-}
-
-async function finishFactoryUnit(page, resourceKey) {
-  await page.evaluate((key) => window.EmpireRuntime.advanceFactoryProductionForE2e(key), resourceKey);
-}
-
 async function closePopup(page, popupSelector, closeSelector) {
   await page.locator(popupSelector).locator(closeSelector).last().click();
   await expect(page.locator(popupSelector)).toBeHidden();
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe("hidden");
 }
 
-test("local-demo production chain keeps queues, partial collect and inventory synchronized", async ({ page }) => {
+test("local-demo production chain credits inventory atomically without queues or collect", async ({ page }) => {
   test.setTimeout(90_000);
   const runtimeErrors = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
@@ -152,61 +140,62 @@ test("local-demo production chain keeps queues, partial collect and inventory sy
   const pharmacy = page.locator("[data-pharmacy-popup]");
   const chemicals = cardByHeading(page, pharmacy, ".pharmacy-slot", "Chemicals");
   await expect(pharmacy.locator(".pharmacy-slot")).toHaveCount(3);
-  const cleanBeforeChemicals = (await readSession(page)).economy.cleanMoney;
-  await chemicals.locator(".pharmacy-slot__quantity-btn").last().click();
-  await chemicals.getByRole("button", { name: "Spustit" }).click();
-  await expect(metric(chemicals, "Ve frontě")).toHaveText("2/15 ks");
-  const chemicalsJob = await readProductionJob(page, "pharmacy:chemicals");
-  expect(chemicalsJob.cleanMoneyCost).toBe(720);
-  expect((await readSession(page)).economy.cleanMoney).toBeLessThan(cleanBeforeChemicals);
-
-  await finishProductionJob(page, "pharmacy:chemicals");
-  await finishProductionJob(page, "pharmacy:chemicals");
-  await expect(metric(chemicals, "Vyrobeno")).toHaveText("2/12 ks");
-  await expect(metric(chemicals, "Ve frontě")).toHaveText("0/15 ks");
-  await pharmacy.locator("[data-production-building-collect]").click();
-  await expect(metric(chemicals, "Vyrobeno")).toHaveText("1/12 ks");
-  expect((await readSession(page)).inventory.materials.chemicals).toBe(60);
+  await expect(metric(chemicals, "Čas")).toHaveText("Okamžitě");
+  await expect(metric(chemicals, "Fronta")).toHaveText("Bez fronty");
+  await expect(metric(chemicals, "Ve skladu")).toHaveText("59/60 ks");
+  await expect(chemicals.locator(".pharmacy-slot__quantity-btn").last()).toBeDisabled();
+  await expect(chemicals.locator(".pharmacy-slot__btn--stop")).toHaveCount(0);
+  const beforeChemicals = await readSession(page);
+  await chemicals.getByRole("button", { name: "Vyrobit" }).click();
+  await expect.poll(async () => (await readSession(page)).inventory.materials.chemicals).toBe(60);
+  await expect.poll(async () => (await readSession(page)).economy.cleanMoney).toBe(beforeChemicals.economy.cleanMoney - 360);
+  await expect(metric(chemicals, "Ve skladu")).toHaveText("60/60 ks");
 
   const biomass = cardByHeading(page, pharmacy, ".pharmacy-slot", "Biomass");
   await biomass.locator(".pharmacy-slot__quantity-btn").last().click();
-  await biomass.getByRole("button", { name: "Spustit" }).click();
-  const cleanAfterBiomassStart = (await readSession(page)).economy.cleanMoney;
-  const reservedBeforeCancel = (await readProductionJob(page, "pharmacy:biomass")).cleanMoneyCost;
-  await biomass.getByRole("button", { name: "Zrušit" }).click();
-  await expect(metric(biomass, "Ve frontě")).toHaveText("1/11 ks");
-  const cleanAfterCancel = (await readSession(page)).economy.cleanMoney;
-  const reservedAfterCancel = (await readProductionJob(page, "pharmacy:biomass")).cleanMoneyCost;
-  expect(cleanAfterCancel - cleanAfterBiomassStart).toBeGreaterThanOrEqual(420);
-  expect(reservedBeforeCancel - reservedAfterCancel).toBe(420);
-  await expect(biomass.getByRole("button", { name: "Zrušit" })).toBeDisabled();
+  const beforeBiomass = await readSession(page);
+  await biomass.getByRole("button", { name: "Vyrobit" }).click();
+  await expect.poll(async () => (await readSession(page)).inventory.materials.biomass).toBe(22);
+  await expect.poll(async () => (await readSession(page)).economy.cleanMoney).toBe(beforeBiomass.economy.cleanMoney - 840);
+  await expect(metric(biomass, "Ve skladu")).toHaveText("22/60 ks");
+  await expect(pharmacy.locator("[data-production-building-collect]")).toBeHidden();
   await closePopup(page, "[data-pharmacy-popup]", "[data-pharmacy-popup-close]");
 
   await page.locator("[data-druglab-popup-open]").click();
   const lab = page.locator("[data-druglab-popup]");
   const neonDust = cardByHeading(page, lab, ".drug-production-slot", "Neon Dust");
   await expect(lab.locator(".drug-production-slot")).toHaveCount(5);
-  await neonDust.getByRole("button", { name: "Spustit" }).click();
-  expect((await readSession(page)).inventory.materials.chemicals).toBe(58);
-  await finishProductionJob(page, "druglab:neon-dust");
-  await expect(metric(neonDust, "Vyrobeno")).toHaveText("1/10 ks");
-  await lab.locator("[data-production-building-collect]").click();
-  expect((await readSession(page)).inventory.drugs["neon-dust"]).toBe(1);
+  const beforeNeonDust = await readSession(page);
+  await neonDust.getByRole("button", { name: "Vyrobit" }).click();
+  await expect.poll(async () => (await readSession(page)).inventory.materials.chemicals).toBe(58);
+  await expect.poll(async () => (await readSession(page)).inventory.drugs["neon-dust"]).toBe(1);
+  await expect.poll(async () => (await readSession(page)).economy.cleanMoney).toBe(beforeNeonDust.economy.cleanMoney - 500);
+  await expect(metric(neonDust, "Ve skladu")).toHaveText("1/60 ks");
+  await expect(metric(neonDust, "Fronta")).toHaveText("Bez fronty");
+  await expect(lab.locator("[data-production-building-collect]")).toBeHidden();
   await closePopup(page, "[data-druglab-popup]", "[data-druglab-popup-close]");
 
   await page.locator("[data-pharmacy-popup-open]").click();
-  await pharmacy.locator("[data-production-building-collect]").click();
-  expect((await readSession(page)).inventory.materials.chemicals).toBe(59);
+  const chemicalsAfterLab = cardByHeading(page, pharmacy, ".pharmacy-slot", "Chemicals");
+  await chemicalsAfterLab.locator(".pharmacy-slot__quantity-btn").last().click();
+  const beforeSecondChemicals = await readSession(page);
+  await chemicalsAfterLab.getByRole("button", { name: "Vyrobit" }).click();
+  await expect.poll(async () => (await readSession(page)).inventory.materials.chemicals).toBe(60);
+  await expect.poll(async () => (await readSession(page)).economy.cleanMoney).toBe(beforeSecondChemicals.economy.cleanMoney - 720);
+  await expect(metric(chemicalsAfterLab, "Ve skladu")).toHaveText("60/60 ks");
   await closePopup(page, "[data-pharmacy-popup]", "[data-pharmacy-popup-close]");
 
   await page.locator("[data-factory-popup-open]").click();
   const factory = page.locator("[data-factory-popup]");
   await expect(factory.locator(".factory-slot")).toHaveCount(3);
   const metalParts = cardByHeading(page, factory, ".factory-slot", "Metal Parts");
-  await metalParts.getByRole("button", { name: "Spustit" }).click();
-  await finishFactoryUnit(page, "metalParts");
-  await expect(metric(metalParts, "Vyrobeno")).toHaveText("1/10 ks");
-  await factory.locator("[data-factory-collect]").click();
+  const beforeMetalParts = await readSession(page);
+  await metalParts.getByRole("button", { name: "Vyrobit" }).click();
+  await expect.poll(async () => (await readSession(page)).inventory.materials["metal-parts"]).toBe(41);
+  await expect.poll(async () => (await readSession(page)).economy.cleanMoney).toBe(beforeMetalParts.economy.cleanMoney - 300);
+  await expect(metric(metalParts, "Ve skladu")).toHaveText("41/60 ks");
+  await expect(metric(metalParts, "Fronta")).toHaveText("Bez fronty");
+  await expect(factory.locator("[data-factory-collect]")).toBeHidden();
   await closePopup(page, "[data-factory-popup]", "[data-factory-popup-close]");
 
   await page.locator("[data-armory-popup-open]").click();
@@ -215,26 +204,26 @@ test("local-demo production chain keeps queues, partial collect and inventory sy
   const smg = cardByHeading(page, armory, ".armory-slot", "SMG");
   await expect(smg.locator(".armory-slot__material-value")).toHaveText([/2\/\d+/, /1\/\d+/]);
   const beforeSmg = await readSession(page);
-  await smg.getByRole("button", { name: "Spustit" }).click();
-  const afterSmg = await readSession(page);
-  expect(afterSmg.inventory.materials["metal-parts"]).toBe(beforeSmg.inventory.materials["metal-parts"] - 2);
-  expect(afterSmg.inventory.materials["combat-module"]).toBe(beforeSmg.inventory.materials["combat-module"] - 1);
-  await finishProductionJob(page, "armory:smg");
-  await expect(metric(smg, "Vyrobeno")).toHaveText("1/3 ks");
-  await armory.locator("[data-production-building-collect]").click();
-  expect((await readSession(page)).inventory.weapons.smg).toBe(1);
+  await smg.getByRole("button", { name: "Vyrobit" }).click();
+  await expect.poll(async () => (await readSession(page)).inventory.materials["metal-parts"]).toBe(beforeSmg.inventory.materials["metal-parts"] - 2);
+  await expect.poll(async () => (await readSession(page)).inventory.materials["combat-module"]).toBe(beforeSmg.inventory.materials["combat-module"] - 1);
+  await expect.poll(async () => (await readSession(page)).inventory.weapons.smg).toBe(1);
+  await expect(metric(smg, "Ve skladu")).toHaveText("1/8 ks");
 
   const pistol = cardByHeading(page, armory, ".armory-slot", "Pistole");
-  for (let index = 1; index < 8; index += 1) await pistol.locator(".armory-slot__quantity-btn").last().click();
-  await pistol.getByRole("button", { name: "Spustit" }).click();
-  await expect(metric(pistol, "Ve frontě")).toHaveText("8/8 ks");
-  await expect(pistol.locator(".armory-slot__quantity-btn").last()).toBeDisabled();
-  await expect(pistol.getByRole("button", { name: "Spustit" })).toBeDisabled();
+  const beforePistol = await readSession(page);
+  await pistol.getByRole("button", { name: "Vyrobit" }).click();
+  await expect.poll(async () => (await readSession(page)).inventory.weapons.pistol).toBe(1);
+  await expect.poll(async () => (await readSession(page)).inventory.materials["metal-parts"]).toBe(beforePistol.inventory.materials["metal-parts"] - 3);
+  await expect.poll(async () => (await readSession(page)).inventory.materials["tech-core"]).toBe(beforePistol.inventory.materials["tech-core"] - 1);
+  await expect(metric(pistol, "Ve skladu")).toHaveText("1/24 ks");
+  await expect(armory.locator("[data-production-building-collect]")).toBeHidden();
   await closePopup(page, "[data-armory-popup]", "[data-armory-popup-close]");
 
   await page.locator("[data-storage-popup-open]").click();
-  await expect(page.locator('[data-storage-resource="chemicals"] [data-storage-value]')).toHaveText("59 / 60");
+  await expect(page.locator('[data-storage-resource="chemicals"] [data-storage-value]')).toHaveText("60 / 60");
   await expect(page.locator('[data-storage-resource="smg"] [data-storage-value]')).toHaveText("1 / 8");
+  await expect(page.locator('[data-storage-resource="pistol"] [data-storage-value]')).toHaveText("1 / 24");
   await closePopup(page, "[data-storage-popup]", "[data-storage-popup-close]");
 
   expect(await page.evaluate(() => window.EmpireRuntime.openAttackPanel(2))).toBe(true);
@@ -242,5 +231,6 @@ test("local-demo production chain keeps queues, partial collect and inventory sy
   await expect(attackSetup).toBeVisible();
   await expect(attackSetup).toContainText("SMG");
   await expect(attackSetup).toContainText(/1/);
+  expect((await readSession(page)).production.jobs).toEqual({});
   expect(runtimeErrors).toEqual([]);
 });

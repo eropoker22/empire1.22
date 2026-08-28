@@ -25,6 +25,7 @@ import type {
 } from "@empire/shared-types";
 import {
   ALLIANCE_CREATE_REQUIRED_INFLUENCE,
+  resolvePlayerPopulation,
   resolvePlayerOperationalLiveness,
   type CoreGameState
 } from "@empire/game-core";
@@ -39,6 +40,7 @@ const DEFAULT_STEPS = 500;
 const DEFAULT_PLAYER_COUNT = 20;
 const MAX_FACTION_OCCURRENCES = 3;
 const BASE_TIME_ISO = "2026-01-01T12:00:00.000Z";
+const STARTING_POPULATION = 120;
 
 const MATERIAL_RESOURCE_IDS = [
   "chemicals",
@@ -65,8 +67,6 @@ const MARKET_RESOURCE_IDS: MarketResourceId[] = ["metal-parts", "stim-pack", "ch
 const STARTING_BALANCES: Record<string, number> = {
   cash: 5000,
   "dirty-cash": 1000,
-  population: 120,
-  "gang-members": 120,
   chemicals: 0,
   biomass: 0,
   "stim-pack": 0,
@@ -1222,7 +1222,7 @@ const normalizeStartingResources = (state: CoreGameState, players: SimulationPla
       ...player,
       name: playerConfig.name,
       factionId: playerConfig.factionId,
-      population: STARTING_BALANCES.population,
+      population: STARTING_POPULATION,
       version: player.version + 1
     };
     state.resourceStatesById[player.resourceStateId] = {
@@ -1490,14 +1490,14 @@ const planHeist = (state: MutableSimulationState, player: SimulationPlayer, step
   const style = player.riskTolerance > 0.75 ? "all_in" : player.riskTolerance < 0.35 ? "stealth" : "balanced";
   const styleView = candidate.target.styles.find((item) => item.style === style) ?? candidate.target.styles[0];
   const population = summarizePlayerResources(getRuntime(state.server).state, player.id).population;
-  const gangMembersSent = Math.max(1, Math.min(styleView?.defaultGangMembersSent ?? 1, Math.floor(population / 4) || 1));
+  const populationSent = Math.max(1, Math.min(styleView?.defaultPopulationSent ?? 1, Math.floor(population / 4) || 1));
 
   return {
     command: createBaseCommand<HeistDistrictCommand>(player, "heist-district", commandId(player, "heist", step), {
       targetDistrictId: candidate.target.districtId,
       sourceDistrictId: candidate.panel.districtId,
       style,
-      gangMembersSent,
+      populationSent,
       expectedConflictRevision: candidate.target.expectedConflictRevision,
       expectedTargetVersion: candidate.target.expectedTargetVersion,
       expectedSourceVersion: candidate.target.expectedSourceVersion
@@ -2317,7 +2317,7 @@ const configureScenarioWorld = (state: MutableSimulationState): void => {
     const resources = runtime.state.resourceStatesById[playerState.resourceStateId];
     runtime.state.resourceStatesById[playerState.resourceStateId] = {
       ...resources,
-      balances: { ...resources.balances, influence: 5_000, population: Math.max(100, Number(resources.balances.population ?? 0)) },
+      balances: { ...resources.balances, influence: 5_000 },
       version: resources.version + 1
     };
     runtime.state.playersById[coveragePlayer.id] = {
@@ -5140,7 +5140,7 @@ const summarizePlayerResources = (state: CoreGameState, playerId: string): Resou
     influence: round(ownedDistricts.reduce((total, district) => total + Number(district.influence || 0), 0), 4),
     heat: round(policeHeat + ownedDistricts.reduce((total, district) => total + Number(district.heat || 0), 0), 4),
     materials: round(sumRecord(materialBalances), 4),
-    population: Math.max(0, Number(player?.population ?? balances.population ?? 0)),
+    population: resolvePlayerPopulation(state, player),
     rawBalances: balances,
     materialBalances
   };

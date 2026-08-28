@@ -8,7 +8,6 @@ export interface PlayerEconomyView {
   dirtyCash: number;
   influence: number;
   population: number;
-  gangMembers: number;
   resources: Record<string, number>;
   materials: Record<string, number>;
   drugs: Record<string, number>;
