@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **157 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **158 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -187,6 +187,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `EMPIRE_STAGING_NEON_SNAPSHOT_RESPONSE_PATH` | Staging Neon snapshot binding | Protected staging release job only | No | No | Release job only; never injected into the site | None | Ephemeral runner path to the provider snapshot response | No | Delete immediately after snapshot verification |
 | `EMPIRE_TEST_DATABASE_URL` | Local persistence tests | No | No | Test secret | None | None | Local, CI or test-specific value | Yes outside public runtime | Discard after the test run; never reuse a public secret |
 | `EMPIRE_UI_PARITY_ARTIFACT_ROOT` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_UI_PARITY_NON_SPAWN_KEYS` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_UI_PARITY_SERVER_ID` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_UI_PARITY_SOCIAL_BATCH_KEYS` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
