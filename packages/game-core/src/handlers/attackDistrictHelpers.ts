@@ -105,6 +105,7 @@ export const createBattleReportNotification = (input: {
   bazookaCatastropheBonus: number;
   catastropheFinalChance: number;
   attackDurationTicks: number;
+  resolveAtTick?: number;
   tacticalGrid: {
     attackerApplied: boolean;
     defenderApplied: boolean;
@@ -153,7 +154,7 @@ export const createBattleReportNotification = (input: {
       catastropheFinalChance: input.catastropheFinalChance,
       attackDurationTicks: input.attackDurationTicks,
       issuedAtTick: input.tick,
-      resolveAtTick: input.tick + input.attackDurationTicks,
+      resolveAtTick: input.resolveAtTick ?? input.tick + input.attackDurationTicks,
       tacticalGrid: input.tacticalGrid,
       tacticalGridSummary: input.tacticalGrid.attackerApplied || input.tacticalGrid.defenderApplied
         ? `Tactical Grid: +${Math.round((input.tacticalGrid.multiplier - 1) * 100)} % bojové síly`
@@ -194,6 +195,7 @@ export const createBattleReportNotifications = (input: {
   bazookaCatastropheBonus: number;
   catastropheFinalChance: number;
   attackDurationTicks: number;
+  resolveAtTick?: number;
   tacticalGrid: {
     attackerApplied: boolean;
     defenderApplied: boolean;
@@ -228,6 +230,7 @@ export const createBattleReportNotifications = (input: {
     bazookaCatastropheBonus: input.bazookaCatastropheBonus,
     catastropheFinalChance: input.catastropheFinalChance,
     attackDurationTicks: input.attackDurationTicks,
+    resolveAtTick: input.resolveAtTick,
     tacticalGrid: input.tacticalGrid,
     detectedDefense: filterDefenseLoadout(input.targetDistrict.defenseLoadout),
     tick: input.tick,

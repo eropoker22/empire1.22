@@ -13,6 +13,61 @@ const RUMOR_TRASH_ICON = `
   </span>
 `;
 
+const MAX_VISIBLE_RUMORS = 7;
+
+function syncRumorListViewport(list) {
+  if (!list) return;
+  const messages = [...list.querySelectorAll(".rumor-inbox-message")];
+  list.dataset.rumorScrollable = String(messages.length > MAX_VISIBLE_RUMORS);
+  list.style.removeProperty("--rumor-visible-height");
+  list.dataset.rumorVisibleCount = String(Math.min(messages.length, MAX_VISIBLE_RUMORS));
+  if (messages.length <= MAX_VISIBLE_RUMORS) return;
+
+  const documentRef = list.ownerDocument;
+  const view = documentRef?.defaultView;
+  const card = list.closest(".rumor-inbox-card");
+  if (!view || !card) return;
+
+  const measure = () => {
+    const shellStyle = view.getComputedStyle(card.parentElement);
+    const readPixels = (value) => Number.parseFloat(value) || 0;
+    const shellPadding = readPixels(shellStyle.paddingTop) + readPixels(shellStyle.paddingBottom);
+    const headerHeight = card.querySelector(".rumor-inbox-header")?.getBoundingClientRect?.().height || 0;
+    const signalHeight = card.querySelector(".rumor-inbox-signal-bar")?.getBoundingClientRect?.().height || 0;
+    const viewportCardMaxHeight = view.innerWidth <= 720
+      ? view.innerHeight - shellPadding
+      : Math.min(view.innerHeight * 0.88, 860, view.innerHeight - shellPadding);
+    const cardMaxHeight = Math.max(0, viewportCardMaxHeight);
+    const availableHeight = Math.max(0, cardMaxHeight - headerHeight - signalHeight);
+    const cardEdges = messages.map((message) => {
+      return {
+        top: Number(message.offsetTop) || 0,
+        bottom: (Number(message.offsetTop) || 0) + (Number(message.offsetHeight) || 0)
+      };
+    });
+    let visibleCount = 0;
+
+    for (const edge of cardEdges.slice(0, MAX_VISIBLE_RUMORS)) {
+      if (edge.bottom <= edge.top) return;
+      if (visibleCount > 0 && edge.bottom > availableHeight) break;
+      visibleCount += 1;
+    }
+
+    if (visibleCount > 0) {
+      const nextEdge = cardEdges[visibleCount];
+      const lastVisibleEdge = cardEdges[visibleCount - 1];
+      const contentHeight = nextEdge?.top || lastVisibleEdge?.bottom || availableHeight;
+      const borderAdjustment = Math.max(0, list.offsetHeight - list.clientHeight);
+      const visibleHeight = Math.min(availableHeight, contentHeight + borderAdjustment);
+      list.style.setProperty("--rumor-visible-height", `${Math.ceil(visibleHeight)}px`);
+      list.dataset.rumorVisibleCount = String(visibleCount);
+    }
+  };
+
+  measure();
+  view.requestAnimationFrame?.(measure);
+}
+
 function createElement(documentRef, tagName, className = "", text = "") {
   const element = documentRef.createElement(tagName);
   if (className) element.className = className;
@@ -102,7 +157,6 @@ function createRumorInboxController(documentRef) {
       let entries = Array.isArray(rumors) ? rumors : [];
       const renderEntries = () => {
       count.textContent = String(entries.length);
-      list.dataset.rumorScrollable = String(entries.length > 8);
       list.replaceChildren(...entries.map((entry, index) => {
         const message = createElement(documentRef, "article", "rumor-inbox-message");
         const button = createElement(documentRef, "button", "rumor-inbox-message__open-button");
@@ -141,6 +195,7 @@ function createRumorInboxController(documentRef) {
       empty.hidden = entries.length > 0;
       list.hidden = entries.length === 0;
       deleteAllButton.hidden = entries.length === 0;
+      syncRumorListViewport(list);
       };
       deleteAllButton.onclick = () => {
         const resolvedEntries = onDeleteAll(entries);
@@ -154,6 +209,7 @@ function createRumorInboxController(documentRef) {
         focusTarget: closeButton,
         restoreFocusOnClose: true
       });
+      syncRumorListViewport(list);
       return true;
     }
   };

@@ -173,6 +173,13 @@ const createPublicConflictMapEffects = (
           .filter((operation) => operation.targetDistrictId === district.id && operation.resolveAtTick > currentTick)
           .sort((left, right) => right.issuedAtTick - left.issuedAtTick)[0]
         : null;
+      const pendingAction = type === "attack"
+        ? Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+          .filter((operation) => operation.operationType === "attack"
+            && operation.targetDistrictId === district.id
+            && operation.resolveAtTick > currentTick)
+          .sort((left, right) => right.issuedAtTick - left.issuedAtTick)[0]
+        : null;
       const sourceEvent = cityFeedEvents
         .filter((event) => (
           event.sourceType === sourceType
@@ -182,11 +189,17 @@ const createPublicConflictMapEffects = (
         .sort((left, right) => right.createdAtTick - left.createdAtTick)[0];
       const playerId = String(
         pendingOccupy?.playerId
+        || pendingAction?.playerId
         || sourceEvent?.playerId
         || (type === "occupy" ? district.ownerPlayerId : "")
         || ""
       );
-      const startedAtTick = Math.max(0, Number(pendingOccupy?.issuedAtTick ?? sourceEvent?.createdAtTick ?? currentTick));
+      const startedAtTick = Math.max(0, Number(
+        pendingOccupy?.issuedAtTick
+        ?? pendingAction?.issuedAtTick
+        ?? sourceEvent?.createdAtTick
+        ?? currentTick
+      ));
       const player = playerId ? runtime.state.playersById[playerId] : undefined;
       const playerColor = player?.color;
       const playerName = String(

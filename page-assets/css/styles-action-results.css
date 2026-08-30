@@ -707,7 +707,9 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-
 
 .rumor-inbox-list,
 .rumor-inbox-list[data-rumor-scrollable="true"] {
-  max-height: min(72dvh, 710px);
+  max-height: min(var(--rumor-visible-height, 72dvh), 710px);
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 8px;
   padding: 12px 14px 16px;
   scrollbar-gutter: stable;
@@ -807,9 +809,17 @@ html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-
 
   .rumor-inbox-list,
   .rumor-inbox-list[data-rumor-scrollable="true"] {
-    max-height: none;
+    max-height: min(var(--rumor-visible-height, calc(100dvh - 112px)), calc(100dvh - 112px));
     padding: 9px 8px 11px;
     gap: 7px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .rumor-inbox-list::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
   }
 
   .rumor-inbox-message {

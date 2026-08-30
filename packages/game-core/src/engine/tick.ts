@@ -23,6 +23,7 @@ import { applyCentralBankPassiveInterestAndOversight } from "../handlers/central
 import { applyCityHallCorruptionScandals } from "../handlers/cityHallBuildingActions";
 import { completeStreetDealerSales } from "../handlers/streetDealersBuildingActions";
 import { completePendingOccupations } from "../handlers/completePendingOccupations";
+import { completePendingDistrictActions } from "../handlers/completePendingDistrictActions";
 import { applyStockExchangeFinancialInspections, applyStockExchangePassiveEffects } from "../handlers/stockExchangeBuildingActions";
 import { completeDuePlayerCityEvents } from "../rules/city-events/cityEventLifecycle";
 import { tickMarket } from "../rules/market";
@@ -99,7 +100,8 @@ export const runTick = (
   const marketNow = context.clock?.now().getTime() ?? centralBankState.root.tick * context.config.tickRateMs;
   const marketState = tickMarket(centralBankState, marketNow).nextState as CoreGameState;
   const cityEventResult = completeDuePlayerCityEvents(marketState, context);
-  const occupyResult = completePendingOccupations(cityEventResult.nextState, context);
+  const districtActionResult = completePendingDistrictActions(cityEventResult.nextState, context);
+  const occupyResult = completePendingOccupations(districtActionResult.nextState, context);
   const allianceLifecycleResult = runAllianceLifecycleScheduled(occupyResult.nextState, context);
   const lifecycleResult = expirePendingRaids(allianceLifecycleResult.nextState, context);
   const policeResult = triggerRaid(lifecycleResult.nextState, context);
@@ -111,6 +113,7 @@ export const runTick = (
     ...processingResult.events,
     ...streetDealerResult.events,
     ...cityEventResult.events,
+    ...districtActionResult.events,
     ...occupyResult.events,
     ...lifecycleResult.events,
     ...policeResult.events,

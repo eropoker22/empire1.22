@@ -49,11 +49,11 @@ export const applyMajorOperationCooldowns = (
 export type ConflictAction = "attack" | "heist" | "occupy" | "rob" | "spy";
 
 const CONFLICTING_DISTRICT_OPERATIONS: Record<DistrictOperationType, DistrictOperationType[]> = {
-  spy: ["rob"],
-  rob: ["spy", "occupy"],
-  occupy: ["rob"],
-  heist: ["attack"],
-  attack: ["heist"]
+  spy: ["spy", "rob"],
+  rob: ["spy", "rob", "occupy"],
+  occupy: ["rob", "occupy"],
+  heist: ["attack", "heist"],
+  attack: ["heist", "attack"]
 };
 
 const districtOperationLabel = (action: DistrictOperationType): string => ({

@@ -47,6 +47,7 @@ export const createInitialState = (instanceId: string, mode: GameModeId): CoreGa
     playersById: {},
     playerSpyOperationStatesByPlayerId: {},
     pendingOccupyOperationsById: {},
+    pendingDistrictActionOperationsById: {},
     alliancesById: {},
     allianceInvitesById: {},
     allianceChatMessagesById: {},

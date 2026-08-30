@@ -1,4 +1,4 @@
-import type { RobDistrictCommand } from "@empire/shared-types";
+import type { PendingDistrictActionOperation, RobDistrictCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
@@ -27,6 +27,7 @@ import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 import { createPlayerResourceState, createRobReportNotification, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
 import { bumpDistrictConflictRevision } from "../state";
+import { startPendingDistrictAction } from "./pendingDistrictActionShared";
 
 export const handleRobDistrict = (
   state: CoreGameState,
@@ -34,6 +35,45 @@ export const handleRobDistrict = (
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   const errors = validateRob(state, command, context.config.balance.conflict);
+  if (errors.length > 0) return { nextState: state, events: [], errors };
+  const config = context.config.balance.conflict?.robbery;
+  if (!config) return { nextState: state, events: [], errors: [{ code: "ROBBERY_CONFIG_MISSING", message: "Canonical robbery config is unavailable." }] };
+
+  const player = state.playersById[command.playerId]!;
+  const targetDistrict = state.districtsById[command.payload.targetDistrictId]!;
+  const sourceDistrictId = command.payload.sourceDistrictId
+    ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
+  const cityHallNightPatrol = resolveCityHallNightPatrolPressure({ state, context, targetDistrict, tick: state.root.tick });
+  const durationTicks = Math.max(1, Math.ceil(applyCarDealerCooldownReductionTicks({
+    baseTicks: resolveRobCooldownTicks(context.config.balance.conflict),
+    state,
+    playerId: player.id,
+    config: context.config.balance.carDealer,
+    garageConfig: context.config.balance.garage,
+    category: "districtRobbery"
+  }) * cityHallNightPatrol.cooldownMultiplier));
+  const operation: PendingDistrictActionOperation = {
+    id: `district-action-operation:${command.id}`,
+    operationType: "rob",
+    command,
+    playerId: player.id,
+    sourceDistrictId,
+    targetDistrictId: targetDistrict.id,
+    issuedAtTick: state.root.tick,
+    resolveAtTick: state.root.tick + durationTicks,
+    cooldownKeys: [createRobCooldownKey(targetDistrict.id), createRobSourceCooldownKey(sourceDistrictId)],
+    version: 1
+  };
+  return { nextState: startPendingDistrictAction(state, operation), events: [], errors: [] };
+};
+
+export const resolvePendingRobDistrict = (
+  state: CoreGameState,
+  command: RobDistrictCommand,
+  context: GameCoreContext,
+  skipValidation = false
+): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
+  const errors = skipValidation ? [] : validateRob(state, command, context.config.balance.conflict);
   if (errors.length > 0) return { nextState: state, events: [], errors };
   const config = context.config.balance.conflict?.robbery;
   if (!config) {
@@ -141,7 +181,7 @@ export const handleRobDistrict = (
       && command.payload.expectedLootPoolRevision !== currentPool.version,
     resolvedLootPoolRevision: currentPool.version,
     tick: state.root.tick,
-    resolveAtTick: cooldownEndsAtTick,
+    resolveAtTick: skipValidation ? state.root.tick : cooldownEndsAtTick,
     resolveAt: command.issuedAt,
     cooldownEndsAtTick
   });

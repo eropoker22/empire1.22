@@ -29,8 +29,8 @@ import {
 import { completePendingOccupations } from "./completePendingOccupations";
 
 /**
- * Responsibility: Resolves one validated neutral-district occupation atomically.
- * Belongs here: upfront influence payment, immediate capture resolution, and cooldown locks for the next action.
+ * Responsibility: Starts one validated neutral-district occupation operation.
+ * Belongs here: upfront influence payment, pending capture state, and operation locks.
  * Does not belong here: transport delivery or client-side result timing.
  */
 export const handleOccupyDistrict = (

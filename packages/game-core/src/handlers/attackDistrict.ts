@@ -1,4 +1,4 @@
-import type { AttackDistrictCommand, AttackWeaponId } from "@empire/shared-types";
+import type { AttackDistrictCommand, AttackWeaponId, PendingDistrictActionOperation } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
@@ -7,7 +7,8 @@ import { calculateBaseDefensePower, calculateAttackPopulationRequired, calculate
   calculateBazookaTotalDestructionBonusPercent, calculateGrenadeDefenseIgnorePercent, calculateSmgComboBonus,
   calculateTotalAttackPower, calculateTowerAttackReductionPercent, applyDayNightAttackDurationTicks,
   applyDayNightHeatGain, resolveAttackDurationGuardrailTicks, resolveAttackDurationTicks, applyDefenseCombatLosses,
-  applyMajorOperationCooldowns, applyDistrictOperationLock, consumeCapturedDistrictDefense, resolveCombat, resolveTrap } from "../rules";
+  applyMajorOperationCooldowns, applyDistrictOperationLock, consumeCapturedDistrictDefense, resolveCombat, resolveTrap,
+  createSourceConflictLockKey, MAJOR_OFFENSE_COOLDOWN_KEY } from "../rules";
 import { createDefaultDistrictEffectModifiers, resolveActiveDistrictEffectModifiers } from "../rules/economy/calculateIncome";
 import { resolveActiveAlliancePenaltyStatModifiers } from "../rules/alliances/alliancePenaltyModifiers";
 import {
@@ -40,10 +41,11 @@ import { applyAttackWeaponLosses, writeAttackWeaponInventory } from "./attackWea
 import { consumeTacticalGridCombat, resolveTacticalGridCombat } from "./tacticalGridCombat";
 import { bumpDistrictSecurityRevision, resolvePlayerPopulation } from "../state";
 import { countActiveOwnedDistricts, reconcilePlayerTerritoryLifecycle } from "../rules/liveness";
+import { startPendingDistrictAction } from "./pendingDistrictActionShared";
 
 /**
- * Responsibility: Orchestrates one authoritative district attack command.
- * Belongs here: attack validation, trap trigger handling, and battle report creation.
+ * Responsibility: Starts one authoritative district attack operation.
+ * Belongs here: start validation, operation timing, and deferred resolution entrypoint.
  * Does not belong here: transport delivery or UI-side prediction.
  */
 export const handleAttackDistrict = (
@@ -52,6 +54,38 @@ export const handleAttackDistrict = (
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   const errors = validateAttack(state, command, context);
+  if (errors.length > 0) return { nextState: state, events: [], errors };
+  const attacker = state.playersById[command.playerId];
+  const targetDistrict = state.districtsById[command.payload.districtId];
+  const sourceDistrictId = command.payload.sourceDistrictId!;
+  const durationTicks = resolveAttackPreparationDurationTicks(state, attacker.id, targetDistrict.id, context);
+  const operation: PendingDistrictActionOperation = {
+    id: `district-action-operation:${command.id}`,
+    operationType: "attack",
+    command,
+    playerId: attacker.id,
+    sourceDistrictId,
+    targetDistrictId: targetDistrict.id,
+    issuedAtTick: state.root.tick,
+    resolveAtTick: state.root.tick + durationTicks,
+    cooldownKeys: [
+      "attack:global",
+      `attack:source:${sourceDistrictId}`,
+      MAJOR_OFFENSE_COOLDOWN_KEY,
+      createSourceConflictLockKey(sourceDistrictId)
+    ],
+    version: 1
+  };
+  return { nextState: startPendingDistrictAction(state, operation), events: [], errors: [] };
+};
+
+export const resolvePendingAttackDistrict = (
+  state: CoreGameState,
+  command: AttackDistrictCommand,
+  context: GameCoreContext,
+  skipValidation = false
+): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
+  const errors = skipValidation ? [] : validateAttack(state, command, context);
 
   if (errors.length > 0) {
     return {
@@ -249,21 +283,7 @@ export const handleAttackDistrict = (
   const currentCooldownState = state.cooldownStatesById[attacker.cooldownStateId] ?? createPlayerCooldownState(attacker.id, attacker.cooldownStateId);
   const globalAttackCooldownKey = "attack:global";
   const sourceAttackCooldownKey = `attack:source:${sourceDistrict!.id}`;
-  const attackDurationTicks = Math.max(
-    resolveAttackDurationGuardrailTicks(context),
-    Math.ceil(applyFactionCooldownTicks(
-      applyDayNightAttackDurationTicks(applyCarDealerCooldownReductionTicks({
-        baseTicks: resolveAttackDurationTicks(context),
-        state,
-        playerId: attacker.id,
-        config: context.config.balance.carDealer,
-        garageConfig: context.config.balance.garage,
-        category: "attackPreparation"
-      }), state, context),
-      "attack",
-      attackerFactionModifiers
-    ) * cityHallNightPatrol.durationMultiplier)
-  );
+  const attackDurationTicks = resolveAttackPreparationDurationTicks(state, attacker.id, targetDistrict.id, context);
   const concurrencyConfig = context.config.balance.conflict?.concurrency;
   const targetProtectionTicks = trapResolution.blocked
     ? 0
@@ -300,6 +320,7 @@ export const handleAttackDistrict = (
     bazookaCatastropheBonus,
     catastropheFinalChance: catastropheChance,
     attackDurationTicks,
+    resolveAtTick: skipValidation ? state.root.tick : undefined,
     tacticalGrid: tacticalGrid.report,
     tick: state.root.tick
   });
@@ -515,7 +536,7 @@ export const handleAttackDistrict = (
       attackDurationTicks,
       attackDurationMs: attackDurationTicks * context.config.tickRateMs,
       issuedAtTick: state.root.tick,
-      resolveAtTick: state.root.tick + attackDurationTicks,
+      resolveAtTick: skipValidation ? state.root.tick : state.root.tick + attackDurationTicks,
       reportForAttacker: combatResolution.reportForAttacker,
       reportForDefender: combatResolution.reportForDefender,
       ...tacticalGrid.eventPayload
@@ -551,4 +572,35 @@ export const handleAttackDistrict = (
     events: [...events, ...bountyResult.events, ...boostResult.events, ...lifecycleEvents],
     errors: []
   };
+};
+
+const resolveAttackPreparationDurationTicks = (
+  state: CoreGameState,
+  playerId: string,
+  targetDistrictId: string,
+  context: GameCoreContext
+): number => {
+  const targetDistrict = state.districtsById[targetDistrictId];
+  const factionModifiers = getFactionPassiveModifiers(state, playerId, context);
+  const cityHallNightPatrol = resolveCityHallNightPatrolPressure({
+    state,
+    context,
+    targetDistrict,
+    tick: state.root.tick
+  });
+  return Math.max(
+    resolveAttackDurationGuardrailTicks(context),
+    Math.ceil(applyFactionCooldownTicks(
+      applyDayNightAttackDurationTicks(applyCarDealerCooldownReductionTicks({
+        baseTicks: resolveAttackDurationTicks(context),
+        state,
+        playerId,
+        config: context.config.balance.carDealer,
+        garageConfig: context.config.balance.garage,
+        category: "attackPreparation"
+      }), state, context),
+      "attack",
+      factionModifiers
+    ) * cityHallNightPatrol.durationMultiplier)
+  );
 };

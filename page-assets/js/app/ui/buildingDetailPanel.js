@@ -151,10 +151,13 @@ function createStat(scopeElement, row = {}) {
   const stat = createElement(scopeElement, "div", "building-info-card__stat");
   const label = createElement(scopeElement, "span");
   const value = createElement(scopeElement, "strong");
-  if (!stat || !label || !value) return null;
+  const factionNote = createElement(scopeElement, "small", "faction-passive-inline faction-passive-inline--building hidden");
+  if (!stat || !label || !value || !factionNote) return null;
   label.textContent = row.label || "";
   renderBuildingDynamicValue(scopeElement, value, row);
-  stat.append(label, value);
+  factionNote.dataset.factionPassiveStatLabel = row.label || "";
+  factionNote.hidden = true;
+  stat.append(label, value, factionNote);
   return stat;
 }
 
@@ -1443,6 +1446,11 @@ export function renderBuildingDetailPanel(buildingViewModel = {}, callbacks = {}
   shell.hidden = false;
   if (wasHidden) {
     openOverlay(shell, { type: "modal", ariaModal: true, restoreFocusOnClose: false });
+  }
+  const documentRef = shell.ownerDocument;
+  const CustomEventConstructor = documentRef?.defaultView?.CustomEvent;
+  if (typeof CustomEventConstructor === "function") {
+    documentRef.dispatchEvent(new CustomEventConstructor("empire:faction-passive-targets-changed"));
   }
   return true;
 }

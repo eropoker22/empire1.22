@@ -2671,8 +2671,12 @@
   #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody tr {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
+    grid-template-areas:
+      "target reward"
+      "type district"
+      "status status";
+    grid-template-columns: minmax(0, 1fr) minmax(92px, 0.42fr);
+    gap: 9px 12px;
     width: 100%;
     padding: 11px 12px;
     margin: 0;
@@ -2689,18 +2693,15 @@
   }
 
   #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td {
-    display: grid;
-    grid-template-columns: minmax(72px, 0.34fr) minmax(0, 1fr);
-    align-items: center;
-    gap: 10px;
+    display: block;
     width: 100%;
     height: auto;
-    min-height: 38px;
-    padding: 7px 0;
+    min-height: 0;
+    padding: 0;
     color: rgba(248, 250, 252, 0.92);
     text-align: left;
     white-space: normal;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+    border-bottom: 0;
   }
 
   #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td:last-child {
@@ -2709,7 +2710,7 @@
 
   #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td::before {
     display: block;
-    margin: 0;
+    margin: 0 0 4px;
     color: rgba(255, 202, 108, 0.78);
     font-size: 0.54rem;
     font-weight: 900;
@@ -2719,12 +2720,32 @@
   }
 
   #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="CÍL"],
-  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="TYP"],
-  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="DISTRICT"],
-  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="ODMĚNA"],
-  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="STATUS / VYPSAL"] {
-    grid-area: auto;
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="TYP"] {
     text-align: left;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="CÍL"] {
+    grid-area: target;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="TYP"] {
+    grid-area: type;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="DISTRICT"] {
+    grid-area: district;
+    text-align: right;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="ODMĚNA"] {
+    grid-area: reward;
+    text-align: right;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="STATUS / VYPSAL"] {
+    grid-area: status;
+    padding-top: 9px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
   }
 
   #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="STATUS / VYPSAL"]::before {
@@ -2738,6 +2759,8 @@
 
   #bounty-modal[data-bounty-tab="active"] .bounty-board__status-cell {
     grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
   }
 
   #bounty-modal[data-bounty-tab="active"] :is(.bounty-board__target-mini-copy strong, .bounty-board__target-mini-copy small, .bounty-board__type-cell span:last-child, .bounty-board__creator-line span, .bounty-board__creator-line small) {
@@ -2750,6 +2773,14 @@
     color: #ffd27c;
     font-size: 0.92rem;
     text-shadow: 0 0 14px rgba(255, 197, 91, 0.24);
+  }
+}
+
+@media (max-width: 380px) {
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody tr {
+    grid-template-columns: minmax(0, 1fr) minmax(78px, 0.4fr);
+    gap: 8px 9px;
+    padding: 10px;
   }
 }
 

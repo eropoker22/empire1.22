@@ -20,6 +20,7 @@ export * from "./player-boost-state";
 export * from "./player-city-event-state";
 export * from "./player-spy-operation-state";
 export * from "./pending-occupy-operation";
+export * from "./pending-district-action-operation";
 export * from "./player-color";
 export * from "./police-state";
 export * from "./resource-state";

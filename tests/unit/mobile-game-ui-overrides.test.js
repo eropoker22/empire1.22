@@ -46,8 +46,14 @@ describe("mobile game UI overrides", () => {
   it("keeps spy resources visible and factory metric values right-aligned", () => {
     expect(css).toContain("game-modal-scroll-locked.game-spy-confirm-open .game-resource-strip");
     expect(css).toContain(":has(#spy-confirm-modal:not(.hidden):not([hidden])) > #game-header");
+    expect(css).toContain("game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) > #game-header");
+    expect(css).toContain("z-index: 2147482 !important;");
     expect(css).toContain("--spy-resource-bar-height");
     expect(css).toContain("--spy-confirm-window-safe-top");
+    const spyResourceLayerStart = css.indexOf("html body.game-body.game-modal-scroll-locked.game-spy-confirm-open :is(");
+    const spyResourceLayer = css.slice(spyResourceLayerStart, spyResourceLayerStart + 520);
+    expect(spyResourceLayerStart).toBeGreaterThan(-1);
+    expect(spyResourceLayer).toContain("z-index: 26050 !important;");
     expect(mobileLayoutRuntime).toContain("const hasOpenSpyConfirm = openOverlays.some((element) => element.id === \"spy-confirm-modal\");");
     expect(mobileLayoutRuntime).toContain("root.classList.toggle(MOBILE_SPY_CONFIRM_OPEN_CLASS, hasOpenSpyConfirm);");
     expect(css).toContain(".factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__metrics");
@@ -55,6 +61,7 @@ describe("mobile game UI overrides", () => {
     expect(css).toContain(".factory-slot .drug-production-slot__metric:not(.drug-production-slot__metric--supplies)");
     expect(css).toContain("justify-content: space-between !important;");
     expect(css).toContain("margin-left: auto !important;");
+    expect(html).toContain('data-spy-confirm-button>Vyslat špeha</button>');
   });
 
   it("keeps the phone rumor close control clear of compact neon trash actions", () => {
@@ -64,14 +71,27 @@ describe("mobile game UI overrides", () => {
     expect(actionResultsCss).toContain("right: 58px;");
     expect(actionResultsCss).toContain("--rumor-trash-rgb: 57, 255, 136;");
     expect(actionResultsCss).toContain(".rumor-inbox-message__delete .rumor-inbox-trash-icon");
+    expect(rumorInboxRuntime).toContain("const MAX_VISIBLE_RUMORS = 7;");
+    expect(actionResultsCss).toContain("--rumor-visible-height");
+    expect(actionResultsCss).toContain("scrollbar-width: none;");
   });
 
-  it("renders active bounties as a single-column scrollable contract stack on phones", () => {
+  it("renders active bounties as compact two-column contract cards on phones", () => {
     expect(bountyCss).toContain('#bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody tr');
-    expect(bountyCss).toContain("grid-template-columns: minmax(72px, 0.34fr) minmax(0, 1fr);");
+    expect(bountyCss).toContain('"target reward"');
+    expect(bountyCss).toContain('"type district"');
+    expect(bountyCss).toContain('"status status"');
+    expect(bountyCss).toContain("grid-template-columns: minmax(0, 1fr) minmax(92px, 0.42fr);");
     expect(bountyCss).toContain("content: attr(data-label);");
     expect(bountyCss).toContain("overflow-wrap: anywhere;");
     expect(bountyCss).toContain("scrollbar-gutter: stable;");
+  });
+
+  it("places faction modifiers beside live action and building values", () => {
+    expect(html).toContain('data-faction-passive-inline-context="attack-strength"');
+    expect(html).toContain('data-faction-passive-inline-context="spy-success"');
+    expect(css).toContain(".faction-passive-inline--action-card");
+    expect(css).toContain(".faction-passive-inline--building");
   });
 
   it("keeps mobile market labels compact and quantity readable", () => {

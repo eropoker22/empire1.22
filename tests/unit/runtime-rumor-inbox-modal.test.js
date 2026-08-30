@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 describe("street rumor inbox modal", () => {
-  it("shows the count, enables scrolling after eight entries, deletes rumors and closes from both controls", () => {
+  it("shows at most seven complete entries before scrolling, deletes rumors and closes from both controls", () => {
     const rumors = Array.from({ length: 9 }, (_, index) => ({
       id: `rumor:${index + 1}`,
       timeLabel: "TEĎ",
@@ -42,12 +42,14 @@ describe("street rumor inbox modal", () => {
     expect(shell.hidden).toBe(false);
     expect(shell.querySelector("[data-rumor-inbox-count]").textContent).toBe("9");
     expect(list.dataset.rumorScrollable).toBe("true");
+    expect(list.dataset.rumorVisibleCount).toBe("7");
     expect(list.querySelectorAll(".rumor-inbox-message")).toHaveLength(9);
     expect(list.textContent).toContain("District 1");
     expect(list.textContent).toContain("Drb číslo 1");
     shell.querySelector("[data-rumor-delete-id='rumor:1']").click();
     expect(deleted).toEqual(["rumor:1"]);
     expect(list.querySelectorAll(".rumor-inbox-message")).toHaveLength(8);
+    expect(list.dataset.rumorScrollable).toBe("true");
     shell.querySelector(".rumor-inbox-delete-all").click();
     expect(deleted).toHaveLength(9);
     expect(list.hidden).toBe(true);

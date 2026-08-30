@@ -16,6 +16,7 @@ export * from "./cityEventCommands";
 export * from "./cityChat";
 export * from "./collectProduction";
 export * from "./completePendingOccupations";
+export * from "./completePendingDistrictActions";
 export * from "./convenienceStoreConfig";
 export * from "./courthouseBuildingActions";
 export * from "./craftItem";

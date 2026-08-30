@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="empire-gameplay-execution-mode" content="server-authoritative">
     <title>Empire Streets | Game Shell</title>
-    <link rel="stylesheet" href="../page-assets/css/styles.css?v=ui-refresh-20260827-mobile-cards">
+    <link rel="stylesheet" href="../page-assets/css/styles.css?v=ui-refresh-20260830-mobile-bounty-rumors">
     <link rel="stylesheet" href="../page-assets/css/styles-game-admin-slice.css">
     <link rel="stylesheet" href="../page-assets/css/styles-closed-alpha-ux.css?v=authority-mobile-dark-20260804-1">
     <link rel="stylesheet" href="../page-assets/css/styles-game-lobby-modal.css?v=lobby-actions-20260717">
@@ -498,8 +498,7 @@
             </p>
             <p class="attack-setup-popup-row">Dostupní obyvatelé <span data-attack-available-population>24</span></p>
             <p class="attack-setup-popup-row">Potřební obyvatelé <span data-attack-required-population>0</span></p>
-            <p class="attack-setup-popup-row">Síla útoku <span data-attack-estimated-power>0</span></p>
-            <p class="faction-passive-note hidden" data-faction-passive-context="attack" hidden></p>
+            <p class="attack-setup-popup-row">Síla útoku <span class="faction-value-stack"><strong data-attack-estimated-power>0</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="attack-strength" hidden></small></span></p>
             <p class="attack-setup-popup-row">Stav <span data-attack-status>Vyber zbraně</span></p>
             <div class="attack-setup-popup-weapons" data-attack-weapon-list>
               <label class="attack-setup-popup-weapon">
@@ -570,10 +569,9 @@
           <div class="modal__body spy-confirm-modal__body attack-confirm-modal__body district-action-confirm-popup-body">
             <p class="attack-setup-popup-row attack-confirm-modal__stat">Zdroj útoku <span><strong data-attack-confirm-source>---</strong></span></p>
             <p class="attack-setup-popup-row attack-confirm-modal__stat">Použito členů <span><strong data-attack-confirm-members>0</strong></span></p>
-            <p class="attack-setup-popup-row attack-confirm-modal__stat">Výsledná síla útoku <span><strong data-attack-confirm-power>0</strong></span></p>
+            <p class="attack-setup-popup-row attack-confirm-modal__stat">Výsledná síla útoku <span class="faction-value-stack"><strong data-attack-confirm-power>0</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="attack-strength" hidden></small></span></p>
             <p class="attack-setup-popup-row attack-confirm-modal__stat">Scénář <span><strong data-attack-confirm-scenario>Neznámý</strong></span></p>
-            <p class="attack-setup-popup-row attack-confirm-modal__stat">Trvání <span><strong data-attack-confirm-duration>20s</strong></span></p>
-            <p class="faction-passive-note hidden" data-faction-passive-context="attack" hidden></p>
+            <p class="attack-setup-popup-row attack-confirm-modal__stat">Trvání <span class="faction-value-stack"><strong data-attack-confirm-duration>20s</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="attack-duration" hidden></small></span></p>
             <p class="muted spy-confirm-modal__note attack-confirm-modal__note attack-setup-popup-copy" data-attack-confirm-note>Po potvrzení vyrazí ozbrojená posádka do cílového distriktu.</p>
             <div class="modal__actions spy-confirm-modal__actions attack-confirm-modal__actions">
               <button class="btn btn--ghost modal__cancel-btn" id="attack-confirm-modal-cancel" type="button" data-attack-confirm-close>Zrušit</button>
@@ -601,9 +599,8 @@
             <p class="attack-setup-popup-row robbery-setup-popup-row--deployment">Nasazení členové <span><span class="attack-setup-popup-stepper attack-setup-popup-stepper--inline"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="robbery-members" aria-label="Ubrat člena pro Vykrást district">−</button><input type="number" class="attack-setup-popup-weapon__input" min="0" step="1" value="0" data-robbery-member-input aria-label="Počet členů gangu pro Vykrást district"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="robbery-members" aria-label="Přidat člena pro Vykrást district">+</button></span></span></p>
             <p class="attack-setup-popup-row">Typ zóny <span data-robbery-zone>---</span></p>
             <p class="attack-setup-popup-row">Doporučení <span data-robbery-recommendation>---</span></p>
-            <p class="attack-setup-popup-row">Loot <span data-robbery-loot-preview>Nejistý</span></p>
-            <p class="attack-setup-popup-row">Odhad heat <span data-robbery-heat-estimate>---</span></p>
-            <p class="faction-passive-note hidden" data-faction-passive-context="robbery" hidden></p>
+            <p class="attack-setup-popup-row">Loot <span class="faction-value-stack"><strong data-robbery-loot-preview>Nejistý</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="robbery-loot" hidden></small></span></p>
+            <p class="attack-setup-popup-row">Odhad heat <span class="faction-value-stack"><strong data-robbery-heat-estimate>---</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="robbery-heat" hidden></small></span></p>
             <p class="attack-setup-popup-row robbery-setup-popup-row--status">Stav <span data-robbery-status>Vyber členy gangu</span></p>
             <p class="attack-setup-popup-row robbery-setup-popup-row--members">Dostupní členové <span data-robbery-available-members>100</span></p>
             <div class="attack-setup-popup-actions">
@@ -627,8 +624,7 @@
           </div>
           <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body">
             <p class="attack-setup-popup-row">Nasazení členové <span><strong data-robbery-confirm-members>0</strong></span></p>
-            <p class="attack-setup-popup-row">Trvání <span><strong data-robbery-confirm-duration>20s</strong></span></p>
-            <p class="faction-passive-note hidden" data-faction-passive-context="robbery" hidden></p>
+            <p class="attack-setup-popup-row">Trvání <span class="faction-value-stack"><strong data-robbery-confirm-duration>20s</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="robbery-duration" hidden></small></span></p>
             <div class="modal__actions spy-confirm-modal__actions">
               <button class="btn btn--ghost modal__cancel-btn" id="raid-confirm-modal-cancel" type="button" data-robbery-confirm-close>Zrušit</button>
               <button class="btn btn--primary modal__confirm-btn" id="raid-confirm-modal-confirm" type="button" data-robbery-confirm-button>Potvrdit krádež</button>
@@ -652,8 +648,7 @@
           </div>
           <div class="attack-setup-popup-body">
             <p class="attack-setup-popup-row defense-setup-popup-row">Obyvatelé v obraně <span><span class="attack-setup-popup-stepper attack-setup-popup-stepper--inline"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="decrement" data-stepper-target="defense-residents" aria-label="Ubrat obyvatele v obraně">−</button><input type="number" class="attack-setup-popup-weapon__input defense-setup-popup-residents-input" min="0" step="1" value="0" data-defense-residents-input aria-label="Počet obyvatel v obraně"><button type="button" class="attack-setup-popup-stepper__button" data-stepper-action="increment" data-stepper-target="defense-residents" aria-label="Přidat obyvatele v obraně">+</button></span></span></p>
-            <p class="attack-setup-popup-row defense-setup-popup-row">Síla obrany <span data-defense-estimated-power>0</span></p>
-            <p class="faction-passive-note hidden" data-faction-passive-context="defense" hidden></p>
+            <p class="attack-setup-popup-row defense-setup-popup-row">Síla obrany <span class="faction-value-stack"><strong data-defense-estimated-power>0</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="defense-strength" hidden></small></span></p>
             <p class="attack-setup-popup-row defense-setup-popup-row">Stav <span data-defense-status>Bez obrany</span></p>
             <div class="attack-setup-popup-weapons defense-setup-popup-weapons">
               <label class="attack-setup-popup-weapon defense-setup-popup-weapon">
@@ -743,13 +738,12 @@
             <button class="button attack-setup-popup-close" id="spy-confirm-modal-close" type="button" aria-label="Zavřít" data-spy-confirm-close>✕</button>
           </div>
           <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body spy-confirm-popup-body">
-            <p class="attack-setup-popup-row">Dostupní špehové <span><strong data-spy-confirm-available>0</strong></span></p>
+            <p class="attack-setup-popup-row">Dostupní špehové <span class="faction-value-stack"><strong data-spy-confirm-available>0</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="spy-success" hidden></small></span></p>
             <p class="attack-setup-popup-row">Trvání <span><strong data-spy-confirm-duration>20s</strong></span></p>
-            <p class="faction-passive-note hidden" data-faction-passive-context="spy" hidden></p>
             <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-spy-confirm-note>Každé špehování spotřebuje 1 špeha.</p>
             <div class="modal__actions spy-confirm-modal__actions">
               <button class="btn btn--ghost modal__cancel-btn" id="spy-confirm-modal-cancel" type="button" data-spy-confirm-close>Odmítnout</button>
-              <button class="btn btn--warn modal__confirm-btn" id="spy-confirm-modal-confirm" type="button" data-spy-confirm-button>Potvrdit</button>
+              <button class="btn btn--warn modal__confirm-btn" id="spy-confirm-modal-confirm" type="button" data-spy-confirm-button>Vyslat špeha</button>
             </div>
           </div>
         </div>
@@ -769,8 +763,7 @@
           </div>
           <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body">
             <p class="attack-setup-popup-row">Cena <span><strong data-occupy-confirm-cost>0 populace</strong></span></p>
-            <p class="attack-setup-popup-row">Trvání <span><strong data-occupy-confirm-duration>20s</strong></span></p>
-            <p class="faction-passive-note hidden" data-faction-passive-context="occupy" hidden></p>
+            <p class="attack-setup-popup-row">Trvání <span class="faction-value-stack"><strong data-occupy-confirm-duration>20s</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="occupy" hidden></small></span></p>
             <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-occupy-confirm-note>Obsazení spotřebuje členy gangu a akce trvá 20 sekund.</p>
             <div class="modal__actions spy-confirm-modal__actions">
               <button class="btn btn--ghost modal__cancel-btn" id="occupy-confirm-modal-cancel" type="button" data-occupy-confirm-close>Odmítnout</button>
@@ -2237,7 +2230,7 @@
     <script type="module" src="../page-assets/js/app/alliance-runtime.js?v=alliance-copy-20260804-1"></script>
     <script type="module" src="../page-assets/js/app/bounty-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/faction-actions-runtime.js"></script>
-    <script type="module" src="../page-assets/js/app/faction-passive-ui.js?v=20260830"></script>
+    <script type="module" src="../page-assets/js/app/faction-passive-ui.js?v=20260830-inline-values-1"></script>
     <script type="module" src="../page-assets/js/app/game-about-modal-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/boost-runtime.js"></script>
     <script type="module" src="../page-assets/js/app/game-window-restore-runtime.js"></script>

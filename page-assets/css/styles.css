@@ -6,11 +6,11 @@
 @import "./styles-building-modals.css?v=building-special-actions-20260730-1";
 @import "./styles-alliance.css";
 @import "./styles-city-events.css";
-@import "./styles-bounty.css?v=bounty-mobile-cards-20260827-1";
+@import "./styles-bounty.css?v=bounty-mobile-contracts-20260830-1";
 @import "./styles-boost.css";
 @import "./styles-onboarding.css";
 @import "./styles-district.css?v=spy-intel-overlay-20260805-1";
-@import "./styles-action-results.css?v=rumor-inbox-mobile-20260827-1";
+@import "./styles-action-results.css?v=rumor-inbox-seven-20260830-1";
 @import "./styles-mobile-fixes.css?v=mobile-building-cards-20260809-1";
 @import "./styles-static-hover.css";
 @import "./styles-market.css";
@@ -5049,6 +5049,53 @@ html body.game-body .faction-passive-note--profile {
   font-size: 9px;
 }
 
+html body.game-body .faction-value-stack {
+  display: grid !important;
+  justify-items: end;
+  gap: 2px;
+  min-width: 0;
+  max-width: min(62%, 290px);
+  margin-left: auto;
+  text-align: right;
+  white-space: normal !important;
+}
+
+html body.game-body .faction-passive-inline {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  color: #86efac !important;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: 0.015em;
+  overflow-wrap: anywhere;
+  white-space: normal !important;
+  text-align: inherit;
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.34);
+}
+
+html body.game-body .faction-passive-inline--action-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  margin-top: 4px;
+  color: #86efac !important;
+  font-size: 8px !important;
+  line-height: 1.22 !important;
+  text-align: left;
+}
+
+html body.game-body .building-info-card__stat .faction-passive-inline--building {
+  margin-top: 4px;
+  color: #86efac !important;
+  font-size: 8px !important;
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 html body.game-body #spy-confirm-modal .spy-confirm-popup-body .faction-passive-note {
   white-space: normal !important;
 }
@@ -5058,6 +5105,14 @@ html body.game-body #spy-confirm-modal .spy-confirm-popup-body .faction-passive-
     padding: 3px 6px;
     font-size: 9px;
     line-height: 1.3;
+  }
+
+  html body.game-body .faction-value-stack {
+    max-width: 64%;
+  }
+
+  html body.game-body .faction-passive-inline {
+    font-size: 7.5px;
   }
 }
 
@@ -6832,7 +6887,8 @@ html body.game-body .market-popup-row__quantity::-webkit-outer-spin-button {
     .game-topbar,
     .game-resource-strip
   ) {
-    z-index: 24050 !important;
+    /* Stay above the onboarding confirmation layer (26000), just like robbery. */
+    z-index: 26050 !important;
     display: grid !important;
     visibility: visible !important;
     opacity: 1 !important;
@@ -7826,6 +7882,8 @@ html body.game-body .market-popup-shell[data-market-mode="black-market"] .market
 
 /* Absolute final phone guard: spy confirmation keeps the resource topbar visible and interactive. */
 @media (max-width: 720px) {
+  html.game-spy-confirm-open body.game-body.game-modal-scroll-locked.game-spy-confirm-open:has(#spy-confirm-modal:not(.hidden):not([hidden])) > #game-header,
+  html body.game-body.game-modal-scroll-locked:has(#spy-confirm-modal:not(.hidden):not([hidden])) > #game-header,
   html.game-spy-confirm-open body.game-body > #game-header,
   html body.game-body.game-spy-confirm-open > #game-header,
   html body.game-body.game-spy-confirm-open > .game-topbar {

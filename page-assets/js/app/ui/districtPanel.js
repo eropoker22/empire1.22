@@ -1,5 +1,13 @@
 import { formatCssUrlValue } from "../runtime/utils.js";
 
+const FACTION_PASSIVE_CONTEXT_BY_ACTION_ID = Object.freeze({
+  attack: "attack",
+  rob: "robbery",
+  spy: "spy",
+  occupy: "occupy",
+  defense: "defense"
+});
+
 function getElementDocument(element) {
   return element?.ownerDocument || (typeof document !== "undefined" ? document : null);
 }
@@ -326,6 +334,16 @@ function createDistrictActionButton(mount, action) {
     button.title = presentation.title;
   }
 
+  const factionContext = FACTION_PASSIVE_CONTEXT_BY_ACTION_ID[String(presentation.id || "")];
+  if (factionContext) {
+    const factionNote = createElement(mount, "small", "faction-passive-inline faction-passive-inline--action-card hidden");
+    if (factionNote) {
+      factionNote.dataset.factionPassiveInlineContext = factionContext;
+      factionNote.hidden = true;
+      button.append(factionNote);
+    }
+  }
+
   button.dataset.districtActionReasonInline = inlineDisabledReason ? "true" : "false";
 
   return button;
@@ -388,6 +406,12 @@ export function renderDistrictActionPanel(elements = {}, view = {}) {
     }
 
     mount.append(actionRow);
+  }
+
+  const documentRef = getElementDocument(mount);
+  const CustomEventConstructor = documentRef?.defaultView?.CustomEvent;
+  if (typeof CustomEventConstructor === "function") {
+    documentRef.dispatchEvent(new CustomEventConstructor("empire:faction-passive-targets-changed"));
   }
 
   return true;

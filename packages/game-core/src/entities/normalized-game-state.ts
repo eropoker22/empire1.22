@@ -32,6 +32,7 @@ import type {
   PlayerId,
   PlayerSpyOperationState,
   PendingOccupyOperation,
+  PendingDistrictActionOperation,
   PoliceState,
   ResourceState,
   ServerInstance,
@@ -55,6 +56,7 @@ export interface NormalizedGameState {
   playerCityEventStatesByPlayerId?: Record<PlayerId, PlayerCityEventState>;
   playerSpyOperationStatesByPlayerId?: Record<PlayerId, PlayerSpyOperationState>;
   pendingOccupyOperationsById?: Record<string, PendingOccupyOperation>;
+  pendingDistrictActionOperationsById?: Record<string, PendingDistrictActionOperation>;
   alliancesById: Record<AllianceId, Alliance>;
   allianceInvitesById?: Record<string, AllianceInvite>;
   allianceChatMessagesById?: Record<string, AllianceChatMessage>;

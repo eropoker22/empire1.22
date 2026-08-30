@@ -1,5 +1,6 @@
 import type {
   CooldownState,
+  PendingDistrictActionOperation,
   PlayerSpyOperationState,
   SpyDistrictCommand
 } from "@empire/shared-types";
@@ -33,10 +34,11 @@ import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
 import { resolveCombinedCameraAlarmBonuses } from "./recruitmentCenterBuildingActions";
 import { createSpyReportNotification } from "./conflictReportNotifications";
 import { bumpDistrictConflictRevision } from "../state";
+import { startPendingDistrictAction } from "./pendingDistrictActionShared";
 
 /**
- * Responsibility: Orchestrates one authoritative spy command and report creation.
- * Belongs here: command-scoped spy validation, cooldown update, and report emission.
+ * Responsibility: Starts one authoritative spy operation and resolves it when due.
+ * Belongs here: command-scoped validation, operation timing, and deferred report emission.
  * Does not belong here: UI fog-of-war rendering or transport concerns.
  */
 export const handleSpyDistrict = (
@@ -45,6 +47,56 @@ export const handleSpyDistrict = (
   context: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   const errors = validateSpy(state, command);
+  if (errors.length > 0) return { nextState: state, events: [], errors };
+
+  const player = state.playersById[command.playerId];
+  const spyOperationState = getPlayerSpyOperationState(state, player.id);
+  const selectedSlot = resolveAvailableSpySlot(state, player.id)!;
+  const targetDistrict = state.districtsById[command.payload.districtId];
+  const boostSnapshot = resolvePlayerSpyBoostEffects(state, player.id);
+  const baseSpySlotCooldownTicks = context.config.balance.conflict?.spySlotCooldownTicks
+    ?? context.config.balance.conflict?.spyCooldownTicks
+    ?? 2;
+  const spyCooldownTicks = applyGarageCooldownReductionTicks({
+    baseTicks: baseSpySlotCooldownTicks,
+    state,
+    playerId: player.id,
+    config: context.config.balance.garage,
+    category: "districtSpy"
+  });
+  const durationTicks = Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
+  const operation: PendingDistrictActionOperation = {
+    id: `district-action-operation:${command.id}`,
+    operationType: "spy",
+    command,
+    playerId: player.id,
+    sourceDistrictId: command.payload.sourceDistrictId,
+    targetDistrictId: targetDistrict.id,
+    issuedAtTick: state.root.tick,
+    resolveAtTick: state.root.tick + durationTicks,
+    cooldownKeys: [`spy:${targetDistrict.id}`],
+    spySlotId: selectedSlot.slotId,
+    version: 1
+  };
+  const stateWithSpySlots = state.playerSpyOperationStatesByPlayerId?.[player.id]
+    ? state
+    : {
+        ...state,
+        playerSpyOperationStatesByPlayerId: {
+          ...state.playerSpyOperationStatesByPlayerId,
+          [player.id]: spyOperationState
+        }
+      };
+  return { nextState: startPendingDistrictAction(stateWithSpySlots, operation), events: [], errors: [] };
+};
+
+export const resolvePendingSpyDistrict = (
+  state: CoreGameState,
+  command: SpyDistrictCommand,
+  context: GameCoreContext,
+  skipValidation = false
+): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
+  const errors = skipValidation ? [] : validateSpy(state, command);
 
   if (errors.length > 0) {
     return {
@@ -118,7 +170,7 @@ export const handleSpyDistrict = (
     ? spyCooldownTicks
     : Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
   const slotAvailableAtTick = state.root.tick + boostedSpyCooldownTicks;
-  const resolvedAtTick = cooldownEndsAtTick;
+  const resolvedAtTick = skipValidation ? state.root.tick : slotAvailableAtTick;
   const blockedUntilTick = isBlockedSpyOutcome(reportResult.result) ? slotAvailableAtTick : null;
   const report = createSpyReportNotification({
     command,
