@@ -4,7 +4,9 @@ import type { CoreEvent } from "../events";
 import type { CoreError } from "../errors";
 import type { GameCoreContext } from "../engine/context";
 import { validateCraft } from "../validation";
-import { executeInstantProduction } from "./instantProduction";
+import { normalizeStorageBalances } from "./warehouseBuilding";
+import { debitCosts, scaleCosts } from "./productionLineCosts";
+import { applyDistrictStabilizationToProductionDuration, resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
 
 /**
  * Responsibility: Command-scoped orchestration for instant atomic crafting.
@@ -31,25 +33,48 @@ export const handleCraftItem = (
     return { nextState: state, events: [], errors: [] };
   }
 
-  return executeInstantProduction({
+  const quantity = Number(command.payload.quantity ?? 1);
+  const storedResources = state.resourceStatesById[player.resourceStateId];
+  if (!storedResources) return { nextState: state, events: [], errors: [] };
+  const resources = { ...storedResources, balances: normalizeStorageBalances(storedResources.balances) };
+  const durationTicks = applyDistrictStabilizationToProductionDuration(
+    resolveCraftProcessingDurationTicks(recipe.durationTicks * quantity, context.config.balance.cooldownMultiplier),
     state,
-    context,
-    playerId: command.playerId,
-    buildingId: building.id,
-    districtId: building.districtId,
-    recipeId: command.payload.recipeId,
-    quantity: Number(command.payload.quantity ?? 1),
-    issuedAt: command.issuedAt,
-    recipe: {
-      outputResourceKey: recipe.outputResourceKey,
-      outputAmount: recipe.outputAmount,
-      cleanCashCostPerUnit: 0,
-      inputCosts: recipe.inputCosts
+    building,
+    context
+  );
+
+  return {
+    nextState: {
+      ...state,
+      playersById: {
+        ...state.playersById,
+        [player.id]: { ...player, lastActionAt: command.issuedAt, version: player.version + 1 }
+      },
+      buildingsById: {
+        ...state.buildingsById,
+        [building.id]: {
+          ...building,
+          processing: {
+            recipeId: command.payload.recipeId,
+            quantity,
+            startedAtTick: state.root.tick,
+            completesAtTick: state.root.tick + durationTicks
+          },
+          version: building.version + 1
+        }
+      },
+      resourceStatesById: {
+        ...state.resourceStatesById,
+        [resources.id]: {
+          ...resources,
+          balances: debitCosts(resources.balances, scaleCosts(recipe.inputCosts, quantity)),
+          lastUpdatedTick: state.root.tick,
+          version: resources.version + 1
+        }
+      }
     },
-    errors: {
-      playerMissing: { code: "craft_not_owned", message: "Hráč nevlastní cílovou craft budovu." },
-      insufficientCash: { code: "craft_missing_inputs", message: "Na výrobu nemáš dost clean cash." },
-      missingInputs: { code: "craft_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." }
-    }
-  });
+    events: [],
+    errors: []
+  };
 };

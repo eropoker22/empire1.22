@@ -9,6 +9,7 @@ import {
   resolveFactoryNetworkSpeedMultiplier
 } from "../handlers/factoryProductionShared";
 import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "../handlers/warehouseBuilding";
+import { createTimedFactoryProductionBuildingView } from "./timed-production-projections";
 
 const RESOURCE_LABELS: Record<string, string> = {
   cash: "Clean Cash",
@@ -24,6 +25,8 @@ export const createFactoryProductionBuildingView = (input: {
   config?: ResolvedGameModeConfig;
   tickRateMs?: number;
 }): FactoryProductionBuildingView | null => {
+  return createTimedFactoryProductionBuildingView(input);
+  /* legacy instant projection retained below only for snapshot compatibility reference */
   const factory = input.config?.balance.factory;
   if (input.building.buildingTypeId !== FACTORY_BUILDING_TYPE_ID || !factory) return null;
   const player = input.state.playersById[input.playerId];

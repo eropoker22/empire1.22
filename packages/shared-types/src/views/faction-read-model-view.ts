@@ -1,4 +1,9 @@
-import type { FactionSpecialActionMetadata, FactionUiTheme, PlayerFactionId } from "../entities/faction";
+import type {
+  FactionPassiveModifiers,
+  FactionSpecialActionMetadata,
+  FactionUiTheme,
+  PlayerFactionId
+} from "../entities/faction";
 
 export interface FactionReadModel {
   factionId: PlayerFactionId;
@@ -9,6 +14,7 @@ export interface FactionReadModel {
   weaknesses: string[];
   activePassiveEffects: string[];
   plannedPassiveEffects: string[];
+  passiveModifiers: FactionPassiveModifiers;
   startingPackageSummary?: string[];
   specialAction?: FactionSpecialActionMetadata;
   uiTheme: FactionUiTheme;

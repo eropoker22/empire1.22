@@ -9,7 +9,7 @@ import { normalizeResourceCosts } from "./productionLineShared";
 import { addCosts, creditCosts, debitCosts, equalCosts, hasRequiredResources, limitCosts, scaleCosts, subtractCosts } from "./productionLineCosts";
 import { createPlayerResourceState, drugLabFailure as failure, type DrugLabHandlerResult, validateDrugLabTarget } from "./drugLabProductionSupport";
 import { getDrugLabBuildingResourceState, getDrugLabLine, getDrugLabProducedAmount, startDrugLabLine } from "./drugLabProductionShared";
-import { executeInstantProduction } from "./instantProduction";
+import { executeQueuedProduction } from "./queuedProduction";
 
 export const handleDrugLabProductionStart = (
   state: CoreGameState,
@@ -26,20 +26,23 @@ export const handleDrugLabProductionStart = (
   }
 
   const { building, recipe } = validation;
-  return executeInstantProduction({
+  return executeQueuedProduction({
     state,
     context,
     playerId: command.playerId,
-    buildingId: building.id,
-    districtId: building.districtId,
+    building,
     recipeId: command.payload.recipeId,
     quantity,
     issuedAt: command.issuedAt,
     recipe,
+    getLine: getDrugLabLine,
+    startLine: startDrugLabLine,
+    createPlayerResourceState,
     errors: {
       playerMissing: { code: "drug_lab_not_owned", message: "Hráč nevlastní cílový Lab." },
       insufficientCash: { code: "drug_lab_insufficient_clean_cash", message: "Na výrobu nemáš dost clean cash." },
-      missingInputs: { code: "drug_lab_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." }
+      missingInputs: { code: "drug_lab_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." },
+      queueFull: { code: "drug_lab_queue_full", message: "Výrobní fronta Labu je plná." }
     }
   });
 };

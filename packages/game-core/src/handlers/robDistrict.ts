@@ -141,7 +141,7 @@ export const handleRobDistrict = (
       && command.payload.expectedLootPoolRevision !== currentPool.version,
     resolvedLootPoolRevision: currentPool.version,
     tick: state.root.tick,
-    resolveAtTick: state.root.tick,
+    resolveAtTick: cooldownEndsAtTick,
     resolveAt: command.issuedAt,
     cooldownEndsAtTick
   });

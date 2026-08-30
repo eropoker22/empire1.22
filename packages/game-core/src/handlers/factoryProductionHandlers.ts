@@ -8,7 +8,7 @@ import { addCosts, creditCosts, debitCosts, equalCosts, hasRequiredResources, li
 import { normalizeResourceCosts } from "./productionLineShared";
 import { createFactoryPlayerResourceState, factoryFailure as failure, type FactoryHandlerResult, validateFactoryTarget } from "./factoryProductionSupport";
 import { getFactoryBuildingResourceState, getFactoryLine, getFactoryProducedAmount, startFactoryLine } from "./factoryProductionShared";
-import { executeInstantProduction } from "./instantProduction";
+import { executeQueuedProduction } from "./queuedProduction";
 
 type FactoryLineCommand = { playerId: string; payload: { districtId: string; buildingId: string; recipeId: string } };
 
@@ -35,20 +35,24 @@ export const handleFactoryProductionStart = (
           [building.id]: { ...building, ownerPlayerId: command.playerId }
         }
       };
-  return executeInstantProduction({
+  const canonicalBuilding = canonicalState.buildingsById[building.id];
+  return executeQueuedProduction({
     state: canonicalState,
     context,
     playerId: command.playerId,
-    buildingId: building.id,
-    districtId: building.districtId,
+    building: canonicalBuilding,
     recipeId: command.payload.recipeId,
     quantity,
     issuedAt: command.issuedAt,
     recipe,
+    getLine: getFactoryLine,
+    startLine: startFactoryLine,
+    createPlayerResourceState: createFactoryPlayerResourceState,
     errors: {
       playerMissing: { code: "factory_not_owned", message: "Hráč nevlastní cílovou Továrnu." },
       insufficientCash: { code: "factory_insufficient_clean_cash", message: "Na výrobu nemáš dost clean cash." },
-      missingInputs: { code: "factory_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." }
+      missingInputs: { code: "factory_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." },
+      queueFull: { code: "factory_queue_full", message: "Výrobní fronta Továrny je plná." }
     }
   });
 };

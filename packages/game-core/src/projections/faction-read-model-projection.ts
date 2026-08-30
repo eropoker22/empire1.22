@@ -21,6 +21,7 @@ export const createFactionReadModel = (
     weaknesses: [...definition.weaknesses],
     activePassiveEffects: [...definition.passiveEffectSummary],
     plannedPassiveEffects: [...(definition.plannedPassiveEffectSummary ?? [])],
+    passiveModifiers: { ...definition.passiveModifiers },
     startingPackageSummary: [],
     specialAction: definition.specialAction ? { ...definition.specialAction } : undefined,
     uiTheme: { ...definition.uiTheme }

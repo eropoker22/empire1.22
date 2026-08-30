@@ -8,6 +8,7 @@ import {
   resolveArmoryNetworkSpeedMultiplier
 } from "../handlers/armoryProductionShared";
 import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "../handlers/warehouseBuilding";
+import { createTimedArmoryProductionBuildingView } from "./timed-production-projections";
 
 const RESOURCE_LABELS: Record<string, string> = {
   "metal-parts": "Metal Parts",
@@ -22,6 +23,8 @@ export const createArmoryProductionBuildingView = (input: {
   config?: ResolvedGameModeConfig;
   tickRateMs?: number;
 }): ArmoryProductionBuildingView | null => {
+  return createTimedArmoryProductionBuildingView(input);
+  /* legacy instant projection retained below only for snapshot compatibility reference */
   const armory = input.config?.balance.armory;
   if (input.building.buildingTypeId !== ARMORY_BUILDING_TYPE_ID || !armory) return null;
   const player = input.state.playersById[input.playerId];

@@ -8,7 +8,7 @@ import { addCosts, creditCosts, debitCosts, equalCosts, hasRequiredResources, li
 import { normalizeResourceCosts } from "./productionLineShared";
 import { armoryFailure as failure, createArmoryPlayerResourceState, type ArmoryHandlerResult, validateArmoryTarget } from "./armoryProductionSupport";
 import { getArmoryBuildingResourceState, getArmoryLine, getArmoryProducedAmount, startArmoryLine } from "./armoryProductionShared";
-import { executeInstantProduction } from "./instantProduction";
+import { executeQueuedProduction } from "./queuedProduction";
 
 type ArmoryLineCommand = { playerId: string; payload: { districtId: string; buildingId: string; recipeId: string } };
 
@@ -23,20 +23,23 @@ export const handleArmoryProductionStart = (
   if (!Number.isInteger(quantity) || quantity <= 0) return failure(state, "armory_invalid_quantity", "Množství výroby musí být kladné celé číslo.");
 
   const { building, recipe } = validation;
-  return executeInstantProduction({
+  return executeQueuedProduction({
     state,
     context,
     playerId: command.playerId,
-    buildingId: building.id,
-    districtId: building.districtId,
+    building,
     recipeId: command.payload.recipeId,
     quantity,
     issuedAt: command.issuedAt,
     recipe,
+    getLine: getArmoryLine,
+    startLine: startArmoryLine,
+    createPlayerResourceState: createArmoryPlayerResourceState,
     errors: {
       playerMissing: { code: "armory_not_owned", message: "Hráč nevlastní cílovou Zbrojovku." },
       insufficientCash: { code: "armory_insufficient_clean_cash", message: "Na výrobu nemáš dost clean cash." },
-      missingInputs: { code: "armory_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." }
+      missingInputs: { code: "armory_missing_inputs", message: "Na výrobu nemáš dost materiálových vstupů." },
+      queueFull: { code: "armory_queue_full", message: "Výrobní fronta Zbrojovky je plná." }
     }
   });
 };

@@ -12,6 +12,7 @@ import type {
  */
 export interface BuildingProcessingJob {
   recipeId: string;
+  quantity?: number;
   startedAtTick: number;
   completesAtTick: number;
 }

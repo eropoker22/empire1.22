@@ -6696,9 +6696,20 @@ function resolveDistrictActionCooldownView(baseMs = 0, category = "", extraSpeed
     autoSalonCategory: category
   });
   const speedPct = Math.max(0, Number(extraSpeedPct || 0));
-  const effectiveCooldownMs = speedPct > 0
+  const supportedCooldownMs = speedPct > 0
     ? Math.max(1000, Math.ceil(supportView.effectiveCooldownMs * (1 - speedPct / 100)))
     : supportView.effectiveCooldownMs;
+  const factionModifiers = getCurrentFactionPassiveModifiers();
+  let factionCooldownMultiplier = 1;
+  if (category === "attackPreparation") {
+    factionCooldownMultiplier = resolveFactionMultiplier(factionModifiers.attackCooldownMultiplier)
+      * resolveFactionMultiplier(factionModifiers.attackDurationMultiplier);
+  } else if (category === "districtRobbery") {
+    factionCooldownMultiplier = resolveFactionMultiplier(factionModifiers.robberyCooldownMultiplier);
+  } else if (category === "districtOccupy") {
+    factionCooldownMultiplier = resolveFactionMultiplier(factionModifiers.occupyCooldownMultiplier);
+  }
+  const effectiveCooldownMs = Math.max(1000, Math.ceil(supportedCooldownMs * factionCooldownMultiplier));
 
   return {
     ...supportView,
@@ -6714,6 +6725,15 @@ function resolveDistrictActionCooldownView(baseMs = 0, category = "", extraSpeed
 
 function getAttackActionDurationMs(baseMs = ATTACK_COOLDOWN_MS) {
   return resolveDistrictActionCooldownView(baseMs, "attackPreparation", 0).effectiveCooldownMs;
+}
+
+function resolveFactionMultiplier(value) {
+  const multiplier = Number(value);
+  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
+}
+
+function getCurrentFactionPassiveModifiers() {
+  return getServerGameplaySliceReadModel()?.player?.faction?.passiveModifiers || {};
 }
 
 function getSpyActionDurationMs(baseMs = SPY_COOLDOWN_MS, boostSnapshot = undefined) {
@@ -7335,9 +7355,12 @@ function calculateAttackDeploymentWithRecruitmentSupport(loadout = {}) {
   const weaponDefinitions = getAttackSetupWeapons();
   const base = calculateAttackDeployment(loadout, {}, weaponDefinitions);
   const boosted = calculateAttackDeployment(loadout, getRecruitmentAttackWeaponModifiers(weaponDefinitions), weaponDefinitions);
-  const bonusPower = Math.max(0, Number(boosted.totalPower || 0) - Number(base.totalPower || 0));
+  const totalPower = Number(boosted.totalPower || 0)
+    * resolveFactionMultiplier(getCurrentFactionPassiveModifiers().attackPowerMultiplier);
+  const bonusPower = Math.max(0, totalPower - Number(base.totalPower || 0));
   return {
     ...boosted,
+    totalPower,
     basePower: base.totalPower,
     bonusPower,
     bonusPowerLabel: formatStrengthBonusLabel(bonusPower)
@@ -7346,10 +7369,26 @@ function calculateAttackDeploymentWithRecruitmentSupport(loadout = {}) {
 
 function calculateTotalDefensePowerWithRecruitmentSupport(input = {}) {
   const basePower = calculateTotalDefensePower(input);
-  const totalPower = calculateTotalDefensePower({
-    ...input,
-    modifiers: getRecruitmentDefenseItemModifiers()
+  const factionModifiers = getCurrentFactionPassiveModifiers();
+  const recruitmentModifiers = getRecruitmentDefenseItemModifiers();
+  const baseDefenseMultiplier = resolveFactionMultiplier(factionModifiers.baseDefensePowerMultiplier);
+  const defenseSystemMultiplier = resolveFactionMultiplier(factionModifiers.defenseSystemEffectivenessMultiplier);
+  const factionItemModifiers = {
+    vest: baseDefenseMultiplier,
+    barricades: baseDefenseMultiplier,
+    "defense-tower": baseDefenseMultiplier,
+    cameras: defenseSystemMultiplier * resolveFactionMultiplier(factionModifiers.cameraEffectivenessMultiplier),
+    alarm: defenseSystemMultiplier * resolveFactionMultiplier(factionModifiers.alarmEffectivenessMultiplier)
+  };
+  const itemModifiers = { ...recruitmentModifiers };
+  Object.entries(factionItemModifiers).forEach(([itemId, multiplier]) => {
+    itemModifiers[itemId] = resolveFactionMultiplier(itemModifiers[itemId]) * multiplier;
   });
+  const supportedPower = calculateTotalDefensePower({
+    ...input,
+    modifiers: itemModifiers
+  });
+  const totalPower = supportedPower * resolveFactionMultiplier(factionModifiers.defensePowerMultiplier);
   const bonusPower = Math.max(0, Number(totalPower || 0) - Number(basePower || 0));
   return {
     totalPower,

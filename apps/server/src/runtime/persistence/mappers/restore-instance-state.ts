@@ -5,7 +5,6 @@ import {
   migrateArmoryProductionState,
   migrateConflictState,
   migrateStarterDistrictProductionBuildings,
-  migrateLegacyProductionToInstantState,
   normalizePlayerPopulationState,
   normalizePlayerStorageResourceAliases,
   type CoreGameState
@@ -20,7 +19,7 @@ import type { GameCoreContext } from "@empire/game-core";
  */
 export const restoreInstanceState = (
   snapshot: InstanceSnapshotDto,
-  context?: Pick<GameCoreContext, "config">
+  _context?: Pick<GameCoreContext, "config">
 ): CoreGameState => {
   const migrated = migrateConflictState(
     migrateArmoryProductionState(
@@ -37,5 +36,5 @@ export const restoreInstanceState = (
       )
     )
   );
-  return context ? migrateLegacyProductionToInstantState(migrated, context) : migrated;
+  return migrated;
 };

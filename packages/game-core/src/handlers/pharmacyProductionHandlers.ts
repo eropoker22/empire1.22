@@ -17,7 +17,7 @@ import {
   PHARMACY_BUILDING_TYPE_ID,
   startPharmacyLine
 } from "./pharmacyProductionShared";
-import { executeInstantProduction } from "./instantProduction";
+import { executeQueuedProduction } from "./queuedProduction";
 
 type HandlerResult = { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] };
 
@@ -36,20 +36,23 @@ export const handlePharmacyProductionStart = (
   }
 
   const { building, recipe } = validation;
-  return executeInstantProduction({
+  return executeQueuedProduction({
     state,
     context,
     playerId: command.playerId,
-    buildingId: building.id,
-    districtId: building.districtId,
+    building,
     recipeId: command.payload.recipeId,
     quantity,
     issuedAt: command.issuedAt,
     recipe,
+    getLine: getPharmacyLine,
+    startLine: startPharmacyLine,
+    createPlayerResourceState,
     errors: {
       playerMissing: { code: "pharmacy_not_owned", message: "Hráč nevlastní cílovou Lékárnu." },
       insufficientCash: { code: "pharmacy_insufficient_clean_cash", message: "Na výrobu nemáš dost clean cash." },
-      missingInputs: { code: "pharmacy_missing_inputs", message: "Na výrobu nemáš dost vstupních surovin." }
+      missingInputs: { code: "pharmacy_missing_inputs", message: "Na výrobu nemáš dost vstupních surovin." },
+      queueFull: { code: "pharmacy_queue_full", message: "Výrobní fronta Lékárny je plná." }
     }
   });
 };

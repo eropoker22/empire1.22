@@ -5,6 +5,7 @@ import {
   DRUG_LAB_BUILDING_TYPE_ID,
 } from "../handlers/drugLabProductionShared";
 import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "../handlers/warehouseBuilding";
+import { createTimedDrugLabProductionBuildingView } from "./timed-production-projections";
 
 const LABELS: Record<string, string> = {
   chemicals: "Chemicals",
@@ -21,6 +22,8 @@ export const createDrugLabProductionBuildingView = (input: {
   config?: ResolvedGameModeConfig;
   tickRateMs?: number;
 }): DrugLabProductionBuildingView | null => {
+  return createTimedDrugLabProductionBuildingView(input);
+  /* legacy instant projection retained below only for snapshot compatibility reference */
   const drugLab = input.config?.balance.drugLab;
   if (input.building.buildingTypeId !== DRUG_LAB_BUILDING_TYPE_ID || !drugLab) return null;
   const player = input.state.playersById[input.playerId];

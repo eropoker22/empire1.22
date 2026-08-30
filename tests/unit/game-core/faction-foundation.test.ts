@@ -462,6 +462,7 @@ describe("faction core foundation", () => {
       name: "Mafián",
       activePassiveEffects: expect.arrayContaining(["Čistý příjem +10 %"]),
       plannedPassiveEffects: [],
+      passiveModifiers: expect.objectContaining({ cleanIncomeMultiplier: 1.1 }),
       startingPackageSummary: [],
       specialAction: expect.objectContaining({
         name: "Tichá dohoda",

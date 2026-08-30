@@ -118,7 +118,7 @@ export const handleSpyDistrict = (
     ? spyCooldownTicks
     : Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
   const slotAvailableAtTick = state.root.tick + boostedSpyCooldownTicks;
-  const resolvedAtTick = state.root.tick;
+  const resolvedAtTick = cooldownEndsAtTick;
   const blockedUntilTick = isBlockedSpyOutcome(reportResult.result) ? slotAvailableAtTick : null;
   const report = createSpyReportNotification({
     command,

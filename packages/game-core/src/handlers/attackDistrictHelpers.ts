@@ -152,6 +152,8 @@ export const createBattleReportNotification = (input: {
       bazookaCatastropheBonus: input.bazookaCatastropheBonus,
       catastropheFinalChance: input.catastropheFinalChance,
       attackDurationTicks: input.attackDurationTicks,
+      issuedAtTick: input.tick,
+      resolveAtTick: input.tick + input.attackDurationTicks,
       tacticalGrid: input.tacticalGrid,
       tacticalGridSummary: input.tacticalGrid.attackerApplied || input.tacticalGrid.defenderApplied
         ? `Tactical Grid: +${Math.round((input.tacticalGrid.multiplier - 1) * 100)} % bojové síly`

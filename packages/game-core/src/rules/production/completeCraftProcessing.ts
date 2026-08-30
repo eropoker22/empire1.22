@@ -47,12 +47,13 @@ export const completeCraftProcessing = (
     const stateWithPendingCredits = nextResourceStates === state.resourceStatesById
       ? state
       : { ...state, resourceStatesById: nextResourceStates };
+    const outputAmount = recipe.outputAmount * Math.max(1, Number(processingJob.quantity ?? 1));
     const capacityCheck = warehouseConfig
       ? canPlayerReceiveResource(
           stateWithPendingCredits,
           player.id,
           recipe.outputResourceKey,
-          recipe.outputAmount,
+          outputAmount,
           warehouseConfig
         )
       : null;
@@ -68,7 +69,7 @@ export const completeCraftProcessing = (
         ...currentPlayerResourceState.balances,
         [recipe.outputResourceKey]: Math.max(
           0,
-          Number(currentPlayerResourceState.balances[recipe.outputResourceKey] || 0) + recipe.outputAmount
+          Number(currentPlayerResourceState.balances[recipe.outputResourceKey] || 0) + outputAmount
         )
       },
       lastUpdatedTick: state.root.tick,
@@ -93,7 +94,7 @@ export const completeCraftProcessing = (
       player.id,
       recipe.label,
       recipe.outputResourceLabel,
-      recipe.outputAmount,
+      outputAmount,
       state.root.tick
     );
 
@@ -109,7 +110,7 @@ export const completeCraftProcessing = (
         buildingId: building.id,
         recipeId: processingJob.recipeId,
         outputResourceKey: recipe.outputResourceKey,
-        outputAmount: recipe.outputAmount
+        outputAmount
       }),
       createEvent(CORE_EVENT_TYPES.notificationCreated, {
         notificationId: notification.id,

@@ -133,7 +133,7 @@ export const FACTION_CATALOG = Object.freeze({
     advantages: [
       "+15 % šance na úspěšné špehování",
       "+15 % šance odhalit pasti",
-      "+10 % kvalita informací a drbů"
+      "+10 % pravdivost potvrzených drbů"
     ],
     plannedAdvantages: [
       "+15 % kvalita informací ze špehování",
@@ -147,7 +147,7 @@ export const FACTION_CATALOG = Object.freeze({
     passiveEffectSummary: [
       "+15 % šance na úspěšné špehování",
       "+15 % šance odhalit pasti",
-      "+10 % kvalita informací a drbů",
+      "+10 % pravdivost potvrzených drbů",
       "-10 % síla útoku",
       "-8 % čistý příjem",
       "-8 % špinavý příjem"
@@ -287,9 +287,9 @@ export const FACTION_CATALOG = Object.freeze({
     advantages: [
       "+12 % síla útoku",
       "+12 % síla obrany",
-      "-10 % ztráty vybavení v boji"
+      "-10 % ztráty vybavení v boji",
+      "+10 % síla při obsazování"
     ],
-    plannedAdvantages: ["+10 % síla při obsazování"],
     disadvantages: [
       "+8 % heat z útoků a obsazování",
       "-8 % čistý příjem"
@@ -299,11 +299,11 @@ export const FACTION_CATALOG = Object.freeze({
       "+12 % síla útoku",
       "+12 % síla obrany",
       "-10 % ztráty vybavení v boji",
+      "+10 % síla při obsazování",
       "+8 % heat z útoků a obsazování",
       "-8 % čistý příjem"
     ],
     plannedPassiveEffectSummary: [
-      "+10 % síla při obsazování",
       "+12 % náklady na údržbu a boj"
     ],
     specialAction: {

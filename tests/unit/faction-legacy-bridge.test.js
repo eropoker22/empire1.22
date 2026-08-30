@@ -160,7 +160,7 @@ describe("legacy faction compatibility bridge", () => {
     expect(secret.advantages).toEqual(expect.arrayContaining([
       "+15 % šance na úspěšné špehování",
       "+15 % šance odhalit pasti",
-      "+10 % kvalita informací a drbů"
+      "+10 % pravdivost potvrzených drbů"
     ]));
     expect(secret.plannedAdvantages).toEqual(expect.arrayContaining([
       "+15 % kvalita informací ze špehování",
@@ -264,9 +264,7 @@ describe("legacy faction compatibility bridge", () => {
     expect(army.advantages).toEqual(expect.arrayContaining([
       "+12 % síla útoku",
       "+12 % síla obrany",
-      "-10 % ztráty vybavení v boji"
-    ]));
-    expect(army.plannedAdvantages).toEqual(expect.arrayContaining([
+      "-10 % ztráty vybavení v boji",
       "+10 % síla při obsazování"
     ]));
     expect(army.disadvantages).toEqual(expect.arrayContaining([
@@ -295,9 +293,11 @@ describe("legacy faction compatibility bridge", () => {
   });
 
   it("labels known active and planned effects distinctly in legacy data", () => {
-    expect(FACTION_CATALOG["tajna-organizace"].coreBackedEffects).toContain("+10 % kvalita informací a drbů");
-    expect(FACTION_CATALOG["tajna-organizace"].plannedEffects).not.toContain("+10 % kvalita informací a drbů");
+    expect(FACTION_CATALOG["tajna-organizace"].coreBackedEffects).toContain("+10 % pravdivost potvrzených drbů");
+    expect(FACTION_CATALOG["tajna-organizace"].plannedEffects).not.toContain("+10 % pravdivost potvrzených drbů");
     expect(FACTION_CATALOG["tajna-organizace"].plannedEffects).toContain("+15 % kvalita informací ze špehování");
+    expect(FACTION_CATALOG["soukroma-armada"].coreBackedEffects).toContain("+10 % síla při obsazování");
+    expect(FACTION_CATALOG["soukroma-armada"].plannedEffects).not.toContain("+10 % síla při obsazování");
     expect(FACTION_CATALOG["soukroma-armada"].coreBackedEffects).not.toContain("+12 % náklady na údržbu a boj");
     expect(FACTION_CATALOG["soukroma-armada"].plannedEffects).toContain("+12 % náklady na údržbu a boj");
     expect(FACTION_DEFINITION_BY_ID.hackeri.specialAction.status).toBe("preview");

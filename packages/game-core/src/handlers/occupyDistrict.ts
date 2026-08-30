@@ -84,7 +84,7 @@ export const handleOccupyDistrict = (
     balance.heatGain,
     factionModifiers.aggressiveActionHeatGainMultiplier
   ) * cityHallNightPatrol.heatMultiplier);
-  const resolveAtTick = state.root.tick;
+  const resolveAtTick = state.root.tick + cooldownTicks;
   const resolveAt = command.issuedAt;
   const cooldownEndsAtTick = state.root.tick + cooldownTicks;
   const operation: PendingOccupyOperation = {

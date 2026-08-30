@@ -514,6 +514,8 @@ export const handleAttackDistrict = (
       carDealerEscapeMitigated: escapeMitigation.mitigated,
       attackDurationTicks,
       attackDurationMs: attackDurationTicks * context.config.tickRateMs,
+      issuedAtTick: state.root.tick,
+      resolveAtTick: state.root.tick + attackDurationTicks,
       reportForAttacker: combatResolution.reportForAttacker,
       reportForDefender: combatResolution.reportForDefender,
       ...tacticalGrid.eventPayload

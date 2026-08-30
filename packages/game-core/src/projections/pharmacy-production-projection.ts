@@ -5,6 +5,7 @@ import {
   PHARMACY_BUILDING_TYPE_ID
 } from "../handlers/pharmacyProductionShared";
 import { getWarehouseCapacityForResource, resolveWarehouseStorageCapacity } from "../handlers/warehouseBuilding";
+import { createTimedPharmacyProductionBuildingView } from "./timed-production-projections";
 
 export const createPharmacyProductionBuildingView = (input: {
   state: CoreGameState;
@@ -13,6 +14,8 @@ export const createPharmacyProductionBuildingView = (input: {
   config?: ResolvedGameModeConfig;
   tickRateMs?: number;
 }): PharmacyProductionBuildingView | null => {
+  return createTimedPharmacyProductionBuildingView(input);
+  /* legacy instant projection retained below only for snapshot compatibility reference */
   const pharmacy = input.config?.balance.pharmacy;
   if (input.building.buildingTypeId !== PHARMACY_BUILDING_TYPE_ID || !pharmacy) return null;
   const isOwner = input.building.ownerPlayerId === input.playerId && input.building.status === "active";
