@@ -189,6 +189,10 @@ export function createMarketCatalogCallbacks(deps = {}) {
   const activeTab = deps.activeTab || "market";
   const getResolvedEconomyState = safeFunction(deps.getResolvedEconomyState, () => ({}));
   const getInventoryAmount = safeFunction(deps.getInventoryAmount, () => 0);
+  const getStorageAvailableAmount = safeFunction(
+    deps.getStorageAvailableAmount,
+    () => Number.POSITIVE_INFINITY
+  );
   const getResolvedMarketPriceState = safeFunction(deps.getResolvedMarketPriceState, () => ({}));
   const getStockAmount = safeFunction(deps.getStockAmount, () => Number.POSITIVE_INFINITY);
   const getMaxStock = safeFunction(deps.getMaxStock, () => Number.POSITIVE_INFINITY);
@@ -215,6 +219,7 @@ export function createMarketCatalogCallbacks(deps = {}) {
       const latestMarketState = getResolvedMarketPriceState();
       const latestStock = getStockAmount(latestMarketState, activeTab, item.itemId);
       const latestMaxStock = getMaxStock(activeTab, item.itemId);
+      const storageAvailableAmount = getStorageAvailableAmount(item.resourceId || item.itemId);
       const buyTotal = requestedQuantity * item.buyPrice;
       const blackHeatRisk = activeTab === "black-market" ? resolveBlackMarketHeatRisk(buyTotal) : null;
       return createMarketTradeStateViewModel({
@@ -225,6 +230,7 @@ export function createMarketCatalogCallbacks(deps = {}) {
         currentAmount,
         latestStock,
         latestMaxStock,
+        storageAvailableAmount,
         blackHeatRisk,
         formatPrice: formatMarketPrice
       });
@@ -234,6 +240,7 @@ export function createMarketCatalogCallbacks(deps = {}) {
       const buyTotal = requestedQuantity * item.buyPrice;
       const latestMarketState = getResolvedMarketPriceState();
       const latestStock = getStockAmount(latestMarketState, activeTab, item.itemId);
+      const storageAvailableAmount = getStorageAvailableAmount(item.resourceId || item.itemId);
 
       if ((currentEconomy[item.paymentKey] || 0) < buyTotal) {
         setMarketFeedback("warning", `Na nákup chybí ${formatMarketPrice(buyTotal - (currentEconomy[item.paymentKey] || 0))}.`);
@@ -243,6 +250,12 @@ export function createMarketCatalogCallbacks(deps = {}) {
 
       if (Number.isFinite(latestStock) && latestStock < requestedQuantity) {
         setMarketFeedback("warning", `Kontakt má jen ${latestStock} ks ${item.name}. Zkus menší množství nebo černý trh.`);
+        updateRowTradeState();
+        return;
+      }
+
+      if (Number.isFinite(storageAvailableAmount) && storageAvailableAmount < requestedQuantity) {
+        setMarketFeedback("warning", "Do SKLADU se zvolené množství nevejde.");
         updateRowTradeState();
         return;
       }

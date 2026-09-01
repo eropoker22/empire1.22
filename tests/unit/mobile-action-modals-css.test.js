@@ -465,6 +465,7 @@ describe("mobile action modal CSS", () => {
   it("keeps nested action windows layered above their parent popups", () => {
     for (const stylesheet of [mainCss, clientMainCss]) {
       expect(stylesheet).toContain("City Events must own the pointer layer so its close control cannot sit under the topbar.");
+      expect(stylesheet).toContain("@media (max-width: 900px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse)");
       expect(stylesheet).toContain("html body.game-body #events-modal:not(.hidden):not([hidden])");
       expect(stylesheet).toContain("z-index: 28000 !important;");
       expect(stylesheet).toContain("html body.game-body #event-detail-modal:not(.hidden):not([hidden])");
@@ -476,6 +477,8 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("body.game-body:has(#boost-modal:not(.hidden):not([hidden])) > .game-shell");
       expect(stylesheet).toContain("body.game-body:has(#boost-modal:not(.hidden):not([hidden])) .game-topbar");
       expect(stylesheet).toContain("body.game-body:has(#boost-modal:not(.hidden):not([hidden])) .game-topbar *");
+      expect(stylesheet).toContain("body.game-body:has(#boost-modal:not(.hidden):not([hidden])) > #game-header.game-topbar");
+      expect(stylesheet).toContain("display: none !important;");
       expect(stylesheet).toContain("pointer-events: none !important;");
     }
     for (const stylesheet of [mainCss, clientMainCss]) {

@@ -229,6 +229,24 @@ describe("market action orchestrator", () => {
     }).onBuyItem({ ...item, paymentKey: "cleanMoney", buyPrice: 100 }, 2, updateRowTradeState);
     expect(updateRowTradeState).toHaveBeenCalledTimes(1);
     expect(setMarketFeedback).toHaveBeenLastCalledWith("warning", "Na nákup chybí 190$.");
+
+    const storageBlockedRowUpdate = vi.fn();
+    const storageBlockedInventoryUpdate = vi.fn();
+    createMarketCatalogCallbacks({
+      activeTab: "market",
+      getResolvedEconomyState: () => ({ cleanMoney: 1000 }),
+      getResolvedMarketPriceState: () => ({}),
+      getStockAmount: () => 10,
+      getStorageAvailableAmount: () => 0,
+      setInventoryAmount: storageBlockedInventoryUpdate,
+      setMarketFeedback
+    }).onBuyItem({ ...item, paymentKey: "cleanMoney", buyPrice: 100 }, 1, storageBlockedRowUpdate);
+    expect(storageBlockedRowUpdate).toHaveBeenCalledTimes(1);
+    expect(storageBlockedInventoryUpdate).not.toHaveBeenCalled();
+    expect(setMarketFeedback).toHaveBeenLastCalledWith(
+      "warning",
+      "Do SKLADU se zvolené množství nevejde."
+    );
   });
 
   it("handles catalog sell success and insufficient inventory fallback", () => {

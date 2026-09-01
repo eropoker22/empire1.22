@@ -7995,7 +7995,7 @@ html body.game-body .district-popup-shell[data-district-popup]:not([hidden]) .di
 }
 
 /* Absolute final close-control reliability guard. */
-@media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
+@media (max-width: 900px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   /* City Events must own the pointer layer so its close control cannot sit under the topbar. */
   html body.game-body #events-modal:not(.hidden):not([hidden]) {
     z-index: 28000 !important;
@@ -8028,6 +8028,12 @@ html body.game-body .district-popup-shell[data-district-popup]:not([hidden]) .di
   html body.game-body:has(#boost-modal:not(.hidden):not([hidden])) .game-topbar,
   html body.game-body:has(#boost-modal:not(.hidden):not([hidden])) .game-topbar * {
     pointer-events: none !important;
+  }
+
+  /* The boost card starts at the top edge on touch layouts. Remove the sticky
+     header from that stacking area so it cannot cover the modal close control. */
+  html body.game-body:has(#boost-modal:not(.hidden):not([hidden])) > #game-header.game-topbar {
+    display: none !important;
   }
 }
 

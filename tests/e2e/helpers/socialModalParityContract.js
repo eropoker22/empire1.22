@@ -53,6 +53,7 @@ export const socialModalParitySurfaces = Object.freeze({
       })
     ]),
     roundedCompositeSelector: ".market-popup-tab.is-active",
+    stableBackdropColor: "rgb(2, 6, 12)",
     stableBackdropFilterSelector: [
       ".market-popup-dashboard__chip",
       ".market-popup-dashboard__recent"
@@ -161,6 +162,9 @@ export const socialModalParitySurfaces = Object.freeze({
       "costCount"
     ]),
     shellSelector: "#boost-modal",
+    stableAnimationSelector: ".boost-modal__content,#boost-modal-backdrop",
+    stableBackdropColor: "rgb(2, 6, 12)",
+    stableBackdropFilterSelector: ".boost-modal__content,#boost-modal-backdrop",
     stableDescendantDevicePixelAlignmentSelector: ".boost-card__icon > svg",
     stableDescendantDevicePixelAlignmentMode: "target-relative-paint-origin",
     stableTargetDevicePixelAlignment: true,
@@ -677,7 +681,8 @@ export async function captureSocialModalParityScreenshot(page, {
     ignoreSelector: definition.dynamicLeafSelector,
     path: screenshotPath,
     roundedCompositeSelector: definition.roundedCompositeSelector || "",
-    stableBackdropColor: surfaceName === "market" ? "rgb(2, 6, 12)" : "",
+    stableAnimationSelector: definition.stableAnimationSelector || "",
+    stableBackdropColor: definition.stableBackdropColor || "",
     stableBackdropFilterSelector: definition.stableBackdropFilterSelector || "",
     stableBackdropShellSelector: definition.shellSelector,
     stableDescendantDevicePixelAlignmentSelector:

@@ -121,6 +121,20 @@ describe("market view model builders", () => {
     });
 
     expect(createMarketTradeStateViewModel({
+      item: { buyPrice: 120, sellPrice: 90, paymentKey: "cleanMoney" },
+      requestedQuantity: 2,
+      currentEconomy: { cleanMoney: 1000 },
+      currentAmount: 4,
+      latestStock: 10,
+      latestMaxStock: 20,
+      storageAvailableAmount: 1,
+      formatPrice
+    })).toMatchObject({
+      buyDisabled: true,
+      buyTitle: "Do SKLADU se zvolené množství nevejde."
+    });
+
+    expect(createMarketTradeStateViewModel({
       activeTab: "black-market",
       item: { buyPrice: 400, sellPrice: 100, paymentKey: "dirtyMoney" },
       requestedQuantity: 2,

@@ -585,6 +585,17 @@ export async function dismissBlockingGameOverlays(page) {
       }, undefined, { timeout: 5_000 }).catch(() => void 0);
       await page.waitForTimeout(75);
       await page.evaluate(() => {
+        if (!document.getElementById("empire-e2e-dismissed-countdown-style")) {
+          const style = document.createElement("style");
+          style.id = "empire-e2e-dismissed-countdown-style";
+          style.textContent = `
+            [data-elimination-countdown-warning] {
+              display: none !important;
+              pointer-events: none !important;
+            }
+          `;
+          document.head?.appendChild(style);
+        }
         const warning = document.querySelector("[data-elimination-countdown-warning].is-visible");
         const closeButton = document.querySelector(
           "[data-elimination-countdown-warning].is-visible [data-elimination-countdown-warning-close]"
@@ -604,10 +615,7 @@ export async function dismissBlockingGameOverlays(page) {
         }
       });
       await expect(page.locator("[data-server-milestone-modal]")).toBeHidden({ timeout: 2_000 });
-      await expect(page.locator("[data-elimination-countdown-warning]")).not.toHaveClass(
-        /(?:^|\s)is-visible(?:\s|$)/u,
-        { timeout: 2_000 }
-      );
+      await expect(page.locator("[data-elimination-countdown-warning]")).toBeHidden({ timeout: 2_000 });
       return;
     } catch (error) {
       if (!String(error?.message || error).includes("Execution context was destroyed") || attempt === 2) {

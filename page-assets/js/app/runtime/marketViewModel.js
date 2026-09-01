@@ -524,6 +524,7 @@ export function createMarketTradeStateViewModel({
   currentAmount = 0,
   latestStock = Number.POSITIVE_INFINITY,
   latestMaxStock = Number.POSITIVE_INFINITY,
+  storageAvailableAmount = Number.POSITIVE_INFINITY,
   blackHeatRisk = null,
   formatPrice = (value) => String(value)
 } = {}) {
@@ -533,7 +534,8 @@ export function createMarketTradeStateViewModel({
   const sellCapacity = Number.isFinite(latestMaxStock) ? Math.max(0, latestMaxStock - latestStock) : Number.POSITIVE_INFINITY;
   const availableMoney = Number(currentEconomy[item.paymentKey] || 0);
   const buyDisabled = availableMoney < buyTotal
-    || (Number.isFinite(latestStock) && latestStock < quantity);
+    || (Number.isFinite(latestStock) && latestStock < quantity)
+    || (Number.isFinite(storageAvailableAmount) && storageAvailableAmount < quantity);
   const sellDisabled = Number(currentAmount || 0) < quantity
     || (Number.isFinite(sellCapacity) && sellCapacity < quantity);
 
@@ -541,7 +543,9 @@ export function createMarketTradeStateViewModel({
     buyDisabled,
     sellDisabled,
     buyTitle: buyDisabled
-      ? (Number.isFinite(latestStock) && latestStock < quantity
+      ? (Number.isFinite(storageAvailableAmount) && storageAvailableAmount < quantity
+          ? "Do SKLADU se zvolené množství nevejde."
+          : Number.isFinite(latestStock) && latestStock < quantity
           ? "Trh nemá dost zboží."
           : `Chybí ${formatPrice(buyTotal - availableMoney)}.`)
       : activeTab === "black-market" && blackHeatRisk

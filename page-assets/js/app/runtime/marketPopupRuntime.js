@@ -460,6 +460,7 @@ export function createMarketPopupRuntime(deps = {}) {
             activeTab,
             getResolvedEconomyState: deps.getResolvedEconomyState,
             getInventoryAmount: deps.getInventoryAmount,
+            getStorageAvailableAmount: deps.getStorageAvailableAmount,
             getResolvedMarketPriceState: deps.getResolvedMarketPriceState,
             getStockAmount,
             getMaxStock,

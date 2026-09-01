@@ -56,6 +56,7 @@ describe("social modal parity coverage contract", () => {
     expect(socialModalParitySurfaces.market.stableBackdropFilterSelector).toBe(
       ".market-popup-dashboard__chip,.market-popup-dashboard__recent"
     );
+    expect(socialModalParitySurfaces.market.stableBackdropColor).toBe("rgb(2, 6, 12)");
     expect(socialModalParitySurfaces.market.stableTargetDevicePixelAlignment).toBe(true);
     expect(socialModalParitySurfaces.market.stableTargetDevicePixelAlignmentMode).toBe("translate");
     expect(socialModalParitySurfaces.market.responsiveHiddenSectionRules).toEqual([
@@ -70,6 +71,13 @@ describe("social modal parity coverage contract", () => {
       "#bounty-modal-submit"
     );
     expect(socialModalParitySurfaces.boost.triggerSelector).toBe("[data-boost-open-trigger]");
+    expect(socialModalParitySurfaces.boost.stableAnimationSelector).toBe(
+      ".boost-modal__content,#boost-modal-backdrop"
+    );
+    expect(socialModalParitySurfaces.boost.stableBackdropColor).toBe("rgb(2, 6, 12)");
+    expect(socialModalParitySurfaces.boost.stableBackdropFilterSelector).toBe(
+      ".boost-modal__content,#boost-modal-backdrop"
+    );
     expect(socialModalParitySurfaces.boost.stableDescendantDevicePixelAlignmentSelector).toBe(
       ".boost-card__icon > svg"
     );
@@ -200,6 +208,12 @@ describe("social modal parity coverage contract", () => {
       "utf8"
     );
     expect(helperSource).toContain("stableBackdropShellSelector: definition.shellSelector");
+    expect(helperSource).toContain(
+      'stableAnimationSelector: definition.stableAnimationSelector || ""'
+    );
+    expect(helperSource).toContain(
+      'stableBackdropColor: definition.stableBackdropColor || ""'
+    );
     expect(helperSource).toContain(
       'stableBackdropFilterSelector: definition.stableBackdropFilterSelector || ""'
     );

@@ -6141,6 +6141,14 @@ function getGameplayStorageSummary() {
   };
 }
 
+function getGameplayStorageAvailableAmount(resourceKey) {
+  const item = (getGameplayStorageSummary().groups || [])
+    .flatMap((group) => group?.items || [])
+    .find((candidate) => String(candidate?.resourceKey || "") === String(resourceKey || ""));
+  if (!item) return Number.POSITIVE_INFINITY;
+  return Math.max(0, Number(item.maxAmount || 0) - Number(item.currentAmount || 0));
+}
+
 function normalizeLocalDemoStorageInventory() {
   if (!isLocalDemoGameplayExecutionMode()) {
     return false;
@@ -6860,6 +6868,7 @@ const {
   getResolvedEconomyState,
   getResolvedGangState,
   getResolvedMarketPriceState,
+  getStorageAvailableAmount: getGameplayStorageAvailableAmount,
   getServerMarketReadModel,
   getServerPlayerView,
   getShoppingMallMarketDiscountForTab: (...args) => getShoppingMallMarketDiscountForTab(...args),

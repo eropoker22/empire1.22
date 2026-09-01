@@ -337,8 +337,8 @@
     ], [
       action({ actionId: "collect_school_population", label: "Vybrat obyvatele", description: "Přesune celé obyvatele uložené ve Škole do globální populace hráče.", effectSummary: "+populace, bez heatu a bez peněz", cooldownMs: 0 })
     ]),
-    building("factory", "Továrna", "industrial", "Výroba", "Tři nezávislé linky vyrábějí Metal Parts, Tech Core a Combat Module po jednom kusu. Combat Module je strategická průmyslová komponenta pro high-tier výzbroj a pokročilé boost protokoly.", stat(0, 0, 3, 10, 14), []),
-    building("armory", "Zbrojovka", "industrial", "Výzbroj", "Nezávislé linky vyrábějí útočné i obranné vybavení z Metal Parts, Tech Core a Combat Module. Každý cyklus vytvoří jeden kus.", stat(0, 0, 4, 18, 14), []),
+    building("factory", "Továrna", "industrial", "Výroba", "Tři nezávislé linky se po rozkazu ihned rozběhnou a po serverovém odpočtu vyrobí Metal Parts, Tech Core nebo Combat Module. V tomhle provozu se čas měří jiskrami a chybějícími prsty.", stat(0, 0, 3, 10, 14), []),
+    building("armory", "Zbrojovka", "industrial", "Výzbroj", "Nezávislé linky se spouštějí ihned, ale útočné i obranné vybavení vydají až po dokončení serverového cyklu. Kov dovnitř, náskok v ulicích ven.", stat(0, 0, 4, 18, 14), []),
     building("warehouse", "Skladiště", "industrial", "Economy / storage / logistics", "Skladiště zvyšuje maximum každé položky v globálním SKLADU. První aktivní Skladiště přidá 50 %, další menší síťový bonus a z levelů platí jen nejvyšší aktivní level.", stat(2700, 0, 86.4, 0, 4), []),
     building("power_station", "Energetická stanice", "industrial", "Infrastruktura / podpora / obrana", "Energetická stanice nezavádí nový zdroj. Zvedá výkon města, drží infrastrukturu při životě a posiluje bezpečnostní systémy. Když svítí stanice, město dýchá rychleji. Kamery vidí ostřeji. Alarmy řvou dřív.", perMinuteStat(2780 / 60, 780 / 60, 115.2, 0, 1), [
       action({ actionId: "backup_grid_switch", label: "Stabilizovat síť", description: "Na 25 minut zvýší bonus infrastruktury, posílí kamery a alarmy a přidá výkon Továrnám a Zbrojovkám. Nestackuje se sama se sebou.", effectSummary: "Cena 3500 clean cash, +12 % infrastruktura, +20 % kamery, +20 % alarm, heat +3 na 25 minut", cooldownMs: 60 * minute, durationMs: 25 * minute, inputCost: out("cash", 3500), heatGain: 3 }),
@@ -348,8 +348,8 @@
     building("recycling_center", "Recyklační centrum", "industrial", "Podpora / vytěžení ztrát / návrat itemů", "Recyklační centrum nevrací lidi. Vrací železo, zbraně, moduly a všechno, co se dá po boji ještě vytáhnout ze šrotu. Když bitva skončí, někdo počítá mrtvé. Recyklační centrum počítá, co se dá znovu použít.", perMinuteStat(40, 0, 0.08 * 60 * 24, 0, 1), [
       action({ actionId: "extract_losses", label: "Vytěžit ztráty", description: "Vrátí část neexpirovaných itemových ztrát ze zásobníku ztrát. Nikdy nevrací populaci ani členy gangu.", effectSummary: "Cena 900 clean cash, návrat itemů podle sítě Recyklačních center, heat +2", cooldownMs: 16 * minute, inputCost: out("cash", 900), heatGain: 2 })
     ]),
-    building("pharmacy", "Lékárna", "commercial", "Výroba", "Chemicals, Biomass a Stim Pack se po potvrzení začnou vyrábět, po nastavené době čekají v Lékárně a do SKLADU se přesunou okamžitým vyzvednutím.", stat(0, 0, 3, 8, 14), []),
-    building("drug_lab", "Drug Lab", "park", "Výroba drog", "Pět nezávislých linek vyrábí Neon Dust, Pulse Shot, Velvet Smoke, Ghost Serum a Overdrive X. Vzácné komponenty napájejí strategické boost protokoly a nelze je aktivovat samostatně.", stat(0, 0, 6, 20, 14), []),
+    building("pharmacy", "Lékárna", "commercial", "Výroba", "Chemicals, Biomass a Stim Pack se po potvrzení ihned zařadí do výroby. Server zamkne cenu při startu a hotový materiál zpřístupní teprve po doběhnutí odpočtu.", stat(0, 0, 3, 8, 14), []),
+    building("drug_lab", "Drug Lab", "park", "Výroba drog", "Pět nezávislých linek se spustí hned a po skutečném čase dokončí Neon Dust, Pulse Shot, Velvet Smoke, Ghost Serum nebo Overdrive X. Neon tu svítí i tehdy, když už směna dávno neměla pokračovat.", stat(0, 0, 6, 20, 14), []),
     building("smuggling_tunnel", "Pašovací tunel", "park", "Dirty cash / smuggling / dealer support / risk reward", "Pašovací tunel pasivně vytváří dirty cash a podporuje rychlost i bezpečnost pouliční distribuce. Cenu prodeje neurčuje: ta zůstává pevně odvozená z výroby v Drug Labu.", perMinuteStat(0, 54, 0.07 * 60 * 24, 0, 1), [
       action({ actionId: "open_channel", label: "Otevřít kanál", description: "Na 15 minut posílí dirty cash tunelů a zrychlí prodej Pouličních dealerů. Nestackuje se.", effectSummary: "Cena 1800 clean cash, heat +5, +45 % dirty tok tunelů, rychlejší prodej a vyšší riziko incidentu", cooldownMs: 30 * minute, durationMs: 15 * minute, inputCost: out("cash", 1800), heatGain: 5 })
     ]),
@@ -4259,7 +4259,7 @@
       passiveEffectSummary: [
         "+15 % šance na úspěšné špehování",
         "+15 % šance odhalit pasti",
-        "+10 % kvalita informací a drbů",
+        "+10 % pravdivost potvrzených drbů",
         "-10 % síla útoku",
         "-8 % čistý příjem",
         "-8 % špinavý příjem"
@@ -4420,11 +4420,11 @@
         "+12 % síla útoku",
         "+12 % síla obrany",
         "-10 % ztráty vybavení v boji",
+        "+10 % síla při obsazování",
         "+8 % heat z útoků a obsazování",
         "-8 % čistý příjem"
       ],
       plannedPassiveEffectSummary: [
-        "+10 % síla při obsazování",
         "+12 % náklady na údržbu a boj"
       ],
       specialAction: {
