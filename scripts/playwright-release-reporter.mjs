@@ -20,6 +20,22 @@ export default class PlaywrightReleaseReporter {
     const current = this.tests.get(test.id) || { expectedStatus: test.expectedStatus, results: [] };
     current.results.push({ status: result.status, retry: result.retry });
     this.tests.set(test.id, current);
+    const title = typeof test.titlePath === "function"
+      ? test.titlePath().filter(Boolean).join(" > ")
+      : String(test.title || test.id || "Unknown Playwright test");
+    const resultErrors = Array.isArray(result.errors) && result.errors.length > 0
+      ? result.errors
+      : result.error
+        ? [result.error]
+        : [];
+    for (const error of resultErrors) {
+      const diagnostic = formatErrorDiagnostic({
+        message: `${title}: ${error?.message || error?.value || String(error)}`
+      });
+      if (!diagnostic || this.errors.includes(diagnostic)) continue;
+      this.errors.push(diagnostic);
+      console.error(`[release-playwright] test-error=${diagnostic}`);
+    }
   }
 
   onError(error) {

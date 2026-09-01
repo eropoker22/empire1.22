@@ -53,6 +53,29 @@ describe("Playwright release reporter", () => {
     });
   });
 
+  it("retains and redacts individual test failures", async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "empire-release-reporter-"));
+    cleanup.push(directory);
+    const summaryPath = path.join(directory, "summary.json");
+    const reporter = new PlaywrightReleaseReporter({ summaryPath });
+    reporter.onBegin({}, { allTests: () => [{ id: "test:1" }] });
+    reporter.onTestEnd({
+      id: "test:1",
+      expectedStatus: "passed",
+      titlePath: () => ["social parity", "boost"]
+    }, {
+      status: "failed",
+      retry: 0,
+      errors: [{ message: "Expected 0 pixels; token=raw-token" }]
+    });
+
+    await expect(reporter.onEnd({ status: "failed" })).resolves.toEqual({ status: "failed" });
+    const summary = JSON.parse(await readFile(summaryPath, "utf8"));
+    expect(summary.errors).toEqual([
+      "social parity > boost: Expected 0 pixels; token=[redacted]"
+    ]);
+  });
+
   it("redacts credentials and identifiers from setup diagnostics", async () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), "empire-release-reporter-"));
     cleanup.push(directory);

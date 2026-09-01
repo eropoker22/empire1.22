@@ -454,24 +454,47 @@ const runFixtureNode = (name, args, timeoutMs) => runManagedCommand({
 });
 const runReleasePlaywright = async ({ name, args, timeoutMs, result, phase, environmentOverrides = {} }) => {
   const summaryPath = path.join(runDirectory, `${name}-release-summary.json`);
-  await runNode(name, [
-    ...args,
-    "--trace=off",
-    "--forbid-only",
-    "--fail-on-flaky-tests",
-    "--retries=0",
-    "--reporter=./scripts/playwright-release-reporter.mjs"
-  ], timeoutMs, {
-    ...environmentOverrides,
-    EMPIRE_PLAYWRIGHT_RELEASE_SUMMARY: summaryPath
-  });
-  const summary = JSON.parse(await readFile(summaryPath, "utf8"));
-  result.evidence.playwrightRuns.push({
-    phase,
-    summaryPath: path.relative(process.cwd(), summaryPath),
-    ...summary
-  });
+  const recordSummary = async () => {
+    const summary = JSON.parse(await readFile(summaryPath, "utf8"));
+    result.evidence.playwrightRuns.push({
+      phase,
+      summaryPath: path.relative(process.cwd(), summaryPath),
+      ...summary
+    });
+    return summary;
+  };
+  try {
+    await runNode(name, [
+      ...args,
+      "--trace=off",
+      "--forbid-only",
+      "--fail-on-flaky-tests",
+      "--retries=0",
+      "--reporter=./scripts/playwright-release-reporter.mjs"
+    ], timeoutMs, {
+      ...environmentOverrides,
+      EMPIRE_PLAYWRIGHT_RELEASE_SUMMARY: summaryPath
+    });
+  } catch (error) {
+    try {
+      const summary = await recordSummary();
+      for (const diagnostic of summary.errors || []) {
+        console.error(process.env.GITHUB_ACTIONS === "true"
+          ? `::error title=Hosted Playwright failure::${escapeGitHubWorkflowCommand(diagnostic)}`
+          : `[local-hosted] Playwright failure: ${diagnostic}`);
+      }
+    } catch {
+      // The original managed-command failure remains authoritative when no summary was written.
+    }
+    throw error;
+  }
+  await recordSummary();
 };
+
+const escapeGitHubWorkflowCommand = (value) => String(value || "")
+  .replaceAll("%", "%25")
+  .replaceAll("\r", "%0D")
+  .replaceAll("\n", "%0A");
 const retainPlaywrightArtifacts = (result, phase) => {
   const outputDirectory = path.join(browserArtifactRunDirectory, "playwright", result.name, phase);
   result.evidence.playwrightArtifactDirectories.push(
