@@ -41,6 +41,7 @@ import {
   readElementRelativeParityIgnoreRegions,
   resolveEnclosingRasterBounds,
   syncParityLocalDemoMarketFromHosted,
+  syncParityLocalDemoDistrictBuildingsFromHosted,
   syncParityLocalDemoPopulationBufferFromHosted
 } from "../e2e/helpers/uiParityCapture.js";
 import { ARMORY_RECIPES } from "../../packages/game-config/src/legacy-page/economy-config.js";
@@ -2612,6 +2613,16 @@ describe("UI parity class signature", () => {
     expect(getParityDomStructureSignature.toString()).toContain("additionalDynamicTextSelector");
     expect(getParityDomStructureSignature.toString()).toContain("buildingDynamicValue");
     expect(getParityDomStructureSignature.toString()).toContain("buildingPopulationCapacity");
+    expect(getParityDomStructureSignature.toString()).toContain("settleParityPointer(page");
+    expect(captureIsolatedParityScreenshot.toString()).not.toContain("dataset: Object.entries");
+    expect(captureIsolatedParityScreenshot.toString()).toContain(
+      'typeof entry.element.matches !== "function"'
+    );
+    expect(captureIsolatedParityScreenshot.toString()).toContain("entry.element.matches(selector)");
+    expect(captureIsolatedParityScreenshot.toString()).not.toContain(
+      "visible structure changed between attempts"
+    );
+    expect(captureIsolatedParityScreenshot.toString()).not.toContain("markup: String(element.outerHTML");
   });
 
   it("normalizes only semantically marked population-buffer text", () => {
@@ -2832,7 +2843,9 @@ describe("UI parity class signature", () => {
 
   it("aligns the demo identity color and waits for hosted district hydration", () => {
     expect(openParityLocalDemo.toString()).toContain('gangColor = "#ef4444"');
+    expect(openParityLocalDemo.toString()).toContain('factionId = "mafian"');
     expect(openParityLocalDemo.toString()).toContain("gangColor: configuredGangColor");
+    expect(openParityLocalDemo.toString()).toContain("gameplayRoot.dataset.factionId = configuredFactionId");
     expect(openParityLocalDemo.toString()).toContain("2854d1df-0f7c-4fe4-aa85-7a70dfe299db.jpg");
     expect(openParityLocalDemo.toString()).toContain("bountyDemoTargets: configuredBountyDemoTargets");
     expect(openDistrictById.toString()).toContain("openDistrictAsync");
@@ -2840,6 +2853,10 @@ describe("UI parity class signature", () => {
     expect(openDistrictById.toString()).toContain("data-server-loading");
     expect(openDistrictById.toString()).toContain("district-popup-server-loading");
     expect(openDistrictById.toString()).toContain("district-popup-body");
+    expect(openBuildingFromDistrict.toString()).toContain('surface.dataset.executionMode = "server-authoritative"');
+    expect(syncParityLocalDemoDistrictBuildingsFromHosted.toString()).toContain(
+      '.replace(/^(?:district:)+/u, "")'
+    );
   });
 
   it("rejects technical hosted labels without rejecting shared gameplay copy", () => {

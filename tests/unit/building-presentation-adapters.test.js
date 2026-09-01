@@ -381,6 +381,11 @@ describe("shared building presentation adapters", () => {
       }
     });
     expect(detail.viewModel.actions[0].rewardSummary).toContain("Clean");
+    expect(detail.viewModel.actions[0].rewardSummary).toContain("Dirty cash +$550");
+    expect(detail.viewModel.actions[0].rewardSummary).toContain("Čekání 30m 00s");
+    expect(detail.viewModel.actions[1].rewardSummary).toContain("Trvání 30m 00s");
+    expect(detail.viewModel.actions[1].rewardSummary).toContain("Čekání 45m 00s");
+    expect(detail.viewModel.actions[2].rewardSummary).toContain("Čekání 30m 00s");
     expect(detail.viewModel.actions.slice(1).every((action) => action.disabled)).toBe(true);
     expect(detail.viewModel.actions[1].disabledReason).toBe("Akce teď není dostupná.");
   });
@@ -694,6 +699,32 @@ describe("shared building presentation adapters", () => {
     expect(action.buttonCostLabel).toBe("$1200 clean cash");
     expect(action.rewardSummary).toBe("Server: nábor +75 % na 20 minut");
     expect(action.rewardSummary).not.toContain("+60 %");
+  });
+
+  it("keeps canonical laundering mechanics visible instead of replacing them with a dynamic cash preview", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Herna",
+      buildingTypeId: "arcade",
+      actions: [{
+        actionId: "back_cashdesk",
+        label: "Zadní pokladna",
+        enabled: true,
+        inputSummary: "3800 Dirty Cash",
+        effectiveInputCost: { "dirty-cash": 3800 },
+        outputSummary: "3230 Cash",
+        effectiveOutputGain: { cash: 3230 },
+        heatGain: 3,
+        influenceChange: 1,
+        cooldownMs: 16 * 60 * 1000
+      }]
+    });
+    const action = detail.viewModel.actions.find((entry) => entry.actionId === "back_cashdesk");
+
+    expect(action.buttonCostLabel).toBe("");
+    expect(action.rewardSummary).toContain("Vypere 13% dirty cash, max $3800 · fee 15%");
+    expect(action.rewardSummary).toContain("Vliv +1");
+    expect(action.rewardSummary).toContain("Heat +3");
+    expect(action.rewardSummary).toContain("Čekání 16m 00s");
   });
 
   it("uses precise authoritative population buffers for apartment and convenience cards", () => {

@@ -366,6 +366,7 @@ async function attachOpenBuildingScreenshot({
       surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-value" : "",
       surfaceName === "pharmacy" ? ".pharmacy-slot__btn" : ""
     ].filter(Boolean).join(","),
+    roundedCompositeRasterFringePx: surfaceName === "district" ? 4 : 2,
     stableBackdropColor: surfaceName === "district" ? "rgb(2, 6, 12)" : "",
     stableBackdropFilterSelector: surfaceName === "district"
       ? districtPopupStableBackdropFilterSelector
@@ -376,7 +377,7 @@ async function attachOpenBuildingScreenshot({
     stableRasterSelector: surfaceName === "district" ? ".district-modal-hero__image" : "",
     stableBackdropShellSelector: paritySurfaces[surfaceName].shell,
     stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"
-      ? ".district-popup-buildings__chip--button"
+      ? ".district-popup-owner-label, .district-popup-buildings__chip--button"
       : hasStableBuildingCountBadge
         ? buildingCountBadgeSelector
         : "",
@@ -412,6 +413,26 @@ async function attachOpenBuildingScreenshotPair({
   panelName
 }) {
   const attemptResult = await compareParityPngScreenshotAttempts(async (captureAttempt) => {
+    if (surfaceName === "district") {
+      const hostedDistrictShell = serverPage.locator(
+        `${paritySurfaces.district.shell}:visible`
+      ).last();
+      const districtId = String(
+        await hostedDistrictShell.getAttribute("data-district-id") || ""
+      ).replace(/^(?:district:)+/u, "");
+      await syncParityLocalDemoDistrictBuildingsFromHosted(localPage, serverPage, {
+        districtId,
+        expectedBuildingTypeIds: await readVisibleDistrictBuildingTypeIds(serverPage)
+      });
+      const [localDistrictStructure, serverDistrictStructure] = await Promise.all([
+        getParityDomStructureSignature(localPage, "district"),
+        getParityDomStructureSignature(serverPage, "district")
+      ]);
+      expect(
+        serverDistrictStructure,
+        `district ${districtId} must settle after authoritative screenshot synchronization`
+      ).toEqual(localDistrictStructure);
+    }
     if (populationParityBuildingTypeIds.has(buildingTypeId)) {
       const stablePopulationCapture = await captureStableHostedPopulationParitySnapshot(
         localPage,

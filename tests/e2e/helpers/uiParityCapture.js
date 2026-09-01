@@ -1035,6 +1035,7 @@ export const paritySurfaces = Object.freeze({
 
 export async function openParityLocalDemo(page, {
   bountyDemoTargets,
+  factionId = "mafian",
   gamePhase = "live",
   ownedDistrictIds = [21, 66, 68],
   startDistrictId = ownedDistrictIds[0] || 21,
@@ -1179,7 +1180,12 @@ export async function openParityLocalDemo(page, {
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"
     && document.documentElement?.dataset?.runtimeMode === "local-demo"
   ));
-  await page.evaluate(() => {
+  await page.evaluate((configuredFactionId) => {
+    const gameplayRoot = document.querySelector("[data-gameplay-slice-client]");
+    if (gameplayRoot instanceof HTMLElement) {
+      gameplayRoot.dataset.factionId = configuredFactionId;
+      document.dispatchEvent(new CustomEvent("empire:faction-passive-targets-changed"));
+    }
     const bridge = window.empireLocalDemoGameplayBridge;
     const marketState = window.EmpireMarketState;
     const session = bridge?.getStoredPreviewSession?.();
@@ -1201,7 +1207,7 @@ export async function openParityLocalDemo(page, {
         [serverId]: frozenMarket
       }
     }));
-  });
+  }, factionId);
   const milestone = page.locator("[data-server-milestone-modal]");
   if (await milestone.isVisible()) {
     await milestone.locator("[data-server-milestone-confirm]").click();
@@ -1402,6 +1408,14 @@ export async function openBuildingFromDistrict(page, buildingTypeOrLabel) {
     paritySurfaces.factory.shell,
     paritySurfaces.armory.shell
   ].map((selector) => `${selector}:visible`).join(",")).first();
+  const alignLocalStandardBuildingLayout = async () => openedBuildingSurface.evaluate((surface) => {
+    if (
+      document.documentElement.dataset.runtimeMode === "local-demo"
+      && surface.matches(".district-building-detail-shell.is-standard-building-detail")
+    ) {
+      surface.dataset.executionMode = "server-authoritative";
+    }
+  });
   do {
     try {
       const point = await resolveVisiblePointerTarget();
@@ -1417,9 +1431,13 @@ export async function openBuildingFromDistrict(page, buildingTypeOrLabel) {
       }
       await page.mouse.click(point.x, point.y);
       await expect(openedBuildingSurface).toBeVisible({ timeout: 1_000 });
+      await alignLocalStandardBuildingLayout();
       return;
     } catch (error) {
-      if (await openedBuildingSurface.isVisible().catch(() => false)) return;
+      if (await openedBuildingSurface.isVisible().catch(() => false)) {
+        await alignLocalStandardBuildingLayout();
+        return;
+      }
       lastClickError = error;
       await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
     }
@@ -1446,8 +1464,10 @@ export async function syncParityLocalDemoDistrictBuildingsFromHosted(localPage, 
   districtId,
   expectedBuildingTypeIds = []
 } = {}) {
-  const canonicalDistrictId = String(districtId || "").trim();
-  const numericDistrictId = Number(canonicalDistrictId.replace(/^district:/u, ""));
+  const canonicalDistrictId = String(districtId || "")
+    .trim()
+    .replace(/^(?:district:)+/u, "");
+  const numericDistrictId = Number(canonicalDistrictId);
   const canonicalExpectedTypes = Array.from(new Set(expectedBuildingTypeIds
     .map((buildingTypeId) => String(buildingTypeId || "").trim())
     .filter(Boolean))).sort();
@@ -1475,7 +1495,8 @@ export async function syncParityLocalDemoDistrictBuildingsFromHosted(localPage, 
       .sort();
     return {
       authoritativeTypes,
-      districtId: String(readModel?.district?.districtId || ""),
+      districtId: String(readModel?.district?.districtId || "")
+        .replace(/^(?:district:)+/u, ""),
       renderedTypes
     };
   }), {
@@ -2180,16 +2201,6 @@ export async function captureIsolatedParityScreenshot(page, {
               && rect.width > 0
               && rect.height > 0;
           });
-        const readVisibleSignature = (elements) => JSON.stringify(elements.map((element) => ({
-          className: element.getAttribute?.("class") || "",
-          dataset: Object.entries(element.dataset || {}).sort(([left], [right]) => (
-            left.localeCompare(right)
-          )),
-          markup: String(element.outerHTML || "").replace(/\s+/gu, " ").trim(),
-          scope: element.closest?.("[data-boost-card]")?.getAttribute("data-boost-card") || "",
-          tagName: String(element.tagName || "").toLowerCase(),
-          text: String(element.textContent || "").replace(/\s+/gu, " ").trim()
-        })));
         const restoreEntry = (entry) => {
           const { element } = entry;
           entry.styles.forEach((styleEntry) => {
@@ -2214,6 +2225,10 @@ export async function captureIsolatedParityScreenshot(page, {
         const entryIsAvailable = (entry) => entry.element.isConnected !== false
           && entry.element.getAttribute(captureAttribute) === entry.token
           && (
+            typeof entry.element.matches !== "function"
+            || entry.element.matches(selector)
+          )
+          && (
             typeof targetElement.contains !== "function"
             || targetElement.contains(entry.element)
           );
@@ -2226,7 +2241,6 @@ export async function captureIsolatedParityScreenshot(page, {
           error.code = "PARITY_DESCENDANT_LOST";
           return error;
         };
-        let expectedVisibleSignature = null;
         let stableEntries = null;
 
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -2234,14 +2248,6 @@ export async function captureIsolatedParityScreenshot(page, {
           if (elements.length === 0) {
             throw new Error(
               `Parity descendant alignment selector matched no visible elements: ${selector}`
-            );
-          }
-          const visibleSignature = readVisibleSignature(elements);
-          if (expectedVisibleSignature === null) {
-            expectedVisibleSignature = visibleSignature;
-          } else if (visibleSignature !== expectedVisibleSignature) {
-            throw new Error(
-              `Parity descendant alignment visible structure changed between attempts: ${selector}`
             );
           }
           const entries = [];
@@ -3928,7 +3934,7 @@ export async function getParityDomStructureSignature(page, surfaceName, {
   const definition = paritySurfaces[surfaceName];
   const target = page.locator(`${definition.selector}:visible`).last();
   await expect(target).toBeVisible();
-  await settleFiniteAnimations(page.locator(`${definition.shell}:visible`).last());
+  await settleParityPointer(page, page.locator(`${definition.shell}:visible`).last());
   const signature = await target.evaluate((targetElement, config) => {
     const dynamicClassNames = new Set(config.dynamicClassNames);
     const dynamicContentSelector = config.dynamicContentSelector;

@@ -50,7 +50,19 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain(
       'stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"'
     );
-    expect(paritySpec).toContain('".district-popup-buildings__chip--button"');
+    expect(paritySpec).toContain('".district-popup-owner-label, .district-popup-buildings__chip--button"');
+    expect(paritySpec).toContain(".district-popup-buildings__chip--button");
+    expect(paritySpec).toContain(
+      'roundedCompositeRasterFringePx: surfaceName === "district" ? 4 : 2'
+    );
+    expect(paritySpec).toContain('if (surfaceName === "district") {');
+    expect(paritySpec).toContain(
+      "expectedBuildingTypeIds: await readVisibleDistrictBuildingTypeIds(serverPage)"
+    );
+    expect(paritySpec).toContain('.replace(/^(?:district:)+/u, "")');
+    expect(paritySpec).toContain(
+      '`district ${districtId} must settle after authoritative screenshot synchronization`'
+    );
     expect(paritySpec).toContain('surfaceName === "buildingDetail"');
     expect(paritySpec).toContain('".building-detail-title__badge--count"');
     expect(paritySpec).toContain(
@@ -156,7 +168,8 @@ describe("live/demo UI parity source contract", () => {
     expect(parityCapture).not.toContain("await page.mouse.up()");
     expect(parityCapture).toContain("document.elementFromPoint(x, y)");
     expect(parityCapture).not.toContain("button.boundingBox()");
-    expect(parityCapture).toContain("if (await openedBuildingSurface.isVisible().catch(() => false)) return");
+    expect(parityCapture).toContain("if (await openedBuildingSurface.isVisible().catch(() => false)) {");
+    expect(parityCapture).toContain("await alignLocalStandardBuildingLayout()");
     expect(parityCapture).toContain("requestAnimationFrame(resolve)");
   });
 

@@ -692,6 +692,15 @@ const resolveActionSummary = (entry, primaryKey, fallbackKey) => {
   return String(primary || entry?.[fallbackKey] || "").trim();
 };
 
+const CANONICAL_MECHANICS_PREVIEW_ACTION_IDS = new Set([
+  "back_cashdesk",
+  "good_rate",
+  "quiet_backroom",
+  "restaurant_collect_revenue",
+  "restaurant_cover_meetings",
+  "restaurant_local_network"
+]);
+
 const createServerBuildingActionPresentation = ({
   demoAction,
   entry,
@@ -736,6 +745,8 @@ const createServerBuildingActionPresentation = ({
     : projectedRewardSummary && !/^bez výstupu$/iu.test(projectedRewardSummary)
       ? projectedRewardSummary
       : serverDeltaSummary || projectedRewardSummary;
+  const actionId = String(entry?.actionId || demoAction?.actionId || "");
+  const usesCanonicalMechanicsPreview = CANONICAL_MECHANICS_PREVIEW_ACTION_IDS.has(actionId);
   const effectiveCooldownMs = Math.max(
     0,
     Number(entry?.effectiveCooldownMs || entry?.cooldownMs || 0)
@@ -749,15 +760,21 @@ const createServerBuildingActionPresentation = ({
   return {
     ...(demoAction || {}),
     index,
-    actionId: String(entry?.actionId || demoAction?.actionId || ""),
+    actionId,
     buildingTypeId: String(buildingTypeId || ""),
     title: String(demoAction?.title || entry?.label || entry?.actionId || "Akce"),
-    buttonCostLabel: actionCostRecord
+    buttonCostLabel: usesCanonicalMechanicsPreview
+      ? String(demoAction?.buttonCostLabel || "")
+      : actionCostRecord
       ? costSummary || (projectedInputSummary === "Zdarma" ? "" : projectedInputSummary)
       : projectedInputSummary === "Zdarma"
         ? ""
         : projectedInputSummary || String(demoAction?.buttonCostLabel || ""),
-    rewardSummary: String(serverRewardSummary || demoAction?.rewardSummary || ""),
+    rewardSummary: String(
+      usesCanonicalMechanicsPreview
+        ? demoAction?.rewardSummary || serverRewardSummary || ""
+        : serverRewardSummary || demoAction?.rewardSummary || ""
+    ),
     cooldownLabel,
     cooldownRemainingMs,
     disabled: !entry || entry?.disabled === true || entry?.enabled === false || Boolean(disabledReason),
