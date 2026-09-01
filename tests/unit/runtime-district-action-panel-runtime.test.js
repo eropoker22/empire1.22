@@ -332,7 +332,7 @@ describe("district action panel runtime", () => {
     expect(spyConfirmAtmosphereLabel.textContent).toBe("");
   });
 
-  it("marks setup status as an error while attack or robbery confirmation is blocked", () => {
+  it("marks a blocked attack as an error and keeps canonical robbery ready with one free member", () => {
     const attackStatus = textElement();
     const attackConfirmButton = textElement();
     const runtime = createDistrictActionPanelRuntime({
@@ -377,13 +377,14 @@ describe("district action panel runtime", () => {
 
     const robberySummary = robberyRuntime.renderRobberySummary();
 
-    expect(robberySummary.canConfirm).toBe(false);
-    expect(robberyConfirmButton.disabled).toBe(true);
-    expect(robberyStatus.textContent).toBe("Vyber členy gangu");
-    expect(robberyStatus.dataset.validationState).toBe("error");
+    expect(robberySummary.canConfirm).toBe(true);
+    expect(robberyConfirmButton.disabled).toBe(false);
+    expect(robberyRuntime.renderRobberySummary().deployedMembers).toBe(1);
+    expect(robberyStatus.textContent).toBe("Připraveno · server ověří 1 volného člena");
+    expect(robberyStatus.dataset.validationState).toBeUndefined();
   });
 
-  it("keeps robbery confirmable without scout report while rendering rough preview labels", () => {
+  it("keeps robbery canonical without a speculative scout preview", () => {
     const robberySourceSelect = { value: "5", replaceChildren: vi.fn(), append: vi.fn(), disabled: false };
     const robberyMemberInput = input("4");
     const robberyAvailableMembers = textElement();
@@ -438,16 +439,18 @@ describe("district action panel runtime", () => {
 
     expect(summary.canConfirm).toBe(true);
     expect(robberyConfirmButton.disabled).toBe(false);
-    expect(robberyAvailableMembers.textContent).toBe("6");
-    expect(previewFactory).toHaveBeenLastCalledWith(expect.objectContaining({ hasScoutReport: false }));
-    expect(robberyRiskLevel.textContent).toBe("Neznámé / Odhad · Odhad");
-    expect(robberyLootPreview.textContent).toBe("Nejistý");
-    expect(robberyTrapPreview.textContent).toBe("Neznámá");
-    expect(robberyScoutReport.textContent).toBe("Bez scout reportu");
-    expect(robberyRiskDescription.textContent).toContain("Bez scout reportu");
+    expect(robberyMemberInput.value).toBe("1");
+    expect(robberyMemberInput.disabled).toBe(true);
+    expect(robberyAvailableMembers.textContent).toBe("10");
+    expect(previewFactory).not.toHaveBeenCalled();
+    expect(robberyRiskLevel.textContent).toBe("Výsledek po doběhnutí operace");
+    expect(robberyLootPreview.textContent).toBe("Jen skutečný zbývající městský loot");
+    expect(robberyTrapPreview.textContent).toBe("Bez odhadu pasti");
+    expect(robberyScoutReport.textContent).toBe("Serverový stav cíle");
+    expect(robberyRiskDescription.textContent).toContain("Populace se nenasazuje ani neodečítá");
   });
 
-  it("deducts selected robbery members from available members and shows zero heat with no members", () => {
+  it("keeps robbery population as a one-member condition and shows the canonical heat range", () => {
     const robberySourceSelect = { value: "5", replaceChildren: vi.fn(), append: vi.fn(), disabled: false };
     const robberyMemberInput = input("0");
     const robberyAvailableMembers = textElement();
@@ -476,13 +479,15 @@ describe("district action panel runtime", () => {
 
     runtime.populateRobberySetupPopup({ id: 12, districtType: "park" });
     expect(robberyAvailableMembers.textContent).toBe("10");
-    expect(robberyHeatEstimate.textContent).toBe("0");
+    expect(robberyHeatEstimate.textContent).toBe("1–6");
 
     robberyMemberInput.value = "4";
     runtime.renderRobberySummary();
 
-    expect(robberyAvailableMembers.textContent).toBe("6");
-    expect(robberyHeatEstimate.textContent).toBe("+7");
+    expect(robberyMemberInput.value).toBe("1");
+    expect(robberyMemberInput.disabled).toBe(true);
+    expect(robberyAvailableMembers.textContent).toBe("10");
+    expect(robberyHeatEstimate.textContent).toBe("1–6");
   });
 
   it("uses precomputed cooldown labels in robbery and occupy confirmations", () => {

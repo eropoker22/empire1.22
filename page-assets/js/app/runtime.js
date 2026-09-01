@@ -5345,14 +5345,17 @@ function completeRobberyOrder(root, orderId) {
   const robberyOutcome = resolveRobberyOrderOutcome(resolvedOrder);
   const scenarioLabel = robberyOutcome.scenarioLabel;
   const deployedMembers = robberyOutcome.deployedMembers;
-  const memberLoss = robberyOutcome.memberLoss;
-  const returningMembers = robberyOutcome.returningMembers;
+  const populationConditionOnly = order.populationConditionOnly === true;
+  const memberLoss = populationConditionOnly ? 0 : robberyOutcome.memberLoss;
+  const returningMembers = populationConditionOnly ? 0 : robberyOutcome.returningMembers;
   const loot = robberyOutcome.loot;
   const lootEntries = Object.entries(loot);
-  setStoredGangState({
-    population: getResolvedGangState().population + returningMembers
-  });
-  renderPopulationState(root);
+  if (returningMembers > 0) {
+    setStoredGangState({
+      population: getResolvedGangState().population + returningMembers
+    });
+    renderPopulationState(root);
+  }
   addGangHeat(root, robberyOutcome.heatGain, `Vykrást district ${String(order.targetDistrictId || "").replace("district:", "") || "?"}`);
 
   if (lootEntries.length > 0) {
@@ -12975,11 +12978,6 @@ function bindDistrictCanvas(root) {
       return false;
     }
 
-    setStoredGangState({
-      population: Math.max(0, getResolvedGangState().population - deployedMembers)
-    });
-    renderPopulationState(root);
-
     const robberyCooldownView = getRobberyActionCooldownView();
     const robberyDurationMs = robberyCooldownView.effectiveCooldownMs;
     const robberyDurationLabel = robberyCooldownView.label || formatDurationLabel(robberyDurationMs);
@@ -12991,6 +12989,7 @@ function bindDistrictCanvas(root) {
       targetDistrictType: selectedDistrict.districtType,
       sourceDistrictId: `district:${sourceDistrictId}`,
       deployedMembers,
+      populationConditionOnly: true,
       createdAt: new Date(robberyStartedAtMs).toISOString(),
       resolveAt: new Date(robberyStartedAtMs).toISOString(),
       cooldownUntil: new Date(robberyStartedAtMs + robberyDurationMs).toISOString(),
@@ -13024,11 +13023,11 @@ function bindDistrictCanvas(root) {
     }
 
     if (buildingActionSummary) {
-      buildingActionSummary.textContent = `Vykradení prázdného District ${selectedDistrict.id} se vyhodnotí okamžitě. Nasazeno ${deployedMembers} členů gangu; akce neobsazuje území.`;
+      buildingActionSummary.textContent = `Vykradení prázdného District ${selectedDistrict.id} se vyhodnotí okamžitě. Ověřen 1 volný člen; populace se neodečítá a akce neobsazuje území.`;
     }
 
     if (buildingActionMeta) {
-      buildingActionMeta.textContent = `Vykrást district · Městský loot · Členové ${deployedMembers} · Cíl District ${selectedDistrict.id} · cooldown ${robberyDurationLabel}`;
+      buildingActionMeta.textContent = `Vykrást district · Městský loot · 1 volný člen (podmínka) · Cíl District ${selectedDistrict.id} · cooldown ${robberyDurationLabel}`;
     }
 
     hideTooltip();

@@ -24,6 +24,9 @@ describe("legacy district action policy", () => {
     expect(actions.find((action) => action.id === "heist")).toMatchObject({
       enabled: true,
       label: "Vykrást hráče",
+      stacked: true,
+      subtitle: "Vyvážený · 10 lidí · verdikt po odpočtu",
+      title: "Kliknutí okamžitě vyšle Vyvážený · 10 lidí · verdikt po odpočtu.",
       reason: null
     });
   });

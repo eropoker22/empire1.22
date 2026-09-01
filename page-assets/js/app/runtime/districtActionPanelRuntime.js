@@ -379,46 +379,31 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     }
 
     const availableMembers = getAvailableAttackPopulation();
-    const authoritative = deps.isServerAuthoritativeGameplayRuntimeReady?.() === true;
-    const deployedMembers = authoritative
-      ? availableMembers > 0 ? 1 : 0
-      : clamp(Number.parseInt(elements.robberyMemberInput.value || "0", 10) || 0, 0, availableMembers);
-    const remainingMembers = authoritative ? availableMembers : Math.max(0, availableMembers - deployedMembers);
+    const authoritative = true;
+    const deployedMembers = availableMembers > 0 ? 1 : 0;
+    const remainingMembers = availableMembers;
     elements.robberyMemberInput.value = String(deployedMembers);
-    elements.robberyMemberInput.disabled = authoritative;
+    elements.robberyMemberInput.disabled = true;
     elements.robberyAvailableMembers.textContent = String(remainingMembers);
 
     const hasSourceDistrict = Boolean(elements.robberySourceSelect.value);
     const canConfirm = hasSourceDistrict && deployedMembers > 0;
-    const preview = authoritative ? null : createRobberyPreviewForDistrict(state.pendingRobberyDistrict, deployedMembers);
+    const preview = null;
 
     elements.robberyStatus.textContent = !hasSourceDistrict
       ? "Chybí sousední district"
       : deployedMembers <= 0
         ? "Vyber členy gangu"
-        : authoritative ? "Připraveno · server ověřil 1 volného člena" : "Připraveno";
+        : "Připraveno · server ověří 1 volného člena";
     setElementValidationState(elements.robberyStatus, canConfirm ? "" : "error");
 
-    if (authoritative) {
-      setElementText(elements.robberyRecommendation, "1 volný člen · pouze podmínka");
-      setElementText(elements.robberyRiskLevel, "Výsledek po doběhnutí operace");
-      setElementText(elements.robberyLootPreview, "Jen skutečný zbývající městský loot");
-      setElementText(elements.robberyTrapPreview, "Bez odhadu pasti");
-      setElementText(elements.robberyScoutReport, "Serverový stav cíle");
-      setElementText(elements.robberyHeatEstimate, "1–6");
-      setElementText(elements.robberyRiskDescription, "Populace se nenasazuje ani neodečítá. Server po odpočtu připíše přijatelnou kořist a skutečný Heat.");
-    } else if (preview) {
-      setElementText(elements.robberyZone, preview.zoneLabel);
-      setElementText(elements.robberyRecommendation, `${preview.recommendationLabel} členů`);
-      setElementText(elements.robberyRiskLevel, `${preview.previewRiskLabel || preview.riskLabel} · ${preview.previewSuccessChanceLabel || preview.successChanceLabel}`);
-      setElementText(elements.robberyLootPreview, preview.previewLootLabel || "Nejistý");
-      setElementText(elements.robberyTrapPreview, preview.previewTrapHintLabel || "Neznámá");
-      setElementText(elements.robberyScoutReport, preview.scoutReportLabel || "Bez scout reportu");
-      setElementText(elements.robberyHeatEstimate, formatRobberyHeatEstimate(preview, deployedMembers));
-      setElementText(elements.robberyRiskDescription, preview.previewDescription || preview.riskDescription);
-    } else if (deployedMembers <= 0) {
-      setElementText(elements.robberyHeatEstimate, "0");
-    }
+    setElementText(elements.robberyRecommendation, "1 volný člen · pouze podmínka");
+    setElementText(elements.robberyRiskLevel, "Výsledek po doběhnutí operace");
+    setElementText(elements.robberyLootPreview, "Jen skutečný zbývající městský loot");
+    setElementText(elements.robberyTrapPreview, "Bez odhadu pasti");
+    setElementText(elements.robberyScoutReport, "Serverový stav cíle");
+    setElementText(elements.robberyHeatEstimate, "1–6");
+    setElementText(elements.robberyRiskDescription, "Populace se nenasazuje ani neodečítá. Server po odpočtu připíše přijatelnou kořist a skutečný Heat.");
 
     setElementDisabled(elements.robberyConfirmButton, !canConfirm);
 
@@ -554,7 +539,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       district,
       adjacentOwnedDistrictIds,
       availableMembers: getAvailableAttackPopulation(),
-      robberyPreview: createRobberyPreviewForDistrict(district, 0),
+      robberyPreview: null,
       atmosphereMeta
     }), elements);
     renderRobberySummary();

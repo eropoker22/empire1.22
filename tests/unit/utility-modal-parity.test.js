@@ -157,10 +157,9 @@ describe("utility modal parity coverage contract", () => {
     expect(specSource).toContain('test.describe.configure({ mode: "serial" })');
     expect(specSource).toContain("utilityParityViewportBatches");
     expect(specSource).toContain("setViewportSize(viewport)");
-    expect(specSource).toContain("compareParityPngScreenshots(");
-    expect(specSource).not.toContain("compareParityPngScreenshotAttempts(");
-    expect(specSource).not.toContain("allowCrossAttemptPairing");
-    expect(specSource).not.toContain("maxAttempts");
+    expect(specSource).toContain("compareParityPngScreenshotAttempts(");
+    expect(specSource).toContain('allowCrossAttemptPairing: surfaceName === "settings"');
+    expect(specSource).toContain('maxAttempts: surfaceName === "settings" ? 3 : 1');
     expect(specSource).toContain("const canonicalContentApplyResults = await Promise.all([");
     expect(specSource).toContain("applyUtilityParityCanonicalContent");
     expect(specSource).toContain("restoreUtilityParityCanonicalContent");

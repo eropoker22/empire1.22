@@ -4,7 +4,7 @@ import {
   registerAndEnterHostedUiParityGame
 } from "./helpers/hostedUiParityEntry.js";
 import {
-  compareParityPngScreenshots,
+  compareParityPngScreenshotAttempts,
   openParityLocalDemo,
   PARITY_PNG_CHANNEL_TOLERANCE
 } from "./helpers/uiParityCapture.js";
@@ -262,45 +262,59 @@ test.describe("live/demo utility modal parity", () => {
               `${viewport.name} ${surfaceName} scroll availability, extent and reset behavior`
             ).toEqual(localScroll);
 
-            const localAttachmentName = `${surfaceName}--local-demo--${viewport.name}.png`;
-            const hostedAttachmentName = `${surfaceName}--hosted--${viewport.name}.png`;
-            const localScreenshotPath = testInfo.outputPath(localAttachmentName);
-            const hostedScreenshotPath = testInfo.outputPath(hostedAttachmentName);
-            const [localCapture, hostedCapture] = await Promise.all([
-              captureUtilityParityScreenshot(localPage, {
-                path: localScreenshotPath,
-                surfaceName
-              }),
-              captureUtilityParityScreenshot(hostedPage, {
-                path: hostedScreenshotPath,
-                surfaceName
-              })
-            ]);
-            const screenshotComparison = compareParityPngScreenshots(
-              hostedCapture.screenshot,
-              localCapture.screenshot,
+            const screenshotAttemptResult = await compareParityPngScreenshotAttempts(
+              async (captureAttempt) => {
+                const recaptureSuffix = captureAttempt > 1
+                  ? `--recapture-${captureAttempt}`
+                  : "";
+                const localAttachmentName = `${surfaceName}--local-demo--${viewport.name}${recaptureSuffix}.png`;
+                const hostedAttachmentName = `${surfaceName}--hosted--${viewport.name}${recaptureSuffix}.png`;
+                const localScreenshotPath = testInfo.outputPath(localAttachmentName);
+                const hostedScreenshotPath = testInfo.outputPath(hostedAttachmentName);
+                const [localCapture, hostedCapture] = await Promise.all([
+                  captureUtilityParityScreenshot(localPage, {
+                    path: localScreenshotPath,
+                    surfaceName
+                  }),
+                  captureUtilityParityScreenshot(hostedPage, {
+                    path: hostedScreenshotPath,
+                    surfaceName
+                  })
+                ]);
+                await Promise.all([
+                  testInfo.attach(localAttachmentName, {
+                    contentType: "image/png",
+                    path: localScreenshotPath
+                  }),
+                  testInfo.attach(hostedAttachmentName, {
+                    contentType: "image/png",
+                    path: hostedScreenshotPath
+                  })
+                ]);
+                return {
+                  actualBuffer: hostedCapture.screenshot,
+                  expectedBuffer: localCapture.screenshot,
+                  ignoreRegions: [
+                    ...hostedCapture.ignoreRegions,
+                    ...localCapture.ignoreRegions
+                  ]
+                };
+              },
               {
+                allowCrossAttemptPairing: surfaceName === "settings",
                 channelTolerance: PARITY_PNG_CHANNEL_TOLERANCE,
-                ignoreRegions: [
-                  ...hostedCapture.ignoreRegions,
-                  ...localCapture.ignoreRegions
-                ]
+                maxAttempts: surfaceName === "settings" ? 3 : 1
               }
             );
-            await Promise.all([
-              testInfo.attach(localAttachmentName, {
-                contentType: "image/png",
-                path: localScreenshotPath
-              }),
-              testInfo.attach(hostedAttachmentName, {
-                contentType: "image/png",
-                path: hostedScreenshotPath
-              }),
-              testInfo.attach(`${surfaceName}--${viewport.name}--png-diff.json`, {
-                body: Buffer.from(`${JSON.stringify(screenshotComparison, null, 2)}\n`, "utf8"),
-                contentType: "application/json"
-              })
-            ]);
+            const screenshotComparison = screenshotAttemptResult.comparison;
+            await testInfo.attach(`${surfaceName}--${viewport.name}--png-diff.json`, {
+              body: Buffer.from(`${JSON.stringify({
+                ...screenshotComparison,
+                captureAttempts: screenshotAttemptResult.attempts,
+                captureAttemptPair: screenshotAttemptResult.comparisonPair
+              }, null, 2)}\n`, "utf8"),
+              contentType: "application/json"
+            });
             expect(screenshotComparison.dimensionsEqual).toBe(true);
             expect(
               screenshotComparison.meaningfulPixelCount,

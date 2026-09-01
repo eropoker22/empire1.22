@@ -45,7 +45,10 @@ test.describe("hosted social concurrency and privacy", () => {
     !hostedEnabled || !serverInstanceId || identities.length !== 5,
     "Social concurrency coverage requires the guarded five-player hosted harness."
   );
-  test.setTimeout(900_000);
+  // The winning seeded attack can resolve 140+ canonical 10-second ticks later.
+  // Keep the browser budget below the 30-minute harness cap while allowing the
+  // authoritative worker to reach that real resolution tick.
+  test.setTimeout(28 * 60_000);
 
   test("serializes bounty, market and alliance races without leaking private fields", async ({
     browser

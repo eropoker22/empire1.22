@@ -172,12 +172,14 @@ describe("local-hosted presentation parity suite wiring", () => {
   });
 
   it("closes refresh-restored bounty windows before the visible market race", () => {
+    expect(socialVisibleUiSpecSource).toContain("test.setTimeout(28 * 60_000)");
     expect(socialVisibleUiSpecSource).toMatch(
       /reloadHostedGame\(target\.page\),\s*reloadHostedGame\(hunter\.page\)[\s\S]*?closeBountyPanel\(target\.page\),\s*closeBountyPanel\(hunter\.page\)[\s\S]*?openPlayerMarket\(client\.page\)/u
     );
   });
 
   it("keeps social race authority and last-slot guards fail-closed", () => {
+    expect(socialConcurrencySpecSource).toContain("test.setTimeout(28 * 60_000)");
     expect(socialConcurrencySpecSource).toContain("identities.length !== 5");
     expect(socialConcurrencySpecSource).toContain("PLAYER_IDENTITY_MISMATCH");
     expect(socialConcurrencySpecSource).toContain("DISTRICT_CONFLICT_STATE_CHANGED");

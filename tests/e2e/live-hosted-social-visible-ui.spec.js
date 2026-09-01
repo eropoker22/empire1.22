@@ -18,7 +18,10 @@ test.describe("hosted bounty, market and alliance through visible UI", () => {
     !hostedEnabled || !serverInstanceId || identities.length !== 3,
     "Visible social coverage requires the guarded three-player hosted harness."
   );
-  test.setTimeout(900_000);
+  // A seeded Free-mode attack can resolve 140+ canonical 10-second ticks later.
+  // Keep the browser budget below the 30-minute harness cap while allowing the
+  // authoritative worker to reach that real resolution tick.
+  test.setTimeout(28 * 60_000);
 
   test("persists visible social commands, serializes a market race, and protects private state", async ({
     browser

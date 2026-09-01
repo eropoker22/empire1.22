@@ -29,6 +29,8 @@ export const DISTRICT_ACTION_CATALOG = Object.freeze([
   })
 ]);
 
+const LEGACY_HEIST_LAUNCH_COPY = "Vyvážený · 10 lidí · verdikt po odpočtu";
+
 const createTargetIdentity = (actionId, districtId) => {
   const numericDistrictId = Number.parseInt(String(districtId || ""), 10);
   if (!Number.isFinite(numericDistrictId) || numericDistrictId <= 0) {
@@ -172,6 +174,9 @@ export function resolveDistrictActions(context) {
         visible,
         enabled: visible,
         label: action.defaultLabel,
+        stacked: visible,
+        subtitle: visible ? LEGACY_HEIST_LAUNCH_COPY : "",
+        title: visible ? `Kliknutí okamžitě vyšle ${LEGACY_HEIST_LAUNCH_COPY}.` : "",
         reason: visible
           ? null
           : isOwnedByCurrentPlayer

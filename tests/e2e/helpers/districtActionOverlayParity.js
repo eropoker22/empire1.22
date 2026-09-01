@@ -113,6 +113,12 @@ export const districtActionOverlayDefinitions = Object.freeze({
   }),
   "robbery-confirm": freezeDefinition({
     actionId: "rob",
+    canonicalLayoutTextEntries: [
+      {
+        selector: "[data-robbery-confirm-duration]",
+        text: "10m 00s"
+      }
+    ],
     closeSelector: "[data-robbery-confirm-close]",
     dynamicLeafSelectors: [
       "[data-robbery-confirm-title]",
@@ -185,6 +191,18 @@ export const districtActionOverlayDefinitions = Object.freeze({
   }),
   "attack-confirm": freezeDefinition({
     actionId: "attack",
+    canonicalLayoutTextEntries: [
+      { selector: "[data-attack-confirm-title]", text: "District 45" },
+      { selector: "[data-attack-confirm-source]", text: "District 21" },
+      { selector: "[data-attack-confirm-members]", text: "10" },
+      { selector: "[data-attack-confirm-power]", text: "120" },
+      { selector: "[data-attack-confirm-scenario]", text: "Verdikt po odpočtu" },
+      { selector: "[data-attack-confirm-duration]", text: "22m 00s" },
+      {
+        selector: "[data-attack-confirm-note]",
+        text: "Po potvrzení se spustí útok. Výsledek server připíše po uvedeném čase."
+      }
+    ],
     closeSelector: "[data-attack-confirm-close]",
     dynamicAssetSelectors: ["[data-attack-confirm-atmosphere-image]"],
     dynamicLeafSelectors: [
@@ -222,8 +240,16 @@ export const districtActionOverlayDefinitions = Object.freeze({
     actionId: "occupy",
     canonicalLayoutTextEntries: [
       {
+        selector: "[data-occupy-confirm-title]",
+        text: "District 6"
+      },
+      {
         selector: "[data-occupy-confirm-cost]",
         text: "50 populace · 10 vlivu"
+      },
+      {
+        selector: "[data-occupy-confirm-duration]",
+        text: "12m 00s"
       },
       {
         selector: "[data-occupy-confirm-note]",
@@ -635,7 +661,8 @@ async function prepareRobberyConfirmation(page) {
   const setup = page.locator("[data-robbery-setup-popup]:visible");
   await expect(setup).toBeVisible();
   const input = setup.locator("[data-robbery-member-input]");
-  await setParityNumberInput(input, "10");
+  await expect(input).toBeDisabled();
+  await expect(input).toHaveValue("1");
   const prepare = setup.locator("[data-robbery-confirm]");
   await expect(prepare).toBeEnabled();
   await prepare.click();
@@ -1307,14 +1334,25 @@ export async function captureDistrictActionOverlayScreenshot(page, {
     path,
     roundedCompositeSelector: stabilizeInlineAction
       ? definition.targetSelector
-      : definition.roundedCompositeSelector || "",
+      : definition.roundedCompositeSelector
+        || (definition.stage === "confirmation" ? ".modal__actions button" : ""),
+    roundedCompositeRasterFringePx: definition.stage === "confirmation" ? 4 : 2,
     stableAnimationSelector: inlineRasterStabilizationSelector,
     stableBackdropFilterSelector: inlineRasterStabilizationSelector,
     stableBackdropShellSelector: definition.shellSelector,
+    stableDescendantDevicePixelAlignmentSelector: stabilizeInlineAction
+      ? ".district-popup-action__label"
+      : "",
+    stableDescendantDevicePixelAlignmentMode: "target-relative-paint-origin",
     stableRasterRootSelector: definition.shellSelector,
     stableRasterSelector: inlineRasterStabilizationSelector,
     stableTargetDevicePixelAlignment: stabilizeInlineAction,
-    stableTargetPaintOrigin: stabilizeInlineAction,
+    stableTargetDevicePixelAlignmentMode: "translate",
+    // Modal cards can have identical relative layout but a different absolute
+    // viewport origin (for example after their source district is selected).
+    // Capture every isolated surface at the same opaque paint origin so text,
+    // borders and translucent layers rasterize on the same device pixels.
+    stableTargetPaintOrigin: true,
     stableTargetPseudoElements: stabilizeInlineAction,
     stableTargetStyleProperties: stabilizeInlineAction
       // The real computed background is asserted by the presentation signature.

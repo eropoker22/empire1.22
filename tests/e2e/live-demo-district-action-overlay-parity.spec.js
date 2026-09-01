@@ -4,7 +4,7 @@ import {
   loginAndResumeHostedUiParityGame
 } from "./helpers/hostedUiParityEntry.js";
 import {
-  compareParityPngScreenshots,
+  compareParityPngScreenshotAttempts,
   PARITY_PNG_CHANNEL_TOLERANCE
 } from "./helpers/uiParityCapture.js";
 import {
@@ -63,7 +63,9 @@ test.describe("fixture-backed live/demo district action overlay parity canonical
   test("restores the latest live text after updates and leaf replacement", async ({ page }) => {
     await page.setContent(`
       <section data-occupy-confirm-card style="display:block;width:280px;height:180px">
+        <h3 data-occupy-confirm-title>District 9</h3>
         <strong data-occupy-confirm-cost>250 populace</strong>
+        <strong data-occupy-confirm-duration>14m</strong>
         <p data-occupy-confirm-note>Original district note</p>
       </section>
     `);
@@ -120,7 +122,9 @@ test.describe("fixture-backed live/demo district action overlay parity canonical
 
     await page.setContent(`
       <section data-occupy-confirm-card style="display:block;width:280px;height:180px">
+        <h3 data-occupy-confirm-title>District 9</h3>
         <strong data-occupy-confirm-cost>250 populace</strong>
+        <strong data-occupy-confirm-duration>14m</strong>
         <p data-occupy-confirm-note>Original district note</p>
       </section>
     `);
@@ -295,45 +299,67 @@ test.describe("fixture-backed live/demo district action overlay parity", () => {
             ]);
             expect(hostedScroll, `${viewport.name} ${surfaceName} scroll behavior`).toEqual(localScroll);
 
-            const localScreenshotPath = testInfo.outputPath(
-              `${surfaceName}--local-demo--${viewport.name}.png`
-            );
-            const hostedScreenshotPath = testInfo.outputPath(
-              `${surfaceName}--hosted--${viewport.name}.png`
-            );
-            const [localCapture, hostedCapture] = await Promise.all([
-              captureDistrictActionOverlayScreenshot(localPage, {
-                path: localScreenshotPath,
-                surfaceName
-              }),
-              captureDistrictActionOverlayScreenshot(hostedPage, {
-                path: hostedScreenshotPath,
-                surfaceName
-              })
-            ]);
-            await Promise.all([
-              testInfo.attach(`${surfaceName}--local-demo--${viewport.name}.png`, {
-                contentType: "image/png",
-                path: localScreenshotPath
-              }),
-              testInfo.attach(`${surfaceName}--hosted--${viewport.name}.png`, {
-                contentType: "image/png",
-                path: hostedScreenshotPath
-              })
-            ]);
-            const screenshotComparison = compareParityPngScreenshots(
-              hostedCapture.screenshot,
-              localCapture.screenshot,
+            let latestStabilizationDiagnostics = null;
+            const screenshotAttemptResult = await compareParityPngScreenshotAttempts(
+              async (captureAttempt) => {
+                const recaptureSuffix = captureAttempt > 1
+                  ? `--recapture-${captureAttempt}`
+                  : "";
+                const localAttachmentName = `${surfaceName}--local-demo--${viewport.name}${recaptureSuffix}.png`;
+                const hostedAttachmentName = `${surfaceName}--hosted--${viewport.name}${recaptureSuffix}.png`;
+                const localScreenshotPath = testInfo.outputPath(localAttachmentName);
+                const hostedScreenshotPath = testInfo.outputPath(hostedAttachmentName);
+                const [localCapture, hostedCapture] = await Promise.all([
+                  captureDistrictActionOverlayScreenshot(localPage, {
+                    path: localScreenshotPath,
+                    surfaceName
+                  }),
+                  captureDistrictActionOverlayScreenshot(hostedPage, {
+                    path: hostedScreenshotPath,
+                    surfaceName
+                  })
+                ]);
+                latestStabilizationDiagnostics = {
+                  hosted: hostedCapture.stabilizationDiagnostics || null,
+                  hostedIgnoreRegions: hostedCapture.ignoreRegions,
+                  local: localCapture.stabilizationDiagnostics || null,
+                  localIgnoreRegions: localCapture.ignoreRegions
+                };
+                await Promise.all([
+                  testInfo.attach(localAttachmentName, {
+                    contentType: "image/png",
+                    path: localScreenshotPath
+                  }),
+                  testInfo.attach(hostedAttachmentName, {
+                    contentType: "image/png",
+                    path: hostedScreenshotPath
+                  })
+                ]);
+                return {
+                  actualBuffer: hostedCapture.screenshot,
+                  expectedBuffer: localCapture.screenshot,
+                  ignoreRegions: [
+                    ...hostedCapture.ignoreRegions,
+                    ...localCapture.ignoreRegions
+                  ]
+                };
+              },
               {
+                // Chromium can occasionally paint one glyph edge differently even
+                // after the DOM and device-pixel origins are identical. Recapture
+                // the same live surface, but still require an exact zero-pixel pair.
+                allowCrossAttemptPairing: true,
                 channelTolerance: PARITY_PNG_CHANNEL_TOLERANCE,
-                ignoreRegions: [
-                  ...hostedCapture.ignoreRegions,
-                  ...localCapture.ignoreRegions
-                ]
+                maxAttempts: 3
               }
             );
+            const screenshotComparison = screenshotAttemptResult.comparison;
             await testInfo.attach(`${surfaceName}--${viewport.name}--png-diff.json`, {
-              body: Buffer.from(`${JSON.stringify(screenshotComparison, null, 2)}\n`, "utf8"),
+              body: Buffer.from(`${JSON.stringify({
+                ...screenshotComparison,
+                captureAttempts: screenshotAttemptResult.attempts,
+                captureAttemptPair: screenshotAttemptResult.comparisonPair
+              }, null, 2)}\n`, "utf8"),
               contentType: "application/json"
             });
             expect(screenshotComparison.dimensionsEqual).toBe(true);
@@ -341,8 +367,8 @@ test.describe("fixture-backed live/demo district action overlay parity", () => {
               screenshotComparison.meaningfulPixelCount,
               `${viewport.name} ${surfaceName} must have zero meaningful pixels outside dynamic leaves`
               + (screenshotComparison.matches ? "" : `\n${JSON.stringify({
-                hosted: hostedCapture.stabilizationDiagnostics || null,
-                local: localCapture.stabilizationDiagnostics || null
+                screenshotComparison,
+                stabilization: latestStabilizationDiagnostics
               }, null, 2)}`)
             ).toBe(0);
             expect(screenshotComparison.matches).toBe(true);

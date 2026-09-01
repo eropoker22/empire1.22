@@ -109,6 +109,10 @@ describe("district action overlay parity coverage", () => {
         targetDistrictId: "district:25"
       });
       if (actionId === "heist") {
+        expect(localAction).toMatchObject({
+          stacked: true,
+          subtitle: "Vyvážený · 10 lidí · verdikt po odpočtu"
+        });
         expect(hostedAction).toMatchObject({
           enabled: true,
           stacked: true,
@@ -125,6 +129,11 @@ describe("district action overlay parity coverage", () => {
     expect(districtActionOverlayDefinitions["spy-confirm"].hostedTargetDistrictId).toBe("district:25");
     expect(districtActionOverlayDefinitions["robbery-setup"].hostedTargetDistrictId).toBe("district:24");
     expect(districtActionOverlayDefinitions["robbery-confirm"].hostedTargetDistrictId).toBe("district:24");
+    expect(districtActionOverlayDefinitions["robbery-confirm"].canonicalLayoutTextEntries)
+      .toEqual([{
+        selector: "[data-robbery-confirm-duration]",
+        text: "10m 00s"
+      }]);
     expect(districtActionOverlayDefinitions["heist-inline"]).toMatchObject({
       hostedRole: "hunter",
       hostedTargetDistrictId: "district:2",
@@ -133,12 +142,33 @@ describe("district action overlay parity coverage", () => {
     });
     expect(districtActionOverlayDefinitions["attack-setup"].hostedTargetDistrictId).toBe("district:2");
     expect(districtActionOverlayDefinitions["attack-confirm"].hostedTargetDistrictId).toBe("district:2");
+    expect(districtActionOverlayDefinitions["attack-confirm"].canonicalLayoutTextEntries)
+      .toEqual([
+        { selector: "[data-attack-confirm-title]", text: "District 45" },
+        { selector: "[data-attack-confirm-source]", text: "District 21" },
+        { selector: "[data-attack-confirm-members]", text: "10" },
+        { selector: "[data-attack-confirm-power]", text: "120" },
+        { selector: "[data-attack-confirm-scenario]", text: "Verdikt po odpočtu" },
+        { selector: "[data-attack-confirm-duration]", text: "22m 00s" },
+        {
+          selector: "[data-attack-confirm-note]",
+          text: "Po potvrzení se spustí útok. Výsledek server připíše po uvedeném čase."
+        }
+      ]);
     expect(districtActionOverlayDefinitions["occupy-confirm"].hostedTargetDistrictId).toBe("district:6");
     expect(districtActionOverlayDefinitions["occupy-confirm"].canonicalLayoutTextEntries)
       .toEqual([
         {
+          selector: "[data-occupy-confirm-title]",
+          text: "District 6"
+        },
+        {
           selector: "[data-occupy-confirm-cost]",
           text: "50 populace · 10 vlivu"
+        },
+        {
+          selector: "[data-occupy-confirm-duration]",
+          text: "12m 00s"
         },
         {
           selector: "[data-occupy-confirm-note]",
@@ -234,9 +264,26 @@ describe("district action overlay parity coverage", () => {
     expect(helperSource).toContain("stableRasterRootSelector: definition.shellSelector");
     expect(helperSource).toContain("stableRasterSelector: inlineRasterStabilizationSelector");
     expect(helperSource).toContain("stableTargetDevicePixelAlignment: stabilizeInlineAction");
-    expect(helperSource).toContain("stableTargetPaintOrigin: stabilizeInlineAction");
+    expect(helperSource).toContain('stableTargetDevicePixelAlignmentMode: "translate"');
+    expect(helperSource).toContain(
+      'stableDescendantDevicePixelAlignmentSelector: stabilizeInlineAction'
+    );
+    expect(helperSource).toContain('? ".district-popup-action__label"');
+    expect(helperSource).toContain(
+      'stableDescendantDevicePixelAlignmentMode: "target-relative-paint-origin"'
+    );
+    expect(specSource).toContain("compareParityPngScreenshotAttempts");
+    expect(specSource).toContain("maxAttempts: 3");
+    expect(specSource).toContain("allowCrossAttemptPairing: true");
+    expect(helperSource).toContain("stableTargetPaintOrigin: true");
     expect(helperSource).toContain("stableTargetPseudoElements: stabilizeInlineAction");
     expect(helperSource).toContain("includeStabilizationDiagnostics: stabilizeInlineAction");
+    expect(helperSource).toContain(
+      '|| (definition.stage === "confirmation" ? ".modal__actions button" : "")'
+    );
+    expect(helperSource).toContain(
+      'roundedCompositeRasterFringePx: definition.stage === "confirmation" ? 4 : 2'
+    );
     expect(helperSource).toContain('transition: "none",\n          background: "rgb(6, 10, 18)"');
     expect(helperSource).toContain('"padding-bottom": "8px"');
     expect(helperSource).toContain("roundedCompositeSelector: stabilizeInlineAction");
