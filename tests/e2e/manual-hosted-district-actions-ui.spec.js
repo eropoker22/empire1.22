@@ -327,7 +327,6 @@ async function clickAndReadTypedSubmit(page, commandType, button, options = {}) 
   await expect(button).toBeEnabled();
   let delayedRequest = false;
   let submitRequestCount = 0;
-  let requestObservedAt = null;
   const requestListener = (request) => {
     if (request.method() !== "POST" || new URL(request.url()).pathname !== "/api/gameplay-slice/submit") return;
     let payload = null;
@@ -338,7 +337,6 @@ async function clickAndReadTypedSubmit(page, commandType, button, options = {}) 
     }
     if (payload?.command?.type !== commandType) return;
     submitRequestCount += 1;
-    requestObservedAt ??= Date.now();
   };
   page.on("request", requestListener);
   const delayedRoute = async (route) => {
@@ -362,9 +360,31 @@ async function clickAndReadTypedSubmit(page, commandType, button, options = {}) 
       const timeline = {
         clickAt: null,
         submittingAt: null,
+        requestAt: null,
+        responseAt: null,
         pendingAt: null
       };
       window.__empireImmediateActionTimeline = timeline;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (...args) => {
+        const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url;
+        const isGameplaySubmit = (() => {
+          try {
+            return new URL(requestUrl, window.location.href).pathname === "/api/gameplay-slice/submit";
+          } catch {
+            return false;
+          }
+        })();
+        if (isGameplaySubmit && timeline.clickAt !== null && timeline.requestAt === null) {
+          timeline.requestAt = performance.now();
+        }
+        const responsePromise = originalFetch(...args);
+        if (!isGameplaySubmit) return responsePromise;
+        return responsePromise.then((response) => {
+          timeline.responseAt ??= performance.now();
+          return response;
+        });
+      };
       element.addEventListener("click", () => {
         timeline.clickAt = performance.now();
       }, { capture: true, once: true });
@@ -384,7 +404,6 @@ async function clickAndReadTypedSubmit(page, commandType, button, options = {}) 
   const responsePromise = waitForTerminalGameplaySubmit(page, (request) => (
     request?.command?.type === commandType
   ));
-  const clickStartedAt = Date.now();
   await button.click();
   if (options.verifyImmediateFeedback) {
     await expect(button).toHaveAttribute("data-state", "submitting");
@@ -393,7 +412,6 @@ async function clickAndReadTypedSubmit(page, commandType, button, options = {}) 
     await button.dispatchEvent("click");
   }
   const submission = await responsePromise;
-  const responseObservedAt = Date.now();
   const { body, request, response } = submission;
   expect(response.status(), `${commandType} response status`).toBe(200);
   expect(submission.stateVersionConflicts.length, `${commandType} single OCC rebase`).toBeLessThanOrEqual(1);
@@ -405,8 +423,8 @@ async function clickAndReadTypedSubmit(page, commandType, button, options = {}) 
     const timeline = await page.evaluate(() => window.__empireImmediateActionTimeline || null);
     feedback = {
       submittingDelayMs: timeline.submittingAt - timeline.clickAt,
-      requestDelayMs: requestObservedAt - clickStartedAt,
-      pendingRenderDelayMs: Date.now() - responseObservedAt,
+      requestDelayMs: timeline.requestAt - timeline.clickAt,
+      pendingRenderDelayMs: timeline.pendingAt - timeline.responseAt,
       submitRequestCount
     };
     await page.unroute("**/api/gameplay-slice/submit", delayedRoute);

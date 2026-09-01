@@ -1,7 +1,4 @@
-import {
-  createServerCommandJournal,
-  createServerGameplayCommandId
-} from "./serverCommandJournal.js";
+import { createServerCommandJournal, createServerGameplayCommandId } from "./serverCommandJournal.js";
 import {
   getServerGameplaySliceReadModel,
   isServerGameplaySourceReady,
@@ -13,10 +10,7 @@ import {
   isPendingServerGameplayCommandRetryGenerationCurrent,
   waitForPendingServerGameplayCommandRetry
 } from "./serverGameplayCommandRetryLifecycle.js";
-import {
-  isDurableStateVersionConflictResponse,
-  MAX_DURABLE_STATE_VERSION_REBASES
-} from "./serverGameplayConflictPolicy.js";
+import { isDurableStateVersionConflictResponse, MAX_DURABLE_STATE_VERSION_REBASES } from "./serverGameplayConflictPolicy.js";
 import { recordActionSubmissionTransportPhase } from "./actionSubmissionState.js";
 export { cancelPendingServerGameplayCommandRetries };
 const CONFLICT_ERROR_MESSAGES = Object.freeze({
@@ -264,7 +258,7 @@ const resolvePendingCommand = async (scope, entry, retryGeneration) => {
     return null;
   }
   resolvingCommandIds.add(commandId);
-    serverCommandJournal.markResolving(scope, commandId);
+  serverCommandJournal.markResolving(scope, commandId);
   try {
     for (const delay of [0, 500, 1000, 2000, 4000, 8000]) {
       if (!await waitForPendingServerGameplayCommandRetry(delay, retryGeneration)) return null;
