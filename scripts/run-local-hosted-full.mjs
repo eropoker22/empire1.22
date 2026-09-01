@@ -226,10 +226,6 @@ const hostedSuites = Object.freeze([
     playerCount: 3,
     identityPrefix: "HostedVisible",
     playwrightGroups: Object.freeze([
-      Object.freeze({
-        name: "visible-actions",
-        specs: Object.freeze(["tests/e2e/manual-hosted-district-actions-ui.spec.js"])
-      }),
       ...["01", "02", "03", "04", "05"].map((batchNumber) => Object.freeze({
         name: `district-action-parity-${batchNumber}`,
         environment: Object.freeze({
@@ -239,7 +235,11 @@ const hostedSuites = Object.freeze([
           ? "canonical lock|district-action-01|district action overlay parity coverage guard"
           : `district-action-${batchNumber}|district action overlay parity coverage guard`,
         specs: Object.freeze(["tests/e2e/live-demo-district-action-overlay-parity.spec.js"])
-      }))
+      })),
+      Object.freeze({
+        name: "visible-actions",
+        specs: Object.freeze(["tests/e2e/manual-hosted-district-actions-ui.spec.js"])
+      })
     ]),
     specs: Object.freeze([
       "tests/e2e/manual-hosted-district-actions-ui.spec.js",

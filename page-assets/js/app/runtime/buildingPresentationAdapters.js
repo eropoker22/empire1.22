@@ -692,16 +692,6 @@ const resolveActionSummary = (entry, primaryKey, fallbackKey) => {
   return String(primary || entry?.[fallbackKey] || "").trim();
 };
 
-const CANONICAL_MECHANICS_PREVIEW_ACTION_IDS = new Set([
-  "back_cashdesk",
-  "good_rate",
-  "quiet_backroom",
-  "restaurant_collect_revenue",
-  "restaurant_cover_meetings",
-  "restaurant_local_network",
-  "start_drug_sale"
-]);
-
 const createServerBuildingActionPresentation = ({
   demoAction,
   entry,
@@ -747,7 +737,7 @@ const createServerBuildingActionPresentation = ({
       ? projectedRewardSummary
       : serverDeltaSummary || projectedRewardSummary;
   const actionId = String(entry?.actionId || demoAction?.actionId || "");
-  const usesCanonicalMechanicsPreview = CANONICAL_MECHANICS_PREVIEW_ACTION_IDS.has(actionId);
+  const usesCanonicalMechanicsPreview = Boolean(demoAction);
   const effectiveCooldownMs = Math.max(
     0,
     Number(entry?.effectiveCooldownMs || entry?.cooldownMs || 0)
@@ -781,11 +771,15 @@ const createServerBuildingActionPresentation = ({
     disabled: !entry || entry?.disabled === true || entry?.enabled === false || Boolean(disabledReason),
     disabledReason,
     phaseLockLabel: String(demoAction?.phaseLockLabel || (entry?.phaseBlockedReason ? entry?.phaseBadgeLabel : "") || ""),
-    requiresInput: Array.isArray(entry?.requiresInput)
-      ? entry.requiresInput.slice()
-      : Array.isArray(demoAction?.requiresInput)
+    requiresInput: usesCanonicalMechanicsPreview
+      ? Array.isArray(demoAction?.requiresInput)
         ? demoAction.requiresInput.slice()
-        : [],
+        : []
+      : Array.isArray(entry?.requiresInput)
+        ? entry.requiresInput.slice()
+        : Array.isArray(demoAction?.requiresInput)
+          ? demoAction.requiresInput.slice()
+          : [],
     serverAction: {
       description: String(entry?.description || demoAction?.description || ""),
       requiredInputs: Array.isArray(entry?.requiresInput) ? entry.requiresInput.slice() : [],

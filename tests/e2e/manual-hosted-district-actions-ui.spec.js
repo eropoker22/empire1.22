@@ -15,7 +15,10 @@ test.describe("manual hosted district actions through visible UI", () => {
     !hostedEnabled || !serverInstanceId || identities.length !== 3,
     "Visible district action coverage requires the guarded three-player hosted harness."
   );
-  test.setTimeout(900_000);
+  // The longest Free-mode operation can span 142 canonical 10-second ticks
+  // from the seeded state, so the previous 15-minute limit expired before
+  // the authoritative report was due. Keep this below the 30-minute harness cap.
+  test.setTimeout(28 * 60_000);
 
   test("clicks map, action controls and confirmations for all P0 district actions", async ({ browser }) => {
     const clients = [];
@@ -109,8 +112,8 @@ async function runRobThroughVisibleUi(page, districtId) {
   const setup = page.locator("[data-robbery-setup-popup]");
   await expect(setup).toBeVisible();
   const members = setup.locator("[data-robbery-member-input]");
-  await members.fill("10");
-  await members.dispatchEvent("input");
+  await expect(members).toBeDisabled();
+  await expect(members).toHaveValue("1");
   const prepare = setup.locator("[data-robbery-confirm]");
   await expect(prepare).toBeEnabled();
   await prepare.click();
@@ -362,16 +365,10 @@ async function waitForDeferredReport(page, operation) {
 }
 
 async function loadAuthoritativeReadModel(page, districtId) {
-  const result = await page.evaluate(async ({ instanceId, focusDistrictId }) => {
-    const response = await fetch("/api/gameplay-slice/load", {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ serverInstanceId: instanceId, districtId: focusDistrictId })
-    });
-    return { status: response.status, body: await response.json() };
-  }, { instanceId: serverInstanceId, focusDistrictId: districtId });
+  const response = await page.request.post("/api/gameplay-slice/load", {
+    data: { serverInstanceId, districtId }
+  });
+  const result = { status: response.status(), body: await response.json() };
   expect(result.status).toBe(200);
   expect(result.body?.accepted).toBe(true);
   return result.body.readModel;

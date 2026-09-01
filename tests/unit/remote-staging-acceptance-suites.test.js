@@ -66,11 +66,11 @@ describe("remote staging acceptance suite contract", () => {
     const suite = getRemoteStagingAcceptanceSuite("multiplayer-visible-actions");
     expect(suite.workflowTimeoutMinutes).toBe(90);
     expect(suite.playwrightRuns).toHaveLength(6);
-    expect(suite.playwrightRuns[0]).toMatchObject({
+    expect(suite.playwrightRuns.at(-1)).toMatchObject({
       name: "multiplayer-visible-actions",
       specs: ["tests/e2e/manual-hosted-district-actions-ui.spec.js"]
     });
-    const parityRuns = suite.playwrightRuns.slice(1);
+    const parityRuns = suite.playwrightRuns.slice(0, -1);
     expect(parityRuns.map(({ environment }) => (
       environment.EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS
     ))).toEqual([

@@ -21,6 +21,10 @@ const socialVisibleUiSpecSource = readFileSync(
   new URL("../e2e/live-hosted-social-visible-ui.spec.js", import.meta.url),
   "utf8"
 );
+const visibleDistrictActionsSpecSource = readFileSync(
+  new URL("../e2e/manual-hosted-district-actions-ui.spec.js", import.meta.url),
+  "utf8"
+);
 
 function getHostedSuiteSource(name) {
   const marker = `name: "${name}"`;
@@ -198,7 +202,14 @@ describe("local-hosted presentation parity suite wiring", () => {
     expect(suiteSource).toContain('["01", "02", "03", "04", "05"].map');
     expect(suiteSource).toContain("EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS");
     expect(suiteSource).toContain('name: "visible-actions"');
+    expect(suiteSource.indexOf('name: "visible-actions"')).toBeGreaterThan(
+      suiteSource.indexOf('name: `district-action-parity-${batchNumber}`')
+    );
     expect(runnerSource).toContain("...(group.specs || suite.specs)");
+    expect(visibleDistrictActionsSpecSource).toContain("test.setTimeout(28 * 60_000)");
+    expect(visibleDistrictActionsSpecSource).toContain(
+      'page.request.post("/api/gameplay-slice/load"'
+    );
   });
 
   it("keeps every parity suite in both full local-hosted gates", () => {

@@ -445,7 +445,7 @@ describe("shared building presentation adapters", () => {
     });
   });
 
-  it("renders authoritative input requirements and applies server-compatible defaults", () => {
+  it("keeps authoritative input requirements internal and applies server-compatible defaults", () => {
     const requiredInputs = [
       {
         id: "targetCategory",
@@ -476,7 +476,7 @@ describe("shared building presentation adapters", () => {
       (candidate) => candidate.actionId === "speculative_buy"
     );
 
-    expect(action.requiresInput).toEqual(requiredInputs);
+    expect(action.requiresInput).toEqual([]);
     expect(action.serverAction.requiredInputs).toEqual(requiredInputs);
 
     const execution = createServerBuildingActionExecutionPresentation({
@@ -679,7 +679,7 @@ describe("shared building presentation adapters", () => {
     expect(detail.viewModel.actions[2].rewardSummary).toContain("Heat -20");
   });
 
-  it("prefers authoritative effective cost and reward on every building action", () => {
+  it("keeps the canonical mechanics preview for actions whose server summary only exposes a technical cost", () => {
     const detail = createServerBuildingDetail({
       baseName: "Škola",
       buildingTypeId: "school",
@@ -696,9 +696,42 @@ describe("shared building presentation adapters", () => {
     });
     const action = detail.viewModel.actions.find((entry) => entry.actionId === "evening_course");
 
-    expect(action.buttonCostLabel).toBe("$1200 clean cash");
-    expect(action.rewardSummary).toBe("Server: nábor +75 % na 20 minut");
-    expect(action.rewardSummary).not.toContain("+60 %");
+    expect(action.buttonCostLabel).toBe("");
+    expect(action.rewardSummary).toContain("bytové bloky +60% nábor členů");
+    expect(action.rewardSummary).not.toContain("Server:");
+  });
+
+  it.each([
+    ["Strip Club", "strip_club", "strip_club_collect_cash", "Dirty cash +$360"],
+    ["Strip Club", "strip_club", "private_party", "Extra drb / riziko skandálu"],
+    ["Burza", "stock_exchange", "speculative_buy", "Heat +5"],
+    ["Burza", "stock_exchange", "market_pressure", "Pump +12%"],
+    ["Burza", "stock_exchange", "insider_window", "Trend hinty +3"],
+    ["Centrální banka", "central_bank", "liquidity_injection", "Clean cash $2500"],
+    ["Centrální banka", "central_bank", "frozen_accounts", "Ochrana clean cash +25%"],
+    ["Centrální banka", "central_bank", "currency_intervention", "Volatilita -30%"],
+    ["Magistrát", "city_hall", "official_cover", "Heat gain -35%"],
+    ["Magistrát", "city_hall", "city_contract", "Clean cash $1500"],
+    ["Magistrát", "city_hall", "emergency_decree", "Režimy suspended_checks"],
+    ["Letiště", "airport", "express_import", "Heat +6"],
+    ["Letiště", "airport", "evacuation_corridor", "Šance úniku +18%"],
+    ["Přístav", "port", "port_container_cut", "Metal Parts x3"]
+  ])("keeps canonical %s mechanics for %s", (baseName, buildingTypeId, actionId, expectedSummary) => {
+    const detail = createServerBuildingDetail({
+      baseName,
+      buildingTypeId,
+      actions: [{
+        actionId,
+        label: actionId,
+        enabled: true,
+        inputSummary: "$9999 clean cash",
+        outputSummary: "Server technical preview"
+      }]
+    });
+    const action = detail.viewModel.actions.find((entry) => entry.actionId === actionId);
+
+    expect(action.rewardSummary).toContain(expectedSummary);
+    expect(action.rewardSummary).not.toContain("Server technical preview");
   });
 
   it("keeps canonical laundering mechanics visible instead of replacing them with a dynamic cash preview", () => {
