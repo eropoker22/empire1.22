@@ -38,7 +38,7 @@ import { tickMarket } from "../rules/market";
 export const runTick = (
   state: CoreGameState,
   context: GameCoreContext
-): { nextState: CoreGameState; events: CoreEvent[] } => {
+): { nextState: CoreGameState; events: CoreEvent[]; policeRaidEvaluation?: import("../rules/police/triggerRaid").RaidTriggerEvaluation } => {
   if (
     state.matchResult
     || state.root.phase === "resolved"
@@ -135,6 +135,7 @@ export const runTick = (
 
   return {
     nextState: feedEvents ? appendCityFeedEvents(feedState, [feedEvents], undefined, context) : feedState,
-    events
+    events,
+    ...(policeResult.evaluation ? { policeRaidEvaluation: policeResult.evaluation } : {})
   };
 };

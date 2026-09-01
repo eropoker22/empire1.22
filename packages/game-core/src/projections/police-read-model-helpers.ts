@@ -24,6 +24,8 @@ export const toPendingRaidView = (
         ...raid,
         id: raid.raidId,
         triggerTick: raid.createdAtTick,
+        acknowledged: raid.status === "acknowledged",
+        canAcknowledge: raid.status === "pending",
         expiresAtTick: raid.expiresAtTick ?? null,
         targetDistrictId: raid.targetDistrictId ?? null,
         remainingTicks: Math.max(0, Number(raid.expiresAtTick ?? currentTick) - currentTick),

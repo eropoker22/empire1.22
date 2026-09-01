@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createPoliceHeatBridge,
   resolvePoliceHeatFeedback
@@ -344,5 +344,63 @@ describe("runtime police heat bridge", () => {
 
     bridge.init();
     expect(bridge.acknowledgePendingRaid("police:raid:1")).toBe(false);
+  });
+
+  it("presents each authoritative pending raid exactly once across refreshes and remounts", () => {
+    const documentRef = new FakeDocument();
+    const root = new FakeElement("main");
+    const values = new Map();
+    const presentationStorage = {
+      getItem: vi.fn((key) => values.get(key) || null),
+      setItem: vi.fn((key, value) => values.set(key, String(value)))
+    };
+    const onNewPendingRaid = vi.fn();
+    const state = {
+      executionMode: "server-authoritative",
+      serverInstanceId: "server:raid-visibility",
+      policeReadModel: {
+        heat: 122,
+        playerHeat: 122,
+        wantedLevel: 2,
+        riskTier: "high",
+        pendingRaid: {
+          raidId: "police:raid:visible-1",
+          status: "pending",
+          severity: "high",
+          targetDistrictId: "district:7",
+          expiresAtTick: 460,
+          previewConsequences: { seizedDirtyCash: 100, heatReducedBy: 25 }
+        }
+      }
+    };
+
+    const createBridge = () => createPoliceHeatBridge({
+      root,
+      documentRef,
+      getState: () => state,
+      mount: new FakeElement("section"),
+      onNewPendingRaid,
+      presentationStorage
+    });
+
+    const firstBridge = createBridge();
+    firstBridge.init();
+    firstBridge.render({ type: "runtime:refresh" });
+    expect(onNewPendingRaid).toHaveBeenCalledTimes(1);
+    expect(onNewPendingRaid).toHaveBeenLastCalledWith(
+      expect.objectContaining({ raidId: "police:raid:visible-1" }),
+      expect.objectContaining({ heat: 122, wantedLevel: 2 })
+    );
+
+    createBridge().init();
+    expect(onNewPendingRaid).toHaveBeenCalledTimes(1);
+
+    state.policeReadModel = {
+      ...state.policeReadModel,
+      pendingRaid: { ...state.policeReadModel.pendingRaid, raidId: "police:raid:visible-2" }
+    };
+    firstBridge.render({ type: "runtime:refresh" });
+    expect(onNewPendingRaid).toHaveBeenCalledTimes(2);
+    expect(presentationStorage.setItem).toHaveBeenCalledTimes(2);
   });
 });

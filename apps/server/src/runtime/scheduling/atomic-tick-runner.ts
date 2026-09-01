@@ -19,6 +19,7 @@ import {
   recordInstanceTickCompletedAt
 } from "./instance-scheduler";
 import { runInstanceTick } from "./tick-runner";
+import { recordPoliceRaidTickDiagnostics } from "./police-raid-tick-diagnostics";
 import {
   recordRuntimeSnapshotWrite,
   recordRuntimeTickCompleted,
@@ -31,6 +32,7 @@ interface CommittedTick {
   events: ReturnType<typeof runTick>["events"];
   processedCommandIds: Set<string>;
   commandRateLimitWindow: ServerInstanceRuntime["commandRateLimitWindow"];
+  policeRaidEvaluation?: ReturnType<typeof runTick>["policeRaidEvaluation"];
 }
 
 /**
@@ -101,7 +103,13 @@ export const runAtomicInstanceTickUnlocked = async (
       await repositories.snapshotRepository.saveRecoveryHead(snapshot);
       if (checkpoint) await repositories.snapshotRepository.saveCheckpoint(checkpoint);
       recordRuntimeSnapshotWrite(runtime, snapshot);
-      return { nextState, events: result.events, processedCommandIds, commandRateLimitWindow } satisfies CommittedTick;
+      return {
+        nextState,
+        events: result.events,
+        processedCommandIds,
+        commandRateLimitWindow,
+        ...(result.policeRaidEvaluation ? { policeRaidEvaluation: result.policeRaidEvaluation } : {})
+      } satisfies CommittedTick;
     }, { runtimeLeaseFence });
 
     runtime.state = committed.nextState;
@@ -115,6 +123,7 @@ export const runAtomicInstanceTickUnlocked = async (
     };
     runtime.eventQueue.enqueue(tickEvent);
     runtime.eventPublisher.publish(tickEvent);
+    recordPoliceRaidTickDiagnostics(runtime, committed, clock);
     runtime.runtimeHealth.lastTickCompletedAt = clock.nowIso();
     recordInstanceTickCompletedAt(runtime.scheduler, tickNow);
     tickCompleted = true;

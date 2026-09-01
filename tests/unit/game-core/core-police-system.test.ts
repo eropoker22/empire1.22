@@ -280,11 +280,16 @@ describe("core police system completion", () => {
     expect(raid?.expiresAtTick).toBe(raid!.createdAtTick + duration);
   });
 
-  it("runs police raids at 12:00 and 00:00, not the old 06:00 or 22:00 boundaries", () => {
-    for (const tick of [1, 960]) {
+  it("runs police raids at 08:00, 16:00 and 00:00, not unrelated clock boundaries", () => {
+    for (const tick of [1, 360, 960]) {
       const outsideBoundary = createCoreStateFixture();
       addPoliceState(outsideBoundary, 150);
       moveToRaidBoundary(outsideBoundary, tick);
+      outsideBoundary.policeScheduleState = {
+        lastProcessedBoundaryTick: tick === 1 ? 0 : tick === 360 ? 120 : 600,
+        lastProcessedBoundaryId: "test:previous-window",
+        version: 1
+      };
       outsideBoundary.districtsById["district:1"] = {
         ...outsideBoundary.districtsById["district:1"],
         heat: 70
@@ -292,7 +297,7 @@ describe("core police system completion", () => {
       expect(triggerRaid(outsideBoundary, createContext()).events).toEqual([]);
     }
 
-    for (const tick of [360, 1080]) {
+    for (const tick of [120, 600, 1080]) {
       const atBoundary = createCoreStateFixture();
       addPoliceState(atBoundary, 150);
       moveToRaidBoundary(atBoundary, tick);
@@ -306,68 +311,73 @@ describe("core police system completion", () => {
     }
   });
 
-  it("starts the first midday police raid check at exactly 12:00 game time", () => {
-    const atNoon = createCoreStateFixture();
-    addPoliceState(atNoon, 150);
-    atNoon.root.tick = 360;
-    atNoon.districtsById["district:1"] = {
-      ...atNoon.districtsById["district:1"],
+  it("starts the first police raid check at exactly 08:00 game time", () => {
+    const atEight = createCoreStateFixture();
+    addPoliceState(atEight, 150);
+    atEight.root.tick = 120;
+    atEight.districtsById["district:1"] = {
+      ...atEight.districtsById["district:1"],
       heat: 70
     };
 
-    const result = triggerRaid(atNoon, createContext());
+    const result = triggerRaid(atEight, createContext());
 
     expect(result.events.some((event) => event.type === "police-raid-triggered")).toBe(true);
-    expect(result.nextState.policeStatesById["police:1"].pendingRaids?.[0]?.createdAtTick).toBe(360);
+    expect(result.nextState.policeStatesById["police:1"].pendingRaids?.[0]?.createdAtTick).toBe(120);
 
-    const oldTwelveThirtyBoundary = createCoreStateFixture();
-    addPoliceState(oldTwelveThirtyBoundary, 150);
-    oldTwelveThirtyBoundary.root.tick = 390;
-    oldTwelveThirtyBoundary.districtsById["district:1"] = {
-      ...oldTwelveThirtyBoundary.districtsById["district:1"],
+    const afterProcessedMorning = createCoreStateFixture();
+    addPoliceState(afterProcessedMorning, 150);
+    afterProcessedMorning.root.tick = 390;
+    afterProcessedMorning.policeScheduleState = {
+      lastProcessedBoundaryTick: 120,
+      lastProcessedBoundaryId: "police-raid:day-0:0800",
+      version: 2
+    };
+    afterProcessedMorning.districtsById["district:1"] = {
+      ...afterProcessedMorning.districtsById["district:1"],
       heat: 70
     };
 
-    expect(triggerRaid(oldTwelveThirtyBoundary, createContext()).events).toEqual([]);
+    expect(triggerRaid(afterProcessedMorning, createContext()).events).toEqual([]);
   });
 
-  it("starts one visible medium raid at the first 12:00 boundary even when the city is still quiet", () => {
-    const atFirstNoon = createCoreStateFixture();
-    addPoliceState(atFirstNoon, 0);
-    atFirstNoon.root.tick = 360;
+  it("starts one visible medium raid at the first 08:00 boundary even when the city is still quiet", () => {
+    const atFirstMorning = createCoreStateFixture();
+    addPoliceState(atFirstMorning, 0);
+    atFirstMorning.root.tick = 120;
 
-    const result = triggerRaid(atFirstNoon, createContext());
+    const result = triggerRaid(atFirstMorning, createContext());
     const raid = result.nextState.policeStatesById["police:1"].pendingRaids?.[0];
 
     expect(result.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
     expect(raid).toMatchObject({
       playerId: "player:1",
       severity: "medium",
-      createdAtTick: 360,
-      reason: expect.stringContaining("scheduled-midday")
+      createdAtTick: 120,
+      reason: expect.stringContaining("scheduled-morning")
     });
   });
 
   it("forces another quiet-city raid at every later scheduled boundary", () => {
-    const nextDayNoon = createCoreStateFixture();
-    addPoliceState(nextDayNoon, 0);
-    nextDayNoon.root.tick = 1800;
-    nextDayNoon.policeStatesById["police:1"] = {
-      ...nextDayNoon.policeStatesById["police:1"],
-      lastRaidCreatedAtTick: 360
+    const nextDayMorning = createCoreStateFixture();
+    addPoliceState(nextDayMorning, 0);
+    nextDayMorning.root.tick = 1560;
+    nextDayMorning.policeStatesById["police:1"] = {
+      ...nextDayMorning.policeStatesById["police:1"],
+      lastRaidCreatedAtTick: 120
     };
 
-    const result = triggerRaid(nextDayNoon, createContext());
+    const result = triggerRaid(nextDayMorning, createContext());
 
     expect(result.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
     expect(result.nextState.policeStatesById["police:1"].pendingRaids?.[0]).toMatchObject({
       severity: "medium",
-      createdAtTick: 1800,
-      reason: expect.stringContaining("scheduled-midday")
+      createdAtTick: 1560,
+      reason: expect.stringContaining("scheduled-morning")
     });
   });
 
-  it("starts one raid at both scheduled boundaries with only two quiet active players", () => {
+  it("starts one raid at all three scheduled boundaries with only two quiet active players", () => {
     const state = createCoreStateFixture();
     state.playersById = {};
     state.districtsById = {};
@@ -379,23 +389,79 @@ describe("core police system completion", () => {
     addRaidReadyPlayer(state, 2, 0);
     state.districtsById["district:1"] = { ...state.districtsById["district:1"], heat: 0 };
     state.districtsById["district:2"] = { ...state.districtsById["district:2"], heat: 0 };
-    moveToRaidBoundary(state, 359);
+    moveToRaidBoundary(state, 119);
 
-    const midday = runTick(state, createContext());
-    expect(midday.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
+    const morning = runTick(state, createContext());
+    expect(morning.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
+
+    const beforeAfternoon = {
+      ...morning.nextState,
+      root: { ...morning.nextState.root, tick: 599 },
+      serverInstance: { ...morning.nextState.serverInstance, currentTick: 599 }
+    };
+    const afternoon = runTick(beforeAfternoon, createContext());
+    expect(afternoon.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
 
     const beforeMidnight = {
-      ...midday.nextState,
-      root: { ...midday.nextState.root, tick: 1079 },
-      serverInstance: { ...midday.nextState.serverInstance, currentTick: 1079 }
+      ...afternoon.nextState,
+      root: { ...afternoon.nextState.root, tick: 1079 },
+      serverInstance: { ...afternoon.nextState.serverInstance, currentTick: 1079 }
     };
     const midnight = runTick(beforeMidnight, createContext());
-    const triggeredPlayerIds = [...midday.events, ...midnight.events]
+    const triggeredPlayerIds = [...morning.events, ...afternoon.events, ...midnight.events]
       .filter((event) => event.type === "police-raid-triggered")
       .map((event) => readEventPlayerId(event.payload));
 
     expect(midnight.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
-    expect(triggeredPlayerIds).toEqual(["player:1", "player:2"]);
+    expect(triggeredPlayerIds).toEqual(["player:1", "player:2", "player:1"]);
+  });
+
+  it("catches a crossed boundary once and persists the processed window across restart", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 122);
+    state.root.tick = 121;
+    state.serverInstance.currentTick = 121;
+    state.districtsById["district:1"] = { ...state.districtsById["district:1"], heat: 7 };
+
+    const delayed = triggerRaid(state, createContext());
+    expect(delayed.evaluation).toMatchObject({
+      boundary: "morning",
+      boundaryTick: 120,
+      evaluatedAtTick: 121,
+      pendingRaidCreatedCount: 1
+    });
+    expect(delayed.nextState.policeScheduleState?.lastProcessedBoundaryTick).toBe(120);
+
+    const restored = structuredClone(delayed.nextState);
+    const duplicate = triggerRaid(restored, createContext());
+    expect(duplicate.evaluation).toBeNull();
+    expect(duplicate.events).toEqual([]);
+    expect(restored.policeStatesById["police:1"].pendingRaids).toHaveLength(1);
+  });
+
+  it("prioritizes the highest pressure high/extreme player before the quiet scheduled fallback", () => {
+    const state = createCoreStateFixture();
+    state.playersById = {};
+    state.districtsById = {};
+    state.resourceStatesById = {};
+    state.policeStatesById = {};
+    state.root.playerIds = [];
+    state.root.districtIds = [];
+    addRaidReadyPlayer(state, 1, 20);
+    addRaidReadyPlayer(state, 2, 122);
+    addRaidReadyPlayer(state, 3, 150);
+    state.districtsById["district:1"] = { ...state.districtsById["district:1"], heat: 0 };
+    state.districtsById["district:2"] = { ...state.districtsById["district:2"], heat: 20 };
+    state.districtsById["district:3"] = { ...state.districtsById["district:3"], heat: 70 };
+    moveToRaidBoundary(state, 120);
+
+    const result = triggerRaid(state, createContext());
+    const created = result.decisions.find((decision) => decision.type === "pending_raid_created");
+
+    expect(calculatePlayerPolicePressure(state, "player:2", createContext()).playerHeatPressure).toBe(122);
+    expect(calculatePlayerPolicePressure(state, "player:3", createContext()).riskTier).toBe("extreme");
+    expect(created?.playerId).toBe("player:3");
+    expect(result.nextState.policeStatesById["police:3"].pendingRaids?.[0]?.severity).toBe("extreme");
   });
 
   it("caps simultaneous police raids to the canonical day limit", () => {

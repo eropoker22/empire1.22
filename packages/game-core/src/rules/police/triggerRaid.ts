@@ -9,14 +9,8 @@ import { resolveWantedLevel } from "./wantedLevel";
 import { resolvePoliceConfig } from "./policeConfig";
 import { calculatePlayerPolicePressure } from "./policePressure";
 import { resolveCityHallPoliceMitigation, shouldCreateRaidAfterCityHallMitigation } from "./cityHallPoliceMitigation";
-import {
-  getCurrentDayNightPhase,
-  getDayNightModifiers
-} from "../day-night/dayNight";
-import {
-  countOpenPendingRaids,
-  resolveMaxConcurrentRaidsForPhase
-} from "./raidConcurrency";
+import { getCurrentDayNightPhase, getDayNightModifiers } from "../day-night/dayNight";
+import { countOpenPendingRaids, resolveMaxConcurrentRaidsForPhase } from "./raidConcurrency";
 import {
   createPendingRaidMessage,
   createRaidReason,
@@ -27,20 +21,18 @@ import {
   resolveRaidSeverity
 } from "./raidTriggerHelpers";
 import { resolveScheduledRaidCandidates } from "./raidOpeningTarget";
+import { createRaidTriggerEvaluation, type RaidTriggerEvaluation } from "./raidTriggerEvaluation";
 import type { RaidTriggerDecision } from "./raidTriggerTypes";
 export type { RaidTriggerDecision, RaidTriggerDecisionType } from "./raidTriggerTypes";
+export type { RaidTriggerEvaluation } from "./raidTriggerEvaluation";
 
 const RAID_PENDING_FLAG = "raid:pending";
 
-/**
- * Responsibility: Creates warning and pending-raid police state from aggregate pressure.
- * Belongs here: authoritative police trigger decisions.
- * Does not belong here: applying raid penalties or UI formatting.
- */
+/** Creates authoritative warning/pending-raid decisions, never penalties or UI. */
 export const triggerRaid = (
   state: CoreGameState,
   context?: GameCoreContext
-): { nextState: CoreGameState; events: CoreEvent[]; decisions: RaidTriggerDecision[] } => {
+): { nextState: CoreGameState; events: CoreEvent[]; decisions: RaidTriggerDecision[]; evaluation: RaidTriggerEvaluation | null } => {
   const config = resolvePoliceConfig(context);
   let changed = false;
   let nextPoliceStatesById = state.policeStatesById;
@@ -49,14 +41,16 @@ export const triggerRaid = (
   const currentTick = state.root.tick;
   const gameTime = getCurrentDayNightPhase(state, context);
   const phaseId = gameTime.phaseId;
-  const { activePlayers, scheduledBoundary, scheduledTargetId } = resolveScheduledRaidCandidates(
+  const { activePlayers, scheduledWindow, scheduledTargetId } = resolveScheduledRaidCandidates(
     state,
     context,
     currentTick
   );
-  if (!scheduledBoundary) {
-    return { nextState: state, events: [], decisions: [] };
+  if (!scheduledWindow) {
+    return { nextState: state, events: [], decisions: [], evaluation: null };
   }
+  nextPoliceStatesById = state.policeStatesById;
+  changed = true;
   const maxConcurrentRaids = resolveMaxConcurrentRaidsForPhase(config, phaseId);
   const raidDurationTicks = Math.max(1, Math.floor(Number(config.raidDurationTicks || config.pendingRaidTtlTicks || 1)));
 
@@ -160,7 +154,7 @@ export const triggerRaid = (
       targetDistrictId: targetDistrictId ?? undefined,
       severity,
       reason: isScheduledRaid
-        ? `scheduled-${scheduledBoundary}:${pressure.aggregatePressure}:district:${targetDistrictId ?? "none"}`
+        ? `scheduled-${scheduledWindow.boundary}:${pressure.aggregatePressure}:district:${targetDistrictId ?? "none"}`
         : createRaidReason(pressure.aggregatePressure, targetDistrictId),
       createdAtTick: currentTick,
       expiresAtTick: currentTick + raidDurationTicks,
@@ -237,14 +231,24 @@ export const triggerRaid = (
     });
   }
 
+  const { evaluation, policeScheduleState } = createRaidTriggerEvaluation(
+    scheduledWindow,
+    currentTick,
+    activePlayers.length,
+    decisions,
+    state.policeScheduleState?.version ?? 0
+  );
+
   return {
     nextState: changed
       ? {
           ...state,
-          policeStatesById: nextPoliceStatesById
+          policeStatesById: nextPoliceStatesById,
+          policeScheduleState
         }
       : state,
     events,
-    decisions
+    decisions,
+    evaluation
   };
 };

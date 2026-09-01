@@ -72,6 +72,11 @@ export interface NormalizedGameState {
   cooldownStatesById: Record<string, CooldownState>;
   effectStatesById: Record<string, EffectState>;
   policeStatesById: Record<string, PoliceState>;
+  policeScheduleState?: {
+    lastProcessedBoundaryTick: number | null;
+    lastProcessedBoundaryId: string | null;
+    version: number;
+  };
   cityFeedEventsById: Record<string, CityFeedEvent>;
   cityChatMessagesById?: Record<string, CityChatMessage>;
   eventsById: Record<EventId, EventState>;

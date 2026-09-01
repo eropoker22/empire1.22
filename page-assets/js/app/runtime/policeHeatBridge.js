@@ -316,6 +316,26 @@ export function createPoliceHeatBridge(deps = {}) {
   let mount = deps.mount || null;
   let lastMessage = "";
   let lastViewModel = null;
+  const presentedRaidIds = new Set();
+
+  const markNewPendingRaidPresented = (viewModel, state) => {
+    const raid = viewModel?.pendingRaid;
+    const raidId = String(raid?.raidId || raid?.id || "").trim();
+    if (!raidId || presentedRaidIds.has(raidId) || typeof deps.onNewPendingRaid !== "function") return false;
+    const serverInstanceId = String(state?.serverInstanceId || "server").trim() || "server";
+    const storageKey = `empire:police-raid-presented:${encodeURIComponent(serverInstanceId)}:${encodeURIComponent(raidId)}`;
+    let alreadyPresented = false;
+    try {
+      alreadyPresented = deps.presentationStorage?.getItem?.(storageKey) === "1";
+    } catch {}
+    presentedRaidIds.add(raidId);
+    if (alreadyPresented) return false;
+    try {
+      deps.presentationStorage?.setItem?.(storageKey, "1");
+    } catch {}
+    deps.onNewPendingRaid(raid, viewModel);
+    return true;
+  };
 
   const getState = () => safeObject(typeof deps.getState === "function" ? deps.getState() : {});
   const acknowledgeRaid = (raidId) => {
@@ -348,10 +368,12 @@ export function createPoliceHeatBridge(deps = {}) {
     mount ||= createMount(root, documentRef);
     if (!mount) {
       lastViewModel = viewModel;
+      markNewPendingRaidPresented(viewModel, state);
       return viewModel;
     }
     renderPoliceFeedPanel(mount, viewModel, { onAcknowledge: acknowledgeRaid });
     lastViewModel = viewModel;
+    markNewPendingRaidPresented(viewModel, state);
     if (eventType !== "init" && eventType !== "runtime:refresh" && eventType !== "empire:runtime-refresh") {
       documentRef?.dispatchEvent?.(new CustomEvent("empire:police-feedback", {
         detail: {

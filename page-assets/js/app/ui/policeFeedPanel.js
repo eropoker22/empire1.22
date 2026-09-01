@@ -139,10 +139,10 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
     callbacks.onCountdownBound?.(unbindCountdown);
   }
   acknowledge.type = "button";
-  acknowledge.textContent = "BERU NA VĚDOMÍ";
+  acknowledge.textContent = viewModel.pendingRaid?.acknowledged ? "RAZIE POTVRZENA" : "BERU NA VĚDOMÍ";
   acknowledge.title = "Toto pouze zavře varování. Razie bude pokračovat do uvedeného času.";
   acknowledge.hidden = !viewModel.pendingRaid;
-  acknowledge.disabled = !viewModel.pendingRaid || typeof callbacks.onAcknowledge !== "function";
+  acknowledge.disabled = !viewModel.pendingRaid?.canAcknowledge || typeof callbacks.onAcknowledge !== "function";
   acknowledge.addEventListener?.("click", () => callbacks.onAcknowledge?.(viewModel.pendingRaid?.raidId));
 
   titleWrap.append(eyebrow, title);

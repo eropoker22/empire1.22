@@ -295,7 +295,12 @@ describe("police read model projection", () => {
     expect(model.raidRisk).toBe("pending");
     expect(model.pendingRaid).toMatchObject({
       id: expect.stringContaining("police:raid:player:1"),
-      triggerTick: state.root.tick
+      triggerTick: state.root.tick,
+      acknowledged: false,
+      canAcknowledge: true,
+      remainingTicks: expect.any(Number),
+      remainingMs: expect.any(Number),
+      expiresAtMs: expect.any(Number)
     });
     expect(model.activeRaid).toMatchObject({
       type: "police-raid-pending",

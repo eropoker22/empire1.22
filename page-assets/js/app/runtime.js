@@ -16759,6 +16759,7 @@ function bindPoliceHeatFeedback(root) {
       if (executionMode === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
         return {
           executionMode,
+          serverInstanceId: latestGameplaySliceReadModel?.server?.serverInstanceId || "",
           policeReadModel: latestGameplaySliceReadModel?.player?.police
             || latestGameplaySliceReadModel?.police
             || null
@@ -16780,6 +16781,45 @@ function bindPoliceHeatFeedback(root) {
         type: "acknowledge-pending-raid",
         payload: { raidId: String(raidId || "").trim() },
         focusDistrictId: latestGameplaySliceReadModel?.district?.districtId
+      });
+    },
+    presentationStorage: (() => {
+      try {
+        return window.sessionStorage;
+      } catch {
+        return null;
+      }
+    })(),
+    onNewPendingRaid: (raid, policeViewModel) => {
+      const preview = raid?.previewConsequences || policeViewModel?.previewConsequences || {};
+      const severity = String(raid?.severity || "high").toUpperCase();
+      const targetDistrictId = String(raid?.targetDistrictId || "").trim();
+      const getRemainingMs = () => {
+        const expiresAtMs = Number(raid?.expiresAtMs);
+        return Number.isFinite(expiresAtMs)
+          ? Math.max(0, expiresAtMs - Date.now())
+          : Math.max(0, Number(raid?.remainingMs || 0));
+      };
+      queueOrOpenResultModal(root, "police", {
+        title: "POLICEJNÍ RAZIE SE BLÍŽÍ",
+        badge: `${severity} RAID`,
+        summary: targetDistrictId
+          ? `Policie připravuje zásah v districtu ${targetDistrictId}.`
+          : "Policie připravuje zásah proti tvému gangu.",
+        tone: "is-owned-district-raid-alert",
+        raidId: raid?.raidId,
+        targetDistrictId: targetDistrictId || null,
+        previewConsequences: preview,
+        getRows: () => [
+          { label: "Závažnost", value: severity },
+          { label: "Zásah za", value: formatDurationLabel(getRemainingMs()), nowrap: true },
+          { label: "Cíl", value: targetDistrictId || "Gang" },
+          { label: "Policejní tlak", value: Math.max(0, Number(raid?.sourcePressure || policeViewModel?.raidPressure || 0)) },
+          { label: "Dirty cash v ohrožení", value: Math.max(0, Number(preview?.seizedDirtyCash || 0)) },
+          { label: "Heat po zásahu", value: `-${Math.max(0, Number(preview?.heatReducedBy || 0))}` }
+        ],
+        refreshMs: 1_000,
+        syncToBuildingAction: true
       });
     }
   });

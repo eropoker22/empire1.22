@@ -5,8 +5,8 @@ import { calculatePlayerPolicePressure } from "./policePressure";
 import { resolvePoliceConfig } from "./policeConfig";
 import { getOpenPendingRaids, isRaidCooldownActive } from "./raidTriggerHelpers";
 import {
-  resolveScheduledRaidBoundary,
-  type ScheduledRaidBoundary
+  resolveScheduledRaidWindow,
+  type ScheduledRaidWindow
 } from "./raidSchedule";
 
 export const resolveScheduledRaidCandidates = (
@@ -15,14 +15,14 @@ export const resolveScheduledRaidCandidates = (
   currentTick: number
 ): {
   activePlayers: Player[];
-  scheduledBoundary: ScheduledRaidBoundary | null;
+  scheduledWindow: ScheduledRaidWindow | null;
   scheduledTargetId: string | null;
 } => {
   const activePlayers = Object.values(state.playersById)
     .filter((player) => player.status === "active");
-  const scheduledBoundary = resolveScheduledRaidBoundary(state, context, currentTick);
-  if (!scheduledBoundary || activePlayers.length === 0) {
-    return { activePlayers, scheduledBoundary, scheduledTargetId: null };
+  const scheduledWindow = resolveScheduledRaidWindow(state, context, currentTick);
+  if (!scheduledWindow || activePlayers.length === 0) {
+    return { activePlayers, scheduledWindow, scheduledTargetId: null };
   }
 
   const config = resolvePoliceConfig(context);
@@ -47,16 +47,23 @@ export const resolveScheduledRaidCandidates = (
       || left.pressure.hottestDistrictHeat - right.pressure.hottestDistrictHeat
       || left.player.id.localeCompare(right.player.id)
     ))[0]?.player.id ?? null;
-  const orderedActivePlayers = scheduledTargetId
-    ? [
-        ...activePlayers.filter((player) => player.id !== scheduledTargetId),
-        activePlayers.find((player) => player.id === scheduledTargetId)!
-      ]
-    : activePlayers;
+  const pressureByPlayerId = new Map(activePlayers.map((player) => [
+    player.id,
+    calculatePlayerPolicePressure(state, player.id, context)
+  ]));
+  const orderedActivePlayers = [...activePlayers].sort((left, right) => {
+    if (left.id === scheduledTargetId) return 1;
+    if (right.id === scheduledTargetId) return -1;
+    const leftPressure = pressureByPlayerId.get(left.id)!;
+    const rightPressure = pressureByPlayerId.get(right.id)!;
+    return rightPressure.aggregatePressure - leftPressure.aggregatePressure
+      || rightPressure.hottestDistrictHeat - leftPressure.hottestDistrictHeat
+      || left.id.localeCompare(right.id);
+  });
 
   return {
     activePlayers: orderedActivePlayers,
-    scheduledBoundary,
+    scheduledWindow,
     scheduledTargetId
   };
 };

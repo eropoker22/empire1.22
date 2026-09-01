@@ -135,6 +135,19 @@ describe("instance snapshot mapping", () => {
     );
   });
 
+  it("persists the last processed police boundary so a worker restart cannot duplicate a raid window", () => {
+    const runtime = createServerInstanceRuntime("instance:police-schedule", "free");
+    runtime.state.policeScheduleState = {
+      lastProcessedBoundaryTick: 600,
+      lastProcessedBoundaryId: "police-raid:instance%3Apolice-schedule:day-0:afternoon:600",
+      version: 3
+    };
+
+    const restored = restoreInstanceState(JSON.parse(JSON.stringify(createInstanceSnapshot(runtime))));
+
+    expect(restored.policeScheduleState).toEqual(runtime.state.policeScheduleState);
+  });
+
   it("seals snapshot DTOs into opaque tokens and rejects tampering", async () => {
     const runtime = createServerInstanceRuntime("instance:token", "free");
     runtime.processedCommandIds.add("command:sealed");

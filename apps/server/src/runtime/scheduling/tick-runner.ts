@@ -12,6 +12,7 @@ import {
   recordRuntimeTickSkipped,
   runtimePerformanceNow
 } from "../monitoring/runtime-performance-diagnostics";
+import { recordPoliceRaidTickDiagnostics } from "./police-raid-tick-diagnostics";
 
 /**
  * Responsibility: Executes one safe tick for a single instance runtime.
@@ -61,6 +62,7 @@ export const runInstanceTick = (
 
     runtime.eventQueue.enqueue(tickEvent);
     runtime.eventPublisher.publish(tickEvent);
+    recordPoliceRaidTickDiagnostics(runtime, result, clock);
     runtime.runtimeHealth.lastTickCompletedAt = clock.nowIso();
     recordInstanceTickCompletedAt(runtime.scheduler, tickNow);
     tickCompleted = true;

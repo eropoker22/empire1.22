@@ -40,6 +40,8 @@ export interface PoliceReadModel {
 export interface PolicePendingRaidView extends Omit<PendingRaid, "targetDistrictId" | "expiresAtTick"> {
   id: string;
   triggerTick: number;
+  acknowledged: boolean;
+  canAcknowledge: boolean;
   expiresAtTick: number | null;
   targetDistrictId: DistrictId | null;
   remainingTicks: number;
