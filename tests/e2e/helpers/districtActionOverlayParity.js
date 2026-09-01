@@ -1342,7 +1342,9 @@ export async function captureDistrictActionOverlayScreenshot(page, {
     stableBackdropShellSelector: definition.shellSelector,
     stableDescendantDevicePixelAlignmentSelector: stabilizeInlineAction
       ? ".district-popup-action__label"
-      : "",
+      : definition.stage === "confirmation"
+        ? ".attack-setup-popup-row"
+        : "",
     stableDescendantDevicePixelAlignmentMode: "target-relative-paint-origin",
     stableRasterRootSelector: definition.shellSelector,
     stableRasterSelector: inlineRasterStabilizationSelector,

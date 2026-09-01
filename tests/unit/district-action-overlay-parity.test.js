@@ -270,6 +270,9 @@ describe("district action overlay parity coverage", () => {
     );
     expect(helperSource).toContain('? ".district-popup-action__label"');
     expect(helperSource).toContain(
+      'definition.stage === "confirmation"\n        ? ".attack-setup-popup-row"'
+    );
+    expect(helperSource).toContain(
       'stableDescendantDevicePixelAlignmentMode: "target-relative-paint-origin"'
     );
     expect(specSource).toContain("compareParityPngScreenshotAttempts");
