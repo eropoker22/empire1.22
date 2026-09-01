@@ -1,9 +1,12 @@
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
+import {
+  resolveAuthoritativeEliminationCountdown,
+  resolveEliminationWarningMilestone
+} from "./runtime/authoritativeEliminationCountdown.js";
 
 export const SERVER_MILESTONE_IDS = Object.freeze(["welcome", "first-purge", "lockdown", "winners"]);
 
-const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 const ACKNOWLEDGEMENT_KEY_PREFIX = "empire:server-milestone:seen";
 const ONBOARDING_STATE_EVENT = "empire:onboarding-state-change";
 const FOCUSABLE_SELECTOR = [
@@ -36,19 +39,19 @@ const SERVER_MILESTONE_CONTENT = Object.freeze({
     feedSummary: "Tvoje válka o Empire Streets právě začala."
   }),
   "first-purge": Object.freeze({
-    eyebrow: "PRVNÍ OČISTA",
+    eyebrow: "OČISTA SE BLÍŽÍ",
     title: "Město začalo odpočítávat",
-    lead: "První Očista se blíží. Přesný čas ukazuje skutečný serverový odpočet.",
+    lead: "Očista se blíží. Přesný čas ukazuje skutečný serverový odpočet.",
     copy: "Buduj Empire score, zabírej území a nenech svoje impérium stát na místě. Odpočet není varování pro později. Je to čas, který už právě ztrácíš.",
     stats: Object.freeze([
-      Object.freeze({ key: "first-purge-countdown", label: "První Očista", value: "—" }),
+      Object.freeze({ key: "first-purge-countdown", label: "Očista", value: "—" }),
       Object.freeze({ label: "Rozhoduje", value: "Stav impéria" }),
       Object.freeze({ label: "V sázce", value: "Tvoje místo" })
     ]),
     callout: "Až odpočet doběhne, pravidla už číst nebudeš. Budeš jen čekat, čí jméno město smaže.",
     confirm: "Začít se připravovat",
-    feedTitle: "První Očista se blíží",
-    feedSummary: "Město spustilo odpočet k prvnímu vyřazení."
+    feedTitle: "Očista se blíží",
+    feedSummary: "Město odpočítává čas k dalšímu vyřazení."
   }),
   lockdown: Object.freeze({
     eyebrow: "FINAL LOCKDOWN ZAČAL",
@@ -102,26 +105,18 @@ const acknowledge = (storage, serverInstanceId, id) => {
   }
 };
 
-export function shouldOpenFirstPurgeCard(gameplaySlice = {}) {
+export function shouldOpenFirstPurgeCard(gameplaySlice = {}, nowMs = Date.now()) {
   const elimination = gameplaySlice.elimination || gameplaySlice.player?.elimination;
   if (!elimination?.enabled || elimination.eliminationsStopped) return false;
   const nextTick = Number(elimination.nextEliminationTick);
   const firstTick = Number(elimination.firstEliminationTick);
-  const remainingTicks = Number(elimination.ticksUntilNextElimination);
-  const tickRateMs = Math.max(1, Number(gameplaySlice.mode?.tickRateMs || 0));
-  if (![nextTick, firstTick, remainingTicks, tickRateMs].every(Number.isFinite)) return false;
-  return nextTick === firstTick
-    && remainingTicks >= 0
-    && remainingTicks <= Math.ceil(FOUR_HOURS_MS / tickRateMs);
+  const countdown = resolveAuthoritativeEliminationCountdown(gameplaySlice, nowMs);
+  if (!Number.isFinite(nextTick) || countdown.remainingMs === null) return false;
+  return resolveEliminationWarningMilestone(null, countdown.remainingMs) !== null;
 }
 
 const resolveFirstPurgeDeadlineMs = (gameplaySlice = {}, nowMs = Date.now()) => {
-  const elimination = gameplaySlice.elimination || gameplaySlice.player?.elimination;
-  const remainingTicks = Number(elimination?.ticksUntilNextElimination);
-  const tickRateMs = Number(gameplaySlice.mode?.tickRateMs);
-  if (!Number.isFinite(remainingTicks) || remainingTicks < 0 || !Number.isFinite(tickRateMs) || tickRateMs <= 0) return null;
-  const generatedAtMs = Date.parse(String(gameplaySlice.server?.generatedAt || ""));
-  return (Number.isFinite(generatedAtMs) ? generatedAtMs : nowMs) + (remainingTicks * tickRateMs);
+  return resolveAuthoritativeEliminationCountdown(gameplaySlice, nowMs).deadlineMs;
 };
 
 const resolveFinalLockdownDeadlineMs = (gameplaySlice = {}, nowMs = Date.now()) => {
@@ -185,7 +180,7 @@ export function createServerMilestoneFeedSnapshot(id, timestampMs = Date.now(), 
   const content = SERVER_MILESTONE_CONTENT[id];
   if (!content) return null;
   return {
-    id: `server-milestone:${id}`,
+    id: String(payload.feedEntryId || `server-milestone:${id}`),
     timestampMs,
     tone: id === "winners" ? "success" : id === "welcome" ? "event" : "warning",
     title: String(payload.feedTitle || content.feedTitle),
@@ -236,6 +231,9 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   let countdownDeadlineMs = null;
   let countdownStatKey = "";
   let countdownTimer = null;
+  let firstPurgeCountdownKey = null;
+  let previousFirstPurgeRemainingMs = null;
+  let pendingFirstPurgeMilestoneMs = null;
 
   const stopCountdown = () => {
     if (countdownTimer !== null) windowRef.clearInterval(countdownTimer);
@@ -320,14 +318,18 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
       initialFocus.focus({ preventScroll: true });
     }
     initialFocus = null;
+    if (latestGameplaySlice) {
+      windowRef.setTimeout(() => handleGameplaySlice(latestGameplaySlice), 0);
+    }
   };
 
   const announce = (id, serverInstanceId, payload = {}) => {
     if (!isServerLifecycleMode() || !SERVER_MILESTONE_IDS.includes(id) || !serverInstanceId || !modal.hidden) return false;
-    if (hasAcknowledged(storage, serverInstanceId, id)) return false;
+    const acknowledgementId = String(payload.acknowledgementId || id);
+    if (hasAcknowledged(storage, serverInstanceId, acknowledgementId)) return false;
     payloads.set(id, payload);
     if (!open(id, payload)) return false;
-    acknowledge(storage, serverInstanceId, id);
+    acknowledge(storage, serverInstanceId, acknowledgementId);
     publishFeedEntry(id, payload);
     return true;
   };
@@ -339,7 +341,8 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
     const lifecycleStatus = String(gameplaySlice.server?.status || "").trim().toLowerCase();
     if (lifecycleStatus !== "running" && lifecycleStatus !== "ended") return false;
     const serverInstanceId = String(gameplaySlice.server?.serverInstanceId || gameplaySlice.player?.instanceId || "");
-    const firstPurgeDeadlineMs = resolveFirstPurgeDeadlineMs(gameplaySlice);
+    const firstPurgeCountdown = resolveAuthoritativeEliminationCountdown(gameplaySlice);
+    const firstPurgeDeadlineMs = firstPurgeCountdown.deadlineMs;
     const finalLockdownDeadlineMs = resolveFinalLockdownDeadlineMs(gameplaySlice);
     if (activeId === "first-purge" && firstPurgeDeadlineMs !== null) {
       startCountdown("first-purge-countdown", firstPurgeDeadlineMs);
@@ -347,15 +350,37 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
     if (activeId === "lockdown" && finalLockdownDeadlineMs !== null) {
       startCountdown("final-lockdown-countdown", finalLockdownDeadlineMs);
     }
+    const elimination = gameplaySlice.elimination || gameplaySlice.player?.elimination;
+    const hasPurgeCountdown = Number.isFinite(Number(elimination?.nextEliminationTick));
+    if (firstPurgeCountdown.countdownKey !== firstPurgeCountdownKey) {
+      firstPurgeCountdownKey = firstPurgeCountdown.countdownKey;
+      previousFirstPurgeRemainingMs = null;
+      pendingFirstPurgeMilestoneMs = null;
+    }
+    if (hasPurgeCountdown && firstPurgeCountdown.remainingMs !== null) {
+      pendingFirstPurgeMilestoneMs ||= resolveEliminationWarningMilestone(
+        previousFirstPurgeRemainingMs,
+        firstPurgeCountdown.remainingMs
+      );
+      previousFirstPurgeRemainingMs = firstPurgeCountdown.remainingMs;
+    }
+
     if (!serverInstanceId || !modal.hidden) return false;
     if (lifecycleStatus === "running" && announce("welcome", serverInstanceId)) return true;
-    if (shouldOpenFirstPurgeCard(gameplaySlice)
-      && announce("first-purge", serverInstanceId, {
+    if (pendingFirstPurgeMilestoneMs !== null) {
+      const milestoneMs = pendingFirstPurgeMilestoneMs;
+      const milestoneKey = `${Math.round(milestoneMs / 60_000)}m`;
+      if (announce("first-purge", serverInstanceId, {
         firstPurgeDeadlineMs,
-        feedSummary: "Město spustilo skutečný odpočet k prvnímu vyřazení."
-      })) return true;
+        acknowledgementId: `first-purge:${elimination?.nextEliminationTick}:${milestoneKey}`,
+        feedEntryId: `server-milestone:first-purge:${elimination?.nextEliminationTick}:${milestoneKey}`,
+        feedSummary: `Očista se blíží. Serverový odpočet překročil hranici ${milestoneKey}.`
+      })) {
+        pendingFirstPurgeMilestoneMs = null;
+        return true;
+      }
+    }
 
-    const elimination = gameplaySlice.elimination || gameplaySlice.player?.elimination;
     const finalLockdown = gameplaySlice.player?.finalLockdown;
     const activePlayersRemaining = Number(elimination?.activePlayersRemaining);
     const status = String(finalLockdown?.status || "");
@@ -409,7 +434,7 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
   documentRef.addEventListener("empire:server-milestone-open", (event) => {
     const id = String(event?.detail?.milestoneId || "");
     if (!SERVER_MILESTONE_IDS.includes(id)) return;
-    open(id, payloads.get(id) || event.detail?.payload || {});
+    open(id, event.detail?.payload || payloads.get(id) || {});
   });
   documentRef.addEventListener("empire:gameplay-slice-rendered", (event) => {
     handleGameplaySlice(event?.detail?.gameplaySlice || {});

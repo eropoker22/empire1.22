@@ -33,13 +33,21 @@ describe("authoritative gameplay slice merge", () => {
   });
 
   it("rejects an older response even when it arrives after a newer Heat", () => {
-    const current = slice(51, 122);
-    const stale = slice(50, 2);
+    const current = slice(51, 122, {
+      server: { serverInstanceId: "instance:heat", stateVersion: 51, currentTick: 500 },
+      elimination: { enabled: true, nextEliminationTick: 800, ticksUntilNextElimination: 300 }
+    });
+    const stale = slice(50, 2, {
+      server: { serverInstanceId: "instance:heat", stateVersion: 50, currentTick: 480 },
+      elimination: { enabled: true, nextEliminationTick: 800, ticksUntilNextElimination: 320 }
+    });
 
     const result = mergeAuthoritativeGameplaySlice(current, stale);
 
     expect(result).toMatchObject({ accepted: false, reason: "stale-version" });
     expect(selectAuthoritativePlayerHeat(result.model)).toBe(122);
+    expect(result.model.server.currentTick).toBe(500);
+    expect(result.model.elimination.ticksUntilNextElimination).toBe(300);
   });
 
   it("retains Heat when a same-version partial response omits it", () => {

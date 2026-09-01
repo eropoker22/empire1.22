@@ -59,6 +59,8 @@ describe("server milestone cards", () => {
   });
 
   it("opens four standalone cards only when their own server condition arrives", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-21T12:00:00.000Z"));
     const feedSnapshots = [];
     document.addEventListener("empire:street-news-publish", (event) => feedSnapshots.push(event.detail.snapshot));
     const controller = mount();
@@ -79,13 +81,18 @@ describe("server milestone cards", () => {
     confirm.click();
     expect(modal.hidden).toBe(true);
     controller.handleGameplaySlice({
-      server: { serverInstanceId: "server:1", status: "running" },
+      server: {
+        serverInstanceId: "server:1",
+        status: "running",
+        currentTick: 100,
+        generatedAt: "2026-07-21T12:00:00.000Z"
+      },
       mode: { tickRateMs: 5000 },
       elimination: {
         enabled: true,
         eliminationsStopped: false,
-        firstEliminationTick: 2880,
-        nextEliminationTick: 2880,
+        firstEliminationTick: 2980,
+        nextEliminationTick: 2980,
         ticksUntilNextElimination: 2880,
         activePlayersRemaining: 20
       },
@@ -125,7 +132,12 @@ describe("server milestone cards", () => {
     expect(confirm.textContent).toBe("Zavřít výsledky");
 
     expect(feedSnapshots).toHaveLength(4);
-    expect(feedSnapshots.map((entry) => entry.id)).toEqual(SERVER_MILESTONE_IDS.map((id) => `server-milestone:${id}`));
+    expect(feedSnapshots.map((entry) => entry.id)).toEqual([
+      "server-milestone:welcome",
+      "server-milestone:first-purge:2980:240m",
+      "server-milestone:lockdown",
+      "server-milestone:winners"
+    ]);
     expect(feedSnapshots.every((entry) => entry.resultKind === "server-milestone" && entry.resultPayload.openable)).toBe(true);
   });
 
@@ -183,8 +195,10 @@ describe("server milestone cards", () => {
     expect(modal.dataset.serverMilestone).toBe("welcome");
   });
 
-  it("uses the canonical first-elimination countdown for the four-hour trigger", () => {
+  it("uses the canonical elimination countdown for the four-hour trigger on every purge cycle", () => {
+    const generatedAt = "2026-07-21T12:00:00.000Z";
     const base = {
+      server: { currentTick: 120, generatedAt },
       mode: { tickRateMs: 5000 },
       elimination: {
         enabled: true,
@@ -196,15 +210,66 @@ describe("server milestone cards", () => {
     expect(shouldOpenFirstPurgeCard({
       ...base,
       elimination: { ...base.elimination, ticksUntilNextElimination: 2880 }
-    })).toBe(true);
+    }, Date.parse(generatedAt))).toBe(true);
     expect(shouldOpenFirstPurgeCard({
       ...base,
+      server: { currentTick: 119, generatedAt },
       elimination: { ...base.elimination, ticksUntilNextElimination: 2881 }
-    })).toBe(false);
+    }, Date.parse(generatedAt))).toBe(false);
     expect(shouldOpenFirstPurgeCard({
       ...base,
-      elimination: { ...base.elimination, nextEliminationTick: 4000, ticksUntilNextElimination: 100 }
-    })).toBe(false);
+      server: { currentTick: 1120, generatedAt },
+      elimination: { ...base.elimination, nextEliminationTick: 4000, ticksUntilNextElimination: 2880 }
+    }, Date.parse(generatedAt))).toBe(true);
+  });
+
+  it("opens the red glass card at all five authoritative Očista milestones and publishes each to Street News", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-21T12:00:00.000Z"));
+    const feedSnapshots = [];
+    document.addEventListener("empire:street-news-publish", (event) => feedSnapshots.push(event.detail.snapshot));
+    const controller = mount();
+    const deadlineTick = 28_800;
+
+    controller.announce("welcome", "server:purge-milestones");
+    controller.close();
+
+    const remainingSeconds = [28_740, 14_400, 3_600, 900, 300];
+    for (const seconds of remainingSeconds) {
+      controller.handleGameplaySlice({
+        server: {
+          serverInstanceId: "server:purge-milestones",
+          status: "running",
+          currentTick: deadlineTick - seconds,
+          generatedAt: "2026-07-21T12:00:00.000Z"
+        },
+        mode: { tickRateMs: 1_000 },
+        elimination: {
+          enabled: true,
+          eliminationsStopped: false,
+          firstEliminationTick: deadlineTick,
+          nextEliminationTick: deadlineTick,
+          ticksUntilNextElimination: seconds,
+          activePlayersRemaining: 20
+        },
+        player: { instanceId: "server:purge-milestones" }
+      });
+      expect(controller.getActiveId(), `remaining seconds: ${seconds}`).toBe("first-purge");
+      expect(document.querySelector("[data-server-milestone-title]").textContent).toBe("Město začalo odpočítávat");
+      controller.close();
+      expect(document.querySelector("[data-server-milestone-modal]").hidden, `closed at: ${seconds}`).toBe(true);
+    }
+
+    const purgeFeed = feedSnapshots.filter((entry) => entry.resultPayload.milestoneId === "first-purge");
+    expect(purgeFeed).toHaveLength(5);
+    expect(purgeFeed.map((entry) => entry.id)).toEqual([
+      "server-milestone:first-purge:28800:479m",
+      "server-milestone:first-purge:28800:240m",
+      "server-milestone:first-purge:28800:60m",
+      "server-milestone:first-purge:28800:15m",
+      "server-milestone:first-purge:28800:5m"
+    ]);
+    expect(purgeFeed.every((entry) => entry.resultPayload.openable)).toBe(true);
   });
 
   it("renders live server-derived countdowns for the first purge and Final Lockdown", () => {
@@ -267,13 +332,13 @@ describe("server milestone cards", () => {
 
     expect(controller.getActiveId()).toBe("first-purge");
     expect(document.querySelector("[data-server-milestone-modal]").hidden).toBe(false);
-    expect(document.querySelector("[data-server-milestone-eyebrow]").textContent).toBe("PRVNÍ OČISTA");
+    expect(document.querySelector("[data-server-milestone-eyebrow]").textContent).toBe("OČISTA SE BLÍŽÍ");
   });
 
   it("creates stable openable payloads for every announcement", () => {
     const snapshots = SERVER_MILESTONE_IDS.map((id, index) => createServerMilestoneFeedSnapshot(id, 1000 + index));
     expect(snapshots.map((entry) => entry.resultPayload.milestoneId)).toEqual(SERVER_MILESTONE_IDS);
-    expect(snapshots[1].title).toBe("První Očista se blíží");
+    expect(snapshots[1].title).toBe("Očista se blíží");
     expect(snapshots[2].summary).toBe("Závěrečná fáze války právě začala.");
     expect(snapshots[3].title).toContain("vítěze");
   });

@@ -1,3 +1,9 @@
+import {
+  formatEliminationRemainingMs,
+  resolveAuthoritativeEliminationCountdown
+} from "./authoritativeEliminationCountdown.js";
+import { bindSharedCountdown } from "../ui/sharedCountdownTicker.js";
+
 export function getMapPhaseFromCityMinutes(cityMinutes) {
   const hour = Math.floor(Number(cityMinutes || 0) / 60) % 24;
   return hour >= 6 && hour < 18 ? "day" : "night";
@@ -79,6 +85,10 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
     maxPlayersPerServer
   } = resolveCityStatusPlayerView(playerOptions);
   const finalActive = Boolean(finalLockdown.enabled && (finalLockdown.active || finalLockdown.status === "active"));
+  const authoritativeCountdown = resolveAuthoritativeEliminationCountdown(
+    playerOptions.gameplaySlice,
+    playerOptions.nowMs ?? Date.now()
+  );
 
   if (finalActive) {
     const rank = Number(finalLockdown.currentPlayerRank);
@@ -108,14 +118,17 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
   const playersValue = Number.isFinite(activePlayers) && activePlayers > 0
     ? `${activePlayers}/${Math.max(1, Math.floor(maxPlayersPerServer || DEFAULT_MAX_PLAYERS_PER_SERVER))}`
     : `${DEFAULT_MAX_PLAYERS_PER_SERVER}/${DEFAULT_MAX_PLAYERS_PER_SERVER}`;
-  const nextTicks = Number(elimination.ticksUntilNextElimination);
   const secondaryValue = eliminationsStopped
     ? "zastaveno"
-    : elimination.isQuietHoursNow
-      ? formatQuietHoursResume(elimination)
-      : Number.isFinite(nextTicks)
-        ? `za ${formatTickDuration(nextTicks)}`
-        : "čeká se";
+    : authoritativeCountdown.state === "quiet_hours"
+      ? `za ${formatEliminationRemainingMs(authoritativeCountdown.remainingMs, { compact: true })}`
+      : authoritativeCountdown.state === "counting"
+        ? `za ${formatEliminationRemainingMs(authoritativeCountdown.remainingMs, { compact: true })}`
+        : authoritativeCountdown.state === "evaluating"
+          ? "vyhodnocuje se"
+          : elimination.isQuietHoursNow
+            ? formatQuietHoursResume(elimination)
+            : "čeká se";
 
   return {
     mode: "br",
@@ -277,6 +290,7 @@ export function createCityStatusBarRuntime(deps = {}) {
     }
 
     let clockTimerId = null;
+    let unbindAuthoritativeCountdown = null;
     let latestGameplaySlice = null;
     let hiddenAtMs = null;
     const shouldRunLocalTick = () => deps.shouldRunLocalTick?.() !== false;
@@ -353,6 +367,9 @@ export function createCityStatusBarRuntime(deps = {}) {
     };
 
     updatePhaseStatus();
+    unbindAuthoritativeCountdown = bindSharedCountdown(elements.dayPhase, () => Date.now(), {
+      render: updatePhaseStatus
+    });
     if (shouldRunLocalTick()) {
       deps.onInitialSync?.({
         root,
@@ -378,6 +395,8 @@ export function createCityStatusBarRuntime(deps = {}) {
 
     windowRef?.addEventListener?.("beforeunload", () => {
       stopClockTimer();
+      unbindAuthoritativeCountdown?.();
+      unbindAuthoritativeCountdown = null;
       root.ownerDocument?.removeEventListener?.("empire:gameplay-slice-rendered", handleGameplaySliceRendered);
       root.ownerDocument?.removeEventListener?.("empire:runtime-mode-changed", handleRuntimeModeChange);
       root.ownerDocument?.removeEventListener?.("visibilitychange", handleVisibilityChange);

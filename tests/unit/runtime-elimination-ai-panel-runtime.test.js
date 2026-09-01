@@ -535,7 +535,7 @@ describe("elimination purge panel runtime", () => {
 
     currentTime = 8 * 60 * 60 * 1000;
     intervalCallback();
-    expect(fixture.warning.hidden).toBe(true);
+    expect(fixture.warning.hidden).toBe(false);
     expect(fixture.timeNode.textContent).toBe("4h 00min 00s");
     expect(onCountdownElapsed).toHaveBeenCalledWith(expect.objectContaining({
       ownerId: 3,
@@ -582,29 +582,29 @@ describe("elimination purge panel runtime", () => {
     };
 
     bindEliminationCountdownWarning(fixture.root, createDemoDeps({
-      initialCountdownMs: 2 * 60 * 60 * 1000 + 1000,
+      initialCountdownMs: 4 * 60 * 60 * 1000 + 1000,
       resetCountdown: true,
       timerApi
     }));
 
     expect(fixture.warning.hidden).toBe(true);
-    expect(fixture.timeNode.textContent).toBe("2h 00min 01s");
+    expect(fixture.timeNode.textContent).toBe("4h 00min 01s");
 
     currentTime = 1000;
     intervalCallback();
     expect(fixture.warning.hidden).toBe(false);
-    expect(fixture.timeNode.textContent).toBe("2h 00min 00s");
+    expect(fixture.timeNode.textContent).toBe("4h 00min 00s");
 
     fixture.closeListeners.get("click")({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
     expect(fixture.warning.hidden).toBe(true);
 
-    currentTime = 60 * 60 * 1000 + 1000;
+    currentTime = 3 * 60 * 60 * 1000 + 1000;
     intervalCallback();
     expect(fixture.warning.hidden).toBe(false);
     expect(fixture.timeNode.textContent).toBe("1h 00min 00s");
 
     fixture.closeListeners.get("click")({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
-    currentTime = 60 * 60 * 1000 + 2_000;
+    currentTime = 3 * 60 * 60 * 1000 + 2_000;
     intervalCallback();
     expect(fixture.warning.hidden).toBe(true);
     expect(fixture.timeNode.textContent).toBe("59min 59s");
@@ -629,7 +629,7 @@ describe("elimination purge panel runtime", () => {
     };
 
     const firstBinding = bindEliminationCountdownWarning(firstFixture.root, createDemoDeps({
-      initialCountdownMs: 2 * 60 * 60 * 1000 + 1000,
+      initialCountdownMs: 4 * 60 * 60 * 1000 + 1000,
       resetCountdown: true,
       storage,
       timerApi
@@ -645,14 +645,14 @@ describe("elimination purge panel runtime", () => {
 
     const remountedFixture = createCountdownWarningFixture();
     bindEliminationCountdownWarning(remountedFixture.root, createDemoDeps({
-      initialCountdownMs: 2 * 60 * 60 * 1000 + 1000,
+      initialCountdownMs: 4 * 60 * 60 * 1000 + 1000,
       storage,
       timerApi
     }));
     expect(remountedFixture.warning.hidden).toBe(true);
     expect(storage.getItem).toHaveBeenCalled();
 
-    currentTime = 60 * 60 * 1000 + 1000;
+    currentTime = 3 * 60 * 60 * 1000 + 1000;
     intervalCallback();
     expect(remountedFixture.warning.hidden).toBe(false);
     expect(remountedFixture.timeNode.textContent).toBe("1h 00min 00s");

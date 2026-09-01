@@ -3,6 +3,10 @@ import {
   createFinalLockdownPanelViewModel
 } from "./eliminationPanelReadModelAdapter.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+import {
+  resolveAuthoritativeEliminationCountdown,
+  resolveEliminationWarningMilestone
+} from "./authoritativeEliminationCountdown.js";
 
 const PURGE_PANEL_SELECTOR = "[data-elimination-ai-panel]";
 const PURGE_PANEL_BODY_SELECTOR = "[data-elimination-ai-panel-body]";
@@ -22,15 +26,6 @@ const RESULT_POPUP_CLOSE_SELECTOR = "[data-elimination-result-popup-close]";
 const RESULT_POPUP_AVATAR_SELECTOR = "[data-elimination-result-popup-avatar]";
 const DEMO_ELIMINATION_COUNTDOWN_MS = 15 * 60 * 1000;
 const DEMO_ELIMINATION_RESET_COUNTDOWN_MS = 4 * 60 * 60 * 1000;
-const COUNTDOWN_WARNING_MILESTONES_MS = [
-  (7 * 60 + 59) * 60_000,
-  6 * 60 * 60_000,
-  2 * 60 * 60_000,
-  60 * 60_000,
-  15 * 60_000,
-  2 * 60_000
-];
-const COUNTDOWN_WARNING_INITIAL_CATCH_UP_MS = 60_000;
 let sharedMockCountdownEndsAt = null;
 let sharedLastResolvedCountdownEndsAt = null;
 let sharedLastEliminationResult = null;
@@ -147,6 +142,9 @@ function getAuthoritativeCountdownRemainingMs(deps, timerApi, mode = "eliminatio
     ? gameplaySlice.player?.finalLockdown
     : gameplaySlice.player?.elimination || gameplaySlice.elimination;
   if (!source || source.enabled !== true) return null;
+  if (normalizedMode !== "final_lockdown" && normalizedMode !== "final") {
+    return resolveAuthoritativeEliminationCountdown(gameplaySlice, getSafeNow(timerApi)).remainingMs;
+  }
   const tickRateMs = getFiniteNumber(gameplaySlice.mode?.tickRateMs);
   const currentTick = getFiniteNumber(gameplaySlice.server?.currentTick) || 0;
   const remainingTicks = normalizedMode === "final_lockdown" || normalizedMode === "final"
@@ -916,7 +914,7 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
       dismissedWarningMilestoneKey = readDismissedCountdownWarningMilestone(dismissalStorage);
       previousRemainingMs = null;
     }
-    const milestoneMs = resolveCountdownWarningMilestone(previousRemainingMs, remainingMs);
+    const milestoneMs = resolveEliminationWarningMilestone(previousRemainingMs, remainingMs);
     if (milestoneMs !== null && activeCountdownKey !== null) {
       activeWarningMilestoneKey = `${activeCountdownKey}:${milestoneMs}`;
     }
@@ -930,10 +928,6 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
       timeNode.textContent = formatCountdown(remainingMs);
     }
     previousRemainingMs = remainingMs;
-    if (remainingMs <= 0 && intervalId && typeof timerApi?.clearInterval === "function") {
-      timerApi.clearInterval(intervalId);
-      intervalId = null;
-    }
     return isVisible;
   };
 
@@ -976,17 +970,4 @@ export function bindEliminationCountdownWarning(root, deps = {}) {
       intervalId = null;
     }
   };
-}
-
-function resolveCountdownWarningMilestone(previousRemainingMs, remainingMs) {
-  if (remainingMs === null || remainingMs <= 0) return null;
-  if (previousRemainingMs === null) {
-    return COUNTDOWN_WARNING_MILESTONES_MS.find((milestoneMs) => (
-      remainingMs <= milestoneMs
-      && milestoneMs - remainingMs <= COUNTDOWN_WARNING_INITIAL_CATCH_UP_MS
-    )) ?? null;
-  }
-  return COUNTDOWN_WARNING_MILESTONES_MS.find((milestoneMs) => (
-    previousRemainingMs > milestoneMs && remainingMs <= milestoneMs
-  )) ?? null;
 }

@@ -111,19 +111,34 @@ describe("city status bar runtime", () => {
     expect(renderCityStatusBar({}, { clock: elements.clock })).toBe(false);
   });
 
-  it("maps elimination and final lockdown read models into Free BR bar labels", () => {
+  it("maps the authoritative elimination deadline and final lockdown into Free BR bar labels", () => {
+    const generatedAt = "2026-09-01T10:00:00.000Z";
     expect(buildCityStatusViewModel({ cityMinutes: 22 * 60 + 37 }, {
-      playerView: {
+      nowMs: Date.parse(generatedAt),
+      gameplaySlice: {
+        server: { currentTick: 100, generatedAt },
+        mode: { tickRateMs: 10_000 },
+        elimination: {
+          enabled: true,
+          eliminationsStopped: false,
+          nextEliminationTick: 460,
+          ticksUntilNextElimination: 360
+        },
+        player: {
         elimination: {
           activePlayersRemaining: 18,
           currentPlayerStatus: "danger",
-          ticksUntilNextElimination: 42
+            enabled: true,
+            eliminationsStopped: false,
+            nextEliminationTick: 460,
+            ticksUntilNextElimination: 360
+          }
         }
       }
     })).toMatchObject({
       clockLabel: "22:37",
       dayPhaseTitle: "Očista",
-      dayPhaseLabel: "za 42m",
+      dayPhaseLabel: "za 1h 00m",
       gamePhaseLabel: "DANGER",
       statusLabel: "18/20"
     });

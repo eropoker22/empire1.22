@@ -34,14 +34,20 @@ test("server lifecycle signals open four standalone milestone cards", async ({ p
 
   await confirmMilestone();
   await expect(modal).toBeHidden();
+  const purgeSnapshotGeneratedAt = new Date().toISOString();
   await dispatchSlice({
-    server: { serverInstanceId: "e2e:milestones", status: "running" },
+    server: {
+      serverInstanceId: "e2e:milestones",
+      status: "running",
+      currentTick: 100,
+      generatedAt: purgeSnapshotGeneratedAt
+    },
     mode: { tickRateMs: 5000 },
-    elimination: { enabled: true, eliminationsStopped: false, firstEliminationTick: 2880, nextEliminationTick: 2880, ticksUntilNextElimination: 2880, activePlayersRemaining: 20 },
+    elimination: { enabled: true, eliminationsStopped: false, firstEliminationTick: 2980, nextEliminationTick: 2980, ticksUntilNextElimination: 2880, activePlayersRemaining: 20 },
     player: { instanceId: "e2e:milestones" }
   });
   await expect(modal).toHaveAttribute("data-server-milestone", "first-purge");
-  await expect(modal).toContainText("První Očista se blíží");
+  await expect(modal).toContainText("Očista se blíží");
   await expect(modal.locator('[data-server-milestone-stat="first-purge-countdown"] strong'))
     .toHaveText(/\d+ h \d+ min \d+ s/u);
 
@@ -89,7 +95,7 @@ test("server lifecycle signals open four standalone milestone cards", async ({ p
   await expect(modal).toBeHidden();
 
   const purgeNews = page.locator('[data-building-action-feed] [data-building-action-result-kind="server-milestone"]')
-    .filter({ hasText: "První Očista se blíží" });
+    .filter({ hasText: "Očista se blíží" });
   await expect(purgeNews).toBeVisible();
   await purgeNews.click();
   await expect(modal).toBeVisible();
