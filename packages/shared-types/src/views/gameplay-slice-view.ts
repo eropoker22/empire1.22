@@ -52,16 +52,16 @@ export interface GameplaySliceView {
 
 export interface GameplayMapEffectView {
   effectId: string;
-  type: "spy" | "robbery" | "heist" | "attack" | "occupy";
-  source: "server-pending-operation" | "server-public-operation";
+  type: "spy" | "robbery" | "heist" | "attack" | "occupy" | "trap";
+  source: "server-pending-operation" | "server-public-operation" | "server-owned-trap";
   playerId: string;
   playerName?: string;
   playerColor?: string;
   districtId: string;
   startedAt: string;
-  expiresAt: string;
+  expiresAt?: string;
   startedAtTick: number;
-  expiresAtTick: number;
+  expiresAtTick?: number;
 }
 
 export interface GameplaySliceSpawnSelectionView {

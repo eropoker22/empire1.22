@@ -95,4 +95,22 @@ describe("server map presentation model", () => {
       expiresAt: now + 5_000
     });
   });
+
+  it("activates spy, robbery, trap, and occupy renderer state from one authoritative slice", () => {
+    const now = Date.now();
+    const model = createServerMapPresentationModel(createSlice({
+      mapEffects: [
+        { effectId: "spy:1", type: "spy", districtId: "district:1", playerId: "player:1", startedAt: now, expiresAt: now + 5_000 },
+        { effectId: "rob:1", type: "robbery", districtId: "district:1", playerId: "player:1", startedAt: now, expiresAt: now + 5_000 },
+        { effectId: "trap:1", type: "trap", districtId: "district:1", playerId: "player:1", startedAt: now },
+        { effectId: "occupy:1", type: "occupy", districtId: "district:1", playerId: "player:2", startedAt: now, expiresAt: now + 5_000 },
+        { effectId: "foreign-spy", type: "spy", districtId: "district:2", playerId: "player:2", startedAt: now, expiresAt: now + 5_000 }
+      ]
+    }), { now });
+
+    expect(model.effects.activeSpyDistrictIds).toEqual(new Set([1]));
+    expect(model.effects.activeRobberyDistrictIds).toEqual(new Set([1]));
+    expect(model.effects.activeTrapDistrictIds).toEqual(new Set([1]));
+    expect(model.effects.activeOccupyDistrictIds).toEqual(new Set([1]));
+  });
 });

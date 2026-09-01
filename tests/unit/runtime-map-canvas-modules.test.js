@@ -170,7 +170,7 @@ describe("map canvas extraction modules", () => {
     expect(drawnBadges).toEqual([[1, "player:1"], [2, "player:2"]]);
   });
 
-  it("keeps activity effects in a separate canvas and omits foreign player tags", () => {
+  it("draws spy, robbery, trap, and occupy effects in the separate animation canvas", () => {
     const baseContext = createFakeContext();
     const effectsContext = createFakeContext();
     const canvas = { width: 120, height: 80, getContext: () => baseContext };
@@ -185,12 +185,20 @@ describe("map canvas extraction modules", () => {
       drawDistrictPolygon: drawFakeDistrictPolygon,
       getLaunchPlayerColor: () => "#67e1ff",
       drawSpyDistrictAnimation: () => effectsContext.calls.push(["spy"]),
+      drawRobberyDistrictAnimation: () => effectsContext.calls.push(["robbery"]),
+      drawTrapDistrictAnimation: () => effectsContext.calls.push(["trap"]),
+      drawOccupyDistrictAnimation: () => effectsContext.calls.push(["occupy"]),
       currentPlayerId: 1
     });
     const state = {
       mapVisibilityMode: "all",
       activeSpyDistrictIds: new Set([district.id]),
-      activeSpyMarkersByDistrictId: new Map([[district.id, {}]])
+      activeSpyMarkersByDistrictId: new Map([[district.id, {}]]),
+      activeRobberyDistrictIds: new Set([district.id]),
+      activeRobberyMarkersByDistrictId: new Map([[district.id, {}]]),
+      activeTrapDistrictIds: new Set([district.id]),
+      activeOccupyDistrictIds: new Set([district.id]),
+      activeOccupyMarkersByDistrictId: new Map([[district.id, { playerId: "player:1" }]])
     };
 
     const geometry = renderer.renderDistrictCanvas(canvas, "day", state, null, {
@@ -199,7 +207,12 @@ describe("map canvas extraction modules", () => {
     renderer.renderDistrictEffectsCanvas(effectsCanvas, "day", state, geometry);
 
     expect(baseContext.calls.some(([name]) => name === "spy")).toBe(false);
-    expect(effectsContext.calls.some(([name]) => name === "spy")).toBe(true);
+    expect(effectsContext.calls.map(([name]) => name)).toEqual(expect.arrayContaining([
+      "spy",
+      "robbery",
+      "trap",
+      "occupy"
+    ]));
     expect(baseContext.calls.some(([name, text]) => name === "fillText" && /^P\\d+$/u.test(String(text)))).toBe(false);
   });
 

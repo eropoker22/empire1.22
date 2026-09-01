@@ -325,7 +325,7 @@ function visibleDistrictAction(page, districtId, actionId) {
 async function clickAndReadTypedSubmit(page, commandType, button, options = {}) {
   await expect(button).toBeVisible();
   await expect(button).toBeEnabled();
-  let delayedResponse = false;
+  let delayedRequest = false;
   let submitRequestCount = 0;
   let requestObservedAt = null;
   const requestListener = (request) => {
@@ -348,14 +348,13 @@ async function clickAndReadTypedSubmit(page, commandType, button, options = {}) 
     } catch {
       payload = null;
     }
-    if (delayedResponse || payload?.command?.type !== commandType) {
+    if (delayedRequest || payload?.command?.type !== commandType) {
       await route.continue();
       return;
     }
-    delayedResponse = true;
-    const response = await route.fetch();
+    delayedRequest = true;
     await new Promise((resolve) => setTimeout(resolve, 400));
-    await route.fulfill({ response });
+    await route.continue();
   };
   if (options.verifyImmediateFeedback) {
     await page.route("**/api/gameplay-slice/submit", delayedRoute);

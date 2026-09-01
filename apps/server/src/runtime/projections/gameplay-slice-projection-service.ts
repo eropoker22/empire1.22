@@ -106,13 +106,39 @@ export const createGameplaySliceProjection = (
     ownedDistricts,
     mapEffects: [
       ...createPendingConflictMapEffects(runtime, playerId),
-      ...createPublicConflictMapEffects(runtime)
+      ...createPublicConflictMapEffects(runtime),
+      ...createOwnedTrapMapEffects(runtime, playerId)
     ],
     reports: createConflictReportViews(runtime.state, {
       playerId,
       limit: runtime.config.balance.conflict?.reportsLimit ?? 6
     })
   };
+};
+
+const createOwnedTrapMapEffects = (
+  runtime: ServerInstanceRuntime,
+  playerId: string
+): GameplayMapEffectView[] => {
+  const currentTick = runtime.state.root.tick;
+  const tickRateMs = runtime.config.tickRateMs;
+  const nowMs = runtime.clock.now().getTime();
+
+  return Object.values(runtime.state.trapsById ?? {}).flatMap((trap) => {
+    if (trap.ownerPlayerId !== playerId || trap.status !== "active") return [];
+    const startedAtTick = Math.max(0, Number(trap.placedAtTick ?? currentTick));
+    return [{
+      effectId: `owned-trap:${trap.id}:${trap.version}`,
+      type: "trap",
+      source: "server-owned-trap",
+      playerId,
+      districtId: trap.districtId,
+      startedAt: new Date(
+        nowMs - Math.max(0, currentTick - startedAtTick) * tickRateMs
+      ).toISOString(),
+      startedAtTick
+    } satisfies GameplayMapEffectView];
+  });
 };
 
 const createPendingConflictMapEffects = (

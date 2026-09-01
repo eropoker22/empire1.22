@@ -5,6 +5,7 @@ import { createFixedClock } from "../../apps/server/src/runtime/scheduling/clock
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import {
   createAttackDistrictCommandFixture,
+  createPlaceTrapCommandFixture,
   createRobDistrictCommandFixture,
   createSpyDistrictCommandFixture
 } from "../fixtures/command-fixtures";
@@ -19,6 +20,54 @@ import {
 import { advanceStateToTick } from "../fixtures/timed-operation-fixtures";
 
 describe("gameplay slice read model contract", () => {
+  it("projects an active trap animation only to its owner", async () => {
+    const server = createServerApp({
+      clock: createFixedClock("2026-05-21T00:00:00.000Z")
+    });
+    const instanceId = "instance:read-model:trap-effect";
+    const runtime = server.instanceManager.createInstance(instanceId, "free");
+    runtime.state = createCombatStateFixture(instanceId);
+    server.instanceManager.startInstance(instanceId);
+
+    const ownerSession = await createDevGameplaySession(server, {
+      serverInstanceId: instanceId,
+      playerId: "player:2",
+      districtId: "district:2"
+    });
+    const otherSession = await createDevGameplaySession(server, {
+      serverInstanceId: instanceId,
+      playerId: "player:1",
+      districtId: "district:1"
+    });
+    await server.gameplaySliceTransport.load(ownerSession.loadRequest);
+    const placed = await server.gameplaySliceTransport.submit({
+      sessionToken: ownerSession.sessionToken,
+      focusDistrictId: "district:2",
+      command: createPlaceTrapCommandFixture({
+        id: "command:read-model:trap",
+        serverInstanceId: instanceId,
+        playerId: "player:2",
+        payload: { districtId: "district:2" }
+      })
+    });
+    expect(placed.accepted, placed.errors[0]?.code).toBe(true);
+
+    const ownerView = expectReadModel(placed);
+    expect(ownerView.mapEffects).toContainEqual(expect.objectContaining({
+      effectId: "owned-trap:trap:district:2:1",
+      type: "trap",
+      source: "server-owned-trap",
+      playerId: "player:2",
+      districtId: "district:2",
+      startedAtTick: runtime.state.trapsById["trap:district:2"]!.placedAtTick
+    }));
+    const otherView = expectReadModel(await server.gameplaySliceTransport.load(otherSession.loadRequest));
+    expect(otherView.mapEffects).not.toContainEqual(expect.objectContaining({
+      type: "trap",
+      districtId: "district:2"
+    }));
+  });
+
   it("projects a fresh joined player without exposing core internals", async () => {
     const server = createServerApp({
       clock: createFixedClock("2026-05-21T00:00:00.000Z")
