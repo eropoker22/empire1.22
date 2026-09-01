@@ -402,7 +402,11 @@ async function attachOpenBuildingScreenshot({
     stableTargetStyleProperties: surfaceName === "district"
       ? {
           "--district-owner-avatar-opacity": "0",
-          "--district-owner-avatar-url": "none"
+          "--district-owner-avatar-url": "none",
+          // The live translucent background is already covered by the exact
+          // computed-style signature above. Give both isolated screenshots the
+          // same opaque base so unrelated map pixels cannot bleed through it.
+          "background-color": "rgb(4, 11, 20)"
         }
       : {},
     target

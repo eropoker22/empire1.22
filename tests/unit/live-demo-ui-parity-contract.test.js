@@ -47,6 +47,7 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain(
       '"--district-owner-avatar-opacity": "0",\n          "--district-owner-avatar-url": "none"'
     );
+    expect(paritySpec).toContain('"background-color": "rgb(4, 11, 20)"');
     expect(paritySpec).toContain(
       'stableDescendantDevicePixelAlignmentSelector: surfaceName === "district"'
     );
