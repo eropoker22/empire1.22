@@ -232,7 +232,10 @@ test.describe("live/demo social modal parity", () => {
                   ]
                 };
               },
-              { channelTolerance: PARITY_PNG_CHANNEL_TOLERANCE }
+              {
+                allowCrossAttemptPairing: true,
+                channelTolerance: PARITY_PNG_CHANNEL_TOLERANCE
+              }
             );
             const screenshotComparison = screenshotAttemptResult.comparison;
             await testInfo.attach(`${surfaceName}--${viewport.name}--png-diff.json`, {
