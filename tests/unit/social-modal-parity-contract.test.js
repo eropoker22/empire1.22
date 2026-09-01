@@ -66,6 +66,12 @@ describe("social modal parity coverage contract", () => {
       }
     ]);
     expect(socialModalParitySurfaces.alliance.triggerSelector).toBe("[data-alliance-popup-open]");
+    expect(socialModalParitySurfaces.alliance).toMatchObject({
+      stableAnimationSelector: ".alliance-modal__content,#alliance-modal",
+      stableBackdropColor: "rgb(2, 6, 12)",
+      stableBackdropFilterSelector: ".alliance-modal__content,#alliance-modal",
+      stableTargetPaintOrigin: true
+    });
     expect(socialModalParitySurfaces.bounty.triggerSelector).toBe("[data-bounty-open-trigger]");
     expect(socialModalParitySurfaces.bounty.roundedCompositeSelector).toBe(
       "#bounty-modal-submit"
@@ -231,6 +237,9 @@ describe("social modal parity coverage contract", () => {
     );
     expect(helperSource).toContain(
       'definition.stableTargetDevicePixelAlignmentMode || "relative-offset"'
+    );
+    expect(helperSource).toContain(
+      "stableTargetPaintOrigin: definition.stableTargetPaintOrigin === true"
     );
     expect(helperSource).toContain(
       "requestAnimationFrame(() => requestAnimationFrame(resolve));"

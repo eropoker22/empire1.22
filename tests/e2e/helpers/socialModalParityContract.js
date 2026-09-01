@@ -91,6 +91,10 @@ export const socialModalParitySurfaces = Object.freeze({
       "tone"
     ]),
     shellSelector: "#alliance-modal",
+    stableAnimationSelector: ".alliance-modal__content,#alliance-modal",
+    stableBackdropColor: "rgb(2, 6, 12)",
+    stableBackdropFilterSelector: ".alliance-modal__content,#alliance-modal",
+    stableTargetPaintOrigin: true,
     targetSelector: ".alliance-modal__content",
     triggerSelector: "[data-alliance-popup-open]"
   }),
@@ -693,6 +697,7 @@ export async function captureSocialModalParityScreenshot(page, {
       definition.stableTargetDevicePixelAlignment === true,
     stableTargetDevicePixelAlignmentMode:
       definition.stableTargetDevicePixelAlignmentMode || "relative-offset",
+    stableTargetPaintOrigin: definition.stableTargetPaintOrigin === true,
     target
   });
 }

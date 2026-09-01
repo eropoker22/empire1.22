@@ -95,6 +95,9 @@ describe("live/demo UI parity source contract", () => {
       'stableTargetDevicePixelAlignmentMode: surfaceName === "district"'
     );
     expect(paritySpec).toContain('? "position-offset"');
+    expect(paritySpec).toContain(
+      'stableTargetPaintOrigin: surfaceName === "district"'
+    );
     expect(parityCapture).toContain(
       'stableTargetDevicePixelAlignmentMode = "relative-offset"'
     );
