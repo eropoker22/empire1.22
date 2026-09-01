@@ -370,6 +370,8 @@ async function attachOpenBuildingScreenshot({
     path: screenshotPath,
     roundedCompositeSelector: [
       surfaceName === "district" ? ".district-modal-hero--district" : "",
+      surfaceName === "district" ? ".district-popup-buildings__chip--button" : "",
+      surfaceName === "district" ? ".district-popup-action" : "",
       surfaceName === "pharmacy" ? ".pharmacy-slot__metric" : "",
       surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-btn" : "",
       surfaceName === "pharmacy" ? ".pharmacy-slot__quantity-value" : "",
@@ -397,7 +399,6 @@ async function attachOpenBuildingScreenshot({
     stableTargetDevicePixelAlignmentMode: surfaceName === "district"
       ? "position-offset"
       : "translate",
-    stableTargetPaintOrigin: surfaceName === "district",
     stableTargetStyleProperties: surfaceName === "district"
       ? {
           "--district-owner-avatar-opacity": "0",
@@ -511,7 +512,8 @@ async function attachOpenBuildingScreenshotPair({
   });
   expect(
     comparison,
-    `${buildingTypeId} ${panelName} ${viewportName} PNG channel parity`
+    `${buildingTypeId} ${panelName} ${viewportName} PNG channel parity\n`
+      + JSON.stringify(comparison, null, 2)
   ).toMatchObject({
     dimensionsEqual: true,
     matches: true,

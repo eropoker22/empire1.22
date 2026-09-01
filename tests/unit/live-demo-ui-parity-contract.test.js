@@ -55,6 +55,12 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain(
       'roundedCompositeRasterFringePx: surfaceName === "district" ? 4 : 2'
     );
+    expect(paritySpec).toContain(
+      'surfaceName === "district" ? ".district-popup-buildings__chip--button" : ""'
+    );
+    expect(paritySpec).toContain(
+      'surfaceName === "district" ? ".district-popup-action" : ""'
+    );
     expect(paritySpec).toContain('if (surfaceName === "district") {');
     expect(paritySpec).toContain(
       "expectedBuildingTypeIds: await readVisibleDistrictBuildingTypeIds(serverPage)"
@@ -95,9 +101,6 @@ describe("live/demo UI parity source contract", () => {
       'stableTargetDevicePixelAlignmentMode: surfaceName === "district"'
     );
     expect(paritySpec).toContain('? "position-offset"');
-    expect(paritySpec).toContain(
-      'stableTargetPaintOrigin: surfaceName === "district"'
-    );
     expect(parityCapture).toContain(
       'stableTargetDevicePixelAlignmentMode = "relative-offset"'
     );
