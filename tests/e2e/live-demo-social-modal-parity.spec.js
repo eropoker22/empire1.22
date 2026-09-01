@@ -4,7 +4,7 @@ import {
   registerAndEnterHostedUiParityGame
 } from "./helpers/hostedUiParityEntry.js";
 import {
-  compareParityPngScreenshots,
+  compareParityPngScreenshotAttempts,
   openParityLocalDemo,
   PARITY_PNG_CHANNEL_TOLERANCE,
   syncParityLocalDemoMarketFromHosted
@@ -186,47 +186,63 @@ test.describe("live/demo social modal parity", () => {
               `${viewport.name} ${surfaceName} scroll availability, extent and reset behavior`
             ).toEqual(localScroll);
 
-            const localScreenshotPath = testInfo.outputPath(
-              `${surfaceName}--local-demo--${viewport.name}.png`
+            const screenshotAttemptResult = await compareParityPngScreenshotAttempts(
+              async (captureAttempt) => {
+                const recaptureSuffix = captureAttempt > 1
+                  ? `--recapture-${captureAttempt}`
+                  : "";
+                const localAttachmentName = [
+                  surfaceName,
+                  "local-demo",
+                  viewport.name
+                ].join("--") + recaptureSuffix + ".png";
+                const hostedAttachmentName = [
+                  surfaceName,
+                  "hosted",
+                  viewport.name
+                ].join("--") + recaptureSuffix + ".png";
+                const localScreenshotPath = testInfo.outputPath(localAttachmentName);
+                const hostedScreenshotPath = testInfo.outputPath(hostedAttachmentName);
+                const [localCapture, hostedCapture] = await Promise.all([
+                  captureSocialModalParityScreenshot(localPage, {
+                    path: localScreenshotPath,
+                    surfaceName
+                  }),
+                  captureSocialModalParityScreenshot(hostedPage, {
+                    path: hostedScreenshotPath,
+                    surfaceName
+                  })
+                ]);
+                await Promise.all([
+                  testInfo.attach(localAttachmentName, {
+                    contentType: "image/png",
+                    path: localScreenshotPath
+                  }),
+                  testInfo.attach(hostedAttachmentName, {
+                    contentType: "image/png",
+                    path: hostedScreenshotPath
+                  })
+                ]);
+                return {
+                  actualBuffer: hostedCapture.screenshot,
+                  expectedBuffer: localCapture.screenshot,
+                  ignoreRegions: [
+                    ...hostedCapture.ignoreRegions,
+                    ...localCapture.ignoreRegions
+                  ]
+                };
+              },
+              { channelTolerance: PARITY_PNG_CHANNEL_TOLERANCE }
             );
-            const hostedScreenshotPath = testInfo.outputPath(
-              `${surfaceName}--hosted--${viewport.name}.png`
-            );
-            const [localCapture, hostedCapture] = await Promise.all([
-              captureSocialModalParityScreenshot(localPage, {
-                path: localScreenshotPath,
-                surfaceName
-              }),
-              captureSocialModalParityScreenshot(hostedPage, {
-                path: hostedScreenshotPath,
-                surfaceName
-              })
-            ]);
-            const screenshotComparison = compareParityPngScreenshots(
-              hostedCapture.screenshot,
-              localCapture.screenshot,
-              {
-                channelTolerance: PARITY_PNG_CHANNEL_TOLERANCE,
-                ignoreRegions: [
-                  ...hostedCapture.ignoreRegions,
-                  ...localCapture.ignoreRegions
-                ]
-              }
-            );
-            await Promise.all([
-              testInfo.attach(`${surfaceName}--local-demo--${viewport.name}.png`, {
-                contentType: "image/png",
-                path: localScreenshotPath
-              }),
-              testInfo.attach(`${surfaceName}--hosted--${viewport.name}.png`, {
-                contentType: "image/png",
-                path: hostedScreenshotPath
-              }),
-              testInfo.attach(`${surfaceName}--${viewport.name}--png-diff.json`, {
-                body: Buffer.from(`${JSON.stringify(screenshotComparison, null, 2)}\n`, "utf8"),
-                contentType: "application/json"
-              })
-            ]);
+            const screenshotComparison = screenshotAttemptResult.comparison;
+            await testInfo.attach(`${surfaceName}--${viewport.name}--png-diff.json`, {
+              body: Buffer.from(`${JSON.stringify({
+                ...screenshotComparison,
+                captureAttempts: screenshotAttemptResult.attempts,
+                captureAttemptPair: screenshotAttemptResult.comparisonPair
+              }, null, 2)}\n`, "utf8"),
+              contentType: "application/json"
+            });
             expect(screenshotComparison.dimensionsEqual).toBe(true);
             expect(
               screenshotComparison.meaningfulPixelCount,

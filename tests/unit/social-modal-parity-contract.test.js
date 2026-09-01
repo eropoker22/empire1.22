@@ -171,6 +171,8 @@ describe("social modal parity coverage contract", () => {
     expect(specSource).toContain("registerAndEnterHostedUiParityGame");
     expect(specSource).toContain("openSocialModalParitySurface");
     expect(specSource).toContain("meaningfulPixelCount");
+    expect(specSource).toContain("compareParityPngScreenshotAttempts");
+    expect(specSource).toContain("captureAttempts: screenshotAttemptResult.attempts");
     expect(specSource).toContain("exerciseSocialModalParityScroll");
     expect(specSource).toContain("getSocialModalParitySignature");
     expect(specSource).toContain("toBe(0)");
