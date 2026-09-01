@@ -25,7 +25,7 @@ const renderPoliceBadge = (player: PlayerViewModel): string => {
   if (!police) return "";
 
   const pending = police.pendingRaidLabel ? ` · Čeká: ${escapeHtml(police.pendingRaidLabel)}` : "";
-  return ` · <span class="police-badge" data-raid-status="${escapeAttribute(police.raidConsequenceStatus)}" title="${escapeAttribute(`Hledanost distriktu ${police.selectedDistrictHeatLabel} · Ochrana ${police.protectionLabel}`)}">Hledanost ${escapeHtml(police.heatLabel)} · Úroveň ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
+  return ` · <span class="police-badge" data-raid-status="${escapeAttribute(police.raidConsequenceStatus)}" title="${escapeAttribute(`Heat distriktu ${police.selectedDistrictHeatLabel} · Ochrana ${police.protectionLabel}`)}">Heat ${escapeHtml(police.heatLabel)} · Hledanost ${escapeHtml(police.wantedLevelLabel)}${pending}</span>`;
 };
 
 const renderDayNightBadge = (player: PlayerViewModel): string => {

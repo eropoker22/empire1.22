@@ -115,6 +115,25 @@ describe("runtime UI binder factories", () => {
     expect(gangHeat.textContent).toBe("0");
   });
 
+  it("keeps the gang Heat unavailable until authoritative hydration", () => {
+    const gangHeat = { textContent: "—" };
+    const root = {
+      ownerDocument: null,
+      querySelector: vi.fn((selector) => selector === "[data-gang-heat]" ? gangHeat : null),
+      style: { setProperty: vi.fn() }
+    };
+    const runtime = createRegisteredPlayerStateRuntime({
+      factionCatalog: {},
+      gangHeatSelector: "[data-gang-heat]",
+      getResolvedGangState: () => ({ heat: null, available: false }),
+      renderPopulationState: vi.fn()
+    });
+
+    runtime.bindRegisteredPlayerState(root);
+
+    expect(gangHeat.textContent).toBe("—");
+  });
+
   it("hydrates faction and authoritative district count when the server player arrives later", () => {
     const documentTarget = eventTarget();
     const windowTarget = eventTarget();

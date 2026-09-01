@@ -220,6 +220,23 @@ const hostedSuites = Object.freeze([
     specs: Object.freeze(["tests/e2e/live-hosted-multiplayer-core.spec.js"])
   }),
   Object.freeze({
+    name: "immediate-action-ux",
+    gameplayInteraction: "visible-browser-ui-with-delayed-submit-response",
+    scenario: "multiplayer-core",
+    playerCount: 3,
+    identityPrefix: "HostedImmediate",
+    specs: Object.freeze(["tests/e2e/manual-hosted-district-actions-ui.spec.js"]),
+    playwrightGroups: Object.freeze([
+      Object.freeze({
+        name: "immediate-action-start",
+        environment: Object.freeze({
+          EMPIRE_IMMEDIATE_ACTION_E2E: "1"
+        }),
+        grep: "renders submitting immediately and accepted pending without polling"
+      })
+    ])
+  }),
+  Object.freeze({
     name: "multiplayer-visible-actions",
     gameplayInteraction: "mixed-visible-browser-ui-and-parity-observation",
     scenario: "multiplayer-core",

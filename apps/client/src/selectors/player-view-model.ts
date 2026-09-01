@@ -1,6 +1,7 @@
 import type { PlayerEconomyView, PlayerView } from "@empire/shared-types";
 import type { DayNightReadModel } from "@empire/shared-types";
 import { formatHeatLabel } from "./district-panel-view-model-formatters";
+import { selectAuthoritativePlayerHeat } from "../../../../packages/shared-types/src/views/authoritative-gameplay-slice.js";
 
 /**
  * Responsibility: Maps server-fed player projections into UI-safe view model fields.
@@ -71,9 +72,10 @@ const createPoliceViewModel = (view: PlayerView): PoliceViewModel | null => {
   const raidConsequenceLabel = raidConsequenceChangePct >= 0
     ? `-${raidConsequenceChangePct} % následky raidu`
     : `+${Math.abs(raidConsequenceChangePct)} % následky raidu`;
+  const playerHeat = selectAuthoritativePlayerHeat(view);
 
   return {
-    heatLabel: formatHeatLabel(Math.max(0, Number(police.heat || 0))),
+    heatLabel: playerHeat === null ? "—" : formatHeatLabel(playerHeat),
     wantedLevelLabel: police.wantedLevelLabel || police.wantedLabel || `${police.wantedLevel} / 5`,
     pendingRaidLabel: police.pendingRaid
       ? `${police.pendingRaid.severity.toUpperCase()} raid`

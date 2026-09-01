@@ -18,6 +18,7 @@ import {
   formatDistrictBuildingMoney
 } from "./formatters.js";
 import { createServerBuildingActionDefaultPayload } from "./buildingSpecialActionServerDefaults.js";
+import { selectAuthoritativePlayerHeat } from "../../../../packages/shared-types/src/views/authoritative-gameplay-slice.js";
 
 const normalizeName = (value) => String(value || "")
   .normalize("NFD")
@@ -1085,13 +1086,7 @@ const createServerBuildingDetailView = ({
     },
     buildingBackgroundPath: localBuilding?.imagePath || null,
     economyState: createServerEconomyState(readModel),
-    playerHeat: Math.max(0, Number(
-      readModel?.player?.police?.heat
-      ?? readModel?.police?.heat
-      ?? readModel?.player?.heat
-      ?? readModel?.player?.policeHeat
-      ?? 0
-    )),
+    playerHeat: selectAuthoritativePlayerHeat(readModel) ?? 0,
     actionProfiles,
     phaseState
   });

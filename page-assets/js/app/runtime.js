@@ -54,6 +54,8 @@ import {
   validateAttackSelection
 } from "../../../packages/game-core/src/legacy-page/combat-preview-rules.js";
 import { formatDurationLabel } from "../../../packages/game-core/src/legacy-page/production-preview-rules.js";
+import { selectAuthoritativePlayerHeat } from "../../../packages/shared-types/src/views/authoritative-gameplay-slice.js";
+import { beginActionSubmission } from "./runtime/actionSubmissionState.js";
 import {
   LEGACY_SPY_MISSION_SPY_COUNT,
   applySpyIntelOutcome,
@@ -848,8 +850,7 @@ import {
   submitServerCityEventCommand as submitCanonicalServerCityEventCommand,
   submitServerEmergencyRecoveryCommand as submitCanonicalServerEmergencyRecoveryCommand,
   submitServerGameplayCommand as submitCanonicalServerGameplayCommand,
-  selectServerDistrict,
-  syncServerGameplaySliceResponse
+  selectServerDistrict
 } from "./runtime/serverGameplaySource.js";
 import {
   createServerDistrictSelectionCoordinator,
@@ -1534,6 +1535,13 @@ const STALE_CONFLICT_ERROR_CODES = new Set([
 const hasStaleConflictError = (response) => Array.isArray(response?.errors)
   && response.errors.some((error) => STALE_CONFLICT_ERROR_CODES.has(String(error?.code || "")));
 
+const finishImmediateActionSubmission = (submission, response, pendingLabel) => {
+  if (!submission) return;
+  if (response?.accepted) submission.accepted(pendingLabel);
+  else if (response?.pending) submission.ambiguous();
+  else submission.rejected();
+};
+
 export async function submitServerDistrictActionCommand({ type, payload, focusDistrictId, commandId } = {}) {
   return submitCanonicalServerGameplayCommand({ type, payload, focusDistrictId, commandId });
 }
@@ -1583,11 +1591,6 @@ function setGameplaySliceSnapshotToken(serverInstanceId, playerId, token) {
   } catch (_error) {
     return false;
   }
-}
-
-function syncGameplaySliceResponse(response) {
-  if (response?.readModel) latestGameplaySliceReadModel = response.readModel;
-  return syncServerGameplaySliceResponse(response);
 }
 
 async function submitServerMarketCommand({
@@ -2992,7 +2995,7 @@ function getResolvedGangState() {
     ? latestGameplaySliceReadModel?.player || null
     : null;
   if (serverPlayer?.economy) {
-    const police = latestGameplaySliceReadModel?.police || serverPlayer.police || null;
+    const playerHeat = selectAuthoritativePlayerHeat(serverPlayer);
     return {
       population: clamp(
         Number(resolveServerPlayerPopulation(serverPlayer) ?? 0),
@@ -3000,16 +3003,13 @@ function getResolvedGangState() {
         9999
       ),
       influence: Math.max(0, Number(serverPlayer.economy.influence ?? 0)),
-      // The top resource strip represents the heat carried by the gang and
-      // every district it controls.  Wanted level still uses playerHeat on
-      // the server; totalHeat is only the truthful resource-strip aggregate.
-      heat: clamp(Number(police?.totalHeat ?? police?.heat ?? police?.playerHeat ?? 0), 0, 9999),
+      heat: playerHeat === null ? null : clamp(playerHeat, 0, 9999),
       policeRaidProtectionUntil: 0,
       autoPoliceNextActionAt: 0,
       heatJournal: [],
       dirtyHeatReductionTimestamps: [],
       lastHeatDecayAt: serverPlayer.serverTime || new Date().toISOString(),
-      available: true
+      available: playerHeat !== null
     };
   }
   if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) {
@@ -9455,6 +9455,13 @@ async function collectDistrictBuildingDetailOutputOnce(root, shell) {
         return;
       }
     }
+    setBuildingActionFeedback(
+      root,
+      "event",
+      context.displayName || context.buildingName,
+      "Spouštím výběr…",
+      context.serverDistrictId || ""
+    );
     const result = collectActionId
       ? await submitServerBuildingActionCommand({
           context,
@@ -9617,6 +9624,13 @@ async function upgradeDistrictBuildingDetail(root, shell) {
   }
 
   if (isServerAuthoritativeGameplayRuntimeReady()) {
+    setBuildingActionFeedback(
+      root,
+      "event",
+      `${context.buildingName}: upgrade`,
+      "Spouštím upgrade…",
+      `L${mechanics.level} → L${mechanics.nextLevel}`
+    );
     const response = await submitServerBuildingUpgradeCommand({ context, mechanics });
     if (!response?.accepted) {
       const message = response?.errors?.map((error) => error?.message || error?.code).filter(Boolean).join(" · ")
@@ -9792,6 +9806,13 @@ async function confirmDistrictBuildingDetailUpgrade(root, shell) {
     if (!confirmed) {
       return;
     }
+    setBuildingActionFeedback(
+      root,
+      "event",
+      context.displayName || context.buildingName,
+      "Spouštím upgrade…",
+      `L${mechanics.level} → L${mechanics.nextLevel}`
+    );
     const result = await submitServerProductionBuildingUpgrade({
       districtId: context.serverDistrictId,
       buildingId: context.serverBuildingId
@@ -10467,6 +10488,13 @@ async function confirmAndRunDistrictBuildingDetailAction(root, shell, request) {
     if (!confirmed) {
       return false;
     }
+    setBuildingActionFeedback(
+      root,
+      "event",
+      action.title,
+      "Spouštím akci…",
+      context.displayName || context.buildingName
+    );
     const result = await submitServerBuildingActionCommand({
       context,
       actionProfile: {},
@@ -15042,8 +15070,11 @@ function bindDistrictCanvas(root) {
           || heistView?.styles?.find((entry) => entry.enabled !== false)
           || heistView?.styles?.find((entry) => entry.style === "balanced")
           || heistView?.styles?.[0];
-        actionButton.disabled = true;
-        actionButton.dataset.serverCommandPending = "true";
+        const submission = beginActionSubmission(actionButton, {
+          actionType: "heist-district",
+          submittingLabel: "Spouštím heist…"
+        });
+        if (!submission) return;
         void submitServerDistrictActionCommand({
           type: "heist-district",
           payload: {
@@ -15061,15 +15092,12 @@ function bindDistrictCanvas(root) {
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
+          finishImmediateActionSubmission(submission, response, "Heist probíhá");
           if (response?.accepted) {
             closePopup();
           } else {
             if (hasStaleConflictError(response)) closePopup();
             showWarning(response?.errors?.[0]?.message || "Server akci odmítl.");
-          }
-          if (!response?.pending) {
-            actionButton.disabled = false;
-            delete actionButton.dataset.serverCommandPending;
           }
         });
         return;
@@ -15382,7 +15410,11 @@ function bindDistrictCanvas(root) {
           showWarning(attackView?.disabledReason || "Server neposlal platný cíl a trasu pro útok.");
           return;
         }
-        attackConfirmFinalButton.disabled = true;
+        const submission = beginActionSubmission(attackConfirmFinalButton, {
+          actionType: "attack-district",
+          submittingLabel: "Spouštím útok…"
+        });
+        if (!submission) return;
         void submitServerDistrictActionCommand({
           type: "attack-district",
           payload: {
@@ -15392,6 +15424,7 @@ function bindDistrictCanvas(root) {
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
+          finishImmediateActionSubmission(submission, response, "Útok probíhá");
           if (response?.accepted) {
             closeAttackConfirmPopup();
             closeAttackSetupPopup();
@@ -15400,7 +15433,6 @@ function bindDistrictCanvas(root) {
             if (hasStaleConflictError(response)) closeAttackConfirmPopup();
             showWarning(response?.errors?.[0]?.message || "Útok server odmítl.");
           }
-          if (!response?.pending && !response?.accepted) attackConfirmFinalButton.disabled = false;
         });
         return;
       }
@@ -15453,7 +15485,11 @@ function bindDistrictCanvas(root) {
           showWarning("Server neposlal platnou trasu pro krádež. Obnov district a zkus to znovu.");
           return;
         }
-        robberyConfirmFinalButton.disabled = true;
+        const submission = beginActionSubmission(robberyConfirmFinalButton, {
+          actionType: "rob-district",
+          submittingLabel: "Spouštím krádež…"
+        });
+        if (!submission) return;
         void submitServerDistrictActionCommand({
           type: "rob-district",
           payload: {
@@ -15462,6 +15498,7 @@ function bindDistrictCanvas(root) {
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
+          finishImmediateActionSubmission(submission, response, "Krádež probíhá");
           if (response?.accepted) {
             closeRobberyConfirmPopup();
             closeRobberySetupPopup();
@@ -15470,7 +15507,6 @@ function bindDistrictCanvas(root) {
             if (hasStaleConflictError(response)) closeRobberyConfirmPopup();
             showWarning(response?.errors?.[0]?.message || "Krádež server odmítl.");
           }
-          if (!response?.pending && !response?.accepted) robberyConfirmFinalButton.disabled = false;
         });
         return;
       }
@@ -15519,9 +15555,14 @@ function bindDistrictCanvas(root) {
         const trapView = latestGameplaySliceReadModel?.district?.trap;
         const relocation = trapView?.relocationSource;
         const targetDistrictId = `district:${selectedDistrict.id}`;
-        trapConfirmButton.disabled = true;
+        const trapCommandType = relocation?.canRelocate ? "relocate-trap" : "place-trap";
+        const submission = beginActionSubmission(trapConfirmButton, {
+          actionType: trapCommandType,
+          submittingLabel: "Umísťuji past…"
+        });
+        if (!submission) return;
         void submitServerDistrictActionCommand({
-          type: relocation?.canRelocate ? "relocate-trap" : "place-trap",
+          type: trapCommandType,
           payload: relocation?.canRelocate
             ? {
                 trapId: relocation.trapId,
@@ -15534,13 +15575,13 @@ function bindDistrictCanvas(root) {
             : { districtId: targetDistrictId },
           focusDistrictId: targetDistrictId
         }).then((response) => {
+          finishImmediateActionSubmission(submission, response, "Past umístěna");
           if (response?.accepted) {
             closeTrapConfirmPopup();
             closePopup();
           } else {
             showWarning(response?.errors?.[0]?.message || "Past server odmítl.");
           }
-          if (!response?.pending && !response?.accepted) trapConfirmButton.disabled = false;
         });
         return;
       }
@@ -15571,7 +15612,11 @@ function bindDistrictCanvas(root) {
           showWarning("Server neposlal platnou trasu pro špehování. Obnov district a zkus to znovu.");
           return;
         }
-        spyConfirmButton.disabled = true;
+        const submission = beginActionSubmission(spyConfirmButton, {
+          actionType: "spy-district",
+          submittingLabel: "Spouštím špionáž…"
+        });
+        if (!submission) return;
         void submitServerDistrictActionCommand({
           type: "spy-district",
           payload: {
@@ -15580,6 +15625,7 @@ function bindDistrictCanvas(root) {
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
+          finishImmediateActionSubmission(submission, response, "Špionáž probíhá");
           if (response?.accepted) {
             showSpyToast(root);
             closeSpyConfirmPopup();
@@ -15587,7 +15633,6 @@ function bindDistrictCanvas(root) {
           } else {
             showWarning(response?.errors?.[0]?.message || "Špehování server odmítl.");
           }
-          if (!response?.pending && !response?.accepted) spyConfirmButton.disabled = false;
         });
         return;
       }
@@ -15628,7 +15673,11 @@ function bindDistrictCanvas(root) {
           showWarning(occupyView?.disabledReason || "Server neposlal platný cíl a trasu pro obsazení.");
           return;
         }
-        occupyConfirmButton.disabled = true;
+        const submission = beginActionSubmission(occupyConfirmButton, {
+          actionType: "occupy-district",
+          submittingLabel: "Spouštím obsazení…"
+        });
+        if (!submission) return;
         void submitServerDistrictActionCommand({
           type: "occupy-district",
           payload: {
@@ -15637,6 +15686,7 @@ function bindDistrictCanvas(root) {
           },
           focusDistrictId: targetDistrictId
         }).then((response) => {
+          finishImmediateActionSubmission(submission, response, "Obsazení probíhá");
           if (response?.accepted) {
             closeOccupyConfirmPopup();
             closePopup();
@@ -15644,7 +15694,6 @@ function bindDistrictCanvas(root) {
             if (hasStaleConflictError(response)) closeOccupyConfirmPopup();
             showWarning(response?.errors?.[0]?.message || "Obsazení server odmítl.");
           }
-          if (!response?.pending && !response?.accepted) occupyConfirmButton.disabled = false;
         });
         return;
       }

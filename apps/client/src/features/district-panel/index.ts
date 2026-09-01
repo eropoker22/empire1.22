@@ -42,7 +42,7 @@ export const renderDistrictPanel = (panel: DistrictPanelViewModel): string =>
     `<section class="district-panel__summary-grid" aria-label="Přehled distriktu">`,
     `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Vlastnictví</span><strong class="district-panel__summary-value">${escapeHtml(panel.ownershipLabel)}</strong></article>`,
     `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Zóna</span><strong class="district-panel__summary-value">${escapeHtml(panel.zoneLabel)}</strong></article>`,
-    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Hledanost</span><strong class="district-panel__summary-value">${escapeHtml(panel.heatLabel)}</strong></article>`,
+    `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Heat distriktu</span><strong class="district-panel__summary-value">${escapeHtml(panel.heatLabel)}</strong></article>`,
     `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Vliv</span><strong class="district-panel__summary-value">${escapeHtml(panel.influenceLabel)}</strong></article>`,
     `<article class="district-panel__summary-card"><span class="district-panel__summary-label">Budovy</span><strong class="district-panel__summary-value">${escapeHtml(panel.buildingSummary)}</strong></article>`,
     `</section>`,

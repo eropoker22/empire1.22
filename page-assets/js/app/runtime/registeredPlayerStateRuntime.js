@@ -82,10 +82,10 @@ export function createRegisteredPlayerStateRuntime(deps = {}) {
       deps.syncCurrentPlayerDistrictCountDisplays?.(root, resolveOwnedDistrictCount(deps, serverPlayer));
 
       if (gangHeat) {
-        gangHeat.textContent = formatDistrictMetricNumber(
-          Math.max(0, Number(deps.getResolvedGangState?.()?.heat ?? 0)),
-          1
-        );
+        const gangState = deps.getResolvedGangState?.() || {};
+        gangHeat.textContent = gangState.available === false
+          ? "—"
+          : formatDistrictMetricNumber(Math.max(0, Number(gangState.heat)), 0);
       }
 
       if (playerName) {

@@ -417,6 +417,64 @@ var EmpireGameplaySliceClient = (function(exports) {
   });
   const toTitleCase$2 = (value) => value.split("-").filter(Boolean).map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(" ");
   const formatHeatLabel = (value) => String(Math.round(Number.isFinite(value) ? value : 0));
+  const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
+  function selectAuthoritativePlayerHeat(source) {
+    const police = hasOwn(source, "player") ? source?.player?.police : source?.police ?? source;
+    if (!police || !hasOwn(police, "heat")) return null;
+    if (police.heat === null || police.heat === void 0 || police.heat === "") return null;
+    const heat = Number(police.heat);
+    return Number.isFinite(heat) ? Math.max(0, heat) : null;
+  }
+  function getGameplaySliceStateVersion(model) {
+    const version = Number(model?.server?.stateVersion);
+    return Number.isSafeInteger(version) && version >= 0 ? version : null;
+  }
+  function getGameplaySliceAuthorityScope(model) {
+    const playerId = String(model?.player?.playerId || "").trim();
+    const playerInstanceId = String(model?.player?.instanceId || "").trim();
+    const serverInstanceId = String(model?.server?.serverInstanceId || playerInstanceId).trim();
+    if (!playerId || !serverInstanceId || playerInstanceId && playerInstanceId !== serverInstanceId) {
+      return null;
+    }
+    return `${serverInstanceId}:${playerId}`;
+  }
+  const mergePoliceProjection = (current, next, nextOwner) => {
+    if (!hasOwn(nextOwner, "police")) return current;
+    if (!next || typeof next !== "object") return current ?? next;
+    const validNext = { ...next };
+    if (hasOwn(validNext, "heat") && selectAuthoritativePlayerHeat(validNext) === null) {
+      delete validNext.heat;
+    }
+    return current && typeof current === "object" ? { ...current, ...validNext } : validNext;
+  };
+  function mergeAuthoritativeGameplaySlice(current, next, options = {}) {
+    if (!next || typeof next !== "object") {
+      return { accepted: false, model: current || null, reason: "invalid-model" };
+    }
+    if (!current) return { accepted: true, model: next, reason: "initial" };
+    const currentScope = getGameplaySliceAuthorityScope(current);
+    const nextScope = getGameplaySliceAuthorityScope(next);
+    if (currentScope && nextScope && currentScope !== nextScope) {
+      return options.allowScopeChange === true ? { accepted: true, model: next, reason: "scope-change" } : { accepted: false, model: current, reason: "scope-mismatch" };
+    }
+    const currentVersion = getGameplaySliceStateVersion(current);
+    const nextVersion = getGameplaySliceStateVersion(next);
+    if (currentVersion !== null && nextVersion !== null && nextVersion < currentVersion) {
+      return { accepted: false, model: current, reason: "stale-version" };
+    }
+    const nextPlayer = next.player && typeof next.player === "object" ? {
+      ...current.player || {},
+      ...next.player,
+      police: mergePoliceProjection(current.player?.police, next.player.police, next.player)
+    } : current.player;
+    const model = {
+      ...current,
+      ...next,
+      player: nextPlayer,
+      police: mergePoliceProjection(current.police, next.police, next)
+    };
+    return { accepted: true, model, reason: "merged" };
+  }
   const createPlayerViewModel = (view, modeLabelOverride) => view ? {
     playerId: view.playerId,
     instanceId: view.instanceId,
@@ -441,8 +499,9 @@ var EmpireGameplaySliceClient = (function(exports) {
     }
     const raidConsequenceChangePct = Math.round((1 - police.protection.raidConsequenceMultiplier) * 100);
     const raidConsequenceLabel = raidConsequenceChangePct >= 0 ? `-${raidConsequenceChangePct} % následky raidu` : `+${Math.abs(raidConsequenceChangePct)} % následky raidu`;
+    const playerHeat = selectAuthoritativePlayerHeat(view);
     return {
-      heatLabel: formatHeatLabel$1(Math.max(0, Number(police.heat || 0))),
+      heatLabel: playerHeat === null ? "—" : formatHeatLabel$1(playerHeat),
       wantedLevelLabel: police.wantedLevelLabel || police.wantedLabel || `${police.wantedLevel} / 5`,
       pendingRaidLabel: police.pendingRaid ? `${police.pendingRaid.severity.toUpperCase()} raid` : null,
       raidConsequenceStatus: police.raidConsequenceStatus || "none",
@@ -710,10 +769,19 @@ var EmpireGameplaySliceClient = (function(exports) {
       issueOperation: () => ++nextOperationSequence,
       commitResponse: (response, selectedDistrictId, commandId, operationSequence) => {
         if (!canCommit(operationSequence)) return options.getRenderState();
-        const hasAuthoritativeReadModel = Boolean(response.readModel);
+        const currentSlice = options.store.getReadModel().gameplaySlice;
+        const mergedSlice = response.readModel ? mergeAuthoritativeGameplaySlice(currentSlice, response.readModel, {
+          allowScopeChange: !commandId
+        }) : null;
+        if (response.readModel && (!mergedSlice?.accepted || !mergedSlice.model)) {
+          markCommitted(operationSequence);
+          return options.getRenderState();
+        }
+        const authoritativeReadModel = mergedSlice?.model ?? null;
+        const hasAuthoritativeReadModel = Boolean(authoritativeReadModel);
         const mapManifestMismatch = getMapManifestMismatch(response);
         const responseErrors = mapManifestMismatch ? [...response.errors, mapManifestMismatch] : response.errors;
-        const nextSliceFingerprint = createServerSliceRenderFingerprint(response.readModel, selectedDistrictId);
+        const nextSliceFingerprint = createServerSliceRenderFingerprint(authoritativeReadModel, selectedDistrictId);
         if (canReuseServerSliceRender(
           nextSliceFingerprint,
           lastCommittedSliceFingerprint,
@@ -725,12 +793,12 @@ var EmpireGameplaySliceClient = (function(exports) {
           markCommitted(operationSequence);
           return currentRenderState.connection.status === "ready" && currentRenderState.connection.lastErrorMessage === null && currentRenderState.connection.staleData === false ? currentRenderState : options.recomputeRenderState("server-slice-connection-restored");
         }
-        if (response.readModel) {
-          const serverSelectedDistrictId = response.readModel.district?.districtId ?? response.readModel.player.homeDistrictId ?? selectedDistrictId ?? null;
-          options.store.setGameplaySlice(response.readModel);
+        if (authoritativeReadModel) {
+          const serverSelectedDistrictId = authoritativeReadModel.district?.districtId ?? authoritativeReadModel.player.homeDistrictId ?? selectedDistrictId ?? null;
+          options.store.setGameplaySlice(authoritativeReadModel);
           options.store.patchUiState({
             selectedDistrictId: serverSelectedDistrictId,
-            activeSidePanel: response.readModel.spawnSelection?.status === "awaiting_spawn_selection" ? spawnSelectionFeature : "district-panel"
+            activeSidePanel: authoritativeReadModel.spawnSelection?.status === "awaiting_spawn_selection" ? spawnSelectionFeature : "district-panel"
           });
         }
         if (commandId) {
@@ -738,9 +806,9 @@ var EmpireGameplaySliceClient = (function(exports) {
             lastCommandStatus: { commandId, accepted: response.accepted }
           });
         }
-        options.store.setGameplaySliceMetadata(response.metadata ?? (response.readModel ? {
-          serverTick: response.readModel.server.currentTick,
-          stateVersion: response.readModel.server.stateVersion
+        options.store.setGameplaySliceMetadata(response.metadata ?? (authoritativeReadModel ? {
+          serverTick: authoritativeReadModel.server.currentTick,
+          stateVersion: authoritativeReadModel.server.stateVersion
         } : null));
         options.store.setErrors(responseErrors);
         options.store.setConnectionState({

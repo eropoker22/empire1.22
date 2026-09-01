@@ -2,6 +2,7 @@ import {
   applyPendingProductionSlotStartEffect,
   triggerProductionSlotStartEffect
 } from "./productionSlotStartEffect.js";
+import { beginActionSubmission } from "../runtime/actionSubmissionState.js";
 
 function getDocument(scopeElement = null) {
   return scopeElement?.ownerDocument || (typeof document !== "undefined" ? document : null);
@@ -766,10 +767,24 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
   startButton.addEventListener("click", () => {
     const binding = resolveRecipeCardBinding(options.mount, bindingKey, viewModel, callbacks);
     if (typeof binding.callbacks?.onStart === "function") {
+      const submission = binding.viewModel?.authorityMode === "server-authoritative"
+        ? beginActionSubmission(startButton, {
+            actionType: "craft-item",
+            submittingLabel: "Spouštím výrobu…"
+          })
+        : null;
+      if (binding.viewModel?.authorityMode === "server-authoritative" && !submission) return;
       const batchCount = Math.max(1, getStartBatchCount());
       clearQuantitySelection();
       triggerProductionSlotStartEffect(options.mount, bindingKey, card);
-      binding.callbacks.onStart({ ...binding.viewModel, batchCount });
+      const result = binding.callbacks.onStart({ ...binding.viewModel, batchCount });
+      if (submission) {
+        Promise.resolve(result).then((response) => {
+          if (response?.accepted) submission.accepted("Výroba probíhá");
+          else if (response?.pending) submission.ambiguous();
+          else submission.rejected();
+        }, () => submission.rejected());
+      }
     }
   });
   refreshQuantityControl();

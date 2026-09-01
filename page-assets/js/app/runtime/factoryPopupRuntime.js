@@ -235,6 +235,7 @@ export function createFactoryPopupRuntime(deps = {}) {
             const error = response?.errors?.[0];
             deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Výroba byla spuštěna; výstup vznikne po doběhnutí serverového času.");
             renderFactoryDashboard();
+            return response;
           },
           onPauseSlot: async (slotView) => {
             const response = await deps.submitServerFactoryCommand?.({

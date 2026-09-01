@@ -158,6 +158,18 @@ describe("client optimistic concurrency", () => {
   });
 
   it("uses the command response immediately without a redundant load", async () => {
+    const pendingView = createGameplaySliceView(8) as GameplaySliceView & { mapEffects: unknown[] };
+    pendingView.mapEffects = [{
+      effectId: "operation:spy:1",
+      type: "spy",
+      source: "server-pending-operation",
+      playerId: "player:client-concurrency",
+      districtId: "district:client-concurrency",
+      startedAt: new Date(70_000).toISOString(),
+      expiresAt: new Date(430_000).toISOString(),
+      startedAtTick: 7,
+      expiresAtTick: 43
+    }];
     const load = vi.fn(async () => ({
       accepted: true,
       readModel: createGameplaySliceView(7),
@@ -165,7 +177,7 @@ describe("client optimistic concurrency", () => {
     }));
     const send = vi.fn(async () => ({
       accepted: true,
-      readModel: createGameplaySliceView(8),
+      readModel: pendingView,
       errors: []
     }));
     const client = createClientApp({ transport: { load, send } });
@@ -180,6 +192,10 @@ describe("client optimistic concurrency", () => {
     expect(load).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledTimes(1);
     expect(client.getGameplaySlice()?.server.stateVersion).toBe(8);
+    expect(client.getGameplaySlice()?.mapEffects).toContainEqual(expect.objectContaining({
+      effectId: "operation:spy:1",
+      expiresAtTick: 43
+    }));
     expect(render.lastCommandStatus).toEqual({
       commandId: "command:client-concurrency:1",
       accepted: true
@@ -231,6 +247,34 @@ describe("client optimistic concurrency", () => {
       commandId: "command:client-concurrency:1",
       accepted: true
     });
+  });
+
+  it("rejects a later-issued poll whose authoritative stateVersion is older", async () => {
+    let loadCalls = 0;
+    const transport: ClientTransport = {
+      load: async () => ({
+        accepted: true,
+        readModel: createGameplaySliceView(loadCalls++ === 0 ? 7 : 7),
+        errors: []
+      }),
+      send: async () => ({
+        accepted: true,
+        readModel: createGameplaySliceView(8),
+        errors: []
+      })
+    };
+    const client = createClientApp({ transport });
+    const request = {
+      serverInstanceId: "instance:client-concurrency",
+      playerId: "player:client-concurrency",
+      districtId: "district:client-concurrency"
+    };
+
+    await client.load(request);
+    await client.dispatch(createCommand());
+    await client.load(request);
+
+    expect(client.getGameplaySlice()?.server.stateVersion).toBe(8);
   });
 });
 

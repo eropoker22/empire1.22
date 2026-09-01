@@ -147,6 +147,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       districtId: String(building.districtId || ""),
       buildingId: String(building.buildingId || ""),
       buildingName,
+      authorityMode: "server-authoritative",
       executionMode: isInstant ? "instant" : "legacy-timed",
       recipeId: String(line.recipeId || ""),
       recipe,
@@ -596,6 +597,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         });
         reportServerPharmacyResult(root, response, line.label);
         rerender?.();
+        return response;
       },
       onStop: async () => {
         const response = await deps.submitServerPharmacyCommand?.({
@@ -632,6 +634,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         });
         reportServerDrugLabResult(root, response, line.label);
         rerender?.();
+        return response;
       },
       onStop: async () => {
         const response = await deps.submitServerDrugLabCommand?.({
@@ -668,6 +671,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         });
         reportServerArmoryResult(root, response, line.label);
         rerender?.();
+        return response;
       },
       onStop: async () => {
         const response = await deps.submitServerArmoryCommand?.({

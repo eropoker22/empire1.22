@@ -10,6 +10,7 @@ import {
   applyPendingProductionSlotStartEffect,
   triggerProductionSlotStartEffect
 } from "./productionSlotStartEffect.js";
+import { beginActionSubmission } from "../runtime/actionSubmissionState.js";
 
 const factorySlotListStateByMount = new WeakMap();
 const productionPanelStateByMount = new WeakMap();
@@ -710,11 +711,25 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
       ? (slotView.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
       : "Spustit výrobu.";
     startButton.addEventListener("click", () => {
-      clearProductionQuantitySelection(options.mount, batchSelectionKey);
       const binding = resolveFactorySlotBinding(options.mount, batchSelectionKey, slotView, callbacks);
       if (typeof binding.callbacks?.onStartSlot === "function") {
+        const submission = binding.slotView?.authorityMode === "server-authoritative"
+          ? beginActionSubmission(startButton, {
+              actionType: "craft-item",
+              submittingLabel: "Spouštím výrobu…"
+            })
+          : null;
+        if (binding.slotView?.authorityMode === "server-authoritative" && !submission) return;
+        clearProductionQuantitySelection(options.mount, batchSelectionKey);
         triggerProductionSlotStartEffect(options.mount, batchSelectionKey, card);
-        binding.callbacks.onStartSlot(binding.slotView, { batchCount: selectedBatches });
+        const result = binding.callbacks.onStartSlot(binding.slotView, { batchCount: selectedBatches });
+        if (submission) {
+          Promise.resolve(result).then((response) => {
+            if (response?.accepted) submission.accepted("Výroba probíhá");
+            else if (response?.pending) submission.ambiguous();
+            else submission.rejected();
+          }, () => submission.rejected());
+        }
       }
     });
     pauseButton.type = "button";
@@ -798,6 +813,7 @@ export function renderServerFactorySlotList(mount, lines = [], callbacks = {}, o
     const durationMs = Math.max(0, Number(line?.effectiveUnitDurationTicks || 0) * Number(options.tickRateMs || FREE_GAMEPLAY_TICK_MS));
     return {
       recipeId: line.recipeId,
+      authorityMode: "server-authoritative",
       status: line.status || "ready",
       loading: line.loading === true,
       remainingMs: Math.max(0, Number(line.remainingMs || 0)),

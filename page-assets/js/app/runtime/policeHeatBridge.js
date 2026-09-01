@@ -1,4 +1,5 @@
 import { renderPoliceFeedPanel } from "../ui/policeFeedPanel.js";
+import { selectAuthoritativePlayerHeat } from "../../../../packages/shared-types/src/views/authoritative-gameplay-slice.js";
 
 function safeObject(value) {
   return value && typeof value === "object" ? value : {};
@@ -165,11 +166,12 @@ export function resolvePoliceHeatFeedback(input = {}) {
       ? coreModel.lastPoliceEvent
       : null;
     const wantedLevel = nonNegativeNumberOrNull(coreModel.wantedLevel);
+    const playerHeat = selectAuthoritativePlayerHeat(coreModel);
     const lastMessage = String(lastEvent?.message || coreModel.recommendedAction || copy?.message || "—").trim();
     return {
       available: true,
-      heat: nonNegativeNumberOrNull(coreModel.heat, coreModel.playerHeat),
-      playerHeat: nonNegativeNumberOrNull(coreModel.playerHeat, coreModel.heat),
+      heat: playerHeat,
+      playerHeat,
       ownedDistrictHeat: nonNegativeNumberOrNull(coreModel.ownedDistrictHeat, coreModel.districtHeat, coreModel.districtHeatPressure),
       wantedLevel,
       wantedLabel: String(coreModel.wantedLevelLabel || coreModel.wantedLabel || "").trim()

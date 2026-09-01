@@ -214,6 +214,20 @@ describe("local-hosted presentation parity suite wiring", () => {
     );
   });
 
+  it("provides a short local-hosted gate for immediate action feedback", () => {
+    const suiteSource = getHostedSuiteSource("immediate-action-ux");
+
+    expect(suiteSource).toContain('scenario: "multiplayer-core"');
+    expect(suiteSource).toContain("playerCount: 3");
+    expect(suiteSource).toContain("EMPIRE_IMMEDIATE_ACTION_E2E");
+    expect(suiteSource).toContain(
+      'grep: "renders submitting immediately and accepted pending without polling"'
+    );
+    expect(suiteSource).toContain("tests/e2e/manual-hosted-district-actions-ui.spec.js");
+    expect(visibleDistrictActionsSpecSource).toContain("verifyImmediateFeedback: true");
+    expect(visibleDistrictActionsSpecSource).toContain('toHaveAttribute("data-state", "submitting")');
+  });
+
   it("keeps every parity suite in both full local-hosted gates", () => {
     expect(packageJson.scripts["test:local-hosted:full"])
       .toBe("node scripts/run-local-hosted-full.mjs");

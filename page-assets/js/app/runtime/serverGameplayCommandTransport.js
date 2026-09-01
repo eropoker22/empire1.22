@@ -17,6 +17,7 @@ import {
   isDurableStateVersionConflictResponse,
   MAX_DURABLE_STATE_VERSION_REBASES
 } from "./serverGameplayConflictPolicy.js";
+import { recordActionSubmissionTransportPhase } from "./actionSubmissionState.js";
 export { cancelPendingServerGameplayCommandRetries };
 const CONFLICT_ERROR_MESSAGES = Object.freeze({
   DISTRICT_CONFLICT_STATE_CHANGED: "Situace v districtu se mezitím změnila. Načítám aktuální stav.",
@@ -172,8 +173,12 @@ export async function submitPreparedServerGameplayCommand(prepared) {
   submittingCommandIds.add(commandId);
   try {
     serverCommandJournal.beginSubmit(scope, commandId);
+    recordActionSubmissionTransportPhase(request.command.type, "request-start");
     const body = await submitThroughMountedClient(request)
       ?? await postJson(`${getGameplaySliceEndpointBase()}/submit`, request);
+    recordActionSubmissionTransportPhase(request.command.type, "response-received", {
+      accepted: body?.accepted === true
+    });
     if (!body || typeof body !== "object" || body.transportFailure === true) {
       return markCommandAmbiguous(scope, commandId);
     }
@@ -215,10 +220,11 @@ export function syncServerGameplaySliceResponse(response) {
     setGameplaySliceSnapshotToken(responsePlayer.instanceId, responsePlayer.playerId, response.snapshotToken);
   }
   if (!response?.readModel || !setServerGameplaySliceReadModel(response.readModel)) return false;
+  const authoritativeReadModel = getServerGameplaySliceReadModel();
   getDocumentRef()?.dispatchEvent?.(new CustomEvent("empire:gameplay-slice-rendered", {
     detail: {
-      gameplaySlice: response.readModel,
-      playerView: response.readModel.player || null
+      gameplaySlice: authoritativeReadModel,
+      playerView: authoritativeReadModel?.player || null
     }
   }));
   return true;

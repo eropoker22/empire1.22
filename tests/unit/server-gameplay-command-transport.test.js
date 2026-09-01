@@ -120,6 +120,33 @@ describe("server gameplay command transport", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("publishes the merged authoritative model when a partial response omits Heat", async () => {
+    const modules = await loadGameplayModules();
+    modules.source.setServerGameplaySliceReadModel({
+      ...initialReadModel,
+      player: { ...initialReadModel.player, police: { heat: 122, wantedLevel: 2 } }
+    });
+    const rendered = vi.fn();
+    document.addEventListener("empire:gameplay-slice-rendered", rendered);
+
+    expect(modules.transport.syncServerGameplaySliceResponse({
+      accepted: true,
+      errors: [],
+      readModel: {
+        ...initialReadModel,
+        player: { ...initialReadModel.player, police: { wantedLevel: 2 } }
+      }
+    })).toBe(true);
+
+    expect(rendered).toHaveBeenCalledWith(expect.objectContaining({
+      detail: expect.objectContaining({
+        gameplaySlice: expect.objectContaining({
+          player: expect.objectContaining({ police: expect.objectContaining({ heat: 122 }) })
+        })
+      })
+    }));
+  });
+
   it("reuses the mounted conflict slice and retries with a new command id", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

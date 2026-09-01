@@ -1160,6 +1160,7 @@ const runAllianceCommand = async (type, payload, successMessage) => {
   }
   pendingAllianceCommand = true;
   document.body?.classList.add("alliance-command-pending");
+  notify("Odesílám alianční akci…");
   try {
     const response = await submitServerAllianceCommand({ type, payload });
     if (!response?.accepted) {

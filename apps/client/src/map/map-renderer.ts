@@ -44,7 +44,7 @@ export const renderMap = ({ districts, selectedDistrictId, phaseId }: MapRendere
                 `<span>${escapeHtml(district.ownerLabel)}</span>`,
                 `<span>Zóna: ${escapeHtml(district.zoneLabel)}</span>`,
                 `<span>Budovy: ${escapeHtml(district.buildingSummary)}</span>`,
-                `<span>Hledanost: ${escapeHtml(district.heatLabel)} · Vliv: ${escapeHtml(district.influenceLabel)}</span>`,
+                `<span>Heat distriktu: ${escapeHtml(district.heatLabel)} · Vliv: ${escapeHtml(district.influenceLabel)}</span>`,
                 district.isAttackTarget
                   ? `<span>${escapeHtml(district.attackEnabled ? "Útok připraven" : district.attackDisabledReason ?? "Útok není dostupný")}</span>`
                   : "",

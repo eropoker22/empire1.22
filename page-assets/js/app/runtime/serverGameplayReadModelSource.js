@@ -1,5 +1,6 @@
 import { getGameplayExecutionMode } from "./gameplayExecutionMode.js";
 import { canSubmitServerGameplayCommand } from "./serverCommandAuthorityGuard.js";
+import { mergeAuthoritativeGameplaySlice } from "../../../../packages/shared-types/src/views/authoritative-gameplay-slice.js";
 
 const subscribers = new Set();
 let latestReadModel = null;
@@ -8,37 +9,38 @@ let mountedDocument = null;
 const getWindowRef = () => typeof window === "undefined" ? null : window;
 const getDocumentRef = () => typeof document === "undefined" ? null : document;
 
-const getStateVersion = (model) => {
-  const version = Number(model?.server?.stateVersion);
-  return Number.isFinite(version) ? version : null;
-};
-
-const canReplaceReadModel = (current, next) => {
-  if (!current) return true;
-  const currentVersion = getStateVersion(current);
-  const nextVersion = getStateVersion(next);
-  return currentVersion === null || nextVersion === null || nextVersion >= currentVersion;
-};
-
 export function setServerGameplaySliceReadModel(model, options = {}) {
   if (!model || typeof model !== "object" || model === latestReadModel) return false;
-  if (!canReplaceReadModel(latestReadModel, model)) return false;
-  latestReadModel = model;
+  const merged = mergeAuthoritativeGameplaySlice(latestReadModel, model, {
+    allowScopeChange: options.allowScopeChange === true
+  });
+  if (!merged.accepted || !merged.model) return false;
+  latestReadModel = merged.model;
   const windowRef = options.windowRef || getWindowRef();
-  if (windowRef) windowRef.empireStreetsGameplaySliceReadModel = model;
-  subscribers.forEach((listener) => listener(model));
+  if (windowRef) windowRef.empireStreetsGameplaySliceReadModel = latestReadModel;
+  subscribers.forEach((listener) => listener(latestReadModel));
   return true;
+}
+
+export function clearServerGameplaySliceReadModel(options = {}) {
+  const previous = latestReadModel;
+  latestReadModel = null;
+  const windowRef = options.windowRef || getWindowRef();
+  if (windowRef?.empireStreetsGameplaySliceReadModel === previous) {
+    delete windowRef.empireStreetsGameplaySliceReadModel;
+  }
+  return previous !== null;
 }
 
 export function getServerGameplaySliceReadModel() {
   const windowRef = getWindowRef();
   const candidates = [
-    windowRef?.empireStreetsGameplaySliceReadModel,
-    windowRef?.EmpireGameplaySliceClient?.getCurrentReadModel?.()
+    [windowRef?.EmpireGameplaySliceClient?.getCurrentReadModel?.(), true],
+    [windowRef?.empireStreetsGameplaySliceReadModel, false]
   ];
-  for (const candidate of candidates) {
+  for (const [candidate, allowScopeChange] of candidates) {
     if (candidate && candidate !== latestReadModel) {
-      setServerGameplaySliceReadModel(candidate, { windowRef });
+      setServerGameplaySliceReadModel(candidate, { windowRef, allowScopeChange });
     }
   }
   return latestReadModel;
@@ -57,7 +59,7 @@ export function getServerGameplayRenderState() {
 }
 
 const handleGameplaySliceRendered = (event) => {
-  setServerGameplaySliceReadModel(event?.detail?.gameplaySlice);
+  setServerGameplaySliceReadModel(event?.detail?.gameplaySlice, { allowScopeChange: true });
 };
 
 export function mountServerGameplaySource(documentRef = getDocumentRef()) {
@@ -72,11 +74,12 @@ export function mountServerGameplaySource(documentRef = getDocumentRef()) {
 }
 
 export function destroyServerGameplaySource() {
-  if (!mountedDocument) return false;
-  mountedDocument.removeEventListener("empire:gameplay-slice-rendered", handleGameplaySliceRendered);
+  const hadMountedDocument = Boolean(mountedDocument);
+  mountedDocument?.removeEventListener?.("empire:gameplay-slice-rendered", handleGameplaySliceRendered);
   mountedDocument = null;
+  clearServerGameplaySliceReadModel();
   subscribers.clear();
-  return true;
+  return hadMountedDocument;
 }
 
 export function isServerGameplaySourceReady() {

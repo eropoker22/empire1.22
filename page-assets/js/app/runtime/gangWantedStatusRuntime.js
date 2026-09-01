@@ -1,5 +1,6 @@
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 import { formatDistrictMetricNumber } from "./formatters.js";
+import { selectAuthoritativePlayerHeat } from "../../../../packages/shared-types/src/views/authoritative-gameplay-slice.js";
 
 const UNAVAILABLE_VALUE_LABEL = "—";
 
@@ -120,7 +121,7 @@ export function buildServerGangWantedStatusViewModel({
   const player = safeObject(serverPlayer);
   const police = safeObject(player.police);
   const economy = safeObject(player.economy);
-  const heat = finiteNumberOrNull(police.heat ?? police.playerHeat);
+  const heat = selectAuthoritativePlayerHeat(player);
   const authoritativeHeatAvailable = heat !== null;
   const presentationTier = authoritativeHeatAvailable && typeof options.resolveHeatTier === "function"
     ? safeObject(options.resolveHeatTier(heat))

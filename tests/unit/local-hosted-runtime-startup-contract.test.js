@@ -173,6 +173,7 @@ describe("local hosted runtime startup contract", () => {
       "building-actions-visible-ui-night": "visible-browser-ui",
       "ui-parity-non-spawn": "visible-browser-opening-and-observation",
       "multiplayer-core": "direct-authoritative-api",
+      "immediate-action-ux": "visible-browser-ui-with-delayed-submit-response",
       "multiplayer-visible-actions": "mixed-visible-browser-ui-and-parity-observation",
       "social-visible-ui": "visible-browser-ui",
       "social-concurrency-privacy": "mixed-visible-browser-ui-and-direct-authoritative-api",

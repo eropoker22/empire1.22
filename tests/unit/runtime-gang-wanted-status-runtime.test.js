@@ -110,9 +110,10 @@ describe("gang wanted status runtime", () => {
           influence: 44
         },
         police: {
-          heat: 82,
-          wantedLevel: 3,
-          wantedLevelLabel: "3 / 5",
+          heat: 122,
+          totalHeat: 129,
+          wantedLevel: 2,
+          wantedLevelLabel: "2 / 5",
           riskTier: "high",
           protection: {
             raidConsequenceMultiplier: 0.75,
@@ -136,10 +137,10 @@ describe("gang wanted status runtime", () => {
 
     expect(viewModel).toMatchObject({
       available: true,
-      heat: 82,
-      heatLabel: "82",
+      heat: 122,
+      heatLabel: "122",
       levelId: 3,
-      levelLabel: "3 / 5",
+      levelLabel: "2 / 5",
       title: "Známý problém",
       protectionLabel: "Magistrát -25 % následky raidu",
       auditRiskLabel: "—",

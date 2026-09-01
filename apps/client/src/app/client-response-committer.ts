@@ -3,6 +3,7 @@ import type { ClientStore } from "../state";
 import type { ClientRenderState } from "./client-render-state";
 import { getMapManifestMismatch } from "./map-manifest-guard";
 import { canReuseServerSliceRender, createServerSliceRenderFingerprint } from "./server-slice-render-reuse";
+import { mergeAuthoritativeGameplaySlice } from "../../../../packages/shared-types/src/views/authoritative-gameplay-slice.js";
 
 const spawnSelectionFeature = "spawn-selection";
 
@@ -28,10 +29,21 @@ export const createClientResponseCommitter = (options: {
       operationSequence: number
     ): ClientRenderState => {
       if (!canCommit(operationSequence)) return options.getRenderState();
-      const hasAuthoritativeReadModel = Boolean(response.readModel);
+      const currentSlice = options.store.getReadModel().gameplaySlice;
+      const mergedSlice = response.readModel
+        ? mergeAuthoritativeGameplaySlice(currentSlice, response.readModel, {
+            allowScopeChange: !commandId
+          })
+        : null;
+      if (response.readModel && (!mergedSlice?.accepted || !mergedSlice.model)) {
+        markCommitted(operationSequence);
+        return options.getRenderState();
+      }
+      const authoritativeReadModel = mergedSlice?.model ?? null;
+      const hasAuthoritativeReadModel = Boolean(authoritativeReadModel);
       const mapManifestMismatch = getMapManifestMismatch(response);
       const responseErrors = mapManifestMismatch ? [...response.errors, mapManifestMismatch] : response.errors;
-      const nextSliceFingerprint = createServerSliceRenderFingerprint(response.readModel, selectedDistrictId);
+      const nextSliceFingerprint = createServerSliceRenderFingerprint(authoritativeReadModel, selectedDistrictId);
       if (canReuseServerSliceRender(
         nextSliceFingerprint,
         lastCommittedSliceFingerprint,
@@ -48,15 +60,15 @@ export const createClientResponseCommitter = (options: {
           : options.recomputeRenderState("server-slice-connection-restored");
       }
 
-      if (response.readModel) {
-        const serverSelectedDistrictId = response.readModel.district?.districtId
-          ?? response.readModel.player.homeDistrictId
+      if (authoritativeReadModel) {
+        const serverSelectedDistrictId = authoritativeReadModel.district?.districtId
+          ?? authoritativeReadModel.player.homeDistrictId
           ?? selectedDistrictId
           ?? null;
-        options.store.setGameplaySlice(response.readModel);
+        options.store.setGameplaySlice(authoritativeReadModel);
         options.store.patchUiState({
           selectedDistrictId: serverSelectedDistrictId,
-          activeSidePanel: response.readModel.spawnSelection?.status === "awaiting_spawn_selection"
+          activeSidePanel: authoritativeReadModel.spawnSelection?.status === "awaiting_spawn_selection"
             ? spawnSelectionFeature
             : "district-panel"
         });
@@ -67,10 +79,10 @@ export const createClientResponseCommitter = (options: {
         });
       }
       options.store.setGameplaySliceMetadata(response.metadata ?? (
-        response.readModel
+        authoritativeReadModel
           ? {
-              serverTick: response.readModel.server.currentTick,
-              stateVersion: response.readModel.server.stateVersion
+              serverTick: authoritativeReadModel.server.currentTick,
+              stateVersion: authoritativeReadModel.server.stateVersion
             }
           : null
       ));

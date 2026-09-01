@@ -7,6 +7,7 @@ import {
 import { waitForTerminalGameplaySubmit } from "./helpers/gameplaySubmitResponse.js";
 
 const hostedEnabled = process.env.EMPIRE_HOSTED_UI_PARITY_E2E === "1";
+const immediateActionEnabled = process.env.EMPIRE_IMMEDIATE_ACTION_E2E === "1";
 const serverInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID || "";
 const identities = parseIdentities(process.env.EMPIRE_HOSTED_BOOTSTRAP_IDENTITIES_JSON);
 
@@ -82,9 +83,56 @@ test.describe("manual hosted district actions through visible UI", () => {
       await Promise.allSettled(clients.map((client) => client.context.close()));
     }
   });
+
+  test("renders submitting immediately and accepted pending without polling", async ({ browser }) => {
+    test.skip(!immediateActionEnabled, "Immediate action diagnostics run only in the focused local-hosted suite.");
+    test.setTimeout(3 * 60_000);
+    const clients = [];
+    try {
+      for (const identity of identities) {
+        const context = await browser.newContext({
+          baseURL: process.env.PLAYWRIGHT_E2E_BASE_URL,
+          viewport: { width: 1440, height: 900 }
+        });
+        const page = await context.newPage();
+        page.setDefaultTimeout(20_000);
+        const entry = await loginAndResumeHostedUiParityGame(page, identity);
+        clients.push({ context, page, diagnostics: entry.diagnostics, identity });
+      }
+
+      const [creator, target, hunter] = clients;
+      const spy = await runSpyThroughVisibleUi(creator.page, "district:25", {
+        verifyImmediateFeedback: true
+      });
+      const rob = await runRobThroughVisibleUi(creator.page, "district:24");
+      const heist = await runHeistThroughVisibleUi(target.page, "district:4");
+      const attack = await runAttackThroughVisibleUi(hunter.page, "district:2");
+      await waitForRenderedStateVersionAtLeast(
+        creator.page,
+        rob.body.readModel.server.stateVersion
+      );
+      const occupy = await runOccupyThroughVisibleUi(creator.page, "district:6");
+
+      for (const operation of [spy, rob, heist, attack, occupy]) {
+        expect(operation.body.accepted).toBe(true);
+        expect(operation.pendingEffect.expiresAtTick)
+          .toBeGreaterThan(operation.body.readModel.server.currentTick);
+      }
+      expect(spy.feedback?.submittingDelayMs).toBeLessThan(50);
+      expect(spy.feedback?.requestDelayMs).toBeLessThan(250);
+      expect(spy.feedback?.pendingRenderDelayMs).toBeLessThan(1_000);
+      expect(spy.feedback?.submitRequestCount).toBe(1);
+
+      for (const client of clients) {
+        await expectHostedUiParityClean(client.page, client.diagnostics);
+      }
+    } finally {
+      await Promise.allSettled(clients.map((client) => client.context.close()));
+    }
+  });
 });
 
-async function runSpyThroughVisibleUi(page, districtId) {
+async function runSpyThroughVisibleUi(page, districtId, options = {}) {
   const projection = await openActionTargetFromMap(page, districtId, "spy");
   const action = visibleDistrictAction(page, districtId, "spy");
   await expect(action).toBeEnabled();
@@ -94,7 +142,8 @@ async function runSpyThroughVisibleUi(page, districtId) {
   const result = await clickAndReadTypedSubmit(
     page,
     "spy-district",
-    popup.locator("[data-spy-confirm-button]")
+    popup.locator("[data-spy-confirm-button]"),
+    options
   );
   expect(result.request.command.payload).toMatchObject({
     districtId,
@@ -273,21 +322,102 @@ function visibleDistrictAction(page, districtId, actionId) {
   );
 }
 
-async function clickAndReadTypedSubmit(page, commandType, button) {
+async function clickAndReadTypedSubmit(page, commandType, button, options = {}) {
   await expect(button).toBeVisible();
   await expect(button).toBeEnabled();
+  let delayedResponse = false;
+  let submitRequestCount = 0;
+  let requestObservedAt = null;
+  const requestListener = (request) => {
+    if (request.method() !== "POST" || new URL(request.url()).pathname !== "/api/gameplay-slice/submit") return;
+    let payload = null;
+    try {
+      payload = request.postDataJSON();
+    } catch {
+      payload = null;
+    }
+    if (payload?.command?.type !== commandType) return;
+    submitRequestCount += 1;
+    requestObservedAt ??= Date.now();
+  };
+  page.on("request", requestListener);
+  const delayedRoute = async (route) => {
+    let payload = null;
+    try {
+      payload = route.request().postDataJSON();
+    } catch {
+      payload = null;
+    }
+    if (delayedResponse || payload?.command?.type !== commandType) {
+      await route.continue();
+      return;
+    }
+    delayedResponse = true;
+    const response = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await route.fulfill({ response });
+  };
+  if (options.verifyImmediateFeedback) {
+    await page.route("**/api/gameplay-slice/submit", delayedRoute);
+    await button.evaluate((element) => {
+      const timeline = {
+        clickAt: null,
+        submittingAt: null,
+        pendingAt: null
+      };
+      window.__empireImmediateActionTimeline = timeline;
+      element.addEventListener("click", () => {
+        timeline.clickAt = performance.now();
+      }, { capture: true, once: true });
+      const observer = new MutationObserver(() => {
+        const state = element.getAttribute("data-state");
+        if (state === "submitting" && timeline.submittingAt === null) {
+          timeline.submittingAt = performance.now();
+        }
+        if (state === "pending" && timeline.pendingAt === null) {
+          timeline.pendingAt = performance.now();
+          observer.disconnect();
+        }
+      });
+      observer.observe(element, { attributes: true, attributeFilter: ["data-state"] });
+    });
+  }
   const responsePromise = waitForTerminalGameplaySubmit(page, (request) => (
     request?.command?.type === commandType
   ));
+  const clickStartedAt = Date.now();
   await button.click();
+  if (options.verifyImmediateFeedback) {
+    await expect(button).toHaveAttribute("data-state", "submitting");
+    await expect(button).toBeDisabled();
+    await expect(button).toContainText("Spouštím");
+    await button.dispatchEvent("click");
+  }
   const submission = await responsePromise;
+  const responseObservedAt = Date.now();
   const { body, request, response } = submission;
   expect(response.status(), `${commandType} response status`).toBe(200);
   expect(submission.stateVersionConflicts.length, `${commandType} single OCC rebase`).toBeLessThanOrEqual(1);
+  let feedback = null;
+  if (options.verifyImmediateFeedback) {
+    await expect.poll(() => page.evaluate(() => (
+      window.__empireImmediateActionTimeline?.pendingAt ?? null
+    )), { timeout: 1_000, intervals: [10, 25, 50] }).not.toBeNull();
+    const timeline = await page.evaluate(() => window.__empireImmediateActionTimeline || null);
+    feedback = {
+      submittingDelayMs: timeline.submittingAt - timeline.clickAt,
+      requestDelayMs: requestObservedAt - clickStartedAt,
+      pendingRenderDelayMs: Date.now() - responseObservedAt,
+      submitRequestCount
+    };
+    await page.unroute("**/api/gameplay-slice/submit", delayedRoute);
+  }
+  page.off("request", requestListener);
   return {
     request,
     body,
-    stateVersionConflicts: submission.stateVersionConflicts
+    stateVersionConflicts: submission.stateVersionConflicts,
+    feedback
   };
 }
 
