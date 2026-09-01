@@ -1368,7 +1368,14 @@ export async function captureDistrictActionOverlayScreenshot(page, {
           // starts on an integer pixel instead of Chromium's unstable y=15.5.
           "padding-bottom": "8px"
         }
-      : {},
+      : definition.stage === "confirmation"
+        ? {
+            // Confirmation rows retain their live translucent gradients, but
+            // composite them over one deterministic opaque card base.
+            transition: "none",
+            "background-color": "rgb(5, 10, 18)"
+          }
+        : {},
     target
   });
 }

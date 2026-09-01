@@ -289,6 +289,10 @@ describe("district action overlay parity coverage", () => {
     );
     expect(helperSource).toContain('transition: "none",\n          background: "rgb(6, 10, 18)"');
     expect(helperSource).toContain('"padding-bottom": "8px"');
+    expect(helperSource).toContain(
+      'definition.stage === "confirmation"\n        ? {'
+    );
+    expect(helperSource).toContain('"background-color": "rgb(5, 10, 18)"');
     expect(helperSource).toContain("roundedCompositeSelector: stabilizeInlineAction");
     expect(helperSource).toContain('not.toHaveClass(/\\bgame-mobile-close-guard\\b/u)');
     expect(helperSource).toContain("new MutationObserver(normalizeRecords)");
