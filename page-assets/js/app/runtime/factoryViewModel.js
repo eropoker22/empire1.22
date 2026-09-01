@@ -153,10 +153,16 @@ function formatFactoryDurationBonus(baseDurationMs = 0, effectiveDurationMs = 0)
 function formatServerDurationAdjustment(baseDurationMs = 0, effectiveDurationMs = 0, formatDurationLabel = (value) => `${value}ms`) {
   const baseMs = Number(baseDurationMs);
   const effectiveMs = Number(effectiveDurationMs);
-  if (!Number.isFinite(baseMs) || baseMs <= 0 || !Number.isFinite(effectiveMs) || effectiveMs <= 0) {
+  if (
+    !Number.isFinite(baseMs)
+    || baseMs <= 0
+    || !Number.isFinite(effectiveMs)
+    || effectiveMs <= 0
+    || Math.abs(baseMs - effectiveMs) < 1
+  ) {
     return "";
   }
-  return `Server: základ ${formatDurationLabel(baseMs)} → reálně ${formatDurationLabel(effectiveMs)}`;
+  return `Zrychlení: ${formatDurationLabel(baseMs)} → ${formatDurationLabel(effectiveMs)}`;
 }
 
 function resolveFactoryLineSpeedMultiplier(line = {}, {

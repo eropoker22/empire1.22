@@ -573,7 +573,7 @@ describe("production building popup runtime", () => {
       },
       baseDurationMs: 400000,
       effectiveDurationMs: 300000,
-      durationAdjustmentLabel: "Server: základ 400s → reálně 300s",
+      durationAdjustmentLabel: "Zrychlení: 400s → 300s",
       slotState: { label: "Výroba", isActive: true },
       outputInventoryAmount: 7,
       outputInventoryCapacity: 24,

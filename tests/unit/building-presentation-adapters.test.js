@@ -727,6 +727,23 @@ describe("shared building presentation adapters", () => {
     expect(action.rewardSummary).toContain("Čekání 16m 00s");
   });
 
+  it("keeps the canonical street-dealer sale explanation instead of a no-output placeholder", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Pouliční dealeři",
+      buildingTypeId: "street_dealers",
+      actions: [{
+        actionId: "start_drug_sale",
+        label: "Prodat zásobu",
+        enabled: true,
+        outputSummary: "Bez výstupu"
+      }]
+    });
+    const action = detail.viewModel.actions.find((entry) => entry.actionId === "start_drug_sale");
+
+    expect(action.rewardSummary).toContain("Okamžitě prodá jednu z 3 povolených laboratorních látek");
+    expect(action.rewardSummary).not.toBe("Bez výstupu");
+  });
+
   it("uses precise authoritative population buffers for apartment and convenience cards", () => {
     const apartment = createServerBuildingDetail({
       baseName: "Bytový blok",

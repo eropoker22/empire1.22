@@ -37,6 +37,9 @@ describe("mobile game UI overrides", () => {
     expect(safeAreaBlock).toContain("background: rgba(1, 4, 10, 0.88) !important;");
     expect(safeAreaBlock).toContain('.district-building-detail-shell[data-building-mechanics-type="drug-lab"]');
     expect(safeAreaBlock).toContain("width: 100vw !important;");
+    expect(safeAreaBlock).toContain("position: absolute !important;");
+    expect(safeAreaBlock).toContain("inset: 0 !important;");
+    expect(safeAreaBlock).toContain("flex: none !important;");
     expect(safeAreaBlock).toContain("height: 100dvh !important;");
     expect(safeAreaBlock).toContain("min-height: 100dvh !important;");
     expect(safeAreaBlock).toContain("max-height: 100dvh !important;");

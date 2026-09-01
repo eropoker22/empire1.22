@@ -1876,7 +1876,7 @@ describe("building detail, production and recipe UI modules", () => {
       },
       executionMode: "legacy-timed",
       effectiveDurationMs: 180_000,
-      durationAdjustmentLabel: "Server: základ 4m → reálně 3m",
+      durationAdjustmentLabel: "Zrychlení: 4m → 3m",
       outputCap: 10,
       queueCap: 8,
       maxBatches: 1,
@@ -1885,7 +1885,7 @@ describe("building detail, production and recipe UI modules", () => {
 
     const durationNote = card.querySelector("[data-production-duration-adjustment]");
     const factionNote = card.querySelector("[data-faction-passive-stat-label]");
-    expect(durationNote.textContent).toBe("Server: základ 4m → reálně 3m");
+    expect(durationNote.textContent).toBe("Zrychlení: 4m → 3m");
     expect(factionNote.dataset.factionPassiveStatLabel).toBe("Produkce");
     expect(factionNote.dataset.factionPassiveBuildingType).toBe("druglab");
     expect(factionNote.hidden).toBe(true);
@@ -1904,7 +1904,7 @@ describe("building detail, production and recipe UI modules", () => {
       recipeId: "metal-parts",
       title: "Metal Parts",
       durationMs: 180_000,
-      durationAdjustmentLabel: "Server: základ 4m → reálně 3m",
+      durationAdjustmentLabel: "Zrychlení: 4m → 3m",
       slotOutputCap: 12,
       queueCap: 17,
       maxStartQuantity: 1,
@@ -1912,7 +1912,7 @@ describe("building detail, production and recipe UI modules", () => {
       displayCost: { cleanCash: 300, metalParts: 0, techCore: 0 }
     }, {}, { mount });
 
-    expect(card.querySelector("[data-production-duration-adjustment]").textContent).toBe("Server: základ 4m → reálně 3m");
+    expect(card.querySelector("[data-production-duration-adjustment]").textContent).toBe("Zrychlení: 4m → 3m");
     expect(card.querySelector("[data-faction-passive-stat-label]").dataset.factionPassiveStatLabel).toBe("Produkce");
     expect(card.querySelector("[data-faction-passive-stat-label]").dataset.factionPassiveBuildingType).toBe("factory");
   });

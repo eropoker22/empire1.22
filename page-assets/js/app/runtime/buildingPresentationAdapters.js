@@ -698,7 +698,8 @@ const CANONICAL_MECHANICS_PREVIEW_ACTION_IDS = new Set([
   "quiet_backroom",
   "restaurant_collect_revenue",
   "restaurant_cover_meetings",
-  "restaurant_local_network"
+  "restaurant_local_network",
+  "start_drug_sale"
 ]);
 
 const createServerBuildingActionPresentation = ({

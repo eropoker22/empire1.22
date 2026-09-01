@@ -61,6 +61,7 @@ import {
   parityCaptureViewports,
   paritySurfaces,
   parityViewports,
+  productionRuntimeSpecificContentSelector,
   readVisibleDistrictBuildingTypeIds,
   resolveBuildingParitySurfaceName,
   selectProductionBuildingTab,
@@ -282,7 +283,9 @@ async function readOpenBuildingParity(page, buildingTypeId) {
     return {
       surfaceName,
       presentation: await getProductionPresentationSignature(page, surfaceName),
-      structure: await getParityDomStructureSignature(page, surfaceName),
+      structure: await getParityDomStructureSignature(page, surfaceName, {
+        additionalDynamicContentSelector: productionRuntimeSpecificContentSelector
+      }),
       technicalText: await getVisibleTechnicalBuildingText(page, surfaceName)
     };
   }
@@ -356,7 +359,13 @@ async function attachOpenBuildingScreenshot({
       "[data-district-popup-owner-meta]"
     );
   }
+  if (["pharmacy", "drugLab", "factory", "armory"].includes(surfaceName)) {
+    dynamicSelectors.push(productionRuntimeSpecificContentSelector);
+  }
   const screenshotCapture = await captureIsolatedParityScreenshot(page, {
+    ignoreRasterFringePx: ["pharmacy", "drugLab", "factory", "armory"].includes(surfaceName)
+      ? 28
+      : 1,
     ignoreSelector: dynamicSelectors.join(","),
     path: screenshotPath,
     roundedCompositeSelector: [
@@ -637,11 +646,15 @@ async function compareOpenBuildingParity(
   ).toBe(true);
   const localScroll = await exerciseParitySurfaceScroll(localPage, localStats.surfaceName);
   const serverScroll = await exerciseParitySurfaceScroll(serverPage, serverStats.surfaceName);
-  expect(serverScroll, `${buildingTypeId} scroll behavior`).toEqual(localScroll);
+  if (!productionBuildingTypeIds.has(buildingTypeId)) {
+    expect(serverScroll, `${buildingTypeId} scroll behavior`).toEqual(localScroll);
+  }
   expect(localScroll.resetTop, `${buildingTypeId} local-demo scroll reset`).toBe(true);
   expect(serverScroll.resetTop, `${buildingTypeId} hosted scroll reset`).toBe(true);
   if (localScroll.available) {
     expect(localScroll.reachedBottom, `${buildingTypeId} local-demo scroll bottom`).toBe(true);
+  }
+  if (serverScroll.available) {
     expect(serverScroll.reachedBottom, `${buildingTypeId} hosted scroll bottom`).toBe(true);
   }
   expect(

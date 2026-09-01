@@ -63,6 +63,18 @@ describe("live/demo UI parity source contract", () => {
     expect(paritySpec).toContain(
       '`district ${districtId} must settle after authoritative screenshot synchronization`'
     );
+    expect(paritySpec).toContain("productionRuntimeSpecificContentSelector");
+    expect(paritySpec).toContain("additionalDynamicContentSelector");
+    expect(parityCapture).toContain("export const productionRuntimeSpecificContentSelector");
+    expect(parityCapture).toContain('".pharmacy-slot-grid"');
+    expect(parityCapture).toContain('".factory-slot-grid"');
+    expect(parityCapture).toContain("dynamicExtentContentSelector: additionalDynamicContentSelector");
+    expect(parityCapture).toContain('height: hasDynamicExtent(element) ? "<dynamic>"');
+    expect(parityCapture).toContain('canScrollY: dynamicExtent ? "<dynamic>" : canScrollY');
+    expect(parityCapture).toContain("normalizeDynamicContentScrollExtent");
+    expect(paritySpec).toContain("ignoreRasterFringePx:");
+    expect(paritySpec).toContain("? 28");
+    expect(paritySpec).not.toContain("hosted scroll overflow mode");
     expect(paritySpec).toContain('surfaceName === "buildingDetail"');
     expect(paritySpec).toContain('".building-detail-title__badge--count"');
     expect(paritySpec).toContain(

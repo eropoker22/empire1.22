@@ -8492,9 +8492,9 @@ html body.game-body .wanted-popup-card .wanted-popup-close::before {
     .district-building-detail-shell[data-building-mechanics-type="drug-lab"]:not([hidden]) .district-building-detail-card.building-detail-modal__content,
     .district-building-detail-shell[data-building-mechanics-type="factory"]:not([hidden]) .district-building-detail-card.building-detail-modal__content
   ) {
-    position: relative !important;
-    inset: auto !important;
-    flex: 1 1 auto !important;
+    position: absolute !important;
+    inset: 0 !important;
+    flex: none !important;
     align-self: stretch !important;
     width: 100vw !important;
     min-width: 100vw !important;

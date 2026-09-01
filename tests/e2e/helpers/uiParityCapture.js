@@ -990,6 +990,21 @@ export const parityViewports = Object.freeze([
 
 export const parityCaptureViewports = Object.freeze(parityViewports.slice(0, 2));
 
+export const productionRuntimeSpecificContentSelector = [
+  ".pharmacy-slot-grid",
+  ".pharmacy-slot",
+  ".drug-production-slot-grid",
+  ".drug-production-slot",
+  ".factory-slot-grid",
+  ".factory-slot",
+  ".armory-layout",
+  ".armory-slot",
+  ".production-craft-list",
+  ".factory-slot-card",
+  ".production-recipe-card",
+  ".production-craft-card"
+].join(",");
+
 export const paritySurfaces = Object.freeze({
   district: Object.freeze({
     selector: "[data-district-popup-card]",
@@ -1826,7 +1841,8 @@ export async function readElementRelativeParityIgnoreRegions(
   target,
   ignoreSelector,
   roundedCompositeSelector = "",
-  roundedCompositeRasterFringePx = PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX
+  roundedCompositeRasterFringePx = PARITY_ROUNDED_COMPOSITE_RASTER_FRINGE_PX,
+  ignoreRasterFringePx = PARITY_SCREENSHOT_RASTER_FRINGE_PX
 ) {
   if (typeof ignoreSelector !== "string" || typeof roundedCompositeSelector !== "string") {
     throw new TypeError("Parity screenshot selectors must be strings");
@@ -1964,7 +1980,7 @@ export async function readElementRelativeParityIgnoreRegions(
     return expandParityRasterIgnoreRegions(capture);
   }
   return [
-    ...expandParityRasterIgnoreRegions(capture.dynamicRegions || []),
+    ...expandParityRasterIgnoreRegions(capture.dynamicRegions || [], ignoreRasterFringePx),
     ...createFractionalClipEdgeIgnoreRegions(
       capture.roundedBox || {},
       capture.fractionalClipEdges || {}
@@ -1988,6 +2004,7 @@ export async function readElementRelativeParityIgnoreRegions(
 
 export async function captureIsolatedParityScreenshot(page, {
   includeStabilizationDiagnostics = false,
+  ignoreRasterFringePx = PARITY_SCREENSHOT_RASTER_FRINGE_PX,
   ignoreSelector = "",
   path: screenshotPath,
   stableBackdropColor = "",
@@ -2938,7 +2955,8 @@ export async function captureIsolatedParityScreenshot(page, {
       captureTarget,
       ignoreSelector,
       roundedCompositeSelector,
-      roundedCompositeRasterFringePx
+      roundedCompositeRasterFringePx,
+      ignoreRasterFringePx
     );
     if (stableScrollbarState?.ignoreRegions?.length) {
       ignoreRegions.push(...stableScrollbarState.ignoreRegions);
@@ -3816,7 +3834,8 @@ export async function getProductionPresentationSignature(page, surfaceName) {
   const definition = paritySurfaces[surfaceName];
   const target = page.locator(definition.selector).first();
   await expect(target).toBeVisible();
-  return target.evaluate(async (targetElement, cssUrlPatternSource) => {
+  return target.evaluate(async (targetElement, config) => {
+    const cssUrlPatternSource = config.cssUrlPatternSource;
     const normalizeText = (value) => String(value || "").replace(/\s+/gu, " ").trim();
     const visibleElements = (selector) => Array.from(targetElement.querySelectorAll(selector))
       .filter((element) => {
@@ -3878,6 +3897,7 @@ export async function getProductionPresentationSignature(page, surfaceName) {
       visibleCopy: visibleElements("*")
         .filter((element) => element.children.length === 0)
         .filter((element) => !element.closest(dynamicCopySelector))
+        .filter((element) => !element.closest(config.runtimeSpecificContentSelector))
         .map((element) => normalizeText(element.textContent))
         .filter(Boolean),
       background: {
@@ -3895,7 +3915,10 @@ export async function getProductionPresentationSignature(page, surfaceName) {
         afterSize: backgroundAfterStyle.backgroundSize
       }
     };
-  }, CSS_URL_VALUE_PATTERN_SOURCE);
+  }, {
+    cssUrlPatternSource: CSS_URL_VALUE_PATTERN_SOURCE,
+    runtimeSpecificContentSelector: productionRuntimeSpecificContentSelector
+  });
 }
 
 export function normalizeLockedModalDocumentScrollExtent(signature, {
@@ -3929,6 +3952,7 @@ export function normalizeLockedModalDocumentScrollExtent(signature, {
 }
 
 export async function getParityDomStructureSignature(page, surfaceName, {
+  additionalDynamicContentSelector = "",
   additionalDynamicTextSelector = ""
 } = {}) {
   const definition = paritySurfaces[surfaceName];
@@ -3953,6 +3977,13 @@ export async function getParityDomStructureSignature(page, surfaceName, {
     const normalizeClasses = (element) => Array.from(element.classList || [])
       .filter((className) => !dynamicClassNames.has(className))
       .sort();
+    const hasDynamicExtent = (element) => Boolean(
+      config.dynamicExtentContentSelector
+      && (
+        element.matches?.(config.dynamicExtentContentSelector)
+        || element.querySelector?.(config.dynamicExtentContentSelector)
+      )
+    );
     const targetRect = targetElement.getBoundingClientRect();
     const relativeRect = (element) => {
       const rect = element.getBoundingClientRect();
@@ -3960,7 +3991,7 @@ export async function getParityDomStructureSignature(page, surfaceName, {
         x: Math.round(rect.left - targetRect.left),
         y: Math.round(rect.top - targetRect.top),
         width: Math.round(rect.width),
-        height: Math.round(rect.height)
+        height: hasDynamicExtent(element) ? "<dynamic>" : Math.round(rect.height)
       };
     };
     const elementPath = (element) => {
@@ -4005,7 +4036,9 @@ export async function getParityDomStructureSignature(page, surfaceName, {
       const style = getComputedStyle(element);
       return Object.fromEntries(config.computedStyleProperties.map((property) => [
         property,
-        String(style[property] || "")
+        hasDynamicExtent(element) && ["gridTemplateRows", "height"].includes(property)
+          ? "<dynamic>"
+          : String(style[property] || "")
       ]));
     };
     const scrollSignature = (element) => {
@@ -4015,17 +4048,19 @@ export async function getParityDomStructureSignature(page, surfaceName, {
         && scrollableOverflow.has(style.overflowX);
       const canScrollY = element.scrollHeight > element.clientHeight
         && scrollableOverflow.has(style.overflowY);
+      const dynamicExtent = config.normalizeDynamicContentScrollExtent
+        && hasDynamicExtent(element);
       return {
         canScrollX,
-        canScrollY,
-        clientHeight: element.clientHeight,
+        canScrollY: dynamicExtent ? "<dynamic>" : canScrollY,
+        clientHeight: dynamicExtent ? "<dynamic>" : element.clientHeight,
         clientWidth: element.clientWidth,
-        maxScrollLeft: canScrollX
+        maxScrollLeft: canScrollX && !dynamicExtent
           ? Math.max(0, element.scrollWidth - element.clientWidth)
-          : 0,
-        maxScrollTop: canScrollY
+          : dynamicExtent ? "<dynamic>" : 0,
+        maxScrollTop: canScrollY && !dynamicExtent
           ? Math.max(0, element.scrollHeight - element.clientHeight)
-          : 0,
+          : dynamicExtent ? "<dynamic>" : 0,
         overflow: style.overflow,
         overflowX: style.overflowX,
         overflowY: style.overflowY,
@@ -4064,6 +4099,7 @@ export async function getParityDomStructureSignature(page, surfaceName, {
     ].join(","))).filter(isVisible);
     const sections = activePanels.flatMap((panel) => Array.from(panel.children)
       .filter(isVisible)
+      .filter((element) => !element.closest(dynamicContentSelector))
       .map((element, index) => ({
         key: structuralKey(element, index),
         tag: element.tagName.toLowerCase(),
@@ -4162,7 +4198,9 @@ export async function getParityDomStructureSignature(page, surfaceName, {
           ".production-craft-card",
           "[data-production-panel] > article",
           "[data-factory-slot-list] > article"
-        ].join(","))).filter(isVisible).length
+        ].join(",")))
+          .filter(isVisible)
+          .filter((element) => !element.closest(dynamicContentSelector)).length
       },
       layout: structuralElements.map((element, index) => {
         return {
@@ -4194,6 +4232,12 @@ export async function getParityDomStructureSignature(page, surfaceName, {
         })),
       focus: {
         activeElement: activeElement && activeElement !== document.body
+          && activeElement.closest(dynamicContentSelector)
+          ? {
+              dynamicContent: true,
+              insideSurface: targetElement.contains(activeElement)
+            }
+          : activeElement && activeElement !== document.body
           ? {
               classes: normalizeClasses(activeElement),
               dataset: semanticDataset(activeElement),
@@ -4252,8 +4296,13 @@ export async function getParityDomStructureSignature(page, surfaceName, {
     };
   }, {
     computedStyleProperties: parityComputedStyleProperties,
-    dynamicContentSelector: parityDynamicDistrictIdentitySelector,
+    dynamicContentSelector: [
+      parityDynamicDistrictIdentitySelector,
+      additionalDynamicContentSelector
+    ].filter(Boolean).join(","),
     dynamicClassNames: parityDynamicClassNames,
+    dynamicExtentContentSelector: additionalDynamicContentSelector,
+    normalizeDynamicContentScrollExtent: Boolean(additionalDynamicContentSelector),
     dynamicTextSelector: [
       gameChromeDynamicMaskSelector,
       additionalDynamicTextSelector

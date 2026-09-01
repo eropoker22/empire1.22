@@ -130,8 +130,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const baseDurationMs = !isInstant && Number.isFinite(projectedBaseDurationTicks) && projectedBaseDurationTicks > 0
       ? projectedBaseDurationTicks * tickRateMs
       : 0;
-    const durationAdjustmentLabel = baseDurationMs > 0 && effectiveDurationMs > 0
-      ? `Server: základ ${deps.formatDurationLabel?.(baseDurationMs) || `${baseDurationMs}ms`} → reálně ${deps.formatDurationLabel?.(effectiveDurationMs) || `${effectiveDurationMs}ms`}`
+    const durationAdjustmentLabel = baseDurationMs > 0
+      && effectiveDurationMs > 0
+      && Math.abs(baseDurationMs - effectiveDurationMs) >= 1
+      ? `Zrychlení: ${deps.formatDurationLabel?.(baseDurationMs) || `${baseDurationMs}ms`} → ${deps.formatDurationLabel?.(effectiveDurationMs) || `${effectiveDurationMs}ms`}`
       : "";
     const isProducing = !isInstant && (Number(line.activeAmount || 0) > 0 || line.status === "processing");
     const remainingMs = Math.max(0, Number(line.remainingMs || 0));

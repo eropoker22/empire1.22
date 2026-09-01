@@ -400,7 +400,7 @@ function appendServerDurationAdjustment(scopeElement, metric, label = "", buildi
     if (note) {
       note.dataset.productionDurationAdjustment = "server";
       note.textContent = copy;
-      note.title = "Základní a skutečný čas vrácený serverem po započtení aktivních bonusů.";
+      note.title = "Základní čas → čas po započtení aktivních bonusů.";
       metric.append(note);
     }
   }

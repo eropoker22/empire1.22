@@ -1231,6 +1231,27 @@ describe("UI parity class signature", () => {
     });
   });
 
+  it("allows runtime-specific content to include a bounded shadow fringe", async () => {
+    const target = {
+      evaluate: vi.fn().mockResolvedValue({
+        dynamicRegions: [{ height: 20, width: 30, x: 10, y: 15 }],
+        fractionalClipEdges: {},
+        roundedBox: { height: 100, radii: {}, width: 100 },
+        roundedBoxes: []
+      })
+    };
+
+    await expect(readElementRelativeParityIgnoreRegions(
+      target,
+      ".production-runtime-content",
+      "",
+      2,
+      28
+    )).resolves.toEqual([
+      { height: 76, width: 86, x: -18, y: -13 }
+    ]);
+  });
+
   it("allows a surface-specific rounded compositor fringe without changing the default", () => {
     const box = {
       height: 40,
