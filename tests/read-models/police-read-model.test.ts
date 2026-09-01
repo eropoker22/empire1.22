@@ -219,6 +219,8 @@ describe("police read model projection", () => {
       ...courthouseState.districtsById["district:1"],
       buildingIds: [courthouse.id]
     };
+    courthouseState.root.tick = 360;
+    courthouseState.serverInstance.currentTick = 360;
 
     const cityHallModel = createPoliceReadModel(cityHallState, "player:1", createFullPoliceContext());
     const triggered = triggerRaid(courthouseState, createFullPoliceContext());
@@ -264,6 +266,8 @@ describe("police read model projection", () => {
       }
     };
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 30 };
+    state.root.tick = 6;
+    state.serverInstance.currentTick = 6;
 
     const raidResult = triggerRaid(state, createPoliceContext());
     const model = createPoliceReadModel(raidResult.nextState, "player:1", createPoliceContext());
@@ -324,6 +328,8 @@ describe("police read model projection", () => {
       ...state.districtsById["district:1"],
       heat: 90
     };
+    state.root.tick = 360;
+    state.serverInstance.currentTick = 360;
 
     const triggered = triggerRaid(state, createFullPoliceContext());
     const raid = triggered.nextState.policeStatesById["police:1"].pendingRaids?.[0];

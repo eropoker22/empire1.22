@@ -3,6 +3,7 @@ import { resolveModeConfig } from "../../../packages/game-config/src";
 import { applyCommand } from "../../../packages/game-core/src/engine";
 import { createAttackDistrictCommandFixture } from "../../fixtures/command-fixtures";
 import { createCombatStateFixture } from "../../fixtures/game-state-fixtures";
+import { resolvePendingDistrictAction } from "../../fixtures/timed-operation-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 const loadout = { pistol: 2, grenade: 1, smg: 1, bazooka: 1 };
@@ -45,15 +46,18 @@ describe("authoritative attack weapon flow", () => {
     const result = applyCommand(state, createAttackDistrictCommandFixture({
       payload: { districtId: "district:2", sourceDistrictId: "district:1", weapons: loadout }
     }), context);
-    const payload = result.events.find((event) => event.type === "district-attacked")?.payload as Record<string, unknown>;
+    const resolved = resolvePendingDistrictAction(result.nextState, context);
+    const payload = resolved.events.find((event) => event.type === "district-attacked")?.payload as Record<string, unknown>;
 
     expect(result.errors).toEqual([]);
+    expect(result.events).toEqual([]);
     expect(payload.attackPower).toBe(82);
     expect(result.nextState.resourceStatesById["resource:1"].balances).toMatchObject({
       "baseball-bat": 0
     });
     for (const [weaponId, amount] of Object.entries(loadout)) {
-      expect(Number(result.nextState.resourceStatesById["resource:1"].balances[weaponId] || 0)).toBeLessThanOrEqual(amount);
+      expect(Number(result.nextState.resourceStatesById["resource:1"].balances[weaponId] || 0)).toBe(0);
+      expect(Number(resolved.nextState.resourceStatesById["resource:1"].balances[weaponId] || 0)).toBeLessThanOrEqual(amount);
     }
   });
 

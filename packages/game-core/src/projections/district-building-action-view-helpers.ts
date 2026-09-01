@@ -55,9 +55,9 @@ export const createRequiredInputViews = (input: {
   streetDealersConfig?: StreetDealersBalanceConfig;
   state?: CoreGameState;
   playerId?: string;
+  inputDefaultValues?: Record<string, string | number>; inputMaximumValues?: Record<string, number>;
 }): BuildingActionInputView[] => {
   const actionId = input.action.actionId;
-
   if (input.streetDealersConfig && actionId === input.streetDealersConfig.startDrugSale.actionId) {
     const ownedCount = input.state && input.playerId
       ? getOwnedStreetDealerCount(input.state, input.playerId, input.streetDealersConfig)
@@ -83,7 +83,6 @@ export const createRequiredInputViews = (input: {
       }
     ];
   }
-
   if (input.airportConfig && actionId === input.airportConfig.expressImport.actionId) {
     return [createSelectInput("targetCategory", "Kategorie importu", input.airportConfig.expressImport.targetCategories)];
   }
@@ -96,7 +95,8 @@ export const createRequiredInputViews = (input: {
         type: "number",
         label: "Investice",
         required: true,
-        min: 1
+        min: 1,
+        max: Math.max(1, Number(input.inputMaximumValues?.investmentCleanCash || input.stockExchangeConfig.speculativeBuy.maxInvestmentCleanCash)), defaultValue: Math.max(1, Number(input.inputDefaultValues?.investmentCleanCash || 1))
       }
     ];
   }

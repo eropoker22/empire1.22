@@ -2,6 +2,7 @@ import { createInitialState, type CoreGameState } from "@empire/game-core";
 import {
   DEFAULT_PLAYER_COLOR,
   type Building,
+  type CollectProductionCommand,
   type CraftItemCommand,
   type District,
   type Player,
@@ -90,6 +91,16 @@ export const createCraftCommand = (
   ...createCommandEnvelope(sequence, "craft-item"),
   type: "craft-item",
   payload: { districtId: DISTRICT_ID, buildingId, recipeId, quantity }
+});
+
+export const createCollectCommand = (
+  sequence: number,
+  buildingId: string,
+  resourceKey: string
+): CollectProductionCommand => ({
+  ...createCommandEnvelope(sequence, "collect-production"),
+  type: "collect-production",
+  payload: { districtId: DISTRICT_ID, buildingId, resourceKey }
 });
 
 export const getPlayerBalance = (state: CoreGameState, resourceKey: string): number =>

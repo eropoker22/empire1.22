@@ -54,9 +54,8 @@ function syncRumorListViewport(list) {
     }
 
     if (visibleCount > 0) {
-      const nextEdge = cardEdges[visibleCount];
       const lastVisibleEdge = cardEdges[visibleCount - 1];
-      const contentHeight = nextEdge?.top || lastVisibleEdge?.bottom || availableHeight;
+      const contentHeight = lastVisibleEdge?.bottom || availableHeight;
       const borderAdjustment = Math.max(0, list.offsetHeight - list.clientHeight);
       const visibleHeight = Math.min(availableHeight, contentHeight + borderAdjustment);
       list.style.setProperty("--rumor-visible-height", `${Math.ceil(visibleHeight)}px`);
@@ -73,6 +72,12 @@ function createElement(documentRef, tagName, className = "", text = "") {
   if (className) element.className = className;
   if (text) element.textContent = text;
   return element;
+}
+
+function notifyFactionPassiveTargetsChanged(documentRef) {
+  const CustomEventConstructor = documentRef?.defaultView?.CustomEvent || globalThis.CustomEvent;
+  if (typeof documentRef?.dispatchEvent !== "function" || typeof CustomEventConstructor !== "function") return;
+  documentRef.dispatchEvent(new CustomEventConstructor("empire:faction-passive-targets-changed"));
 }
 
 function getRumorDistrictLabel(entry = {}) {
@@ -171,8 +176,11 @@ function createRumorInboxController(documentRef) {
         messageHead.append(ordinal, district, time);
 
         const text = createElement(documentRef, "span", "rumor-inbox-message__text", getRumorText(entry));
+        const factionNote = createElement(documentRef, "small", "faction-passive-inline faction-passive-inline--rumor hidden");
+        factionNote.dataset.factionPassiveInlineContext = "rumor-truth";
+        factionNote.hidden = true;
         const openLabel = createElement(documentRef, "span", "rumor-inbox-message__open", "OTEVŘÍT DRB ↗");
-        button.append(messageHead, text, openLabel);
+        button.append(messageHead, text, factionNote, openLabel);
         button.addEventListener("click", () => {
           close();
           onOpenRumor(entry);
@@ -196,6 +204,7 @@ function createRumorInboxController(documentRef) {
       list.hidden = entries.length === 0;
       deleteAllButton.hidden = entries.length === 0;
       syncRumorListViewport(list);
+      notifyFactionPassiveTargetsChanged(documentRef);
       };
       deleteAllButton.onclick = () => {
         const resolvedEntries = onDeleteAll(entries);

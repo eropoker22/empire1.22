@@ -75,6 +75,19 @@ describe("server-authoritative bounty actions", () => {
     expect(result.nextState).toBe(state);
   });
 
+  it("rejects an active bounty target from the creator's alliance", () => {
+    const state = createBountyState();
+    state.playersById["player:1"] = { ...state.playersById["player:1"], allianceId: "alliance:crew" };
+    state.playersById["player:2"] = { ...state.playersById["player:2"], allianceId: "alliance:crew" };
+
+    const result = applyCommand(state, createBountyCommand(), context);
+
+    expect(result.errors).toMatchObject([{ code: "bounty_target_ally" }]);
+    expect(result.nextState).toBe(state);
+    expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(10_000);
+    expect(result.nextState.bountiesById).toEqual({});
+  });
+
   it("requires target district ownership for district bounty", () => {
     const state = createBountyState();
     const result = applyCommand(

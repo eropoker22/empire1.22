@@ -352,13 +352,18 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
 
     amountInput.max = String(Math.max(1, maxAmount));
     amountInput.value = String(Math.min(Math.max(Number.parseInt(String(amountInput.value || "1"), 10) || 1, 1), Math.max(1, maxAmount)));
-    unitPriceInput.value = String(Math.max(1, Math.floor(Number(unitPriceInput.value || callbacks.getSuggestedUnitPrice?.(item) || 1))));
+    const maxUnitPrice = Math.max(1, Math.floor(Number(item.maxUnitPrice || Number.MAX_SAFE_INTEGER)));
+    unitPriceInput.max = String(maxUnitPrice);
+    unitPriceInput.value = String(Math.min(
+      Math.max(1, Math.floor(Number(unitPriceInput.value || callbacks.getSuggestedUnitPrice?.(item) || 1))),
+      maxUnitPrice
+    ));
     currencySelect.value = item.inventory === "drugs" ? "dirtyMoney" : currencySelect.value;
     submit.title = ownListingCount >= ownListingLimit
       ? "Máš plný limit aktivních nabídek."
       : !item
         ? "Sklad je prázdný. Nejdřív získej zásoby."
-        : "Vystavit nabídku na hráčský bazar.";
+        : `Vystavit nabídku na hráčský bazar (max ${maxUnitPrice} za kus).`;
   };
   const publishSellFormState = () => {
     callbacks.onFormStateChange?.({
@@ -407,7 +412,10 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
     const payload = {
       item,
       requestedAmount: Math.min(Math.max(Number.parseInt(String(amountInput.value || "1"), 10) || 1, 1), Math.max(1, Number(item?.amount || 1))),
-      unitPrice: Math.max(1, Math.floor(Number(unitPriceInput.value || 1))),
+      unitPrice: Math.min(
+        Math.max(1, Math.floor(Number(unitPriceInput.value || 1))),
+        Math.max(1, Math.floor(Number(item?.maxUnitPrice || Number.MAX_SAFE_INTEGER)))
+      ),
       currency: currencySelect.value === "dirtyMoney" ? "dirtyMoney" : "cleanMoney"
     };
     callbacks.onFormStateChange?.(null);
@@ -604,9 +612,8 @@ function createMarketItemRow(ownerDocument, item, callbacks = {}) {
     const state = callbacks.getTradeState?.(item, requestedQuantity) || {};
     buyAction.disabled = Boolean(state.buyDisabled);
     if (cleanBuyAction) {
-      const cleanTotal = requestedQuantity * Math.max(1, Number(item.cleanBuyPrice || item.buyPrice || 1));
-      cleanBuyAction.disabled = item.canBuyClean === false || Number(item.playerCleanCash ?? Number.POSITIVE_INFINITY) < cleanTotal;
-      cleanBuyAction.title = cleanBuyAction.disabled ? "Nemáš dost clean cash." : "Koupit přes černý trh za clean cash.";
+      cleanBuyAction.disabled = Boolean(state.cleanBuyDisabled);
+      cleanBuyAction.title = state.cleanBuyTitle || "";
     }
     sellAction.disabled = Boolean(state.sellDisabled);
     buyAction.title = state.buyTitle || "";

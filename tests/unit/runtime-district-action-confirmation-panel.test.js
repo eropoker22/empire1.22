@@ -84,6 +84,26 @@ describe("district action confirmation panel", () => {
     });
   });
 
+  it("labels authoritative attack outcome as pending server resolution", () => {
+    const viewModel = createAttackConfirmationViewModel({
+      district: { id: 12 },
+      context: {
+        authoritative: true,
+        sourceDistrictId: 4,
+        totalResidents: 3,
+        totalPower: 42,
+        canConfirm: true,
+        selectedWeaponsLabel: "Pistole x2",
+        resolvedScenario: { label: "Náhodná lokální výhra" },
+        boostContext: { cooldownMs: 15 * 60 * 1000, effectiveAttackPower: 42 }
+      }
+    });
+
+    expect(viewModel.scenarioLabel).toBe("Server vyhodnotí po odpočtu");
+    expect(viewModel.scenarioLabel).not.toContain("výhra");
+    expect(viewModel.note).toContain("výsledek dorazí po uvedeném čase");
+  });
+
   it("renders trap confirmation state as DOM-only presentation", () => {
     const title = element();
     const cooldown = element();

@@ -134,6 +134,7 @@ test.describe("hosted social concurrency and privacy", () => {
         clickAndReadTypedSubmit(hunterB.page, "attack-district", attackPreparations[1].button)
       ]);
       const attacks = attackAttempts.map((result, index) => ({
+        client: index === 0 ? hunterA : hunterB,
         playerId: index === 0 ? hunterAPlayerId : hunterBPlayerId,
         result
       }));
@@ -146,8 +147,13 @@ test.describe("hosted social concurrency and privacy", () => {
           expectedConflictRevision: attackPreparations[index].projection.expectedConflictRevision,
           weapons: { bazooka: 20 }
         });
-        assertAnonymousBounty(attempt.result.body.readModel, bountyId, "claimed");
-        expect(claimedBountyEvents(attempt.result.body.readModel, bountyId)).toHaveLength(1);
+        assertAnonymousBounty(attempt.result.body.readModel, bountyId, "active");
+        expect(claimedBountyEvents(attempt.result.body.readModel, bountyId)).toHaveLength(0);
+        expect(findCommandReport(
+          attempt.result.body.readModel,
+          attempt.result.request.command.id,
+          "district:2"
+        ), "neither racing submit may expose an early battle report").toBeNull();
       }
       const acceptedAttacks = attacks.filter(({ result }) => result.body.accepted === true);
       const rejectedAttacks = attacks.filter(({ result }) => result.body.accepted !== true);
@@ -155,6 +161,19 @@ test.describe("hosted social concurrency and privacy", () => {
       expect(rejectedAttacks).toHaveLength(1);
       expect(rejectedAttacks[0].result.body.errors?.[0]?.code)
         .toBe("DISTRICT_CONFLICT_STATE_CHANGED");
+      const winningAttack = acceptedAttacks[0];
+      const winningPendingEffect = assertAcceptedPendingAttack(
+        winningAttack.result,
+        winningAttack.playerId,
+        "district:2"
+      );
+      const winningCompletion = await waitForDeferredAttackReport(
+        winningAttack.client.page,
+        winningAttack.result,
+        winningPendingEffect
+      );
+      assertAnonymousBounty(winningCompletion.readModel, bountyId, "claimed");
+      expect(claimedBountyEvents(winningCompletion.readModel, bountyId)).toHaveLength(1);
 
       const hunterLoadsAfterClaim = await Promise.all([
         reloadHostedGameWithRawLoad(hunterA.page),
@@ -503,6 +522,72 @@ async function prepareAttackThroughVisibleUi(page, districtId) {
   const button = page.locator("[data-attack-confirm-popup] [data-attack-confirm-button]");
   await expect(button).toBeEnabled();
   return { button, projection };
+}
+
+function assertAcceptedPendingAttack(result, playerId, districtId) {
+  const effect = result.body.readModel.mapEffects.find((entry) => (
+    entry.type === "attack"
+    && entry.source === "server-public-operation"
+    && entry.playerId === playerId
+    && entry.districtId === districtId
+  ));
+  expect(effect, "the single accepted racing attack must expose one pending map effect")
+    .toBeTruthy();
+  expect(effect.expiresAtTick).toBeGreaterThan(result.body.readModel.server.currentTick);
+  return effect;
+}
+
+async function waitForDeferredAttackReport(page, attack, pendingEffect) {
+  const startTick = Number(attack.body.readModel.server.currentTick);
+  const tickRateMs = Math.max(1, Number(attack.body.readModel.mode?.tickRateMs || 1_000));
+  const timeout = Math.max(
+    30_000,
+    (pendingEffect.expiresAtTick - startTick) * tickRateMs + 30_000
+  );
+  let completion = null;
+  await expect.poll(async () => {
+    const readModel = await loadAuthoritativeReadModel(page, pendingEffect.districtId);
+    const report = findCommandReport(
+      readModel,
+      attack.request.command.id,
+      pendingEffect.districtId
+    );
+    if (!report || readModel.server.currentTick < pendingEffect.expiresAtTick) return false;
+    completion = { readModel, report };
+    return true;
+  }, {
+    message: `winning attack must resolve at or after tick ${pendingEffect.expiresAtTick}`,
+    timeout,
+    intervals: [250, 500, 1_000]
+  }).toBe(true);
+  expect(completion.report.tick).toBeGreaterThanOrEqual(pendingEffect.expiresAtTick);
+  expect(completion.readModel.mapEffects.map((effect) => effect.effectId))
+    .not.toContain(pendingEffect.effectId);
+  return completion;
+}
+
+async function loadAuthoritativeReadModel(page, districtId) {
+  const result = await page.evaluate(async ({ instanceId, focusDistrictId }) => {
+    const response = await fetch("/api/gameplay-slice/load", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ serverInstanceId: instanceId, districtId: focusDistrictId })
+    });
+    return { status: response.status, body: await response.json() };
+  }, { instanceId: serverInstanceId, focusDistrictId: districtId });
+  expect(result.status).toBe(200);
+  expect(result.body?.accepted, formatErrors(result.body)).toBe(true);
+  return result.body.readModel;
+}
+
+function findCommandReport(readModel, commandId, districtId) {
+  return readModel?.reports?.find((report) => (
+    report.actionType === "attack-district"
+    && report.targetDistrictId === districtId
+    && String(report.reportId || "").includes(commandId)
+  )) || null;
 }
 
 async function openActionTargetFromMap(page, districtId, actionId) {

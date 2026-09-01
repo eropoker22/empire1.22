@@ -52,7 +52,10 @@ describe("file persistence repositories", () => {
       await secondManager.restoreInstance(instanceId);
       const restoredRuntime = secondManager.getInstanceById(instanceId);
 
-      expect(restoredRuntime?.state.districtsById["district:2"]?.ownerPlayerId).toBe("player:1");
+      expect(restoredRuntime?.state.districtsById["district:2"]?.ownerPlayerId).toBe("player:2");
+      expect(Object.values(restoredRuntime?.state.pendingDistrictActionOperationsById ?? {})).toContainEqual(
+        expect.objectContaining({ operationType: "attack", targetDistrictId: "district:2" })
+      );
       expect(restoredRuntime?.processedCommandIds.has("command:file-persistence:attack:1")).toBe(true);
       await expect(secondManager.listCommandRecords(instanceId)).resolves.toHaveLength(1);
       await expect(secondManager.listEventRecords(instanceId)).resolves.toHaveLength(1);

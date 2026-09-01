@@ -23,8 +23,7 @@ function createElement(scopeElement, tagName, className = "") {
 const BUILDING_DETAIL_SHELL_CLASS_PREFIX = "building-detail--";
 const BUILDING_DETAIL_CARD_CLASS_PREFIX = "building-detail-card--";
 const SPECIAL_PRODUCTION_BUILDING_MECHANICS = new Set([
-  "drug-lab", "factory", "armory", "pharmacy", "warehouse", "power-plant",
-  "recycling-center", "smuggling-tunnel", "street-dealers"
+  "drug-lab", "factory", "armory", "pharmacy"
 ]);
 const AUTHORITY_DYNAMIC_EFFECT_NUMBER_PATTERN = "[0-9](?:[0-9.,\\u00a0\\u202f ]*[0-9])?";
 const AUTHORITY_DYNAMIC_CASH_RATE_PATTERN = new RegExp(
@@ -511,6 +510,9 @@ export function ensureBuildingDetailPanel(root, callbacks = {}, options = {}) {
 
   const close = (event) => {
     guardCloseInteraction(event);
+    if (event?.currentTarget === backdrop && shell.classList.contains("is-standard-building-detail")) {
+      return;
+    }
     shell.hidden = true;
     closeOverlay(shell, { restoreFocus: false });
     if (typeof callbacks.onClose === "function") callbacks.onClose(shell);
@@ -958,11 +960,15 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
     const phase = createElement(mount, "span", "building-info-action-row__phase");
     const cooldown = createElement(mount, "span", "building-info-action-row__cooldown");
     const command = createElement(mount, "span", "building-info-action-row__button");
-    if (!row || !title || !description || !phase || !cooldown || !command) continue;
+    const factionNote = createElement(mount, "small", "faction-passive-inline faction-passive-inline--action-card hidden");
+    if (!row || !title || !description || !phase || !cooldown || !command || !factionNote) continue;
     row.type = "button";
     row.dataset.districtBuildingDetailActionIndex = String(rowView.index ?? "");
     row.dataset.districtBuildingDetailActionId = String(rowView.actionId || "");
     row.dataset.districtBuildingDetailBuildingTypeId = String(rowView.buildingTypeId || "");
+    factionNote.dataset.factionPassiveInlineContext = "building-action";
+    factionNote.dataset.factionPassiveBuildingType = String(rowView.buildingTypeId || "");
+    factionNote.hidden = true;
     row.dataset.districtBuildingDetailActionState = Number(rowView.cooldownRemainingMs || 0) > 0
       ? "cooldown"
       : rowView.disabled
@@ -993,7 +999,7 @@ export function renderBuildingActions(buildingViewModel = {}, callbacks = {}, op
         : "SPUSTIT";
     row.dataset.districtBuildingDetailHasPhaseLock = phaseLabel ? "true" : "false";
     row.dataset.districtBuildingDetailHasCooldown = cooldownLabel ? "true" : "false";
-    row.append(title, description, phase, command, cooldown);
+    row.append(title, description, phase, command, cooldown, factionNote);
     if (rowView.dealerSale) {
       const wrapper = createDealerSaleControls(mount, row, rowView.dealerSale);
       if (wrapper) {
@@ -1057,12 +1063,16 @@ function createBuildingActionInputControls(scopeElement, actionButton, rowView =
       if (control.children?.[0]) control.value = control.children[0].value;
     } else {
       control.type = inputType;
+      if (inputType === "number") control.step = "1";
       if (Number.isFinite(Number(definition.min))) {
         control.min = String(Number(definition.min));
         if (inputType === "number") control.value = control.min;
       }
       if (Number.isFinite(Number(definition.max))) {
         control.max = String(Number(definition.max));
+      }
+      if (definition.defaultValue !== undefined && definition.defaultValue !== null) {
+        control.value = String(definition.defaultValue);
       }
     }
 
@@ -1080,7 +1090,7 @@ function createBuildingActionInputControls(scopeElement, actionButton, rowView =
       if (definition.required === true && !value.trim()) return true;
       if (!value.trim() || definition.type !== "number") return false;
       const numberValue = Number(value);
-      if (!Number.isFinite(numberValue)) return true;
+      if (!Number.isFinite(numberValue) || !Number.isInteger(numberValue)) return true;
       if (Number.isFinite(Number(definition.min)) && numberValue < Number(definition.min)) return true;
       return Number.isFinite(Number(definition.max)) && numberValue > Number(definition.max);
     });

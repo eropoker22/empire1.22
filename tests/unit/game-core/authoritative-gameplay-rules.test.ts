@@ -15,6 +15,7 @@ import {
   createAttackDistrictCommandFixture,
   createPlaceTrapCommandFixture
 } from "../../fixtures/command-fixtures";
+import { resolvePendingDistrictAction } from "../../fixtures/timed-operation-fixtures";
 
 describe("authoritative gameplay rules", () => {
   it("does not treat 75 percent free control as a victory threshold before Final Lockdown", () => {
@@ -144,20 +145,19 @@ describe("authoritative gameplay rules", () => {
       defenseLoadout: {}
     };
 
-    const result = applyCommand(
+    const context = { config: createFreeConfigWithoutDayNight() };
+    const started = applyCommand(
       state,
       createAttackDistrictCommandFixture(),
-      {
-        config: createFreeConfigWithoutDayNight()
-      }
+      context
     );
-
-    const cooldown = result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["attack:global"];
+    const result = resolvePendingDistrictAction(started.nextState, context);
+    const cooldown = started.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["attack:global"];
     const report = Object.values(result.nextState.notificationsById).find(
       (notification) => notification.category === "report.battle" && notification.recipientId === "player:1"
     );
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(cooldown).toBe(132);
     expect(report?.payload).toMatchObject({
       attackDurationTicks: 132,
@@ -173,19 +173,19 @@ describe("authoritative gameplay rules", () => {
       defenseLoadout: {}
     };
 
-    const result = applyCommand(
+    const context = { config: resolveModeConfig("free") };
+    const started = applyCommand(
       state,
       createAttackDistrictCommandFixture(),
-      {
-        config: resolveModeConfig("free")
-      }
+      context
     );
+    const result = resolvePendingDistrictAction(started.nextState, context);
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:1");
   });
 
-  it("applies active district attack modifiers during combat", () => {
+  it("does not preserve district attack modifiers that expire during preparation", () => {
     const state = createCombatStateFixture();
     state.districtsById["district:2"] = {
       ...state.districtsById["district:2"],
@@ -214,19 +214,19 @@ describe("authoritative gameplay rules", () => {
       version: 1
     };
 
-    const result = applyCommand(
+    const context = { config: resolveModeConfig("free") };
+    const started = applyCommand(
       state,
       createAttackDistrictCommandFixture(),
-      {
-        config: resolveModeConfig("free")
-      }
+      context
     );
+    const result = resolvePendingDistrictAction(started.nextState, context);
 
-    expect(result.errors).toEqual([]);
-    expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:1");
-    expect(result.events[0]?.payload).toMatchObject({
-      attackMultiplier: 1.2,
-      districtCaptured: true
+    expect(started.errors).toEqual([]);
+    expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
+    expect(result.events.find((event) => event.type === "district-attacked")?.payload).toMatchObject({
+      attackMultiplier: 1,
+      districtCaptured: false
     });
   });
 
@@ -267,18 +267,19 @@ describe("authoritative gameplay rules", () => {
     const trappedState = applyCommand(state, createPlaceTrapCommandFixture(), { config }).nextState;
     seedSuccessfulSpyIntel(trappedState, "player:1", "district:1", "district:2", "player:2");
 
-    const result = applyCommand(trappedState, createAttackDistrictCommandFixture({
+    const started = applyCommand(trappedState, createAttackDistrictCommandFixture({
       payload: {
         expectedConflictRevision: trappedState.districtsById["district:2"].conflictRevision
       }
     }), { config });
+    const result = resolvePendingDistrictAction(started.nextState, { config });
     const report = result.events.find((event) => event.type === "district-attacked");
     const trapEvent = result.events.find((event) => event.type === "trap-triggered");
     const losses = (trapEvent?.payload as { attackerLosses?: Record<string, number> } | undefined)
       ?.attackerLosses ?? {};
     const totalLosses = Object.values(losses).reduce((total, amount) => total + Number(amount), 0);
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.trapsById["trap:district:2"]?.status).toBe("triggered");
     expect(totalLosses).toBeGreaterThanOrEqual(4);
     expect(report?.payload).toMatchObject({
@@ -307,6 +308,8 @@ describe("authoritative gameplay rules", () => {
       activeFlags: [],
       version: 1
     };
+    state.root.tick = 360;
+    state.serverInstance.currentTick = 360;
 
     const result = triggerRaid(state, {
       config: createFreeConfigWithoutDayNight()

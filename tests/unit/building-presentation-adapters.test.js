@@ -390,7 +390,7 @@ describe("shared building presentation adapters", () => {
       action: {
         actionId: "speculative_buy",
         title: "Spekulativní nákup",
-        buttonCostLabel: "$2,750 clean",
+        buttonCostLabel: "$3,500 clean",
         rewardSummary: "Market tlak +1",
         cooldownLabel: "30 min",
         disabledReason: "",
@@ -400,7 +400,16 @@ describe("shared building presentation adapters", () => {
         ],
         serverAction: {
           description: "Nakoupí vybranou kategorii.",
-          riskSummary: ["Heat +2"]
+          riskSummary: ["Heat +2"],
+          influenceChange: 0,
+          costPreview: {
+            fixedInputCost: { cash: 2500 },
+            variableInputCosts: [{
+              inputId: "investmentCleanCash",
+              resourceKey: "cash",
+              amountPerUnit: 1
+            }]
+          }
         }
       },
       context: {
@@ -423,14 +432,15 @@ describe("shared building presentation adapters", () => {
     expect(execution.confirmation).toMatchObject({
       buildingLabel: "Burza",
       districtLabel: "District 79",
-      inputSummary: "Kategorie marketu · Investice",
+      costSummary: "$5250 clean cash",
+      inputSummary: "Kategorie marketu: electronics · Investice: $2750 clean cash",
       rewardSummary: "Market tlak +1",
       disabledReason: "",
       canConfirm: true
     });
   });
 
-  it("keeps authoritative input requirements out of the shared card and applies demo defaults", () => {
+  it("renders authoritative input requirements and applies server-compatible defaults", () => {
     const requiredInputs = [
       {
         id: "targetCategory",
@@ -461,7 +471,7 @@ describe("shared building presentation adapters", () => {
       (candidate) => candidate.actionId === "speculative_buy"
     );
 
-    expect(action.requiresInput).toEqual([]);
+    expect(action.requiresInput).toEqual(requiredInputs);
     expect(action.serverAction.requiredInputs).toEqual(requiredInputs);
 
     const execution = createServerBuildingActionExecutionPresentation({
@@ -475,7 +485,7 @@ describe("shared building presentation adapters", () => {
       targetCategory: "materials",
       investmentCleanCash: 1000
     });
-    expect(execution.confirmation.inputSummary).toContain("Kategorie: materials");
+    expect(execution.confirmation.inputSummary).toContain("Kategorie marketu: Materials");
     expect(execution.confirmation.inputSummary).toContain("Investice:");
   });
 
@@ -662,6 +672,28 @@ describe("shared building presentation adapters", () => {
     expect(detail.viewModel.actions[1].rewardSummary).not.toContain("Zdarma");
     expect(detail.viewModel.actions[2].buttonCostLabel).toBe("$10000 clean cash");
     expect(detail.viewModel.actions[2].rewardSummary).toContain("Heat -20");
+  });
+
+  it("prefers authoritative effective cost and reward on every building action", () => {
+    const detail = createServerBuildingDetail({
+      baseName: "Škola",
+      buildingTypeId: "school",
+      actions: [{
+        actionId: "evening_course",
+        label: "Večerní kurz",
+        enabled: true,
+        inputSummary: "1000 Cash",
+        effectiveInputCost: { cash: 1200 },
+        outputSummary: "Server: nábor +75 % na 20 minut",
+        effectiveOutputGain: {},
+        cooldownMs: 35 * 60 * 1000
+      }]
+    });
+    const action = detail.viewModel.actions.find((entry) => entry.actionId === "evening_course");
+
+    expect(action.buttonCostLabel).toBe("$1200 clean cash");
+    expect(action.rewardSummary).toBe("Server: nábor +75 % na 20 minut");
+    expect(action.rewardSummary).not.toContain("+60 %");
   });
 
   it("uses precise authoritative population buffers for apartment and convenience cards", () => {
@@ -1377,6 +1409,39 @@ describe("server district action presentation", () => {
     expect(actions.find((action) => action.id === "spy")).toMatchObject({
       stacked: false,
       subtitle: ""
+    });
+  });
+
+  it("shows the exact server-recommended heist payload before one-click launch", () => {
+    const actions = createServerDistrictActionPresentation({
+      district: {
+        districtId: "district:21",
+        targetActions: {
+          attackTargets: [],
+          spyTargets: [],
+          occupyTargets: [],
+          robTargets: [],
+          heistTargets: [{
+            districtId: "district:21",
+            enabled: true,
+            recommendedStyle: "balanced",
+            styles: [{
+              style: "balanced",
+              label: "Vyvážený",
+              enabled: true,
+              defaultPopulationSent: 10
+            }]
+          }]
+        }
+      }
+    }, "district:21");
+
+    expect(actions[0]).toMatchObject({
+      id: "heist",
+      enabled: true,
+      stacked: true,
+      subtitle: "Vyvážený · 10 lidí · verdikt po odpočtu",
+      title: "Kliknutí okamžitě vyšle Vyvážený · 10 lidí · verdikt po odpočtu."
     });
   });
 

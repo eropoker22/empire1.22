@@ -7,6 +7,7 @@ const readText = (path) => readFileSync(resolve(root, path), "utf8").replace(/\r
 
 describe("alliance alpha UI", () => {
   const html = readText("pages/game.html");
+  const clientHtml = readText("client/pages/game.html");
   const runtime = readText("page-assets/js/app/alliance-runtime.js");
   const allianceCreateViewModel = readText("page-assets/js/app/runtime/allianceCreateViewModel.js");
   const demoFixture = readText("page-assets/js/app/dev-fixtures/allianceDemoData.js");
@@ -128,7 +129,14 @@ describe("alliance alpha UI", () => {
   it("uses authoritative city chat on servers and keeps local storage only for demo runtime", () => {
     expect(html).toContain("Městský chat");
     expect(html).toContain("Načítám městský chat ze serveru…");
-    expect(html).toContain("Zprávy uvidí všichni hráči na tomto serveru.");
+    for (const documentHtml of [html, clientHtml]) {
+      expect(documentHtml).toContain('maxlength="240"');
+      expect(documentHtml).toContain("data-global-chat-input");
+      expect(documentHtml).not.toContain('class="server-chat-panel__composer-meta"');
+      expect(documentHtml).not.toContain('id="global-chat-status"');
+      expect(documentHtml).not.toContain("data-global-chat-counter");
+      expect(documentHtml).not.toContain("Zprávy uvidí všichni hráči na tomto serveru.");
+    }
     expect(runtime).toContain('const GLOBAL_CHAT_KEY = "empire:demo:global-chat:v1";');
     expect(runtime).toContain("submitServerCityChatCommand");
     expect(runtime).toContain("gameplaySlice?.cityChat");
@@ -275,6 +283,9 @@ describe("alliance alpha UI", () => {
   it("uses explicit disband copy for leaders", () => {
     expect(runtime).toContain("const getAllianceExitCopy = (activeAlliance, mode = resolveAllianceExitMode(activeAlliance)) =>");
     expect(runtime).toContain("Předat vedení a odejít?");
+    expect(runtime).toContain("latestAllianceBoard?.exitConsequences?.voluntaryLeave");
+    expect(runtime).toContain("latestAllianceBoard?.exitConsequences?.disband");
+    expect(runtime).not.toContain("na 4 h dostaneš 50% debuff");
     expect(runtime).toContain("chosenSuccessorPlayerId");
     expect(runtime).toContain("Rozpustit alianci?");
     expect(runtime).toContain("Tahle akce zruší alianci pro všechny členy.");

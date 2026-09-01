@@ -127,7 +127,9 @@ export const validateOccupyEmptyDistrictAuthorization = (
     const payload = notification.payload;
     return payload.targetStateAtSpy === "empty"
       && payload.targetOwnerPlayerId === null
-      && payload.targetSecurityRevision === targetDistrict.securityRevision;
+      && payload.targetSecurityRevision === targetDistrict.securityRevision
+      && typeof payload.authorizationExpiresAtTick === "number"
+      && payload.authorizationExpiresAtTick > state.root.tick;
   });
 
   return hasCurrentTargetSecurity ? true : "OCCUPY_SPY_AUTH_INVALIDATED";

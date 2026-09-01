@@ -73,16 +73,23 @@ test.describe("hosted bounty, market and alliance through visible UI", () => {
         expect.arrayContaining([
           expect.objectContaining({
             bountyId: claimBountyId,
-            status: "claimed"
+            status: "active"
           })
         ])
       );
-      expect(attack.body.readModel.bounty.recentBountyEvents).toEqual(
+      expect(attack.body.readModel.bounty.recentBountyEvents)
+        .not.toEqual(expect.arrayContaining([
+          expect.objectContaining({ bountyId: claimBountyId, type: "claimed" })
+        ]));
+      const attackCompletion = await waitForDeferredReport(hunter.page, attack);
+      expect(attackCompletion.readModel.bounty.activeBounties).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({
-            bountyId: claimBountyId,
-            type: "claimed"
-          })
+          expect.objectContaining({ bountyId: claimBountyId, status: "claimed" })
+        ])
+      );
+      expect(attackCompletion.readModel.bounty.recentBountyEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ bountyId: claimBountyId, type: "claimed" })
         ])
       );
 
@@ -667,10 +674,86 @@ async function runAttackThroughVisibleUi(page, districtId) {
     weapons: { bazooka: 20 }
   });
   expect(result.body.accepted, formatErrors(result.body)).toBe(true);
+  const pendingEffect = assertAcceptedPendingAttack(result, districtId);
+  return { ...result, pendingEffect };
+}
+
+function assertAcceptedPendingAttack(result, districtId) {
+  expect(findCommandReport(
+    result.body.readModel,
+    result.request.command.id,
+    districtId
+  ), "attack must not expose a battle report before its due tick").toBeNull();
+  const effect = result.body.readModel.mapEffects.find((entry) => (
+    entry.type === "attack"
+    && entry.source === "server-public-operation"
+    && entry.districtId === districtId
+    && entry.playerId === result.body.readModel.player.playerId
+  ));
+  expect(effect, "accepted attack must expose its authoritative pending map effect").toBeTruthy();
+  expect(effect.expiresAtTick).toBeGreaterThan(result.body.readModel.server.currentTick);
+  return effect;
+}
+
+async function waitForDeferredReport(page, attack) {
+  const startTick = Number(attack.body.readModel.server.currentTick);
+  const tickRateMs = Math.max(1, Number(attack.body.readModel.mode?.tickRateMs || 1_000));
+  const timeout = Math.max(
+    30_000,
+    (attack.pendingEffect.expiresAtTick - startTick) * tickRateMs + 30_000
+  );
+  let completion = null;
+  await expect.poll(async () => {
+    const readModel = await loadAuthoritativeReadModel(page, attack.pendingEffect.districtId);
+    const report = findCommandReport(
+      readModel,
+      attack.request.command.id,
+      attack.pendingEffect.districtId
+    );
+    if (!report || readModel.server.currentTick < attack.pendingEffect.expiresAtTick) return false;
+    completion = { readModel, report };
+    return true;
+  }, {
+    message: `attack must resolve at or after authoritative tick ${attack.pendingEffect.expiresAtTick}`,
+    timeout,
+    intervals: [250, 500, 1_000]
+  }).toBe(true);
+  expect(completion.report.tick).toBeGreaterThanOrEqual(attack.pendingEffect.expiresAtTick);
+  expect(completion.readModel.mapEffects.map((effect) => effect.effectId))
+    .not.toContain(attack.pendingEffect.effectId);
+  await reloadHostedGame(page);
+  expect(findCommandReport(
+    await getRenderedReadModel(page),
+    attack.request.command.id,
+    attack.pendingEffect.districtId
+  )).toBeTruthy();
   const close = page.locator("#attack-result-modal-close:visible");
-  await close.waitFor({ state: "visible", timeout: 3_000 }).catch(() => {});
   if (await close.isVisible().catch(() => false)) await close.click();
-  return result;
+  return completion;
+}
+
+async function loadAuthoritativeReadModel(page, districtId) {
+  const result = await page.evaluate(async ({ instanceId, focusDistrictId }) => {
+    const response = await fetch("/api/gameplay-slice/load", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ serverInstanceId: instanceId, districtId: focusDistrictId })
+    });
+    return { status: response.status, body: await response.json() };
+  }, { instanceId: serverInstanceId, focusDistrictId: districtId });
+  expect(result.status).toBe(200);
+  expect(result.body?.accepted, formatErrors(result.body)).toBe(true);
+  return result.body.readModel;
+}
+
+function findCommandReport(readModel, commandId, districtId) {
+  return readModel?.reports?.find((report) => (
+    report.actionType === "attack-district"
+    && report.targetDistrictId === districtId
+    && String(report.reportId || "").includes(commandId)
+  )) || null;
 }
 
 async function openActionTargetFromMap(page, districtId, actionId) {

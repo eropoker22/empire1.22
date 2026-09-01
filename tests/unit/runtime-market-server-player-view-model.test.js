@@ -47,6 +47,7 @@ describe("server player market view model", () => {
           id: "chemicals",
           name: "Chemicals",
           category: "bulk",
+          maxPlayerListingUnitPrice: 3600,
           normalMarket: { price: 450 }
         }],
         playerMarket: {
@@ -67,7 +68,10 @@ describe("server player market view model", () => {
           }]
         }
       },
-      playerView: { resourceBalances: { chemicals: 4 } }
+      playerView: {
+        resourceBalances: { chemicals: 4 },
+        storage: { groups: [{ items: [{ resourceKey: "chemicals", currentAmount: 4, maxAmount: 10 }] }] }
+      }
     });
 
     expect(viewModel).toMatchObject({
@@ -77,11 +81,45 @@ describe("server player market view model", () => {
       ownListingLimit: 5
     });
     expect(viewModel.sellableItems).toEqual([
-      expect.objectContaining({ resourceId: "chemicals", amount: 4, suggestedUnitPrice: 450 })
+      expect.objectContaining({
+        resourceId: "chemicals",
+        amount: 4,
+        suggestedUnitPrice: 450,
+        maxUnitPrice: 3600
+      })
     ]);
     expect(viewModel.listings).toEqual([
       expect.objectContaining({ id: "listing:1", total: 1000, disabled: false })
     ]);
+  });
+
+  it("blocks whole escrow listings that do not fit in authoritative storage", () => {
+    const viewModel = createServerPlayerMarketPanelPayload({
+      serverMarket: {
+        resources: [{ id: "chemicals", name: "Chemicals", normalMarket: { price: 450 } }],
+        playerMarket: {
+          listings: [{
+            id: "listing:full",
+            resourceId: "chemicals",
+            sellerPlayerId: "player:2",
+            amount: 2,
+            unitPrice: 500,
+            totalPrice: 1000,
+            paymentType: "cleanCash",
+            isOwn: false,
+            canBuy: true
+          }]
+        }
+      },
+      playerView: {
+        storage: { groups: [{ items: [{ resourceKey: "chemicals", currentAmount: 9, maxAmount: 10 }] }] }
+      }
+    });
+
+    expect(viewModel.listings[0]).toMatchObject({
+      disabled: true,
+      title: "Celá nabídka se do SKLADU nevejde."
+    });
   });
 
   it("submits create, buy and cancel intents through server commands", async () => {

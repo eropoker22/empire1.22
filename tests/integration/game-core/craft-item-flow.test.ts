@@ -6,6 +6,7 @@ import {
   createCraftItemCommandFixture
 } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import { advanceProductionUntilIdle } from "../../fixtures/timed-operation-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 
@@ -57,8 +58,8 @@ const instantCraftCases: Array<{
   }
 ];
 
-describe("instant craft-item command flow", () => {
-  it.each(instantCraftCases)("debits inputs and credits $buildingTypeId/$recipeId in the same command", ({
+describe("timed craft-item command flow", () => {
+  it.each(instantCraftCases)("debits inputs at start and credits $buildingTypeId/$recipeId only when due", ({
     buildingTypeId,
     recipeId,
     playerBalances,
@@ -68,35 +69,46 @@ describe("instant craft-item command flow", () => {
   }) => {
     const { state, building } = createCoreStateWithFixedBuildingFixture(buildingTypeId, { playerBalances });
     const result = applyCommand(state, craft(building.id, recipeId, quantity), context);
+    const completed = advanceProductionUntilIdle(result.nextState, building.id, recipeId, context);
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.root.tick).toBe(state.root.tick);
-    expect(result.nextState.resourceStatesById["resource:1"]?.balances).toMatchObject(expectedBalances);
+    expect(result.nextState.resourceStatesById["resource:1"]?.balances[outputResourceKey] ?? 0)
+      .toBe(playerBalances[outputResourceKey] ?? 0);
+    expect(result.events).toEqual([]);
+    expect(result.nextState.buildingsById[building.id]?.productionLines?.[recipeId]?.activeCompletesAtTick)
+      .toBeGreaterThan(state.root.tick);
+    for (const [resourceKey, expectedAmount] of Object.entries(expectedBalances)) {
+      if (resourceKey !== outputResourceKey) {
+        expect(result.nextState.resourceStatesById["resource:1"]?.balances[resourceKey] ?? 0).toBe(expectedAmount);
+      }
+    }
+    expect(completed.resourceStatesById[`resource:${building.id}`]?.balances[outputResourceKey]).toBe(quantity);
+    expect(completed.resourceStatesById["resource:1"]?.balances[outputResourceKey] ?? 0)
+      .toBe(playerBalances[outputResourceKey] ?? 0);
     expect(result.nextState.buildingsById[building.id]?.processing).toBeNull();
-    expect(Object.keys(result.nextState.buildingsById[building.id]?.productionLines ?? {})).toHaveLength(0);
     expect(result.nextState.resourceStatesById[`resource:${building.id}`]?.balances[outputResourceKey]).toBeUndefined();
-    expect(result.events).toContainEqual(expect.objectContaining({
-      payload: expect.objectContaining({
-        outputResourceKey,
-        quantity,
-        instant: true
-      })
-    }));
   });
 
-  it("supports an immediate multi-unit production command without creating a queue", () => {
+  it("starts a multi-unit command immediately and resolves its queue over time", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("pharmacy", {
       playerBalances: { cash: 2_000, chemicals: 4 }
     });
 
     const result = applyCommand(state, craft(building.id, "chemicals", 3), context);
+    const completed = advanceProductionUntilIdle(result.nextState, building.id, "chemicals", context);
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.resourceStatesById["resource:1"]?.balances).toMatchObject({
       cash: 920,
-      chemicals: 7
+      chemicals: 4
     });
-    expect(result.nextState.buildingsById[building.id]?.productionLines).toBeUndefined();
+    expect(result.nextState.buildingsById[building.id]?.productionLines?.chemicals).toMatchObject({
+      queuedAmount: 3,
+      activeCompletesAtTick: expect.any(Number)
+    });
+    expect(completed.resourceStatesById["resource:1"]?.balances.chemicals).toBe(4);
+    expect(completed.resourceStatesById[`resource:${building.id}`]?.balances.chemicals).toBe(3);
   });
 
   it.each([
@@ -117,15 +129,19 @@ describe("instant craft-item command flow", () => {
     expect(rejected.errors.map((error) => error.code)).toContain(errorCode);
   });
 
-  it("does not create another output on later ticks after an instant craft", () => {
+  it("creates output exactly once at the due tick", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("armory", {
       playerBalances: { "metal-parts": 2, "baseball-bat": 0 }
     });
     const produced = applyCommand(state, craft(building.id, "baseball-bat"), context);
-    const afterTick = runTick(produced.nextState, context).nextState;
+    const dueTick = produced.nextState.buildingsById[building.id]?.productionLines?.["baseball-bat"]?.activeCompletesAtTick;
+    expect(dueTick).toBeGreaterThan(produced.nextState.root.tick);
+    const beforeDue = advanceProductionUntilIdle(produced.nextState, building.id, "baseball-bat", context);
+    const afterTick = runTick(beforeDue, context).nextState;
 
-    expect(produced.nextState.resourceStatesById["resource:1"]?.balances["baseball-bat"]).toBe(1);
-    expect(afterTick.resourceStatesById["resource:1"]?.balances["baseball-bat"]).toBe(1);
+    expect(produced.nextState.resourceStatesById[`resource:${building.id}`]?.balances["baseball-bat"] ?? 0).toBe(0);
+    expect(beforeDue.resourceStatesById[`resource:${building.id}`]?.balances["baseball-bat"]).toBe(1);
+    expect(afterTick.resourceStatesById[`resource:${building.id}`]?.balances["baseball-bat"]).toBe(1);
   });
 
   it("keeps collect only as a compatibility path for output stored by a legacy snapshot", () => {

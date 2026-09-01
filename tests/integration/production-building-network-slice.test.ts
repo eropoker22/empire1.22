@@ -4,6 +4,7 @@ import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
+import { advanceStateAcrossDueTick } from "../fixtures/timed-operation-fixtures";
 
 describe("production building network gameplay slice", () => {
   it("exposes pharmacy as independent server lines alongside other fixed production slots", async () => {
@@ -99,12 +100,12 @@ describe("production building network gameplay slice", () => {
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === drugLabId)?.drugLab?.lines.find(
       (line) => line.recipeId === "pulse-shot"
     )).toMatchObject({
-      executionMode: "instant",
-      queuedAmount: 0,
-      activeAmount: 0,
-      playerStoredAmount: initialPulseShot + 1
+      executionMode: "legacy-timed",
+      queuedAmount: 1,
+      activeAmount: 1,
+      playerStoredAmount: initialPulseShot
     });
-    expect(runtime.state.resourceStatesById[resourceStateId]?.balances["pulse-shot"]).toBe(initialPulseShot + 1);
+    expect(runtime.state.resourceStatesById[resourceStateId]?.balances["pulse-shot"] ?? 0).toBe(initialPulseShot);
 
     const armoryCraft = await client.dispatch(
       {
@@ -124,11 +125,33 @@ describe("production building network gameplay slice", () => {
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === armoryId)?.armory?.productionLines.find(
       (line) => line.recipeId === "pistol"
     )).toMatchObject({
-      executionMode: "instant",
-      queuedAmount: 0,
-      activeAmount: 0,
-      playerStoredAmount: initialPistol + 1
+      executionMode: "legacy-timed",
+      queuedAmount: 1,
+      activeAmount: 1,
+      playerStoredAmount: initialPistol
     });
-    expect(runtime.state.resourceStatesById[resourceStateId]?.balances.pistol).toBe(initialPistol + 1);
-  });
+    expect(runtime.state.resourceStatesById[resourceStateId]?.balances.pistol ?? 0).toBe(initialPistol);
+
+    const pulseDueTick = runtime.state.buildingsById[drugLabId!]?.productionLines?.["pulse-shot"]?.activeCompletesAtTick;
+    const pistolDueTick = runtime.state.buildingsById[armoryId!]?.productionLines?.pistol?.activeCompletesAtTick;
+    expect(pulseDueTick).toBeGreaterThan(runtime.state.root.tick);
+    expect(pistolDueTick).toBeGreaterThan(runtime.state.root.tick);
+    const finalDueTick = Math.max(pulseDueTick!, pistolDueTick!);
+    runtime.state = advanceStateAcrossDueTick(
+      runtime.state,
+      finalDueTick,
+      { config: runtime.config }
+    ).nextState;
+    await client.load(session.loadRequest);
+    expect(runtime.state.resourceStatesById[resourceStateId]?.balances["pulse-shot"] ?? 0).toBe(initialPulseShot);
+    expect(runtime.state.resourceStatesById[resourceStateId]?.balances.pistol ?? 0).toBe(initialPistol);
+    expect(runtime.state.resourceStatesById[`resource:${drugLabId}`]?.balances["pulse-shot"]).toBe(1);
+    expect(runtime.state.resourceStatesById[`resource:${armoryId}`]?.balances.pistol).toBe(1);
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === drugLabId)?.drugLab?.lines.find(
+      (line) => line.recipeId === "pulse-shot"
+    )?.producedAmount).toBe(1);
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === armoryId)?.armory?.productionLines.find(
+      (line) => line.recipeId === "pistol"
+    )?.producedAmount).toBe(1);
+  }, 30_000);
 });

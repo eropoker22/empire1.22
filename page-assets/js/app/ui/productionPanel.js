@@ -40,6 +40,12 @@ function getComparableEntries(value) {
 
 function haveEquivalentProductionNodes(currentNode, nextNode) {
   if (!currentNode || !nextNode) return currentNode === nextNode;
+  if (
+    currentNode.dataset?.factionPassiveStatLabel
+    && currentNode.dataset.factionPassiveStatLabel === nextNode.dataset?.factionPassiveStatLabel
+  ) {
+    return true;
+  }
   if (typeof currentNode.isEqualNode === "function") {
     return currentNode.isEqualNode(nextNode);
   }
@@ -134,6 +140,37 @@ function formatDuration(value, options = {}) {
 
 function appendDurationBonus(value, durationBonusLabel = "") {
   return durationBonusLabel ? `${value} (${durationBonusLabel})` : value;
+}
+
+function appendServerDurationAdjustment(scopeElement, metric, label = "", buildingType = "") {
+  const copy = String(label || "").trim();
+  if (!metric) return null;
+  let note = null;
+  if (copy) {
+    note = createElement(scopeElement, "small", "faction-passive-inline faction-passive-inline--production");
+    if (note) {
+      note.dataset.productionDurationAdjustment = "server";
+      note.textContent = copy;
+      note.title = "Základní a skutečný čas vrácený serverem po započtení aktivních bonusů.";
+      metric.append(note);
+    }
+  }
+  const factionNote = createElement(scopeElement, "small", "faction-passive-inline faction-passive-inline--production hidden");
+  if (factionNote) {
+    factionNote.dataset.factionPassiveStatLabel = "Produkce";
+    factionNote.dataset.factionPassiveBuildingType = String(buildingType || "");
+    factionNote.hidden = true;
+    metric.append(factionNote);
+  }
+  return note;
+}
+
+function notifyFactionPassiveTargetsChanged(mount) {
+  const documentRef = getDocument(mount);
+  const CustomEventConstructor = documentRef?.defaultView?.CustomEvent || globalThis.CustomEvent;
+  if (typeof documentRef?.dispatchEvent !== "function" || typeof CustomEventConstructor !== "function") return false;
+  documentRef.dispatchEvent(new CustomEventConstructor("empire:faction-passive-targets-changed"));
+  return true;
 }
 
 function formatProductionSpeedBonus(multiplier) {
@@ -384,7 +421,7 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
           state.level < maxLevel
             ? `Upgrade stojí ${formatMoney(upgradeCost, options)} a zvedne pasivní produkci na ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}.`
             : "Budova je na maximálním levelu.",
-          "Ruční recepty se po potvrzení vyrobí okamžitě do skladu."
+          "Rozkaz se odešle hned; hotové kusy se připíšou až po doběhnutí uvedeného času."
         ].filter(Boolean).join(" "));
   }
 
@@ -398,7 +435,7 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
       : [
           effectsLabel || `${config.label || "Budova"} · základní pasivní produkce`,
           state.level < maxLevel ? `Další level zvyšuje pasivní produkci.` : "Další upgrade už není dostupný.",
-          "Ruční výroba ukládá hotové kusy do skladu okamžitě."
+          "Hotové kusy se připíšou do skladu až po doběhnutí uvedeného času."
         ].join(" · "));
   }
 
@@ -410,7 +447,7 @@ export function renderProductionBuildingInfo(viewModel = {}, callbacks = {}, opt
       return Boolean(buildingName || Object.keys(recipes || {}).length >= 0);
     }
     const lines = [
-      "+ Vyrobit: atomicky spotřebuje vstupy a okamžitě uloží výstup do skladu.",
+      "+ Vyrobit: po serverové kontrole hned spustí výrobu; výstup vznikne po uvedeném čase.",
       state.level < maxLevel
         ? `⇪ Upgrade: cena ${formatMoney(upgradeCost, options)}, pasivní produkce ${formatProductionSpeedBonus(nextMultiplier || multiplier || 1)}.`
         : "⇪ Upgrade: max level.",
@@ -545,7 +582,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   eyebrow.textContent = slotView.typeLabel || "";
   title.textContent = slotView.title || slot.resourceKey || "";
   status.textContent = isInstant
-    ? "Okamžitá výroba"
+    ? "Lokální demo · bez odpočtu"
     : slotView.status
     ? getFactoryStatusLabel(slotView.status)
     : slot.isProducing
@@ -579,10 +616,11 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
   const timeValue = appendMetric("Čas", slotView.loading
     ? "—"
     : isInstant
-      ? "Okamžitě"
+      ? "Bez odpočtu · demo"
     : slotView.usesAuthoritativeCountdown
       ? formatDuration(Number(slotView.remainingMs || 0) > 0 ? slotView.remainingMs : slotView.durationMs, options)
       : formatFactorySlotTime(slotView, options));
+  appendServerDurationAdjustment(options.mount, timeValue?.parentElement || timeValue?.parentNode, slotView.durationAdjustmentLabel, "factory");
   if (!isInstant && !slotView.usesAuthoritativeCountdown && slot.isProducing) {
     bindFactoryMetricCountdown(timeValue, () => formatFactorySlotTime(slotView, options), options);
   }
@@ -670,7 +708,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     startButton.disabled = !slotView.canStart;
     startButton.title = startButton.disabled
       ? (slotView.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
-      : isInstant ? "Vyrobit okamžitě." : "Spustit výrobu.";
+      : "Spustit výrobu.";
     startButton.addEventListener("click", () => {
       clearProductionQuantitySelection(options.mount, batchSelectionKey);
       const binding = resolveFactorySlotBinding(options.mount, batchSelectionKey, slotView, callbacks);
@@ -737,6 +775,7 @@ export function renderFactorySlotList(mount, slots = [], callbacks = {}, options
   if (!presentationIsUnchanged) {
     mount.replaceChildren(...nextCards);
   }
+  notifyFactionPassiveTargetsChanged(mount);
   return true;
 }
 
@@ -841,7 +880,9 @@ export function renderProductionPanel(productionViewModel = {}, callbacks = {}, 
     const card = recipe?.prebuiltCard || renderRecipeCard(recipe, callbacks, { ...options, mount });
     if (card) nextCards.push(card);
   }
-  return replaceProductionChildrenIfChanged(mount, nextCards, contextKey, productionPanelStateByMount);
+  const rendered = replaceProductionChildrenIfChanged(mount, nextCards, contextKey, productionPanelStateByMount);
+  notifyFactionPassiveTargetsChanged(mount);
+  return rendered;
 }
 
 if (typeof window !== "undefined") {

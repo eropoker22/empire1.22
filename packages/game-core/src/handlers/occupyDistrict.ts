@@ -21,7 +21,7 @@ import { validateOccupy } from "../validation";
 import { createPlayerCooldownState } from "./attackDistrictHelpers";
 import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
 import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
-import { bumpDistrictConflictRevision } from "../state";
+import { bumpDistrictConflictRevision, resolvePlayerPopulation } from "../state";
 import {
   consumeEncirclementConfirmation,
   prepareEncirclementConfirmation
@@ -85,7 +85,11 @@ export const handleOccupyDistrict = (
     factionModifiers.aggressiveActionHeatGainMultiplier
   ) * cityHallNightPatrol.heatMultiplier);
   const resolveAtTick = state.root.tick + cooldownTicks;
-  const resolveAt = command.issuedAt;
+  const issuedAtMs = Date.parse(command.issuedAt);
+  const resolveAt = new Date(
+    (Number.isFinite(issuedAtMs) ? issuedAtMs : 0)
+      + cooldownTicks * Math.max(1, context.config.tickRateMs)
+  ).toISOString();
   const cooldownEndsAtTick = state.root.tick + cooldownTicks;
   const operation: PendingOccupyOperation = {
     id: `occupy-operation:${command.id}`,
@@ -129,6 +133,7 @@ export const handleOccupyDistrict = (
         ...state.playersById,
         [player.id]: {
           ...player,
+          population: Math.max(0, resolvePlayerPopulation(state, player) - populationCost),
           metadata: { ...(player.metadata ?? {}), occupyAttemptCount: attemptCount + 1 },
           lastActionAt: command.issuedAt,
           version: player.version + 1

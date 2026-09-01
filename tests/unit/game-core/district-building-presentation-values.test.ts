@@ -357,6 +357,77 @@ describe("district building presentation values", () => {
       .toMatchObject({ currentAmount: 200, maxAmount: 12, isFull: false, isOverCapacity: true });
   });
 
+  it("projects exact dynamic building-action costs and deterministic rewards", () => {
+    const project = (
+      buildingTypeId: string,
+      playerBalances: Record<string, number>,
+      metadata: Record<string, unknown> = {}
+    ) => {
+      const fixture = createCoreStateWithFixedBuildingFixture(buildingTypeId, {
+        playerBalances,
+        buildingOverrides: { metadata }
+      });
+      const district = fixture.state.districtsById[fixture.building.districtId];
+      district.influence = 100;
+      const [view] = createDistrictPanelBuildingViews({
+        state: fixture.state,
+        buildings: [fixture.building],
+        buildCatalog: getAllPublicBuildingDefinitions(),
+        actionCatalog: config.balance.buildingActions ?? {},
+        config,
+        stockExchangeConfig: config.balance.stockExchange,
+        airportConfig: config.balance.airport,
+        cityHallConfig: config.balance.cityHall,
+        lobbyClubConfig: config.balance.lobbyClub,
+        district,
+        playerId: "player:1",
+        playerBalances: fixture.state.resourceStatesById["resource:1"].balances,
+        tick: fixture.state.root.tick,
+        tickRateMs: config.tickRateMs
+      });
+      return view.actions;
+    };
+
+    for (const [buildingTypeId, actionId] of [
+      ["casino", "quiet_backroom"],
+      ["exchange", "good_rate"],
+      ["arcade", "back_cashdesk"]
+    ] as const) {
+      const action = project(buildingTypeId, { "dirty-cash": 10_000, cash: 0 })
+        .find((candidate) => candidate.actionId === actionId);
+      expect(action?.inputCost["dirty-cash"]).toBeGreaterThan(0);
+      expect(action?.outputGain.cash).toBeGreaterThan(0);
+      expect(action?.reportText).toContain("dirty cash");
+    }
+
+    const cityContract = project("city_hall", { cash: 20_000 })
+      .find((action) => action.actionId === "city_contract");
+    expect(cityContract?.outputGain.cash).toBeGreaterThan(0);
+    expect(cityContract?.influenceChange).toBeLessThan(0);
+    expect(cityContract?.reportText).toContain("Městská zakázka přinesla");
+
+    const speculativeBuy = project("stock_exchange", { cash: 10_000 })
+      .find((action) => action.actionId === "speculative_buy");
+    expect(speculativeBuy).toMatchObject({
+      inputCost: { cash: 3_500 },
+      costPreview: {
+        fixedInputCost: { cash: 2_500 },
+        variableInputCosts: [{
+          inputId: "investmentCleanCash",
+          resourceKey: "cash",
+          amountPerUnit: 1
+        }]
+      }
+    });
+    expect(speculativeBuy?.requiresInput.find((input) => input.id === "investmentCleanCash"))
+      .toMatchObject({ min: 1, max: 7_500, defaultValue: 1_000 });
+
+    const expressImport = project("airport", { cash: 20_000 }, {
+      airport: { nextImportCostPenaltyPct: 20 }
+    }).find((action) => action.actionId === "express_import");
+    expect(expressImport?.inputCost.cash).toBe(2_400);
+  });
+
   it("omits fractional clinic residue and keeps stabilization unavailable", () => {
     const fixture = createCoreStateWithFixedBuildingFixture("clinic", {
       playerBalances: { cash: 5_000 }

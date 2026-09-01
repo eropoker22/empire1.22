@@ -150,6 +150,15 @@ function formatFactoryDurationBonus(baseDurationMs = 0, effectiveDurationMs = 0)
   return reductionPct > 0 ? `−${reductionPct} %` : "";
 }
 
+function formatServerDurationAdjustment(baseDurationMs = 0, effectiveDurationMs = 0, formatDurationLabel = (value) => `${value}ms`) {
+  const baseMs = Number(baseDurationMs);
+  const effectiveMs = Number(effectiveDurationMs);
+  if (!Number.isFinite(baseMs) || baseMs <= 0 || !Number.isFinite(effectiveMs) || effectiveMs <= 0) {
+    return "";
+  }
+  return `Server: základ ${formatDurationLabel(baseMs)} → reálně ${formatDurationLabel(effectiveMs)}`;
+}
+
 function resolveFactoryLineSpeedMultiplier(line = {}, {
   canonicalBaseDurationMs,
   effectiveDurationMs
@@ -342,8 +351,12 @@ export function buildFactoryDashboardViewModel({
         displayCost,
         priceLabel: getFactoryDisplayCostLabel(displayCost),
         disabledReason: slot.disabledReason || null,
+        baseDurationMs: resolvedBaseDurationMs,
         durationMs,
         durationBonusLabel: isInstant ? "" : formatFactoryDurationBonus(resolvedBaseDurationMs, durationMs),
+        durationAdjustmentLabel: !isInstant && slot.usesAuthoritativeDuration === true
+          ? formatServerDurationAdjustment(slot.authoritativeBaseDurationMs, slot.effectiveDurationMs, formatDurationLabel)
+          : "",
         ...getFactorySlotVisual(slot, config, formatDurationLabel)
       };
     })
@@ -408,6 +421,10 @@ export function buildServerFactoryDashboardViewModel({
       loading: line.loading === true,
       remainingMs: Math.max(0, Number(line.remainingMs || 0)),
       usesAuthoritativeCountdown: !isInstant && (line.status === "processing" || Number(line.remainingMs || 0) > 0),
+      usesAuthoritativeDuration: !isInstant,
+      authoritativeBaseDurationMs: !isInstant && Number.isFinite(baseDurationTicks) && baseDurationTicks > 0
+        ? baseDurationTicks * safeTickRateMs
+        : undefined,
       canStart: line.canStart === true,
       canCancelWaiting: line.canCancelWaiting === true,
       canCollect: line.canCollect === true,

@@ -391,13 +391,36 @@ function getArmorySlotRole(recipeId = "", recipe = {}) {
     : "attack";
 }
 
+function appendServerDurationAdjustment(scopeElement, metric, label = "", buildingType = "") {
+  const copy = String(label || "").trim();
+  if (!metric) return null;
+  let note = null;
+  if (copy) {
+    note = createElement(scopeElement, "small", "faction-passive-inline faction-passive-inline--production");
+    if (note) {
+      note.dataset.productionDurationAdjustment = "server";
+      note.textContent = copy;
+      note.title = "Základní a skutečný čas vrácený serverem po započtení aktivních bonusů.";
+      metric.append(note);
+    }
+  }
+  const factionNote = createElement(scopeElement, "small", "faction-passive-inline faction-passive-inline--production hidden");
+  if (factionNote) {
+    factionNote.dataset.factionPassiveStatLabel = "Produkce";
+    factionNote.dataset.factionPassiveBuildingType = String(buildingType || "");
+    factionNote.hidden = true;
+    metric.append(factionNote);
+  }
+  return note;
+}
+
 function getRecipeQuantitySelectionKey(viewModel = {}, options = {}) {
   const buildingId = String(viewModel.buildingId || options.selectionScopeKey || "").trim();
   const recipeId = String(viewModel.recipeId || viewModel.recipe?.output?.itemId || "").trim();
   return buildingId && recipeId ? `${buildingId}:${recipeId}` : "";
 }
 
-function createArmoryStrengthLabel(scopeElement, preview = null) {
+function createArmoryStrengthLabel(scopeElement, preview = null, recipeId = "") {
   if (!preview || !preview.label || !Number.isFinite(Number(preview.basePower))) {
     return null;
   }
@@ -411,6 +434,20 @@ function createArmoryStrengthLabel(scopeElement, preview = null) {
       bonus.textContent = `(${bonusLabel})`;
       label.append(getDocument(scopeElement).createTextNode(" "), bonus);
     }
+  }
+  const itemId = String(preview.itemId || recipeId || "").trim();
+  const factionContext = itemId === "cameras"
+    ? "camera-effectiveness"
+    : itemId === "alarm"
+      ? "alarm-effectiveness"
+      : preview.label === "Síla obrany"
+        ? "defense-strength"
+        : "attack-strength";
+  const factionNote = createElement(scopeElement, "small", "faction-passive-inline faction-passive-inline--armory hidden");
+  if (factionNote) {
+    factionNote.dataset.factionPassiveInlineContext = factionContext;
+    factionNote.hidden = true;
+    label.append(factionNote);
   }
   return label;
 }
@@ -475,10 +512,10 @@ function renderQuantityControl(viewModel = {}, callbacks = {}, options = {}) {
       startButton.disabled = (!canTryStartWithoutInputs && viewModel.canStart === false) || !canQueueMore;
       startButton.title = startButton.disabled
         ? (viewModel.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
-        : isInstant ? "Vyrobit okamžitě." : "Spustit výrobu.";
+        : "Spustit výrobu.";
     }
     setMetricValue(timeMetric, isInstant
-      ? "Okamžitě"
+      ? "Bez odpočtu · demo"
       : formatRecipeSlotTime(job, effectiveDurationMs, selectedBatches, options, viewModel.durationBonusLabel));
     setMetricValue(queueMetric, isInstant
       ? "Bez fronty"
@@ -598,7 +635,8 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titleWrap, [title]);
     appendChildren(titleLine, [icon, titleWrap]);
     appendChildren(head, [titleLine, state]);
-    const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", isInstant ? "Okamžitě" : formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel));
+    const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", isInstant ? "Bez odpočtu · demo" : formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel));
+    appendServerDurationAdjustment(options.mount, timeMetric, viewModel.durationAdjustmentLabel, buildingName);
     const queueMetric = createPharmacyMetricBlock(options.mount, "Fronta", isInstant ? "Bez fronty" : formatQueuedOutput(job, recipe, { useQuantityAsOutput: true, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
     const cleanCost = Math.max(0, Number(recipe.cleanMoneyCost || 0));
     const costMetric = createPharmacyMetricBlock(options.mount, "Cena", cleanCost ? `${formatMoney(cleanCost, options)} clean` : "-");
@@ -646,7 +684,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     const titles = createElement(options.mount, "div", "drug-production-slot__titles");
     const product = createElement(options.mount, "span", "drug-production-slot__product");
     const title = createElement(options.mount, "strong", "drug-production-slot__title");
-    const strengthLabel = isArmory ? createArmoryStrengthLabel(options.mount, viewModel.armoryStrengthPreview) : null;
+    const strengthLabel = isArmory ? createArmoryStrengthLabel(options.mount, viewModel.armoryStrengthPreview, recipeId) : null;
     const state = createElement(options.mount, "span", "drug-production-slot__state");
     const metrics = createElement(options.mount, "div", "drug-production-slot__metrics");
     const actions = createElement(options.mount, "div", "drug-production-slot__controls");
@@ -658,7 +696,8 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titles, [productLabel ? product : null, title, strengthLabel]);
     appendChildren(titleWrap, [icon, titles]);
     appendChildren(head, [titleWrap, state]);
-    const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: isInstant ? "Okamžitě" : formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel) });
+    const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: isInstant ? "Bez odpočtu · demo" : formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel) });
+    appendServerDurationAdjustment(options.mount, timeMetric, viewModel.durationAdjustmentLabel, buildingName);
     const queueMetric = createMetricBlock(options.mount, { label: "Fronta", value: isInstant ? "Bez fronty" : formatQueuedOutput(job, recipe, { outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }), inline: true });
     appendChildren(metrics, [
       isInstant ? null : createMetricBlock(options.mount, {
@@ -723,7 +762,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     || (viewModel.canStart === false && !viewModel.allowStartWithMissingInputs);
   startButton.title = startButton.disabled
     ? (viewModel.disabledReason || "Chybí vstupy, místo ve frontě nebo volná lokální kapacita.")
-    : isInstant ? "Vyrobit okamžitě." : "Spustit výrobu.";
+    : "Spustit výrobu.";
   startButton.addEventListener("click", () => {
     const binding = resolveRecipeCardBinding(options.mount, bindingKey, viewModel, callbacks);
     if (typeof binding.callbacks?.onStart === "function") {

@@ -326,7 +326,13 @@ describe("market panel renderer", () => {
     const onBuyListing = vi.fn();
 
     renderPlayerMarketPanel(container, {
-      sellableItems: [{ inventory: "materials", itemId: "chemicals", name: "Chemicals", amount: 4 }],
+      sellableItems: [{
+        inventory: "materials",
+        itemId: "chemicals",
+        name: "Chemicals",
+        amount: 4,
+        maxUnitPrice: 100
+      }],
       ownListingCount: 0,
       ownListingLimit: 4,
       listings: [{
@@ -352,9 +358,10 @@ describe("market panel renderer", () => {
     findByClass(container, "market-player-sell-button").dispatch("click");
     findByClass(container, "market-player-listing__buy").dispatch("click");
 
+    expect(findAllByClass(container, "market-player-input")[2].max).toBe("100");
     expect(onCreateListing).toHaveBeenCalledWith(expect.objectContaining({
       requestedAmount: 1,
-      unitPrice: 125,
+      unitPrice: 100,
       currency: "cleanMoney"
     }));
     expect(onBuyListing).toHaveBeenCalledWith(expect.objectContaining({ id: "listing-1" }));

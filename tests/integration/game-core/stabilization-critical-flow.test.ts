@@ -132,6 +132,8 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
       activeFlags: [],
       version: 1
     };
+    state.root.tick = 360;
+    state.serverInstance.currentTick = 360;
 
     expect(evaluatePolicePressure(state, context)).toBe(117);
 

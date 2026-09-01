@@ -203,7 +203,7 @@ export function createServerMapLayerRenderer(options = {}) {
       stopEffects();
       return;
     }
-    if (effectFrameId !== null) return;
+    if (effectFrameId !== null) return; interactionState.animationTick = Date.now(); renderEffects();
     const animate = (time) => {
       effectFrameId = null;
       if (!options.isVisible?.() || documentRef?.hidden) {

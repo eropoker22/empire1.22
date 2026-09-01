@@ -281,7 +281,7 @@ export function createBuildingDetailInfoViewModel({
   const isSinglePanelBuilding = SINGLE_PANEL_INFO_MECHANICS_TYPES.has(mechanics.mechanicsType);
   return {
     title: isSinglePanelBuilding ? "" : "Co hráč musí vědět",
-    intro: profile.info,
+    intro: mechanics.mechanicsType === "apartment-block" ? "" : profile.info,
     pinIntroToTop: isSinglePanelBuilding,
     rows: createBuildingDetailInfoRows({ profile, mechanics, buildingName, entry, playerHeat, now }),
     actionsTitle: isSinglePanelBuilding ? "" : "Akce",

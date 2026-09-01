@@ -1,8 +1,9 @@
 import { resolveModeConfig } from "@empire/game-config";
-import { applyCommand } from "@empire/game-core";
+import { applyCommand, runTick } from "@empire/game-core";
 import {
   BUILDING_IDS,
   PLAYER_RESOURCE_ID,
+  createCollectCommand,
   createCraftCommand,
   createProductionChainState,
   getPlayerBalance
@@ -38,7 +39,7 @@ export interface ProductionChainSimulationReport {
   };
   invariants: {
     allCommandsAccepted: boolean;
-    allResultsImmediate: boolean;
+    allResultsDeferred: boolean;
     exactOutputCredits: boolean;
     finalPistolProduced: boolean;
     noNegativeBalances: boolean;
@@ -61,13 +62,20 @@ export const runProductionChainSimulation = (): ProductionChainSimulationReport 
     const buildingId = BUILDING_IDS[buildingTypeId];
     const outputBefore = getPlayerBalance(state, recipeId);
     const submittedAtTick = state.root.tick;
-    const result = applyCommand(
+    const started = applyCommand(
       state,
       createCraftCommand(++commandSequence, buildingId, recipeId, quantity),
       context
     );
-    requireNoErrors(result.errors, `produce ${buildingTypeId}/${recipeId}`);
-    state = result.nextState;
+    requireNoErrors(started.errors, `produce ${buildingTypeId}/${recipeId}`);
+    state = advanceProductionUntilIdle(started.nextState, buildingId, recipeId);
+    const collected = applyCommand(
+      state,
+      createCollectCommand(++commandSequence, buildingId, recipeId),
+      context
+    );
+    requireNoErrors(collected.errors, `collect ${buildingTypeId}/${recipeId}`);
+    state = collected.nextState;
     const outputAfter = getPlayerBalance(state, recipeId);
     steps.push({
       buildingTypeId,
@@ -92,7 +100,7 @@ export const runProductionChainSimulation = (): ProductionChainSimulationReport 
   const atomicityAudit = runAtomicityAudit();
   const invariants = {
     allCommandsAccepted: steps.length === 5,
-    allResultsImmediate: steps.every((step) => step.ticksElapsed === 0),
+    allResultsDeferred: steps.every((step) => step.ticksElapsed > 0),
     exactOutputCredits: steps.every((step) => step.producedAmount === step.quantity),
     finalPistolProduced: finalBalances.pistol === 1,
     noNegativeBalances: Object.values(finalBalances).every((amount) => amount >= 0),
@@ -127,7 +135,7 @@ const runAtomicityAudit = (): ProductionChainSimulationReport["atomicityAudit"] 
   );
   const balancesAfterRejectedArmory = armoryCraft.nextState.resourceStatesById[PLAYER_RESOURCE_ID]!.balances;
   const legacyProductionJobsRemaining = Object.values(armoryCraft.nextState.buildingsById)
-    .reduce((total, building) => total + Object.keys(building.productionLines ?? {}).length, 0);
+    .reduce((total, building) => total + (building.processing ? 1 : 0), 0);
 
   return {
     factoryCraftAccepted: factoryCraft.errors.length === 0,
@@ -139,6 +147,22 @@ const runAtomicityAudit = (): ProductionChainSimulationReport["atomicityAudit"] 
       JSON.stringify(balancesAfterRejectedArmory) === JSON.stringify(balancesBeforeRejectedArmory),
     legacyProductionJobsRemaining
   };
+};
+
+const advanceProductionUntilIdle = (
+  initialState: ReturnType<typeof createProductionChainState>,
+  buildingId: string,
+  recipeId: string
+): ReturnType<typeof createProductionChainState> => {
+  let state = initialState;
+  for (let iteration = 0; iteration < 1_000; iteration += 1) {
+    const line = state.buildingsById[buildingId]?.productionLines?.[recipeId];
+    if (!line || line.queuedAmount <= 0) return state;
+    const dueTick = line.activeCompletesAtTick;
+    if (!dueTick) throw new Error(`Production ${buildingId}/${recipeId} has no active timer.`);
+    while (state.root.tick < dueTick) state = runTick(state, context).nextState;
+  }
+  throw new Error(`Production ${buildingId}/${recipeId} did not become idle.`);
 };
 
 const requireNoErrors = (errors: Array<{ code: string; message: string }>, operation: string): void => {

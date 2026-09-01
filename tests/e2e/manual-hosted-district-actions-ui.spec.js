@@ -49,11 +49,22 @@ test.describe("manual hosted district actions through visible UI", () => {
       expect(attack.request.command.payload.sourceDistrictId).toBe(attack.projection.sourceDistrictId);
       expect(occupy.request.command.payload.sourceDistrictId).toBe(occupy.projection.sourceDistrictId);
 
-      await assertPersistedReport(creator.page, "district:6", "occupy-district");
-      await assertPersistedReport(creator.page, "district:25", "spy-district");
-      await assertPersistedReport(creator.page, "district:24", "rob-district");
-      await assertPersistedReport(target.page, "district:4", "heist-district");
-      await assertPersistedReport(hunter.page, "district:2", "attack-district");
+      const [creatorCompletions, heistCompletion, attackCompletion] = await Promise.all([
+        (async () => [
+          await waitForDeferredReport(creator.page, spy),
+          await waitForDeferredReport(creator.page, rob),
+          await waitForDeferredReport(creator.page, occupy)
+        ])(),
+        waitForDeferredReport(target.page, heist),
+        waitForDeferredReport(hunter.page, attack)
+      ]);
+      const occupyCompletion = creatorCompletions[2];
+      expect(heistCompletion.report.tick).toBeGreaterThanOrEqual(heist.pendingEffect.expiresAtTick);
+      expect(attackCompletion.report.tick).toBeGreaterThanOrEqual(attack.pendingEffect.expiresAtTick);
+      if (occupyCompletion.report.districtCaptured) {
+        expect(occupyCompletion.readModel.district.ownerPlayerId)
+          .toBe(occupyCompletion.readModel.player.playerId);
+      }
 
       for (const client of clients) {
         await expectHostedUiParityClean(client.page, client.diagnostics);
@@ -86,8 +97,8 @@ async function runSpyThroughVisibleUi(page, districtId) {
     districtId,
     sourceDistrictId: projection.sourceDistrictId
   });
-  assertAcceptedReport(result.body, "spy-district", districtId);
-  return { ...result, projection };
+  const pendingEffect = assertAcceptedPendingOperation(result, "spy-district", districtId);
+  return { ...result, pendingEffect, projection };
 }
 
 async function runRobThroughVisibleUi(page, districtId) {
@@ -116,8 +127,8 @@ async function runRobThroughVisibleUi(page, districtId) {
     expectedConflictRevision: projection.expectedConflictRevision,
     expectedLootPoolRevision: projection.expectedLootPoolRevision
   });
-  assertAcceptedReport(result.body, "rob-district", districtId);
-  return { ...result, projection };
+  const pendingEffect = assertAcceptedPendingOperation(result, "rob-district", districtId);
+  return { ...result, pendingEffect, projection };
 }
 
 async function runHeistThroughVisibleUi(page, districtId) {
@@ -130,8 +141,8 @@ async function runHeistThroughVisibleUi(page, districtId) {
     sourceDistrictId: projection.sourceDistrictId,
     expectedConflictRevision: projection.expectedConflictRevision
   });
-  assertAcceptedReport(result.body, "heist-district", districtId);
-  return { ...result, projection };
+  const pendingEffect = assertAcceptedPendingOperation(result, "heist-district", districtId);
+  return { ...result, pendingEffect, projection };
 }
 
 async function runAttackThroughVisibleUi(page, districtId) {
@@ -163,8 +174,8 @@ async function runAttackThroughVisibleUi(page, districtId) {
     expectedConflictRevision: projection.expectedConflictRevision,
     weapons: { bazooka: 20 }
   });
-  assertAcceptedReport(result.body, "attack-district", districtId);
-  return { ...result, projection };
+  const pendingEffect = assertAcceptedPendingOperation(result, "attack-district", districtId);
+  return { ...result, pendingEffect, projection };
 }
 
 async function runOccupyThroughVisibleUi(page, districtId) {
@@ -184,13 +195,8 @@ async function runOccupyThroughVisibleUi(page, districtId) {
     sourceDistrictId: projection.sourceDistrictId,
     expectedConflictRevision: projection.expectedConflictRevision
   });
-  const report = assertAcceptedReport(result.body, "occupy-district", districtId);
-  expect(report.tick).toBeLessThanOrEqual(result.body.readModel.server.currentTick);
-  if (report.districtCaptured) {
-    expect(result.body.readModel.district.ownerPlayerId)
-      .toBe(result.body.readModel.player.playerId);
-  }
-  return { ...result, projection };
+  const pendingEffect = assertAcceptedPendingOperation(result, "occupy-district", districtId);
+  return { ...result, pendingEffect, projection };
 }
 
 async function openActionTargetFromMap(page, districtId, actionId = null) {
@@ -282,16 +288,28 @@ async function clickAndReadTypedSubmit(page, commandType, button) {
   };
 }
 
-function assertAcceptedReport(body, commandType, districtId) {
-  const errorCodes = body?.errors?.map((error) => error.code).filter(Boolean).join(", ");
-  expect(body?.accepted, `${commandType}${errorCodes ? ` (${errorCodes})` : ""}`).toBe(true);
-  const report = body?.readModel?.reports?.find((entry) => (
-    entry.actionType === commandType
-    && entry.targetDistrictId === districtId
+function assertAcceptedPendingOperation(result, commandType, districtId) {
+  const errorCodes = result.body?.errors?.map((error) => error.code).filter(Boolean).join(", ");
+  expect(result.body?.accepted, `${commandType}${errorCodes ? ` (${errorCodes})` : ""}`).toBe(true);
+  const commandId = result.request?.command?.id;
+  expect(findCommandReport(result.body?.readModel, commandId, commandType, districtId),
+    `${commandType} must not expose a report before its due tick`).toBeNull();
+  const effectType = mapEffectType(commandType);
+  const pendingEffect = result.body?.readModel?.mapEffects?.find((effect) => (
+    effect.type === effectType
+    && effect.districtId === districtId
+    && effect.playerId === result.body?.readModel?.player?.playerId
   ));
-  expect(report, `${commandType} must expose its immediate authoritative report`)
-    .toBeTruthy();
-  return report;
+  expect(pendingEffect, `${commandType} must expose its authoritative pending map effect`).toBeTruthy();
+  expect(pendingEffect).toMatchObject({
+    source: commandType === "attack-district" || commandType === "occupy-district"
+      ? "server-public-operation"
+      : "server-pending-operation",
+    districtId
+  });
+  expect(pendingEffect.startedAtTick).toBeLessThanOrEqual(result.body.readModel.server.currentTick);
+  expect(pendingEffect.expiresAtTick).toBeGreaterThan(result.body.readModel.server.currentTick);
+  return pendingEffect;
 }
 
 async function waitForRenderedStateVersionAtLeast(page, expectedStateVersion) {
@@ -307,25 +325,74 @@ async function waitForRenderedStateVersionAtLeast(page, expectedStateVersion) {
   ).toBeGreaterThanOrEqual(expectedStateVersion);
 }
 
-async function assertPersistedReport(page, districtId, actionType) {
+async function waitForDeferredReport(page, operation) {
+  const commandType = operation.request.command.type;
+  const commandId = operation.request.command.id;
+  const districtId = operation.pendingEffect.districtId;
+  const startTick = Number(operation.body.readModel.server.currentTick);
+  const tickRateMs = Math.max(1, Number(operation.body.readModel.mode?.tickRateMs || 1_000));
+  const timeout = Math.max(
+    30_000,
+    (operation.pendingEffect.expiresAtTick - startTick) * tickRateMs + 30_000
+  );
+  let completion = null;
+  await expect.poll(async () => {
+    const loaded = await loadAuthoritativeReadModel(page, districtId);
+    const report = findCommandReport(loaded, commandId, commandType, districtId);
+    if (!report || loaded.server.currentTick < operation.pendingEffect.expiresAtTick) return false;
+    completion = { readModel: loaded, report };
+    return true;
+  }, {
+    message: `${commandType} report must resolve at or after authoritative tick ${operation.pendingEffect.expiresAtTick}.`,
+    timeout,
+    intervals: [250, 500, 1_000]
+  }).toBe(true);
+
+  expect(completion.report.tick).toBeGreaterThanOrEqual(operation.pendingEffect.expiresAtTick);
+  expect(completion.readModel.mapEffects.map((effect) => effect.effectId))
+    .not.toContain(operation.pendingEffect.effectId);
   await page.reload({ waitUntil: "load" });
   await waitForLiveGame(page);
-  await expect.poll(
-    () => page.evaluate(({ expectedDistrictId, expectedActionType }) => (
-      window.EmpireGameplaySliceClient?.getCurrentReadModel?.()?.reports || []
-    ).some((report) => (
-      report.actionType === expectedActionType
-      && report.targetDistrictId === expectedDistrictId
-    )), {
-      expectedDistrictId: districtId,
-      expectedActionType: actionType
-    }),
-    {
-      message: `${actionType} report for ${districtId} must survive reload.`,
-      timeout: 30_000,
-      intervals: [250, 500, 1_000]
-    }
-  ).toBe(true);
+  const persisted = await page.evaluate(() => (
+    window.EmpireGameplaySliceClient?.getCurrentReadModel?.() || null
+  ));
+  expect(findCommandReport(persisted, commandId, commandType, districtId),
+    `${commandType} report for ${districtId} must survive reload`).toBeTruthy();
+  return completion;
+}
+
+async function loadAuthoritativeReadModel(page, districtId) {
+  const result = await page.evaluate(async ({ instanceId, focusDistrictId }) => {
+    const response = await fetch("/api/gameplay-slice/load", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ serverInstanceId: instanceId, districtId: focusDistrictId })
+    });
+    return { status: response.status, body: await response.json() };
+  }, { instanceId: serverInstanceId, focusDistrictId: districtId });
+  expect(result.status).toBe(200);
+  expect(result.body?.accepted).toBe(true);
+  return result.body.readModel;
+}
+
+function findCommandReport(readModel, commandId, commandType, districtId) {
+  return readModel?.reports?.find((report) => (
+    report.actionType === commandType
+    && report.targetDistrictId === districtId
+    && String(report.reportId || "").includes(commandId)
+  )) || null;
+}
+
+function mapEffectType(commandType) {
+  return ({
+    "attack-district": "attack",
+    "heist-district": "heist",
+    "occupy-district": "occupy",
+    "rob-district": "robbery",
+    "spy-district": "spy"
+  })[commandType];
 }
 
 async function dismissVisibleOperationResults(page) {

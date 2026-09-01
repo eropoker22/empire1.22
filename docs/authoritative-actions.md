@@ -14,28 +14,28 @@ Closed-alpha ready actions in this pass:
 | run-building-action | server-authoritative |
 | collect-production | server-authoritative |
 | craft-item | server-authoritative |
-| rob-district | server-authoritative basic path; closed-alpha fixed-loot placeholder |
-| heist-district | server-authoritative immediate resolve path; closed-alpha instant placeholder |
-| place-defense | own-district server-authoritative; allied disabled |
-| remove-defense | own-district server-authoritative; allied disabled |
+| rob-district | server-authoritative timed path; loot comes from the target's finite shared pool |
+| heist-district | server-authoritative timed path with recoverable pending lifecycle |
+| place-defense | server-authoritative for own and allied districts with owner-aware contributions |
+| remove-defense | server-authoritative; returns only the actor's surviving contribution |
 
 `rob-district`, `heist-district`, `place-defense`, and `remove-defense` are typed shared commands. Transport payload validation rejects unknown result/outcome fields so clients cannot force loot, heat, rolls, detection, owners, defense loadouts, or report data.
 
-All map commands use `validateMapAction` for relation, adjacency, locks and version checks. Defense intentionally blocks allied placement with `ALLIANCE_DEFENSE_NOT_IMPLEMENTED` until defense records can track item ownership.
+All map commands use `validateMapAction` for relation, adjacency, locks and version checks. Allied defense stores owner-aware contribution records so support consumes real inventory and removal cannot take another member's items.
 
-Rob currently uses a fixed closed-alpha loot result decided in `game-core`; it is not a client-side roll and does not change district ownership. Heist currently resolves immediately in the handler instead of running the full async heist lifecycle. UI and docs must keep that action labeled as an alpha instant heist until pending operation recovery exists.
+Rob reserves the team at launch, resolves after its timer, draws only from the neutral target's finite server-owned loot pool, and never changes district ownership. Heist also starts immediately and resolves through a persisted pending operation; the client never rolls its outcome or invents a countdown.
 
 ## Basic Action Closed-Alpha Matrix
 
 | Action | Server-authoritative | Closed-alpha ready | Placeholder | Legacy mutation blocked | Known follow-up |
 | --- | --- | --- | --- | --- | --- |
-| rob-district | yes | yes | yes, fixed alpha loot | yes | Replace fixed loot with balanced server loot rules after closed alpha. |
-| heist-district | yes | yes as instant alpha | yes, no pending lifecycle | yes | Add recoverable start/resolve lifecycle before showing long timers. |
-| place-defense | yes | yes for own district | no for own defense | yes | Add owner-aware allied defense contribution records before enabling alliance support. |
-| remove-defense | yes | yes for own district | no for own defense | yes | Add cleanup for allied contribution records on leave/kick/disband before enabling alliance support. |
+| rob-district | yes | yes | finite target pool with alpha balance profile | yes | Continue balance tuning from observed sessions. |
+| heist-district | yes | yes as timed alpha | no; recoverable pending lifecycle is active | yes | Extend balancing and cancellation coverage. |
+| place-defense | yes | yes for own and allied districts | owner-aware contribution ledger | yes | Preserve conservation across combat and alliance lifecycle changes. |
+| remove-defense | yes | yes for own and allied contributions | actor-owned surviving items only | yes | Preserve conservation across combat and alliance lifecycle changes. |
 
 Rob validation allows only an empty adjacent target from an owned source district. It does not require spy authorization, does not cross allied districts, does not target self/ally/enemy districts, and never changes ownership.
 
 Heist validation allows only an adjacent enemy-owned target from an owned source district. It rejects empty, self and allied targets, validates `gangMembersSent` server-side against available population, and never changes ownership.
 
-Allied defense remains disabled with `ALLIANCE_DEFENSE_NOT_IMPLEMENTED` in the central map validator and read-model capabilities. The aggregate `district.defenseLoadout` path is only used for the district owner so item ownership is not lost.
+Allied defense is enabled for valid allies. The contribution ledger preserves item ownership through placement, combat losses, removal, leave, kick and disband instead of collapsing support into an ownerless aggregate.

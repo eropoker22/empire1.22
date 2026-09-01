@@ -227,6 +227,8 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.resources).toEqual({ metalParts: "0/12", techCore: "0/5", combatModule: "0/2" });
     expect(viewModel.slots.map((slot) => slot.durationMs)).toEqual([160000, 320000, 600000]);
     expect(viewModel.slots.map((slot) => slot.durationBonusLabel)).toEqual(["−33 %", "−33 %", "−33 %"]);
+    expect(viewModel.slots.every((slot) => slot.durationAdjustmentLabel.startsWith("Server: základ "))).toBe(true);
+    expect(viewModel.slots[0].durationAdjustmentLabel).toContain("→ reálně");
     expect(viewModel.slots.map((slot) => slot.secondaryLine)).toEqual(["", "", "10 min / kus"]);
     expect(viewModel.slots.map((slot) => slot.perHour)).toEqual([22.5, 11.25, 6]);
     expect(viewModel.slots[0]).toMatchObject({ slotOutputCap: 12, slotStorageCap: 17, queueCap: 17 });

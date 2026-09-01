@@ -307,6 +307,26 @@ describe("alliance lifecycle", () => {
     expect(memberBoard.activeAlliance?.chatMessages).toEqual(expect.arrayContaining([
       expect.objectContaining({ body: "Ready." })
     ]));
+    expect(memberBoard.exitConsequences.voluntaryLeave).toMatchObject({
+      allianceJoinLockoutSeconds: 12 * 60 * 60,
+      allianceCreateLockoutSeconds: 12 * 60 * 60,
+      influenceDebuffSeconds: 8 * 60 * 60,
+      actionCooldownDebuffSeconds: 6 * 60 * 60,
+      statDebuffSeconds: 12 * 60 * 60,
+      formerAllyTruceSeconds: 60 * 60,
+      influenceGenerationMultiplier: 0.8,
+      actionCooldownMultiplier: 1.15,
+      attackMultiplier: 0.8,
+      defenseMultiplier: 0.8,
+      productionMultiplier: 1,
+      incomeMultiplier: 1,
+      blocksAllianceDefenseSupport: true
+    });
+    expect(memberBoard.exitConsequences.disband).toMatchObject({
+      allianceJoinLockoutSeconds: 30 * 60,
+      allianceCreateLockoutSeconds: 30 * 60,
+      formerAllyTruceSeconds: 60 * 60
+    });
     expect(outsiderBoard.publicAlliances[0]?.chatMessages).toEqual([]);
     expect(outsiderBoard.publicAlliances[0]?.pendingInvites).toEqual([]);
     expect(outsiderBoard.publicAlliances[0]?.defenseContributions).toEqual([]);

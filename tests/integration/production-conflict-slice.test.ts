@@ -9,11 +9,8 @@ import {
 } from "../../apps/client/src/features";
 import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
-import { applyCommand } from "../../packages/game-core/src/engine";
-import {
-  createPlaceTrapCommandFixture as createCorePlaceTrapCommandFixture,
-  createSpyDistrictCommandFixture as createCoreSpyDistrictCommandFixture
-} from "../fixtures/command-fixtures";
+import type { ServerInstanceRuntime } from "../../apps/server/src/runtime/instance/server-instance-runtime";
+import { runTick } from "../../packages/game-core/src/engine";
 import { createCombatStateFixture } from "../fixtures/game-state-fixtures";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 import { deterministicUnitInterval } from "../../packages/game-core/src/utils/math";
@@ -27,11 +24,8 @@ describe("production conflict gameplay slice", () => {
     const sourceDistrictId = "district:1";
     const targetDistrictId = "district:2";
     const runtime = server.instanceManager.createInstance(instanceId, "free");
-    const worldSeed = findTrapRevealSeed();
-
-    expect(worldSeed, "Expected at least one deterministic trap reveal seed.").toBeTruthy();
     runtime.state = createCombatStateFixture(instanceId);
-    runtime.state.serverInstance.worldSeed = worldSeed!;
+    runtime.state.serverInstance.worldSeed = "pending-spy-trap-seed";
     runtime.state.notificationsById = {};
     server.instanceManager.startInstance(instanceId);
 
@@ -95,7 +89,18 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(spied.errors).toEqual([]);
-    expect(spied.reports[0]).toMatchObject({ category: "spy", result: "success" });
+    expect(spied.reports).not.toContainEqual(expect.objectContaining({ category: "spy" }));
+    expect(attackerClient.getGameplaySlice()?.mapEffects).toContainEqual(expect.objectContaining({
+      type: "spy",
+      source: "server-pending-operation",
+      playerId: attackerId,
+      districtId: targetDistrictId
+    }));
+    runtime.state.serverInstance.worldSeed = findPendingSpySeed(runtime, "command:spy:district:2", {
+      outcome: "success",
+      trapDetected: true
+    });
+    advanceRuntimeActionToDue(runtime, "command:spy:district:2");
     const resolvedSpyView = (await server.gameplaySliceTransport.load({
       ...attackerSession.loadRequest,
       districtId: sourceDistrictId
@@ -113,7 +118,7 @@ describe("production conflict gameplay slice", () => {
     expect((await server.gameplaySliceTransport.load(defenderSession.loadRequest)).readModel?.mapEffects)
       .not.toContainEqual(expect.objectContaining({ type: "spy", playerId: attackerId }));
 
-    const resolvedSpy = spied;
+    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
     expect(resolvedSpy.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
@@ -141,17 +146,16 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(attacked.errors).toEqual([]);
-    const afterAttackReadModel = (await server.gameplaySliceTransport.load({
+    expect(attacked.reports).not.toContainEqual(expect.objectContaining({ category: "battle" }));
+    const pendingAttackReadModel = (await server.gameplaySliceTransport.load({
         ...attackerSession.loadRequest,
         districtId: sourceDistrictId
       })).readModel as GameplaySliceView;
-
-    expect(afterAttackReadModel.reports[0]).toMatchObject({
+    expect(pendingAttackReadModel.reports).not.toContainEqual(expect.objectContaining({
       reportType: "battle",
-      targetDistrictId,
-      trapTriggered: true
-    });
-    expect(afterAttackReadModel.mapEffects).toContainEqual(expect.objectContaining({
+      targetDistrictId
+    }));
+    expect(pendingAttackReadModel.mapEffects).toContainEqual(expect.objectContaining({
       type: "attack",
       source: "server-public-operation",
       playerId: attackerId,
@@ -159,14 +163,30 @@ describe("production conflict gameplay slice", () => {
     }));
     expect((await server.gameplaySliceTransport.load(defenderSession.loadRequest)).readModel?.mapEffects)
       .toContainEqual(expect.objectContaining({ type: "attack", playerId: attackerId }));
-    expect(afterAttackReadModel.commandHints.cooldowns).toContainEqual(expect.objectContaining({
+    expect(pendingAttackReadModel.commandHints.cooldowns).toContainEqual(expect.objectContaining({
       commandType: "attack-district",
       targetId: targetDistrictId,
       remainingTicks: expect.any(Number)
     }));
     expect(attacked.districtPanel?.attackTargets.find((target) => target.districtId === targetDistrictId)?.cooldownLabel).toContain("ticks");
     expect(attacked.sidePanelHtml).toContain("čekání");
-    expect(server.instanceManager.getInstanceById(instanceId)?.state.trapsById["trap:district:2"]?.status).toBe("triggered");
+    expect(runtime.state.trapsById["trap:district:2"]?.status).toBe("active");
+    advanceRuntimeActionToDue(runtime, "command:attack:district:2");
+    const afterAttackReadModel = (await server.gameplaySliceTransport.load({
+      ...attackerSession.loadRequest,
+      districtId: sourceDistrictId
+    })).readModel as GameplaySliceView;
+    expect(afterAttackReadModel.reports[0]).toMatchObject({
+      reportType: "battle",
+      targetDistrictId,
+      trapTriggered: true
+    });
+    expect(afterAttackReadModel.mapEffects).not.toContainEqual(expect.objectContaining({
+      type: "attack",
+      source: "server-public-operation",
+      districtId: targetDistrictId
+    }));
+    expect(runtime.state.trapsById["trap:district:2"]?.status).toBe("triggered");
   });
 
   it("returns a basic battle report and updated owner projection when attack succeeds without a trap", async () => {
@@ -176,11 +196,8 @@ describe("production conflict gameplay slice", () => {
     const sourceDistrictId = "district:1";
     const targetDistrictId = "district:2";
     const runtime = server.instanceManager.createInstance(instanceId, "free");
-    const worldSeed = findSpyOutcomeSeed("success");
-
-    expect(worldSeed, "Expected at least one deterministic successful spy seed.").toBeTruthy();
     runtime.state = createCombatStateFixture(instanceId);
-    runtime.state.serverInstance.worldSeed = worldSeed!;
+    runtime.state.serverInstance.worldSeed = "pending-spy-capture-seed";
     runtime.state.notificationsById = {};
     runtime.state.districtsById[targetDistrictId] = {
       ...runtime.state.districtsById[targetDistrictId],
@@ -208,7 +225,12 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(spied.errors).toEqual([]);
-    const resolvedSpy = spied;
+    expect(spied.reports).not.toContainEqual(expect.objectContaining({ category: "spy" }));
+    runtime.state.serverInstance.worldSeed = findPendingSpySeed(runtime, "command:spy:capture:district:2", {
+      outcome: "success"
+    });
+    advanceRuntimeActionToDue(runtime, "command:spy:capture:district:2");
+    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
     expect(resolvedSpy.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
@@ -225,6 +247,10 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(attacked.errors).toEqual([]);
+    expect(attacked.reports).not.toContainEqual(expect.objectContaining({ category: "battle" }));
+    expect(runtime.state.districtsById[targetDistrictId]?.ownerPlayerId).toBe("player:2");
+    advanceRuntimeActionToDue(runtime, "command:attack:capture:district:2");
+    const resolvedAttack = await attackerClient.load(attackerSession.loadRequest);
     expect(
       (await server.gameplaySliceTransport.load({
         ...attackerSession.loadRequest,
@@ -236,15 +262,14 @@ describe("production conflict gameplay slice", () => {
       districtCaptured: true,
       result: "success"
     });
-    expect(attacked.reports[0]).toMatchObject({
+    expect(resolvedAttack.reports[0]).toMatchObject({
       category: "battle",
       result: "success"
     });
-    expect(attacked.sidePanelHtml).toContain("Poslední reporty");
-    expect(attacked.sidePanelHtml).toContain("Útok success v district:2");
-    expect(attacked.sidePanelHtml).toContain("data-report-highlight=\"latest-command\"");
-    expect(attacked.sidePanelHtml).toContain("Ztráty útočníka");
-    expect(attacked.sidePanelHtml).toContain("Ztráty obránce");
+    expect(resolvedAttack.sidePanelHtml).toContain("Poslední reporty");
+    expect(resolvedAttack.sidePanelHtml).toContain("Útok success v district:2");
+    expect(resolvedAttack.sidePanelHtml).toContain("Ztráty útočníka");
+    expect(resolvedAttack.sidePanelHtml).toContain("Ztráty obránce");
     expect(
       server.instanceManager.getInstanceById(instanceId)?.state.districtsById[targetDistrictId]?.ownerPlayerId
     ).toBe(attackerId);
@@ -262,11 +287,8 @@ describe("production conflict gameplay slice", () => {
     const sourceDistrictId = "district:1";
     const targetDistrictId = "district:2";
     const runtime = server.instanceManager.createInstance(instanceId, "free");
-    const worldSeed = findSpyOutcomeSeed("success");
-
-    expect(worldSeed, "Expected at least one deterministic successful spy seed.").toBeTruthy();
     runtime.state = createCombatStateFixture(instanceId);
-    runtime.state.serverInstance.worldSeed = worldSeed!;
+    runtime.state.serverInstance.worldSeed = "pending-spy-cooldown-seed";
     runtime.state.notificationsById = {};
     server.instanceManager.startInstance(instanceId);
 
@@ -296,7 +318,13 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(firstSpy.errors).toEqual([]);
-    expect(firstSpy.reports[0]).toMatchObject({ category: "spy", result: "success" });
+    expect(firstSpy.reports).not.toContainEqual(expect.objectContaining({ category: "spy" }));
+    runtime.state.serverInstance.worldSeed = findPendingSpySeed(runtime, "command:spy:cooldown:1", {
+      outcome: "success"
+    });
+    advanceRuntimeActionToDue(runtime, "command:spy:cooldown:1");
+    const resolvedFirstSpy = await attackerClient.load(attackerSession.loadRequest);
+    expect(resolvedFirstSpy.reports[0]).toMatchObject({ category: "spy", result: "success" });
 
     const rejectedSpy = await attackerClient.dispatch(
       createSpyDistrictCommand({
@@ -334,9 +362,6 @@ describe("production conflict gameplay slice", () => {
     const sourceDistrictId = "district:1";
     const targetDistrictId = "district:2";
     const runtime = server.instanceManager.createInstance(instanceId, "free");
-    const worldSeed = findSpyOutcomeSeed("success");
-
-    expect(worldSeed, "Expected at least one deterministic successful spy seed.").toBeTruthy();
     runtime.config = {
       ...runtime.config,
       balance: {
@@ -348,7 +373,7 @@ describe("production conflict gameplay slice", () => {
       }
     };
     runtime.state = createCombatStateFixture(instanceId);
-    runtime.state.serverInstance.worldSeed = worldSeed!;
+    runtime.state.serverInstance.worldSeed = "pending-spy-catastrophe-seed";
     runtime.state.notificationsById = {};
     server.instanceManager.startInstance(instanceId);
 
@@ -372,18 +397,16 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(spied.errors).toEqual([]);
-    const resolvedSpy = spied;
+    expect(spied.reports).not.toContainEqual(expect.objectContaining({ category: "spy" }));
+    runtime.state.serverInstance.worldSeed = findPendingSpySeed(runtime, "command:spy:catastrophe:district:2", {
+      outcome: "success"
+    });
+    advanceRuntimeActionToDue(runtime, "command:spy:catastrophe:district:2");
+    const resolvedSpy = await attackerClient.load(attackerSession.loadRequest);
     expect(resolvedSpy.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
     });
-    runtime.state.serverInstance.worldSeed = findCatastropheSeed({
-      commandId: "command:attack:catastrophe:district:2",
-      playerId: attackerId,
-      targetDistrictId,
-      tick: runtime.state.root.tick
-    });
-
     const attacked = await attackerClient.dispatch(
       createAttackDistrictCommand({
         commandId: "command:attack:catastrophe:district:2",
@@ -395,16 +418,27 @@ describe("production conflict gameplay slice", () => {
     );
 
     expect(attacked.errors).toEqual([]);
-    expect(attacked.reports[0]).toMatchObject({
+    expect(attacked.reports).not.toContainEqual(expect.objectContaining({ category: "battle" }));
+    const pendingAttack = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+      .find((operation) => operation.command.id === "command:attack:catastrophe:district:2")!;
+    runtime.state.serverInstance.worldSeed = findCatastropheSeed({
+      commandId: "command:attack:catastrophe:district:2",
+      playerId: attackerId,
+      targetDistrictId,
+      tick: pendingAttack.resolveAtTick
+    });
+    advanceRuntimeActionToDue(runtime, "command:attack:catastrophe:district:2");
+    const resolvedAttack = await attackerClient.load(attackerSession.loadRequest);
+    expect(resolvedAttack.reports[0]).toMatchObject({
       category: "battle",
       result: "catastrophe",
       severity: "critical"
     });
-    expect(attacked.sidePanelHtml).toContain("data-catastrophe-alert=\"true\"");
-    expect(attacked.sidePanelHtml).toContain("Stav distriktu: zničený a nepoužitelný.");
-    expect(attacked.mapHtml).toContain(`data-district-id="${targetDistrictId}"`);
-    expect(attacked.mapHtml).toContain("data-destroyed=\"true\"");
-    expect(attacked.mapHtml).toContain("V piči, zničen.");
+    expect(resolvedAttack.sidePanelHtml).toContain("data-catastrophe-alert=\"true\"");
+    expect(resolvedAttack.sidePanelHtml).toContain("Stav distriktu: zničený a nepoužitelný.");
+    expect(resolvedAttack.mapHtml).toContain(`data-district-id="${targetDistrictId}"`);
+    expect(resolvedAttack.mapHtml).toContain("data-destroyed=\"true\"");
+    expect(resolvedAttack.mapHtml).toContain("V piči, zničen.");
 
     const destroyedTargetRender = await attackerClient.selectDistrict(targetDistrictId);
 
@@ -431,77 +465,6 @@ describe("production conflict gameplay slice", () => {
   });
 });
 
-const seedSearchContext = {
-  config: {
-    mode: "free" as const,
-    tickRateMs: 5000,
-    balance: {
-      incomeMultiplier: 1,
-      productionMultiplier: 1,
-      cooldownMultiplier: 1,
-      maxPlayersPerServer: 100,
-      maxAllianceSize: 10,
-      buildSlotLimit: 3,
-      eventFrequencyMultiplier: 1,
-      policePressureMultiplier: 1,
-      raidIntensityMultiplier: 1,
-      expansionSpeedMultiplier: 1,
-      dayLengthTicks: 12,
-      nightLengthTicks: 12,
-      victoryConditionKey: "default-control",
-      startingResources: {
-        cash: 1000
-      },
-      conflict: {
-        spyCooldownTicks: 2,
-        attackCooldownTicks: 2,
-        spyBaseSuccessChance: 0.72,
-        spyTrapRevealChance: 0.22,
-        trapAttackLosses: 1,
-        reportsLimit: 6
-      }
-    },
-    technical: {
-      sessionTtlMs: 1,
-      gameDurationMs: 1,
-      storageKeyPrefix: "test",
-      snapshotIntervalTicks: 1,
-      notificationBatchWindowMs: 1,
-      debug: {
-        allowDebugTools: false,
-        enableDeterministicSeeds: true
-      }
-    },
-    publicMeta: {
-      mode: "free" as const,
-      label: "Free",
-      matchStyle: "short" as const,
-      tickRateMs: 5000,
-      sessionKeyPrefix: "test"
-    }
-  }
-};
-
-const findTrapRevealSeed = () =>
-  Array.from({ length: 500 }, (_, index) => `production-spy-trap-reveal-${index}`).find((worldSeed) => {
-    const state = createCombatStateFixture();
-    state.serverInstance.worldSeed = worldSeed;
-    state.notificationsById = {};
-    const trappedState = applyCommand(state, createCorePlaceTrapCommandFixture(), seedSearchContext).nextState;
-    const result = applyCommand(trappedState, createCoreSpyDistrictCommandFixture(), seedSearchContext);
-    const payload = result.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload;
-    return payload?.result === "success" && payload.trapDetected === true;
-  });
-
-const findSpyOutcomeSeed = (outcome: "success" | "partial" | "failed" | "critical_failed") =>
-  Array.from({ length: 500 }, (_, index) => `production-spy-${outcome}-${index}`).find((worldSeed) => {
-    const state = createCombatStateFixture();
-    state.serverInstance.worldSeed = worldSeed;
-    state.notificationsById = {};
-    const result = applyCommand(state, createCoreSpyDistrictCommandFixture(), seedSearchContext);
-    return result.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload.result === outcome;
-  });
-
 const findCatastropheSeed = (input: {
   commandId: string;
   playerId: string;
@@ -515,4 +478,62 @@ const findCatastropheSeed = (input: {
   ));
   if (!seed) throw new Error("Expected at least one deterministic catastrophe seed.");
   return seed;
+};
+
+const advanceRuntimeActionToDue = (runtime: ServerInstanceRuntime, commandId: string): void => {
+  const operation = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+    .find((candidate) => candidate.command.id === commandId);
+  if (!operation) throw new Error(`Expected pending district action ${commandId}.`);
+  if (runtime.state.root.tick < operation.resolveAtTick - 1) {
+    runtime.state = {
+      ...runtime.state,
+      root: {
+        ...runtime.state.root,
+        tick: operation.resolveAtTick - 1,
+        version: runtime.state.root.version + 1
+      },
+      serverInstance: {
+        ...runtime.state.serverInstance,
+        currentTick: operation.resolveAtTick - 1
+      }
+    };
+  }
+  while (runtime.state.root.tick < operation.resolveAtTick) {
+    const tick = runTick(runtime.state, { config: runtime.config });
+    if (tick.nextState.root.tick <= runtime.state.root.tick) {
+      throw new Error(`Runtime stopped before ${commandId} reached its due tick.`);
+    }
+    runtime.state = tick.nextState;
+  }
+};
+
+const findPendingSpySeed = (
+  runtime: ServerInstanceRuntime,
+  commandId: string,
+  expected: { outcome: "success" | "partial" | "failed" | "critical_failed"; trapDetected?: boolean }
+): string => {
+  const operation = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+    .find((candidate) => candidate.command.id === commandId);
+  if (!operation) throw new Error(`Expected pending spy ${commandId}.`);
+  for (let index = 0; index < 2_000; index += 1) {
+    const worldSeed = `production-pending-spy-${commandId}-${index}`;
+    const beforeDue = {
+      ...runtime.state,
+      root: { ...runtime.state.root, tick: operation.resolveAtTick - 1 },
+      serverInstance: {
+        ...runtime.state.serverInstance,
+        currentTick: operation.resolveAtTick - 1,
+        worldSeed
+      }
+    };
+    const resolved = runTick(beforeDue, { config: runtime.config }).nextState;
+    const payload = resolved.notificationsById[`notification:${commandId}:spy-report`]?.payload;
+    if (
+      payload?.result === expected.outcome
+      && (expected.trapDetected === undefined || payload.trapDetected === expected.trapDetected)
+    ) {
+      return worldSeed;
+    }
+  }
+  throw new Error(`Expected deterministic ${expected.outcome} seed for ${commandId}.`);
 };

@@ -1,7 +1,14 @@
 import type { RobDistrictCommand } from "@empire/shared-types";
 import type { ConflictBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities/game-state";
-import { createRobCooldownKey, createRobSourceCooldownKey } from "../rules";
+import {
+  createRobCooldownKey,
+  createRobSourceCooldownKey,
+  getNeutralLootPoolLevel,
+  hasNeutralDistrictRobberyLoot,
+  resolveCurrentNeutralDistrictLootPool,
+  type NeutralRobberyTimingConfig
+} from "../rules";
 import { resolvePlayerPopulation } from "../state/playerPopulation";
 import { validateRob } from "../validation";
 
@@ -10,7 +17,8 @@ export const createDistrictRobTargetViews = (
   playerId: string,
   sourceDistrictId: string,
   conflictConfig?: ConflictBalanceConfig,
-  issuedAt = new Date().toISOString()
+  issuedAt = new Date().toISOString(),
+  timing: NeutralRobberyTimingConfig = {}
 ) => {
   const source = state.districtsById[sourceDistrictId];
   if (!source) return [];
@@ -26,20 +34,25 @@ export const createDistrictRobTargetViews = (
         expectedConflictRevision: target.conflictRevision },
       clientRequestId: null
     };
-    const errors = validateRob(state, previewCommand, conflictConfig);
+    const errors = validateRob(state, previewCommand, conflictConfig, timing);
     const cooldownRemainingTicks = maxCooldown(state, playerId, [
       createRobCooldownKey(target.id), createRobSourceCooldownKey(source.id)
     ]);
     const populationBlocked = hasPopulationForRob ? null : "INSUFFICIENT_POPULATION";
     const disabledCode = errors[0]?.code ?? populationBlocked ?? null;
-    const pool = target.neutralLootPool;
-    const initial = pool ? pool.initialCash + pool.initialDirtyCash
-      + Object.values(pool.initialResources).reduce((sum, amount) => sum + Number(amount), 0) : 0;
-    const current = pool ? pool.cash + pool.dirtyCash
-      + Object.values(pool.resources).reduce((sum, amount) => sum + Number(amount), 0) : 0;
-    const fraction = initial > 0 ? current / initial : 0;
-    const lootPoolLevel = fraction <= 0 ? "exhausted" as const : fraction < 0.2 ? "low" as const
-      : fraction < 0.65 ? "partial" as const : "rich" as const;
+    const robberyConfig = conflictConfig?.robbery;
+    const pool = robberyConfig
+      ? resolveCurrentNeutralDistrictLootPool(
+          state.serverInstance.worldSeed,
+          target,
+          state.root.tick,
+          robberyConfig,
+          timing
+        )
+      : target.neutralLootPool;
+    const lootPoolLevel = pool && hasNeutralDistrictRobberyLoot(pool)
+      ? getNeutralLootPoolLevel(pool)
+      : "exhausted" as const;
     return {
       sourceDistrictId: source.id,
       districtId: target.id, name: target.name, ownerPlayerId: target.ownerPlayerId, status: target.status,
@@ -47,7 +60,7 @@ export const createDistrictRobTargetViews = (
       disabledReason: errors[0]?.message ?? (disabledCode ? actionReason(disabledCode) : null),
       cooldownRemainingTicks, expectedTargetVersion: target.version, expectedSourceVersion: source.version,
       expectedConflictRevision: target.conflictRevision,
-      expectedLootPoolRevision: target.neutralLootPool?.version ?? 0,
+      expectedLootPoolRevision: pool?.version ?? 0,
       lootPoolLevel, exhausted: lootPoolLevel === "exhausted", heatRisk: { minimum: 1, maximum: 6 }
     };
   });

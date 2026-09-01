@@ -108,7 +108,7 @@ const completePendingOccupation = (
       ...state.playersById,
       [player.id]: {
         ...player,
-        population: Math.max(0, resolvePlayerPopulation(state, player) - populationLost),
+        population: Math.max(0, resolvePlayerPopulation(state, player) + populationRefunded),
         version: player.version + 1
       }
     },

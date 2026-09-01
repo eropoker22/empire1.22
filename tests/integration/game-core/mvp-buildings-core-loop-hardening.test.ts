@@ -13,6 +13,10 @@ import {
   createCraftItemCommandFixture,
   createRunBuildingActionCommandFixture
 } from "../../fixtures/command-fixtures";
+import {
+  advanceProductionLine,
+  advanceStateToTickWithEvents
+} from "../../fixtures/timed-operation-fixtures";
 
 const context = {
   config: resolveModeConfig("free")
@@ -147,7 +151,7 @@ describe("MVP buildings core loop hardening", () => {
     expect(police.heatSources.map((source) => source.kind)).toContain("district");
   });
 
-  it("creates one canonical item-crafted city-feed entry for instant Lab production", () => {
+  it("creates one canonical item-crafted city-feed entry when Lab production becomes due", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("drug_lab", {
       playerBalances: {
         cash: 2500,
@@ -170,21 +174,29 @@ describe("MVP buildings core loop hardening", () => {
       }),
       context
     );
-    const once = Object.values(result.nextState.cityFeedEventsById ?? {});
-    const duplicateAppend = appendCityFeedEventsFromCoreEvents(result.nextState, result.events);
-    const twice = Object.values(duplicateAppend.cityFeedEventsById ?? {});
+    const line = result.nextState.buildingsById[building.id]?.productionLines?.["ghost-serum"];
+    expect(line?.activeCompletesAtTick).toBeGreaterThan(state.root.tick);
+    const completed = advanceStateToTickWithEvents(result.nextState, line!.activeCompletesAtTick!, context);
+    const once = Object.values(completed.nextState.cityFeedEventsById ?? {}).filter(
+      (event) => event.sourceType === "building_action" && event.payload?.outputResourceKey === "ghost-serum"
+    );
+    const duplicateAppend = appendCityFeedEventsFromCoreEvents(completed.nextState, completed.events);
+    const twice = Object.values(duplicateAppend.cityFeedEventsById ?? {}).filter(
+      (event) => event.sourceType === "building_action" && event.payload?.outputResourceKey === "ghost-serum"
+    );
 
     expect(result.errors).toEqual([]);
-    expect(result.events).toContainEqual(expect.objectContaining({
+    expect(result.events).toEqual([]);
+    expect(completed.events).toContainEqual(expect.objectContaining({
       type: "item-crafted",
-      payload: expect.objectContaining({ instant: true, outputResourceKey: "ghost-serum" })
+      payload: expect.objectContaining({ instant: false, outputResourceKey: "ghost-serum" })
     }));
     expect(once).toHaveLength(1);
     expect(twice).toHaveLength(1);
     expect(twice.map((event) => event.id)).toEqual(once.map((event) => event.id));
   });
 
-  it("completes the armory equipment path atomically without local output or collect", () => {
+  it("reserves the armory equipment path atomically and stores output when due", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("armory", {
       playerBalances: {
         cash: 0,
@@ -207,15 +219,20 @@ describe("MVP buildings core loop hardening", () => {
       }),
       context
     );
+    const completed = advanceProductionLine(started.nextState, building.id, "pistol", context);
     const balances = started.nextState.resourceStatesById["resource:1"].balances;
     const localOutput = started.nextState.resourceStatesById["resource:" + building.id]?.balances;
+    const completedLocalOutput = completed.resourceStatesById["resource:" + building.id]?.balances;
 
     expect(started.errors).toEqual([]);
     expect(balances["metal-parts"]).toBe(7);
     expect(balances["tech-core"]).toBe(3);
-    expect(balances.pistol).toBe(1);
+    expect(balances.pistol ?? 0).toBe(0);
+    expect(completed.resourceStatesById["resource:1"].balances.pistol ?? 0).toBe(0);
     expect(localOutput?.pistol ?? 0).toBe(0);
+    expect(completedLocalOutput?.pistol).toBe(1);
     expect(started.nextState.buildingsById[building.id].processing).toBeNull();
-    expect(Object.values(started.nextState.buildingsById[building.id].productionLines ?? {})).toEqual([]);
+    expect(started.nextState.buildingsById[building.id].productionLines?.pistol?.activeCompletesAtTick)
+      .toBeGreaterThan(state.root.tick);
   });
 });

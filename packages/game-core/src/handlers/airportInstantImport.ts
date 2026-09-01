@@ -5,6 +5,14 @@ import { withAirportMetadata } from "./airportMetadata";
 import { createImportShipment, scaleShipment } from "./airportShipments";
 import type { AirportActionResolution, AirportImportCategory, AirportMetadata } from "./airportTypes";
 
+export const resolveAirportExpressImportCost = (
+  config: AirportBalanceConfig,
+  metadata: AirportMetadata
+): number => {
+  const penaltyPct = Math.max(0, Number(metadata.nextImportCostPenaltyPct || 0));
+  return Math.ceil(config.expressImport.costCleanCash * (1 + penaltyPct / 100));
+};
+
 export const resolveInstantAirportImport = (input: {
   state: CoreGameState;
   building: CoreGameState["buildingsById"][string];
@@ -15,7 +23,7 @@ export const resolveInstantAirportImport = (input: {
   metadata: AirportMetadata;
 }): AirportActionResolution => {
   const penaltyPct = Math.max(0, Number(input.metadata.nextImportCostPenaltyPct || 0));
-  const cost = Math.ceil(input.config.expressImport.costCleanCash * (1 + penaltyPct / 100));
+  const cost = resolveAirportExpressImportCost(input.config, input.metadata);
   const importId = `airport-import:${input.commandId}`;
   const requestedShipment = createImportShipment(input.category, input.config, `${input.commandId}:${input.state.root.tick}`);
   const customsTriggered = deterministicUnitInterval(`${input.state.serverInstance.worldSeed}:${importId}:customs`)

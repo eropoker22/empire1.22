@@ -14,6 +14,7 @@ import {
   createFixedBuildingFixture,
   seedSuccessfulSpyIntel
 } from "../../fixtures/game-state-fixtures";
+import { resolvePendingDistrictAction } from "../../fixtures/timed-operation-fixtures";
 
 const context = {
   config: resolveModeConfig("free"),
@@ -53,6 +54,10 @@ describe("conflict pacing hardening", () => {
     };
     state.districtsById[third.id] = third;
     state.root.districtIds.push(third.id);
+    state.playersById["player:1"] = {
+      ...state.playersById["player:1"],
+      attackLoadout: { ...state.playersById["player:1"].attackLoadout, "baseball-bat": 2 }
+    };
     seedSuccessfulSpyIntel(state, "player:1", "district:1", third.id, "player:2");
 
     const first = applyCommand(state, createAttackDistrictCommandFixture(), context);
@@ -97,12 +102,13 @@ describe("conflict pacing hardening", () => {
       payload: { districtId: "district:2", sourceDistrictId: "district:1", weapons: { bazooka: 10 } }
     });
 
-    const result = applyCommand(state, command, context);
+    const started = applyCommand(state, command, context);
+    const result = resolvePendingDistrictAction(started.nextState, context);
     const report = result.events.find((event) => event.type === "district-attacked")?.payload as
       | Record<string, unknown>
       | undefined;
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"]).toMatchObject({
       ownerPlayerId: "player:1",
       defenseLoadout: {}

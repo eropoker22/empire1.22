@@ -1244,7 +1244,13 @@ export async function syncParityLocalDemoMarketFromHosted(localPage, hostedPage)
       const itemId = aliases[resource.id] || resource.id;
       for (const tabId of ["market", "black-market"]) {
         const key = `${tabId}:${itemId}`;
-        const currentPrice = Math.max(1, Number(items[key]?.price || resource.normalMarket.price || 1));
+        const hostedPrice = Number(resource.normalMarket.price);
+        const currentPrice = Math.max(
+          1,
+          Number.isFinite(hostedPrice) && hostedPrice > 0
+            ? hostedPrice
+            : Number(items[key]?.price || 1)
+        );
         const previousPrice = resource.trend === "up" || resource.trend === "spike"
           ? Math.max(0, currentPrice - 1)
           : resource.trend === "down"

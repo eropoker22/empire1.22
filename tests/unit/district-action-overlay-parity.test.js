@@ -69,7 +69,7 @@ describe("district action overlay parity coverage", () => {
     );
   });
 
-  it("keeps enabled hosted target buttons in the same non-stacked shape as the demo", () => {
+  it("keeps enabled hosted heist targets explicit about their deferred launch", () => {
     const localActions = resolveDistrictActions({
       districtId: 25,
       isOwnedByCurrentPlayer: false,
@@ -108,14 +108,16 @@ describe("district action overlay parity coverage", () => {
         key: `${actionId}:district:25`,
         targetDistrictId: "district:25"
       });
-      expect(hostedAction).toMatchObject({ enabled: true, stacked: false, subtitle: "" });
-      expect({
-        stacked: Boolean(hostedAction.stacked),
-        subtitle: hostedAction.subtitle || ""
-      }).toEqual({
-        stacked: Boolean(localAction.stacked),
-        subtitle: localAction.subtitle || ""
-      });
+      if (actionId === "heist") {
+        expect(hostedAction).toMatchObject({
+          enabled: true,
+          stacked: true,
+          subtitle: expect.stringContaining("verdikt po odpočtu")
+        });
+      } else {
+        expect(hostedAction).toMatchObject({ enabled: true, stacked: false, subtitle: "" });
+        expect(Boolean(hostedAction.stacked)).toBe(Boolean(localAction.stacked));
+      }
     }
   });
 

@@ -48,7 +48,17 @@ export const createDistrictPanelView = (
   const attackTargets = createDistrictAttackTargetViews(state, input.playerId, district.id, issuedAt, input.config);
   const occupyTargets = createDistrictOccupyTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const spyTargets = createDistrictSpyTargetViews(state, input.playerId, district.id, issuedAt, input.conflictConfig);
-  const robTargets = createDistrictRobTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
+  const robTargets = createDistrictRobTargetViews(
+    state,
+    input.playerId,
+    district.id,
+    input.conflictConfig,
+    issuedAt,
+    {
+      dayLengthTicks: input.config?.balance.dayLengthTicks,
+      nightLengthTicks: input.config?.balance.nightLengthTicks
+    }
+  );
   const heistTargets = createDistrictHeistTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
   const targetActions = isOwnedByPlayer
     ? {

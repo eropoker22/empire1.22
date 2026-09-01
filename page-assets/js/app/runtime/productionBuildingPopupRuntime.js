@@ -93,6 +93,10 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const effectiveDurationMs = isInstant
       ? 0
       : Math.max(1000, Number(line.effectiveUnitDurationTicks || 0) * tickRateMs);
+    const projectedBaseDurationTicks = Number(line.baseUnitDurationTicks);
+    const baseDurationMs = !isInstant && Number.isFinite(projectedBaseDurationTicks) && projectedBaseDurationTicks > 0
+      ? projectedBaseDurationTicks * tickRateMs
+      : 0;
     const outputInventory = configuredRecipe.output?.inventory
       || (buildingName === "pharmacy" ? "materials" : buildingName === "armory" ? "weapons" : "drugs");
     return {
@@ -101,6 +105,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       name: String(line.label || configuredRecipe.name || ""),
       inputs,
       cleanMoneyCost: Math.max(0, Number(line.unitCleanCashCost || 0)),
+      baseDurationMs,
+      effectiveDurationMs,
       durationMs: effectiveDurationMs,
       localOutputCap: Math.max(0, Number(line.producedCapacity || 0)),
       queueCap: Math.max(0, Number(line.queueCapacity || 0)),
@@ -120,6 +126,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const effectiveDurationMs = isInstant
       ? 0
       : Math.max(1000, Number(line.effectiveUnitDurationTicks || 0) * tickRateMs);
+    const projectedBaseDurationTicks = Number(line.baseUnitDurationTicks);
+    const baseDurationMs = !isInstant && Number.isFinite(projectedBaseDurationTicks) && projectedBaseDurationTicks > 0
+      ? projectedBaseDurationTicks * tickRateMs
+      : 0;
+    const durationAdjustmentLabel = baseDurationMs > 0 && effectiveDurationMs > 0
+      ? `Server: základ ${deps.formatDurationLabel?.(baseDurationMs) || `${baseDurationMs}ms`} → reálně ${deps.formatDurationLabel?.(effectiveDurationMs) || `${effectiveDurationMs}ms`}`
+      : "";
     const isProducing = !isInstant && (Number(line.activeAmount || 0) > 0 || line.status === "processing");
     const remainingMs = Math.max(0, Number(line.remainingMs || 0));
     const inputAmounts = Object.fromEntries((Array.isArray(line.inputAvailability) ? line.inputAvailability : []).map((input) => [
@@ -146,9 +159,11 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         readyAtMs: isProducing ? Date.now() + remainingMs : null,
         output: recipe.output
       },
+      baseDurationMs,
       effectiveDurationMs,
+      durationAdjustmentLabel,
       slotState: {
-        label: isInstant ? "Okamžitá výroba" : serverProductionStatusLabels[line.status] || "Připraveno",
+        label: isInstant ? "Lokální demo · bez odpočtu" : serverProductionStatusLabels[line.status] || "Připraveno",
         isActive: !isInstant && line.status !== "ready"
       },
       outputInventoryAmount: Math.max(0, Number(line.playerStoredAmount || 0)),
@@ -348,7 +363,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       job: null,
       effectiveDurationMs: 0,
       durationBonusLabel: "",
-      slotState: { label: "Okamžitá výroba", isActive: false },
+      slotState: { label: "Lokální demo · bez odpočtu", isActive: false },
       outputInventoryAmount: deps.getInventoryAmount?.(recipe?.output?.inventory, recipe?.output?.itemId) || 0,
       outputInventoryCapacity: deps.getInventoryCapacity?.(recipe?.output?.itemId) || 0,
       outputCap,
@@ -452,7 +467,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           root,
           "success",
           deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
-          `${recipe?.name || "Výrobek"} byl okamžitě uložen do skladu.`
+          `${recipe?.name || "Výrobek"} byl v lokálním demu uložen bez odpočtu do skladu.`
         );
         deps.appendBuildingActionResultEntry?.(root, "police", deps.createStorageCollectResultPayload?.({
           buildingLabel: deps.PRODUCTION_BUILDING_CONFIG?.[buildingName]?.label || "Budova",
@@ -461,7 +476,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
             label: deps.getProductionResourceLabel?.(recipe?.output?.itemId),
             amount: outputAmount
           }],
-          meta: "Okamžitá výroba"
+          meta: "Lokální demo · bez odpočtu"
         }), {}, { syncPreview: true, forceLog: true });
         rerender?.();
       },
@@ -679,7 +694,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       deps.setBuildingActionFeedback?.(root, "warning", "Lékárna", error.message || "Akci se nepodařilo provést.");
       return;
     }
-    deps.setBuildingActionFeedback?.(root, "success", "Lékárna", label + " byl vyroben a uložen do skladu.");
+    deps.setBuildingActionFeedback?.(root, "success", "Lékárna", `Server přijal příkaz pro ${label}; stav výrobní fronty byl aktualizován.`);
   };
 
   const reportServerDrugLabResult = (root, response, label) => {
@@ -688,7 +703,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       deps.setBuildingActionFeedback?.(root, "warning", "Lab", error.message || "Akci se nepodařilo provést.");
       return;
     }
-    deps.setBuildingActionFeedback?.(root, "success", "Lab", label + " byl vyroben a uložen do skladu.");
+    deps.setBuildingActionFeedback?.(root, "success", "Lab", `Server přijal příkaz pro ${label}; stav výrobní fronty byl aktualizován.`);
   };
 
   const reportServerArmoryResult = (root, response, label) => {
@@ -697,7 +712,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       deps.setBuildingActionFeedback?.(root, "warning", "Zbrojovka", error.message || "Akci se nepodařilo provést.");
       return;
     }
-    deps.setBuildingActionFeedback?.(root, "success", "Zbrojovka", label + " byl vyroben a uložen do skladu.");
+    deps.setBuildingActionFeedback?.(root, "success", "Zbrojovka", `Server přijal příkaz pro ${label}; stav výrobní fronty byl aktualizován.`);
   };
 
   const renderProductionPanel = (root, panelName, recipes, rerender) => {
@@ -773,6 +788,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       return false;
     }
     popup.dataset.uiOwner = "legacy-shared";
+    popup.dataset.buildingMechanicsType = buildingName === "druglab" ? "drug-lab" : buildingName;
 
     const config = deps.PRODUCTION_BUILDING_CONFIG?.[buildingName];
     const levelElement = popup.querySelector(selectors.level);
@@ -884,12 +900,18 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
         if (infoEffectsElement) infoEffectsElement.replaceChildren?.();
         if (infoActionsElement) infoActionsElement.replaceChildren?.();
       } else {
+        const infoRecipes = serverProduction
+          ? Object.fromEntries(getServerLines(serverProduction).map((line) => [
+              line.recipeId,
+              getServerProductionRecipe(buildingName, recipes, line)
+            ]))
+          : recipes;
         renderProductionBuildingInfo({
           infoTextElement,
           infoEffectsElement,
           infoActionsElement,
           buildingName,
-          recipes,
+          recipes: infoRecipes,
           state,
           readyCount,
           upgradeCost,
@@ -898,7 +920,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       }
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        const collectLabel = "Ruční výroba se ukládá do skladu okamžitě.";
+        const collectLabel = "Výroba se spustí hned a dokončí po uvedeném čase.";
         setElementPropertyIfChanged(collectButton, "hidden", true);
         setElementStylePropertyIfChanged(collectButton, "display", "none");
         setElementPropertyIfChanged(collectButton, "disabled", true);

@@ -1031,12 +1031,63 @@ const resolveAllianceExitMode = (activeAlliance, requestedMode = "") => {
   return "disband";
 };
 
+const formatAlliancePenaltyDuration = (rawSeconds) => {
+  const seconds = Math.max(0, Number(rawSeconds || 0));
+  if (seconds <= 0) return "0 min";
+  if (seconds % 3600 === 0) return `${seconds / 3600} h`;
+  if (seconds % 60 === 0) return `${seconds / 60} min`;
+  return `${Math.ceil(seconds / 60)} min`;
+};
+
+const formatAlliancePenaltyPercent = (multiplier) => Math.round(Math.abs(1 - Number(multiplier ?? 1)) * 100);
+
+const describeAllianceExitPenalty = (mode) => {
+  const penalty = mode === "disband"
+    ? latestAllianceBoard?.exitConsequences?.disband
+    : latestAllianceBoard?.exitConsequences?.voluntaryLeave;
+  if (!penalty) {
+    return "Po potvrzení server použije aktuální časované postihy tohoto režimu a ukáže je v profilu hráče.";
+  }
+
+  const consequences = [];
+  const joinLockout = Number(penalty.allianceJoinLockoutSeconds || 0);
+  const createLockout = Number(penalty.allianceCreateLockoutSeconds || 0);
+  if (joinLockout > 0 && joinLockout === createLockout) {
+    consequences.push(`${formatAlliancePenaltyDuration(joinLockout)} bez vstupu do aliance i založení nové`);
+  } else {
+    if (joinLockout > 0) consequences.push(`${formatAlliancePenaltyDuration(joinLockout)} bez vstupu do aliance`);
+    if (createLockout > 0) consequences.push(`${formatAlliancePenaltyDuration(createLockout)} bez založení aliance`);
+  }
+  const statEffects = [
+    ["útok", penalty.attackMultiplier],
+    ["obrana", penalty.defenseMultiplier],
+    ["výroba", penalty.productionMultiplier],
+    ["příjem", penalty.incomeMultiplier]
+  ].filter(([, multiplier]) => Number(multiplier ?? 1) !== 1);
+  if (Number(penalty.statDebuffSeconds || 0) > 0 && statEffects.length > 0) {
+    consequences.push(`${formatAlliancePenaltyDuration(penalty.statDebuffSeconds)} ${statEffects
+      .map(([label, multiplier]) => `${label} -${formatAlliancePenaltyPercent(multiplier)} %`)
+      .join(" a ")}`);
+  }
+  if (Number(penalty.influenceDebuffSeconds || 0) > 0 && Number(penalty.influenceGenerationMultiplier ?? 1) !== 1) {
+    consequences.push(`${formatAlliancePenaltyDuration(penalty.influenceDebuffSeconds)} tvorba vlivu -${formatAlliancePenaltyPercent(penalty.influenceGenerationMultiplier)} %`);
+  }
+  if (Number(penalty.actionCooldownDebuffSeconds || 0) > 0 && Number(penalty.actionCooldownMultiplier ?? 1) !== 1) {
+    consequences.push(`${formatAlliancePenaltyDuration(penalty.actionCooldownDebuffSeconds)} cooldowny akcí +${Math.round((Number(penalty.actionCooldownMultiplier) - 1) * 100)} %`);
+  }
+  if (Number(penalty.formerAllyTruceSeconds || 0) > 0) {
+    consequences.push(`${formatAlliancePenaltyDuration(penalty.formerAllyTruceSeconds)} příměří s bývalými spojenci`);
+  }
+  if (penalty.blocksAllianceDefenseSupport) consequences.push("bez alianční podpory obrany po dobu stat postihu");
+  return `Po potvrzení: ${consequences.join("; ")}.`;
+};
+
 const getAllianceExitCopy = (activeAlliance, mode = resolveAllianceExitMode(activeAlliance)) => {
   if (isAllianceLeader(activeAlliance) && mode === "transfer") {
     return {
       actionLabel: "Předat a odejít",
       title: "Předat vedení a odejít?",
-      text: "Vyber nástupce. Po potvrzení odejdeš z aliance a na 4 h dostaneš 50% debuff na útok, obranu, výrobu a income.",
+      text: `Vyber nástupce. ${describeAllianceExitPenalty("leave")}`,
       confirmLabel: "Předat a odejít",
       successMessage: "Aliance byla opuštěna a vedení předáno."
     };
@@ -1045,14 +1096,14 @@ const getAllianceExitCopy = (activeAlliance, mode = resolveAllianceExitMode(acti
     ? {
         actionLabel: "Rozpustit alianci",
         title: "Rozpustit alianci?",
-        text: "Tahle akce zruší alianci pro všechny členy.",
+        text: `Tahle akce zruší alianci pro všechny členy. ${describeAllianceExitPenalty("disband")}`,
         confirmLabel: "Rozpustit alianci",
         successMessage: "Aliance byla rozpuštěna."
       }
     : {
         actionLabel: "Opustit alianci",
         title: "Opustit alianci?",
-        text: "Opravdu chceš opustit alianci? Na 4 h dostaneš 50% debuff na útok, obranu, výrobu a income.",
+        text: `Opravdu chceš opustit alianci? ${describeAllianceExitPenalty("leave")}`,
         confirmLabel: "Opustit alianci",
         successMessage: "Aliance byla opuštěna."
       };

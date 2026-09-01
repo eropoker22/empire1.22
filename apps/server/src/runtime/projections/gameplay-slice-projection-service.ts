@@ -119,36 +119,31 @@ const createPendingConflictMapEffects = (
   runtime: ServerInstanceRuntime,
   playerId: string
 ): GameplayMapEffectView[] => {
+  const currentTick = runtime.state.root.tick;
+  const tickRateMs = runtime.config.tickRateMs;
   const nowMs = runtime.clock.now().getTime();
-  return runtime.state.root.notificationIds.flatMap((notificationId) => {
-    const notification = runtime.state.notificationsById[notificationId];
-    if (!notification || notification.recipientId !== playerId) return [];
-
-    const type = notification.category === "report.spy"
-      ? "spy"
-      : notification.category === "report.rob"
-        ? "robbery"
-        : null;
-    const payload = notification.payload;
-    const expiresAtTick = Number(payload.resolveAtTick);
-    if (!type || !Number.isFinite(expiresAtTick) || expiresAtTick <= runtime.state.root.tick) return [];
-
-    const startedAtTick = Number.isFinite(Number(payload.issuedAtTick))
-      ? Number(payload.issuedAtTick)
-      : Number(payload.tick ?? runtime.state.root.tick);
-    const remainingTicks = expiresAtTick - runtime.state.root.tick;
-    const expiresAt = new Date(nowMs + remainingTicks * runtime.config.tickRateMs).toISOString();
+  return Object.values(runtime.state.pendingDistrictActionOperationsById ?? {}).flatMap((operation) => {
+    if (operation.playerId !== playerId || operation.resolveAtTick <= currentTick) return [];
+    const type = operation.operationType === "spy"
+      ? "spy" as const
+      : operation.operationType === "rob"
+        ? "robbery" as const
+        : operation.operationType === "heist"
+          ? "heist" as const
+          : null;
+    if (!type) return [];
+    const remainingTicks = operation.resolveAtTick - currentTick;
 
     return [{
-      effectId: notification.id,
+      effectId: operation.id,
       type,
       source: "server-pending-operation",
       playerId,
-      districtId: String(payload.targetDistrictId || ""),
-      startedAt: String(payload.createdAt || notification.createdAt),
-      expiresAt,
-      startedAtTick,
-      expiresAtTick
+      districtId: operation.targetDistrictId,
+      startedAt: new Date(nowMs - Math.max(0, currentTick - operation.issuedAtTick) * tickRateMs).toISOString(),
+      expiresAt: new Date(nowMs + remainingTicks * tickRateMs).toISOString(),
+      startedAtTick: operation.issuedAtTick,
+      expiresAtTick: operation.resolveAtTick
     } satisfies GameplayMapEffectView];
   });
 };

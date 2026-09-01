@@ -121,13 +121,11 @@ test.describe("hosted multiplayer direct-command integration", () => {
           sourceDistrictId: spyTarget.sourceDistrictId
         }
       });
-      expect(spyResult.readModel.reports).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          reportType: "spy",
-          actionType: "spy-district",
-          targetDistrictId: "district:25"
-        })
-      ]));
+      const spyPending = assertAcceptedPendingOperation(
+        spyResult,
+        "spy-district",
+        "district:25"
+      );
 
       creatorSlice = await loadDistrict(creator.page, "district:1");
       const robTarget = findTarget(creatorSlice.readModel, "robTargets", "district:24");
@@ -143,13 +141,11 @@ test.describe("hosted multiplayer direct-command integration", () => {
           expectedConflictRevision: robTarget.expectedConflictRevision
         }
       });
-      expect(robResult.readModel.reports).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          reportType: "rob",
-          actionType: "rob-district",
-          targetDistrictId: "district:24"
-        })
-      ]));
+      const robPending = assertAcceptedPendingOperation(
+        robResult,
+        "rob-district",
+        "district:24"
+      );
 
       targetSlice = await loadDistrict(target.page, "district:3");
       const heistTarget = findTarget(targetSlice.readModel, "heistTargets", "district:4");
@@ -168,13 +164,11 @@ test.describe("hosted multiplayer direct-command integration", () => {
           expectedConflictRevision: heistTarget.expectedConflictRevision
         }
       });
-      expect(heistResult.readModel.reports).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          reportType: "heist",
-          actionType: "heist-district",
-          targetDistrictId: "district:4"
-        })
-      ]));
+      const heistPending = assertAcceptedPendingOperation(
+        heistResult,
+        "heist-district",
+        "district:4"
+      );
 
       hunterSlice = await loadDistrict(hunter.page, "district:26");
       const attackTarget = findTarget(hunterSlice.readModel, "attackTargets", "district:2");
@@ -194,8 +188,25 @@ test.describe("hosted multiplayer direct-command integration", () => {
           expectedConflictRevision: attackTarget.expectedConflictRevision
         }
       });
-      const battleReport = attackResult.readModel.reports.find(
-        (report) => report.actionType === "attack-district"
+      const attackPending = assertAcceptedPendingOperation(
+        attackResult,
+        "attack-district",
+        "district:2"
+      );
+      expect(attackResult.readModel.bounty.recentBountyEvents)
+        .not.toEqual(expect.arrayContaining([
+          expect.objectContaining({ bountyId: bounty.bountyId, type: "claimed" })
+        ]));
+      const attackCompletion = await waitForDeferredReport(
+        hunter.page,
+        attackResult,
+        attackPending
+      );
+      const battleReport = findCommandReport(
+        attackCompletion.readModel,
+        attackResult.submittedCommandId,
+        "attack-district",
+        "district:2"
       );
       expect(battleReport).toMatchObject({
         reportType: "battle",
@@ -204,7 +215,7 @@ test.describe("hosted multiplayer direct-command integration", () => {
         targetDistrictId: "district:2"
       });
       expect(["success", "catastrophe"]).toContain(battleReport.result);
-      expect(attackResult.readModel.bounty.recentBountyEvents).toEqual(expect.arrayContaining([
+      expect(attackCompletion.readModel.bounty.recentBountyEvents).toEqual(expect.arrayContaining([
         expect.objectContaining({
           bountyId: bounty.bountyId,
           type: "claimed"
@@ -226,22 +237,42 @@ test.describe("hosted multiplayer direct-command integration", () => {
           expectedConflictRevision: occupyTarget.expectedConflictRevision
         }
       });
-      expect(occupyResult.readModel.reports).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          reportType: "occupy",
-          actionType: "occupy-district",
-          targetDistrictId: "district:6"
-        })
-      ]));
-
-      const allianceCreated = await submitCommand(creator.page, occupyResult.readModel, {
-        type: "create-alliance",
-        payload: {
-          name: "Hosted Core Alliance",
-          tag: "HCA",
-          emblemColor: "#22d3ee"
-        }
+      const occupyPending = assertAcceptedPendingOperation(
+        occupyResult,
+        "occupy-district",
+        "district:6"
+      );
+      const [creatorCompletions, heistCompletion] = await Promise.all([
+        (async () => [
+          await waitForDeferredReport(creator.page, spyResult, spyPending),
+          await waitForDeferredReport(creator.page, robResult, robPending),
+          await waitForDeferredReport(creator.page, occupyResult, occupyPending)
+        ])(),
+        waitForDeferredReport(target.page, heistResult, heistPending)
+      ]);
+      expect(creatorCompletions.map(({ report }) => report.actionType)).toEqual([
+        "spy-district",
+        "rob-district",
+        "occupy-district"
+      ]);
+      expect(heistCompletion.report).toMatchObject({
+        reportType: "heist",
+        actionType: "heist-district",
+        targetDistrictId: "district:4"
       });
+
+      const allianceCreated = await submitCommand(
+        creator.page,
+        creatorCompletions[2].readModel,
+        {
+          type: "create-alliance",
+          payload: {
+            name: "Hosted Core Alliance",
+            tag: "HCA",
+            emblemColor: "#22d3ee"
+          }
+        }
+      );
       const allianceId = allianceCreated.readModel.allianceBoard.activeAlliance.allianceId;
       const inviteCreated = await submitCommand(creator.page, allianceCreated.readModel, {
         type: "invite-alliance-member",
@@ -363,9 +394,10 @@ async function loadDistrict(page, districtId) {
 
 async function submitCommand(page, readModel, { type, payload }) {
   commandSequence += 1;
+  const commandId = `hosted-multiplayer:${commandSequence}:${type}`;
   const result = await postGameplaySliceRequest(page, "submit", {
     command: {
-      id: `hosted-multiplayer:${commandSequence}:${type}`,
+      id: commandId,
       type,
       mode: readModel.mode.mode,
       playerId: readModel.player.playerId,
@@ -382,7 +414,82 @@ async function submitCommand(page, readModel, { type, payload }) {
   expect(result.payload?.accepted, `${type}${errorCodes ? ` (${errorCodes})` : ""}`).toBe(true);
   expect(result.payload.readModel.server.stateVersion)
     .toBeGreaterThan(readModel.server.stateVersion);
-  return result.payload;
+  return {
+    ...result.payload,
+    submittedCommandId: commandId,
+    submittedCommandType: type
+  };
+}
+
+function assertAcceptedPendingOperation(result, commandType, districtId) {
+  expect(findCommandReport(
+    result.readModel,
+    result.submittedCommandId,
+    commandType,
+    districtId
+  ), `${commandType} must not expose a report before its due tick`).toBeNull();
+  const effectType = mapEffectType(commandType);
+  const effect = result.readModel.mapEffects.find((entry) => (
+    entry.type === effectType
+    && entry.districtId === districtId
+    && entry.playerId === result.readModel.player.playerId
+  ));
+  expect(effect, `${commandType} must expose an authoritative pending map effect`).toBeTruthy();
+  expect(effect.source).toBe(
+    commandType === "attack-district" || commandType === "occupy-district"
+      ? "server-public-operation"
+      : "server-pending-operation"
+  );
+  expect(effect.expiresAtTick).toBeGreaterThan(result.readModel.server.currentTick);
+  return effect;
+}
+
+async function waitForDeferredReport(page, operation, pendingEffect) {
+  const startTick = Number(operation.readModel.server.currentTick);
+  const tickRateMs = Math.max(1, Number(operation.readModel.mode?.tickRateMs || 1_000));
+  const timeout = Math.max(
+    30_000,
+    (pendingEffect.expiresAtTick - startTick) * tickRateMs + 30_000
+  );
+  let completion = null;
+  await expect.poll(async () => {
+    const loaded = await loadDistrict(page, pendingEffect.districtId);
+    const report = findCommandReport(
+      loaded.readModel,
+      operation.submittedCommandId,
+      operation.submittedCommandType,
+      pendingEffect.districtId
+    );
+    if (!report || loaded.readModel.server.currentTick < pendingEffect.expiresAtTick) return false;
+    completion = { ...loaded, report };
+    return true;
+  }, {
+    message: `${operation.submittedCommandType} must resolve at or after tick ${pendingEffect.expiresAtTick}.`,
+    timeout,
+    intervals: [250, 500, 1_000]
+  }).toBe(true);
+  expect(completion.report.tick).toBeGreaterThanOrEqual(pendingEffect.expiresAtTick);
+  expect(completion.readModel.mapEffects.map((effect) => effect.effectId))
+    .not.toContain(pendingEffect.effectId);
+  return completion;
+}
+
+function findCommandReport(readModel, commandId, commandType, districtId) {
+  return readModel?.reports?.find((report) => (
+    report.actionType === commandType
+    && report.targetDistrictId === districtId
+    && String(report.reportId || "").includes(commandId)
+  )) || null;
+}
+
+function mapEffectType(commandType) {
+  return ({
+    "attack-district": "attack",
+    "heist-district": "heist",
+    "occupy-district": "occupy",
+    "rob-district": "robbery",
+    "spy-district": "spy"
+  })[commandType];
 }
 
 function findTarget(readModel, collectionKey, districtId) {

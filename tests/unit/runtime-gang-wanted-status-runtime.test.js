@@ -154,7 +154,7 @@ describe("gang wanted status runtime", () => {
     expect(viewModel.fallEntries).toEqual([]);
   });
 
-  it("formats authoritative heat with at most one decimal place", () => {
+  it("formats authoritative heat as a whole number", () => {
     const viewModel = buildServerGangWantedStatusViewModel({
       serverPlayer: {
         police: { heat: 42.934567 }
@@ -168,7 +168,7 @@ describe("gang wanted status runtime", () => {
     });
 
     expect(viewModel.heat).toBe(42.934567);
-    expect(viewModel.heatLabel).toBe("42,9");
+    expect(viewModel.heatLabel).toBe("43");
   });
 
   it("binds wanted popup controls and delegates gameplay callbacks", () => {
@@ -423,20 +423,21 @@ describe("gang wanted status runtime", () => {
     const onDirtyAction = vi.fn();
     const onClearLog = vi.fn();
     const renderWantedFeedback = vi.fn();
+    let serverPlayerView = {
+      economy: { cleanCash: 99_000, dirtyCash: 88_000, influence: 77 },
+      police: {
+        heat: 42,
+        wantedLevel: 2,
+        wantedLevelLabel: "2 / 5",
+        protection: { raidConsequenceMultiplier: 1, sources: [] }
+      }
+    };
     const runtime = createGangWantedStatusRuntime({
       cleanActionCost: 10_000,
       dirtyActionCost: 2_500,
       influenceActionCost: 50,
       gangHeatTiers: [{ id: 2, label: "Tier 2", title: "Podezřelý" }],
-      getServerPlayerView: () => ({
-        economy: { cleanCash: 99_000, dirtyCash: 88_000, influence: 77 },
-        police: {
-          heat: 42,
-          wantedLevel: 2,
-          wantedLevelLabel: "2 / 5",
-          protection: { raidConsequenceMultiplier: 1, sources: [] }
-        }
-      }),
+      getServerPlayerView: () => serverPlayerView,
       getResolvedDistrictPoliceActions,
       getResolvedEconomyState,
       isServerAuthoritativeMode: () => true,
@@ -490,6 +491,17 @@ describe("gang wanted status runtime", () => {
     expect(getResolvedDistrictPoliceActions).not.toHaveBeenCalled();
     expect(syncGangHeatDecay).not.toHaveBeenCalled();
     expect(normalizeGangHeatJournal).not.toHaveBeenCalled();
+
+    serverPlayerView = null;
+    const gameplaySliceListener = globalThis.document.addEventListener.mock.calls.find(
+      ([eventName]) => eventName === "empire:gameplay-slice-rendered"
+    )?.[1];
+    gameplaySliceListener?.();
+    expect(renderWantedPanel).toHaveBeenLastCalledWith(expect.objectContaining({
+      available: true,
+      heat: 42,
+      heatLabel: "42"
+    }), expect.any(Object));
 
     elements.dirty.dispatch("click");
     elements.clear.dispatch("click");

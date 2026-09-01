@@ -57,13 +57,6 @@ const resolveServerBuildingMechanicsType = (buildingTypeId) => {
   return resolveBuildingPresentationDefinition(buildingTypeId)?.mechanicsType || normalizedTypeId;
 };
 
-const SERVER_ACTION_BUTTON_COST_TYPES = new Set([
-  "casino",
-  "power-plant",
-  "recycling-center",
-  "smuggling-tunnel"
-]);
-
 const normalizeStatLabel = (value) => normalizeName(value).replace(/\s+/gu, " ");
 
 const createStatMap = (stats = []) => new Map(
@@ -638,9 +631,57 @@ const formatActionCostRecord = (value) => Object.entries(value || {})
   })
   .join(" + ");
 
+const formatActionCostSummary = (value, influenceChange = 0) => {
+  const parts = [formatActionCostRecord(value)];
+  const influenceCost = Math.max(0, -Number(influenceChange || 0));
+  if (influenceCost > 0) {
+    parts.push(`${formatActionResourceAmount(influenceCost)} vliv`);
+  }
+  return parts.filter(Boolean).join(" + ");
+};
+
 const formatActionOutputRecord = (value) => Object.entries(value || {})
   .filter(([, amount]) => Number(amount || 0) !== 0)
-  .map(([key, amount]) => `${key} ${Number(amount) > 0 ? "+" : ""}${amount}`)
+  .map(([key, amount]) => {
+    const normalizedKey = String(key || "").trim().toLowerCase();
+    const signedAmount = `${Number(amount) > 0 ? "+" : ""}${formatActionResourceAmount(amount)}`;
+    if (normalizedKey === "cash" || normalizedKey === "clean-cash") {
+      return `Clean ${Number(amount) > 0 ? "+" : "-"}${formatDistrictBuildingMoney(Math.abs(Number(amount)))}`;
+    }
+    if (normalizedKey === "dirty-cash" || normalizedKey === "dirty_cash") {
+      return `Dirty ${Number(amount) > 0 ? "+" : "-"}${formatDistrictBuildingMoney(Math.abs(Number(amount)))}`;
+    }
+    if (normalizedKey === "influence") {
+      return `Vliv ${signedAmount}`;
+    }
+    return `${key} ${signedAmount}`;
+  })
+  .join(" · ");
+
+const formatActionServerDeltas = (entry) => {
+  const parts = [formatActionOutputRecord(entry?.effectiveOutputGain || entry?.outputGain)];
+  const heatGain = Number(entry?.heatGain || 0);
+  const influenceChange = Number(entry?.influenceChange || 0);
+  if (heatGain !== 0) parts.push(`Heat ${heatGain > 0 ? "+" : ""}${formatActionResourceAmount(heatGain)}`);
+  if (influenceChange > 0) parts.push(`Vliv +${formatActionResourceAmount(influenceChange)}`);
+  return parts.filter(Boolean).join(" · ");
+};
+
+const normalizeProjectedRewardSummary = (value = "") => String(value || "")
+  .split(/\s*·\s*/u)
+  .map((part) => {
+    const text = part.trim();
+    let match = text.match(/^dirty[ -]?cash\s*([+-])\s*\$?([0-9.,\s]+)$/iu);
+    if (match) return `Dirty ${match[1]}$${match[2].trim()}`;
+    match = text.match(/^cash\s*([+-])\s*\$?([0-9.,\s]+)$/iu);
+    if (match) return `Clean ${match[1]}$${match[2].trim()}`;
+    match = text.match(/^\$?([0-9.,\s]+)\s+dirty[ -]?cash$/iu);
+    if (match) return `Dirty +$${match[1].trim()}`;
+    match = text.match(/^\$?([0-9.,\s]+)\s+cash$/iu);
+    if (match) return `Clean +$${match[1].trim()}`;
+    return text;
+  })
+  .filter(Boolean)
   .join(" · ");
 
 const resolveActionSummary = (entry, primaryKey, fallbackKey) => {
@@ -679,14 +720,22 @@ const createServerBuildingActionPresentation = ({
     : projectedDisabledReason;
   const actionCostRecord = resolveActionCostRecord(entry);
   const projectedInputSummary = resolveActionSummary(entry, "inputSummary", "");
-  const costSummary = actionCostRecord
-    ? formatActionCostRecord(actionCostRecord)
+  const costSummary = actionCostRecord || Number(entry?.influenceChange || 0) < 0
+    ? formatActionCostSummary(actionCostRecord, entry?.influenceChange)
     : projectedInputSummary === "Zdarma"
       ? ""
       : projectedInputSummary;
-  const serverRewardSummary = resolveActionSummary(entry, "outputSummary", "effectSummary")
-    || resolveActionSummary(entry, "expectedEffectSummary", "reportText")
-    || formatActionOutputRecord(entry?.effectiveOutputGain || entry?.outputGain);
+  const projectedRewardSummary = normalizeProjectedRewardSummary(
+    resolveActionSummary(entry, "outputSummary", "effectSummary")
+      || resolveActionSummary(entry, "expectedEffectSummary", "reportText")
+  );
+  const effectiveOutputSummary = formatActionOutputRecord(entry?.effectiveOutputGain || entry?.outputGain);
+  const serverDeltaSummary = formatActionServerDeltas(entry);
+  const serverRewardSummary = effectiveOutputSummary
+    ? serverDeltaSummary
+    : projectedRewardSummary && !/^bez výstupu$/iu.test(projectedRewardSummary)
+      ? projectedRewardSummary
+      : serverDeltaSummary || projectedRewardSummary;
   const effectiveCooldownMs = Math.max(
     0,
     Number(entry?.effectiveCooldownMs || entry?.cooldownMs || 0)
@@ -703,20 +752,35 @@ const createServerBuildingActionPresentation = ({
     actionId: String(entry?.actionId || demoAction?.actionId || ""),
     buildingTypeId: String(buildingTypeId || ""),
     title: String(demoAction?.title || entry?.label || entry?.actionId || "Akce"),
-    buttonCostLabel: SERVER_ACTION_BUTTON_COST_TYPES.has(mechanicsType)
-      ? costSummary || String(demoAction?.buttonCostLabel || "")
-      : "",
-    rewardSummary: String(demoAction?.rewardSummary || serverRewardSummary || ""),
+    buttonCostLabel: actionCostRecord
+      ? costSummary || (projectedInputSummary === "Zdarma" ? "" : projectedInputSummary)
+      : projectedInputSummary === "Zdarma"
+        ? ""
+        : projectedInputSummary || String(demoAction?.buttonCostLabel || ""),
+    rewardSummary: String(serverRewardSummary || demoAction?.rewardSummary || ""),
     cooldownLabel,
     cooldownRemainingMs,
     disabled: !entry || entry?.disabled === true || entry?.enabled === false || Boolean(disabledReason),
     disabledReason,
     phaseLockLabel: String(demoAction?.phaseLockLabel || (entry?.phaseBlockedReason ? entry?.phaseBadgeLabel : "") || ""),
-    requiresInput: Array.isArray(demoAction?.requiresInput) ? demoAction.requiresInput.slice() : [],
+    requiresInput: Array.isArray(entry?.requiresInput)
+      ? entry.requiresInput.slice()
+      : Array.isArray(demoAction?.requiresInput)
+        ? demoAction.requiresInput.slice()
+        : [],
     serverAction: {
       description: String(entry?.description || demoAction?.description || ""),
       requiredInputs: Array.isArray(entry?.requiresInput) ? entry.requiresInput.slice() : [],
-      riskSummary: Array.isArray(entry?.riskSummary) ? entry.riskSummary.slice() : []
+      riskSummary: Array.isArray(entry?.riskSummary) ? entry.riskSummary.slice() : [],
+      influenceChange: Number(entry?.influenceChange || 0),
+      costPreview: entry?.costPreview && typeof entry.costPreview === "object"
+        ? {
+            fixedInputCost: { ...(entry.costPreview.fixedInputCost || {}) },
+            variableInputCosts: Array.isArray(entry.costPreview.variableInputCosts)
+              ? entry.costPreview.variableInputCosts.map((component) => ({ ...component }))
+              : []
+          }
+        : null
     },
     dealerSale: entry?.dealerSale || demoAction?.dealerSale || null
   };
@@ -745,6 +809,10 @@ const createServerRequiredInputDefaults = (actionId, requiredInputs) => {
   for (const input of requiredInputs) {
     const inputId = String(input?.id || "").trim();
     if (!inputId) continue;
+    if (input?.defaultValue !== undefined && input?.defaultValue !== null) {
+      defaults[inputId] = input.defaultValue;
+      continue;
+    }
     if (canonicalDefaults[inputId] !== undefined && canonicalDefaults[inputId] !== null) {
       defaults[inputId] = canonicalDefaults[inputId];
       continue;
@@ -762,6 +830,78 @@ const createServerRequiredInputDefaults = (actionId, requiredInputs) => {
   return defaults;
 };
 
+const normalizeServerBuildingActionInputValues = (requiredInputs, values) => Object.fromEntries(
+  requiredInputs
+    .map((input) => {
+      const inputId = String(input?.id || "").trim();
+      if (!inputId || values?.[inputId] === undefined || values?.[inputId] === null) return null;
+      if (input?.type === "number") {
+        const numericValue = Number(values[inputId]);
+        return [inputId, Number.isFinite(numericValue) ? Math.floor(numericValue) : values[inputId]];
+      }
+      return [inputId, values[inputId]];
+    })
+    .filter(Boolean)
+);
+
+const resolveServerBuildingActionInputError = (requiredInputs, inputValues) => {
+  for (const input of requiredInputs) {
+    const inputId = String(input?.id || "").trim();
+    if (!inputId) continue;
+    const value = inputValues?.[inputId];
+    if (input?.required === true && String(value ?? "").trim() === "") {
+      return `Chybí povinná volba: ${input?.label || inputId}.`;
+    }
+    if (input?.type !== "number" || String(value ?? "").trim() === "") continue;
+    const numericValue = Number(value);
+    if (!Number.isInteger(numericValue)) {
+      return `${input?.label || inputId} musí být celé číslo.`;
+    }
+    if (Number.isFinite(Number(input?.min)) && numericValue < Number(input.min)) {
+      return `${input?.label || inputId} musí být alespoň ${input.min}.`;
+    }
+    if (Number.isFinite(Number(input?.max)) && numericValue > Number(input.max)) {
+      return `${input?.label || inputId} může být nejvýše ${input.max}.`;
+    }
+  }
+  return "";
+};
+
+const resolveServerBuildingActionCostRecord = (action, inputValues) => {
+  const preview = action?.serverAction?.costPreview;
+  if (!preview || typeof preview !== "object") return null;
+  const cost = { ...(preview.fixedInputCost || {}) };
+  for (const component of Array.isArray(preview.variableInputCosts) ? preview.variableInputCosts : []) {
+    const inputId = String(component?.inputId || "").trim();
+    const resourceKey = String(component?.resourceKey || "").trim();
+    if (!inputId || !resourceKey) continue;
+    const amount = Math.max(0, Math.floor(Number(inputValues?.[inputId] || 0)));
+    const amountPerUnit = Math.max(0, Number(component?.amountPerUnit || 0));
+    cost[resourceKey] = Math.max(0, Number(cost[resourceKey] || 0)) + amount * amountPerUnit;
+  }
+  return cost;
+};
+
+const formatServerBuildingActionInputSummary = (requiredInputs, inputValues, costPreview) => requiredInputs
+  .map((input) => {
+    const inputId = String(input?.id || "").trim();
+    if (!inputId) return "";
+    const rawValue = inputValues?.[inputId];
+    if (rawValue === undefined || rawValue === null || String(rawValue).trim() === "") return "";
+    const option = (Array.isArray(input?.options) ? input.options : [])
+      .find((candidate) => String(candidate?.value ?? "") === String(rawValue));
+    const costComponent = (Array.isArray(costPreview?.variableInputCosts) ? costPreview.variableInputCosts : [])
+      .find((component) => String(component?.inputId || "") === inputId);
+    const valueLabel = costComponent?.resourceKey === "cash"
+      ? `${formatDistrictBuildingMoney(rawValue)} clean cash`
+      : costComponent?.resourceKey === "dirty-cash"
+        ? `${formatDistrictBuildingMoney(rawValue)} dirty cash`
+        : String(option?.label || rawValue);
+    return `${input?.label || inputId}: ${valueLabel}`;
+  })
+  .filter(Boolean)
+  .join(" · ");
+
 export const createServerBuildingActionExecutionPresentation = ({
   action,
   context,
@@ -772,11 +912,25 @@ export const createServerBuildingActionExecutionPresentation = ({
     : Array.isArray(action?.requiresInput)
       ? action.requiresInput
       : [];
-  const disabledReason = String(action?.disabledReason || "").trim();
-  const inputValues = {
+  const initialInputValues = {
     ...createServerRequiredInputDefaults(action?.actionId, requiredInputs),
     ...(request?.inputs && typeof request.inputs === "object" ? request.inputs : {})
   };
+  const inputValues = {
+    ...initialInputValues,
+    ...normalizeServerBuildingActionInputValues(requiredInputs, initialInputValues)
+  };
+  const inputError = resolveServerBuildingActionInputError(requiredInputs, inputValues);
+  const disabledReason = String(action?.disabledReason || inputError || "").trim();
+  const computedCostRecord = resolveServerBuildingActionCostRecord(action, inputValues);
+  const costSummary = computedCostRecord
+    ? formatActionCostSummary(computedCostRecord, action?.serverAction?.influenceChange)
+    : String(action?.buttonCostLabel || "Bez přímé ceny");
+  const inputSummary = formatServerBuildingActionInputSummary(
+    requiredInputs,
+    inputValues,
+    action?.serverAction?.costPreview
+  );
 
   return {
     inputValues,
@@ -785,9 +939,9 @@ export const createServerBuildingActionExecutionPresentation = ({
       buildingLabel: String(context?.displayName || context?.buildingName || "Budova"),
       districtLabel: formatServerDistrictLabel(context),
       description: String(action?.serverAction?.description || ""),
-      costSummary: String(action?.buttonCostLabel || "Bez přímé ceny"),
+      costSummary,
       rewardSummary: String(action?.rewardSummary || "Výsledek akce"),
-      inputSummary: String(action?.inputSummary || "").trim()
+      inputSummary: inputSummary || String(action?.inputSummary || "").trim()
         || requiredInputs.map((input) => input?.label).filter(Boolean).join(" · "),
       riskSummary: Array.isArray(action?.serverAction?.riskSummary)
         ? action.serverAction.riskSummary.join(" · ")

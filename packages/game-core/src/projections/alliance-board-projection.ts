@@ -2,11 +2,8 @@ import type { AllianceBoardReadModel } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
 import { resolveAllianceChatVisibility } from "./alliance-chat-visibility";
-import {
-  canJoinOrCreateAlliance,
-  deriveAllianceMembershipStatus,
-  getAllianceLifecycleConfig
-} from "../rules/alliances/allianceLifecycle";
+import { canJoinOrCreateAlliance, deriveAllianceMembershipStatus, getAllianceLifecycleConfig } from "../rules/alliances/allianceLifecycle";
+import { createAllianceExitPenaltyView } from "./alliance-exit-penalty-view";
 
 export const createAllianceBoardReadModel = (
   state: CoreGameState,
@@ -51,7 +48,11 @@ export const createAllianceBoardReadModel = (
       })),
     allianceBadgesByPlayerId: createAllianceBadgesByPlayerId(state),
     canCreateAlliance: createEligibility === true,
-    createDisabledReason: createEligibility === true ? null : createEligibility
+    createDisabledReason: createEligibility === true ? null : createEligibility,
+    exitConsequences: {
+      voluntaryLeave: createAllianceExitPenaltyView(config.voluntaryLeavePenalty),
+      disband: createAllianceExitPenaltyView(config.disbandPenalty)
+    }
   };
 
   function createAllianceView(

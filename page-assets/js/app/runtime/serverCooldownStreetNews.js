@@ -1,4 +1,4 @@
-const SERVER_MISSION_EFFECT_TYPES = new Set(["spy", "robbery", "attack", "occupy"]);
+const SERVER_MISSION_EFFECT_TYPES = new Set(["spy", "robbery", "heist", "attack", "occupy"]);
 
 const parseTimestamp = (value) => {
   const numeric = Number(value);

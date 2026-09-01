@@ -10,6 +10,26 @@ export interface AllianceBoardReadModel {
   allianceBadgesByPlayerId: Record<string, AllianceBoardMapBadgeView>;
   canCreateAlliance: boolean;
   createDisabledReason: string | null;
+  exitConsequences: {
+    voluntaryLeave: AllianceBoardExitPenaltyView;
+    disband: AllianceBoardExitPenaltyView;
+  };
+}
+
+export interface AllianceBoardExitPenaltyView {
+  allianceJoinLockoutSeconds: number;
+  allianceCreateLockoutSeconds: number;
+  influenceDebuffSeconds: number;
+  actionCooldownDebuffSeconds: number;
+  statDebuffSeconds: number;
+  formerAllyTruceSeconds: number;
+  influenceGenerationMultiplier: number;
+  actionCooldownMultiplier: number;
+  attackMultiplier: number;
+  defenseMultiplier: number;
+  productionMultiplier: number;
+  incomeMultiplier: number;
+  blocksAllianceDefenseSupport: boolean;
 }
 
 export interface AllianceBoardAllianceView {

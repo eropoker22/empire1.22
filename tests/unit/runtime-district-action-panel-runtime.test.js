@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createDistrictActionPanelRuntime } from "../../page-assets/js/app/runtime/districtActionPanelRuntime.js";
+import {
+  createAuthoritativeDefenseSetupState,
+  createDistrictActionPanelRuntime,
+  createServerDefenseAdjustment
+} from "../../page-assets/js/app/runtime/districtActionPanelRuntime.js";
 
 function input(value = "0", dataset = {}) {
   return { value, max: "0", disabled: false, dataset };
@@ -70,6 +74,158 @@ describe("district action panel runtime", () => {
 
     runtime.clearPendingAttackContext();
     expect(runtime.getPendingAttackContext()).toBe(null);
+  });
+
+  it("never presents a random local attack outcome in authoritative gameplay", () => {
+    const resolveAttackOutcome = vi.fn(() => ({ label: "Náhodná lokální výhra" }));
+    const estimateDistrictDefense = vi.fn(() => 999);
+    const runtime = createDistrictActionPanelRuntime({
+      attackSetupWeapons: { pistol: true },
+      attackWeaponLabels: { pistol: "Pistole" },
+      calculateAttackDeployment: () => ({ totalResidents: 2, totalPower: 10 }),
+      estimateDistrictDefense,
+      getPlayerAttackBoostContext: ({ attackPower, defensePower }) => ({
+        effectiveAttackPower: attackPower,
+        effectiveDefensePower: defensePower,
+        cooldownMs: 10_000
+      }),
+      getResolvedWorldState: () => ({ districtDefenseById: {}, districtTrapById: {} }),
+      isServerAuthoritativeGameplayRuntimeReady: () => true,
+      renderAttackProgress: vi.fn(),
+      resolveAttackOutcome,
+      validateAttackSelection: () => ({ canConfirm: true, status: "Připraveno" }),
+      elements: {
+        attackSourceSelect: { value: "2", replaceChildren: vi.fn(), append: vi.fn(), disabled: false },
+        attackConfirmButton: textElement(),
+        attackRequiredPopulation: textElement(),
+        attackEstimatedPower: textElement(),
+        attackStatus: textElement(),
+        attackWeaponInputs: [input("2", { attackWeaponInput: "pistol" })],
+        populationValue: textElement("12")
+      }
+    });
+
+    const context = runtime.getPreparedAttackContext({ id: 9, districtType: "industrial" });
+
+    expect(context.authoritative).toBe(true);
+    expect(context.resolvedScenario).toBe(null);
+    expect(resolveAttackOutcome).not.toHaveBeenCalled();
+    expect(estimateDistrictDefense).not.toHaveBeenCalled();
+  });
+
+  it("builds the first authoritative defense placement without a remove view", () => {
+    const placeView = {
+      expectedTargetVersion: 7,
+      availableInventoryAmounts: { vest: 3, cameras: 0 },
+      ownerOwnedAmounts: { vest: 0, cameras: 1 },
+      alliedContributionAmounts: { vest: 0, cameras: 2 },
+      playerRemovableAmounts: { vest: 0, cameras: 0 }
+    };
+
+    expect(createServerDefenseAdjustment({
+      placeView,
+      removeView: null,
+      defenseItemId: "vest",
+      desiredTotalAmount: 2
+    })).toEqual({
+      delta: 2,
+      command: {
+        type: "place-defense",
+        defenseItemId: "vest",
+        amount: 2,
+        expectedTargetVersion: 7
+      }
+    });
+    expect(createAuthoritativeDefenseSetupState(placeView)).toEqual({
+      weaponInventory: { vest: 3, cameras: 0 },
+      currentDefense: {
+        loadout: { cameras: 3 },
+        residents: 0
+      }
+    });
+  });
+
+  it("keeps owner and other ally defense locked when an ally changes their contribution", () => {
+    const placeView = {
+      expectedTargetVersion: 11,
+      ownerOwnedAmounts: { vest: 3 },
+      alliedContributionAmounts: { vest: 4 },
+      playerRemovableAmounts: { vest: 1 }
+    };
+
+    expect(createServerDefenseAdjustment({
+      placeView,
+      defenseItemId: "vest",
+      desiredTotalAmount: 8
+    })).toEqual({
+      delta: 1,
+      command: {
+        type: "place-defense",
+        defenseItemId: "vest",
+        amount: 1,
+        expectedTargetVersion: 11
+      }
+    });
+    expect(createServerDefenseAdjustment({
+      placeView,
+      defenseItemId: "vest",
+      desiredTotalAmount: 6
+    })).toEqual({
+      delta: -1,
+      command: {
+        type: "remove-defense",
+        defenseItemId: "vest",
+        amount: 1,
+        expectedTargetVersion: 11
+      }
+    });
+  });
+
+  it("uses only the server defense item loadout for authoritative strength", () => {
+    const residentsRow = { hidden: false };
+    const defenseResidentsInput = {
+      ...input("50"),
+      closest: vi.fn(() => residentsRow)
+    };
+    const defenseWeaponInput = input("0", { defenseWeaponInput: "vest" });
+    const calculateTotalDefensePower = vi.fn(({ loadout }) => ({ totalPower: Number(loadout.vest || 0) * 6 }));
+    const getResolvedWeaponInventory = vi.fn(() => ({ vest: 99 }));
+    const getDistrictDefenseState = vi.fn(() => ({ loadout: { vest: 99 }, residents: 99 }));
+    const runtime = createDistrictActionPanelRuntime({
+      calculateTotalDefensePower,
+      getAuthoritativeDefenseView: () => ({
+        availableInventoryAmounts: { vest: 2 },
+        ownerOwnedAmounts: { vest: 1 },
+        alliedContributionAmounts: { vest: 1 },
+        playerRemovableAmounts: { vest: 1 }
+      }),
+      getDistrictAtmosphereMeta: () => ({}),
+      getDistrictDefenseState,
+      getInteractionState: () => ({}),
+      getResolvedWeaponInventory,
+      isServerAuthoritativeGameplayRuntimeReady: () => true,
+      elements: {
+        defenseSetupPopup: textElement(),
+        defenseTargetTitle: textElement(),
+        defenseWeaponInputs: [defenseWeaponInput],
+        defenseOwnedElements: [],
+        defenseResidentsInput,
+        defenseEstimatedPower: textElement(),
+        defenseStatus: textElement(),
+        defenseConfirmButton: textElement()
+      }
+    });
+
+    runtime.populateDefenseSetupPopup({ id: 9 });
+
+    expect(defenseWeaponInput.value).toBe("2");
+    expect(defenseWeaponInput.max).toBe("4");
+    expect(calculateTotalDefensePower).toHaveBeenCalledWith({ loadout: { vest: 2 } });
+    expect(defenseResidentsInput.value).toBe("0");
+    expect(defenseResidentsInput.disabled).toBe(true);
+    expect(residentsRow.hidden).toBe(true);
+    expect(getResolvedWeaponInventory).not.toHaveBeenCalled();
+    expect(getDistrictDefenseState).not.toHaveBeenCalled();
   });
 
   it("shows recruitment strength bonus in attack and defense power labels", () => {

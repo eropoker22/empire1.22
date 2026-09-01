@@ -12,6 +12,11 @@ import {
   finishPendingDistrictActionResolution,
   preparePendingDistrictActionResolution
 } from "./pendingDistrictActionShared";
+import {
+  cancelPendingDistrictAction,
+  resolvePendingDistrictActionInvalidReason
+} from "./pendingDistrictActionCancellation";
+import { stampPendingOperationReportTiming } from "./pendingDistrictActionReportTiming";
 import { resolvePendingAttackDistrict } from "./attackDistrict";
 import { resolvePendingHeistDistrict } from "./heistDistrict";
 import { resolvePendingRobDistrict } from "./robDistrict";
@@ -28,7 +33,14 @@ export const completePendingDistrictActions = (
   const events: CoreEvent[] = [];
 
   for (const operation of dueOperations) {
+    const invalidReason = resolvePendingDistrictActionInvalidReason(nextState, operation);
     const preparedState = preparePendingDistrictActionResolution(nextState, operation);
+    if (invalidReason) {
+      const cancelled = cancelPendingDistrictAction(preparedState, operation, invalidReason, context);
+      nextState = finishPendingDistrictActionResolution(cancelled.nextState, operation);
+      events.push(...cancelled.events);
+      continue;
+    }
     const result = operation.operationType === "attack"
       ? resolvePendingAttackDistrict(preparedState, operation.command as AttackDistrictCommand, context, true)
       : operation.operationType === "heist"
@@ -36,13 +48,25 @@ export const completePendingDistrictActions = (
         : operation.operationType === "rob"
           ? resolvePendingRobDistrict(preparedState, operation.command as RobDistrictCommand, context, true)
           : resolvePendingSpyDistrict(preparedState, operation.command as SpyDistrictCommand, context, true);
-    nextState = finishPendingDistrictActionResolution(result.nextState, operation);
-    if (operation.operationType === "spy") {
-      nextState = preserveResolvedSpyPenalty(nextState, operation);
+    if (result.errors.length > 0) {
+      const firstError = result.errors[0]!;
+      const cancelled = cancelPendingDistrictAction(
+        result.nextState,
+        operation,
+        { code: firstError.code, message: firstError.message },
+        context
+      );
+      nextState = finishPendingDistrictActionResolution(cancelled.nextState, operation);
+      events.push(...cancelled.events);
+      continue;
     }
+    nextState = finishPendingDistrictActionResolution(
+      stampPendingOperationReportTiming(result.nextState, operation, context),
+      operation
+    );
+    if (operation.operationType === "spy") nextState = preserveResolvedSpyPenalty(nextState, operation);
     events.push(...result.events);
   }
-
   return { nextState, events };
 };
 

@@ -34,13 +34,28 @@ describe("mobile game UI overrides", () => {
     const safeAreaStart = css.indexOf("/* Final phone production-building contract");
     const safeAreaBlock = css.slice(safeAreaStart);
     expect(safeAreaStart).toBeGreaterThan(-1);
-    expect(safeAreaBlock).toContain("--production-building-phone-top: 0px;");
-    expect(safeAreaBlock).toContain("--production-building-phone-bottom: 0px;");
     expect(safeAreaBlock).toContain("background: rgba(1, 4, 10, 0.88) !important;");
     expect(safeAreaBlock).toContain('.district-building-detail-shell[data-building-mechanics-type="drug-lab"]');
-    expect(safeAreaBlock).toContain("height: calc(var(--mobile-locked-vh, 100svh) - var(--production-building-phone-top) - var(--production-building-phone-bottom)) !important;");
+    expect(safeAreaBlock).toContain("width: 100vw !important;");
+    expect(safeAreaBlock).toContain("height: 100dvh !important;");
+    expect(safeAreaBlock).toContain("min-height: 100dvh !important;");
+    expect(safeAreaBlock).toContain("max-height: 100dvh !important;");
     expect(safeAreaBlock).toContain("border-radius: 0 !important;");
     expect(safeAreaBlock).toContain("--standard-building-phone-top: max(14px, env(safe-area-inset-top));");
+    expect(mobileFixes).not.toContain("html body .armory-popup-shell:not([hidden]),\n  html body .pharmacy-popup-shell:not([hidden])");
+
+    const standardCardStart = mobileFixes.indexOf("/* Standard building details stay centered over a blocked, dimmed game surface. */");
+    const standardCardEnd = mobileFixes.indexOf("/* Phone production sheets always occupy the full visual viewport. */", standardCardStart);
+    const standardCardBlock = mobileFixes.slice(standardCardStart, standardCardEnd);
+    expect(standardCardStart).toBeGreaterThan(-1);
+    expect(standardCardEnd).toBeGreaterThan(standardCardStart);
+    expect(standardCardBlock).toContain("align-items: center !important;");
+    expect(standardCardBlock).toContain("justify-content: center !important;");
+    expect(standardCardBlock).toContain("background: rgba(3, 7, 12, 0.8) !important;");
+    expect(standardCardBlock).toContain("pointer-events: auto !important;");
+    expect(standardCardBlock).toContain("height: auto !important;");
+    expect(css).toContain('.district-building-detail-shell.is-standard-building-detail[data-execution-mode="server-authoritative"]:not([hidden])');
+    expect(css).toContain("calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 18px)");
   });
 
   it("keeps spy resources visible and factory metric values right-aligned", () => {
@@ -54,6 +69,14 @@ describe("mobile game UI overrides", () => {
     const spyResourceLayer = css.slice(spyResourceLayerStart, spyResourceLayerStart + 520);
     expect(spyResourceLayerStart).toBeGreaterThan(-1);
     expect(spyResourceLayer).toContain("z-index: 26050 !important;");
+    const finalSpyGuardStart = css.indexOf("/* 2026-08-27 final phone precedence: spy resources and building viewport geometry. */");
+    const finalSpyGuard = css.slice(finalSpyGuardStart);
+    expect(finalSpyGuardStart).toBeGreaterThan(-1);
+    expect(finalSpyGuard).toContain("--spy-resource-bar-height: max(calc(env(safe-area-inset-top) + 82px), 82px);");
+    expect(finalSpyGuard).toMatch(/#game-header \.game-brand[^}]+display: flex !important;/u);
+    expect(finalSpyGuard).toMatch(/#game-header \.game-logo-slot[^}]+display: block !important;/u);
+    expect(finalSpyGuard).toMatch(/#game-header \.player-profile-trigger\.nav-btn--profile[^}]+display: inline-flex !important;/u);
+    expect(finalSpyGuard).not.toMatch(/#game-header \.game-brand[^}]+display: none !important;/u);
     expect(mobileLayoutRuntime).toContain("const hasOpenSpyConfirm = openOverlays.some((element) => element.id === \"spy-confirm-modal\");");
     expect(mobileLayoutRuntime).toContain("root.classList.toggle(MOBILE_SPY_CONFIRM_OPEN_CLASS, hasOpenSpyConfirm);");
     expect(css).toContain(".factory-popup-card.building-detail-modal__content .factory-slot .drug-production-slot__metrics");
@@ -62,6 +85,35 @@ describe("mobile game UI overrides", () => {
     expect(css).toContain("justify-content: space-between !important;");
     expect(css).toContain("margin-left: auto !important;");
     expect(html).toContain('data-spy-confirm-button>Vyslat špeha</button>');
+  });
+
+  it("keeps the phone resource bar anchored when the heat window opens", () => {
+    const overlayGuardStart = css.indexOf("/* Absolute final phone overlay contract;");
+    const overlayGuardEnd = css.indexOf("/* Wanted close mark", overlayGuardStart);
+    const overlayGuard = css.slice(overlayGuardStart, overlayGuardEnd);
+
+    expect(overlayGuardStart).toBeGreaterThan(-1);
+    expect(overlayGuardEnd).toBeGreaterThan(overlayGuardStart);
+    expect(overlayGuard).toContain("html body.game-body.game-wanted-popup-open > #game-header");
+    expect(overlayGuard).toContain("width: 100vw !important;");
+    expect(overlayGuard).toContain("max-width: 100vw !important;");
+    expect(overlayGuard).toContain("box-sizing: border-box !important;");
+    expect(overlayGuard).toContain("overflow-x: hidden !important;");
+    expect(overlayGuard).toMatch(/game-wanted-popup-open #game-header \.game-resource-strip[^}]+margin: 0 !important;/u);
+  });
+
+  it("shows only one responsive heat metadata block and no fake initial heat", () => {
+    const heatFixStart = css.indexOf("/* Mobile HEAT and alliance modal corrections. */");
+    const heatFixEnd = css.indexOf("/* Market quantity steppers", heatFixStart);
+    const heatFix = css.slice(heatFixStart, heatFixEnd);
+
+    expect(heatFixStart).toBeGreaterThan(-1);
+    expect(heatFixEnd).toBeGreaterThan(heatFixStart);
+    expect(heatFix).toMatch(/wanted-popup-meta--header[^}]+display: none !important;/u);
+    expect(heatFix).toMatch(/wanted-popup-meta--mobile[^}]+display: flex !important;/u);
+    expect(html).not.toContain("data-wanted-popup-level>1 / 6");
+    expect(html).not.toContain("data-wanted-popup-audit-risk>0 %");
+    expect(html).toContain("Úroveň <span data-wanted-popup-level>—</span>");
   });
 
   it("keeps the phone rumor close control clear of compact neon trash actions", () => {
@@ -76,7 +128,7 @@ describe("mobile game UI overrides", () => {
     expect(actionResultsCss).toContain("scrollbar-width: none;");
   });
 
-  it("renders active bounties as compact two-column contract cards on phones", () => {
+  it("renders active bounties as readable contract cards down to narrow phone widths", () => {
     expect(bountyCss).toContain('#bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody tr');
     expect(bountyCss).toContain('"target reward"');
     expect(bountyCss).toContain('"type district"');
@@ -85,11 +137,23 @@ describe("mobile game UI overrides", () => {
     expect(bountyCss).toContain("content: attr(data-label);");
     expect(bountyCss).toContain("overflow-wrap: anywhere;");
     expect(bountyCss).toContain("scrollbar-gutter: stable;");
+
+    const narrowBountyStart = bountyCss.indexOf("@media (max-width: 460px)");
+    const narrowBountyEnd = bountyCss.indexOf("@media (max-width: 340px)", narrowBountyStart);
+    const narrowBounty = bountyCss.slice(narrowBountyStart, narrowBountyEnd);
+    expect(narrowBountyStart).toBeGreaterThan(-1);
+    expect(narrowBountyEnd).toBeGreaterThan(narrowBountyStart);
+    expect(narrowBounty).toContain('grid-template-areas:\n      "target"\n      "type"\n      "district"\n      "reward"\n      "status";');
+    expect(narrowBounty).toContain("grid-template-columns: minmax(0, 1fr);");
+    expect(narrowBounty).toContain("height: calc(100dvh - var(--bounty-active-inset-top) - var(--bounty-active-inset-bottom));");
+    expect(narrowBounty).toContain("flex: 1 1 50%;");
   });
 
   it("places faction modifiers beside live action and building values", () => {
+    expect(html).not.toContain('data-faction-passive-context="profile"');
     expect(html).toContain('data-faction-passive-inline-context="attack-strength"');
     expect(html).toContain('data-faction-passive-inline-context="spy-success"');
+    expect(html).toContain('data-faction-passive-inline-context="spy-duration"');
     expect(css).toContain(".faction-passive-inline--action-card");
     expect(css).toContain(".faction-passive-inline--building");
   });
@@ -165,7 +229,7 @@ describe("mobile game UI overrides", () => {
   });
 
   it("adds the current player's active occupation to Street News", () => {
-    expect(serverCooldownStreetNews).toContain('new Set(["spy", "robbery", "attack", "occupy"])');
+    expect(serverCooldownStreetNews).toContain('new Set(["spy", "robbery", "heist", "attack", "occupy"])');
     expect(serverCooldownStreetNews).toContain("effectPlayerId !== playerId");
     expect(runtime).toContain("function collectServerMissionCooldownStreetNewsEntries(now)");
     expect(runtime).toContain(': "Obsazení";');

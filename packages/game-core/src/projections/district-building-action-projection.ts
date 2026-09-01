@@ -59,12 +59,8 @@ import {
   resolveFixedBuildingIncomeConfig,
   resolveFixedBuildingIncomeConfigBeforeDayNight
 } from "../rules/economy/fixedBuildingIncomeConfig";
-import { resolveEffectiveBuildingActionPreview } from "../rules/buildings/buildingActionCosts";
-import {
-  createBaseBuildingActionPreview,
-  normalizeBuildingDisplayName,
-  resolveCatalogVariantName
-} from "./district-building-display-helpers";
+import { normalizeBuildingDisplayName, resolveCatalogVariantName } from "./district-building-display-helpers";
+import { resolveProjectedBuildingActionContract } from "./district-building-action-effective-contract";
 
 export interface CreateDistrictPanelBuildingViewsInput {
   state: CoreGameState;
@@ -417,22 +413,24 @@ const createBuildingActionViews = (input: {
     .map((action) => {
       const cooldownUntilTick = Math.max(0, Number((input.building.actionCooldowns ?? {})[action.actionId] || 0));
       const cooldownRemainingTicks = Math.max(0, cooldownUntilTick - input.tick);
-      const effectivePreview = input.config
-        ? resolveEffectiveBuildingActionPreview({
-            action,
-            state: input.state,
-            context: { config: input.config },
-            buildingTypeId: input.building.buildingTypeId
-          })
-        : createBaseBuildingActionPreview(action);
+      const { actionContract, projectedAction, effectivePreview, minimumCostPreview } =
+        resolveProjectedBuildingActionContract({
+          state: input.state,
+          config: input.config,
+          building: input.building,
+          district: input.district,
+          action,
+          playerId: input.playerId,
+          playerBalances: input.playerBalances
+        });
       const storageDisabledReason = input.config
         ? resolveBuildingActionStorageError({ state: input.state, playerId: input.playerId, outputGain: effectivePreview.effectiveOutputGain, context: { config: input.config } })?.message ?? null
         : null;
-      const missingCosts = Object.entries(effectivePreview.effectiveInputCost).filter(
+      const missingCosts = Object.entries(minimumCostPreview.effectiveInputCost).filter(
         ([resourceKey, requiredAmount]) => Math.max(0, Number(input.playerBalances[resourceKey] || 0)) < requiredAmount
       );
       const effectiveAction = {
-        ...action,
+        ...projectedAction,
         inputCost: effectivePreview.effectiveInputCost,
         outputGain: effectivePreview.effectiveOutputGain,
         heatGain: effectivePreview.effectiveHeatGain,
@@ -612,8 +610,11 @@ const createBuildingActionViews = (input: {
           cityHallConfig: input.cityHallConfig,
           streetDealersConfig: input.streetDealersConfig,
           state: input.state,
-          playerId: input.playerId
+          playerId: input.playerId,
+          inputDefaultValues: actionContract?.inputDefaultValues,
+          inputMaximumValues: actionContract?.inputMaximumValues
         }),
+        costPreview: actionContract?.costPreview ?? null,
         durationMs: effectivePreview.effectiveDurationMs,
         cooldownMs: effectivePreview.effectiveCooldownMs,
         inputCost: { ...effectivePreview.effectiveInputCost },
@@ -629,8 +630,8 @@ const createBuildingActionViews = (input: {
         effectiveCooldownMs: effectivePreview.effectiveCooldownMs,
         baseDurationMs: effectivePreview.baseDurationMs,
         effectiveDurationMs: effectivePreview.effectiveDurationMs,
-        influenceChange: action.influenceChange,
-        reportText: action.reportText,
+        influenceChange: projectedAction.influenceChange,
+        reportText: projectedAction.reportText,
         enabled: status === "available",
         phaseAvailability: effectivePreview.phaseAvailability,
         phaseBadgeLabel: effectivePreview.phaseBadgeLabel,

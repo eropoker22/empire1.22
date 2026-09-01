@@ -26,8 +26,7 @@ import {
   isRaidCooldownActive,
   resolveRaidSeverity
 } from "./raidTriggerHelpers";
-import { isScheduledRaidBoundary } from "./raidSchedule";
-import { resolveRaidOpeningCandidates } from "./raidOpeningTarget";
+import { resolveScheduledRaidCandidates } from "./raidOpeningTarget";
 import type { RaidTriggerDecision } from "./raidTriggerTypes";
 export type { RaidTriggerDecision, RaidTriggerDecisionType } from "./raidTriggerTypes";
 
@@ -50,17 +49,16 @@ export const triggerRaid = (
   const currentTick = state.root.tick;
   const gameTime = getCurrentDayNightPhase(state, context);
   const phaseId = gameTime.phaseId;
-  const isScheduledRaidTime = isScheduledRaidBoundary(state, context, currentTick);
-  if (!isScheduledRaidTime) {
-    return { nextState: state, events: [], decisions: [] };
-  }
-  const maxConcurrentRaids = resolveMaxConcurrentRaidsForPhase(config, phaseId);
-  const raidDurationTicks = Math.max(1, Math.floor(Number(config.raidDurationTicks || config.pendingRaidTtlTicks || 1)));
-  const { activePlayers, openingMiddayTargetId } = resolveRaidOpeningCandidates(
+  const { activePlayers, scheduledBoundary, scheduledTargetId } = resolveScheduledRaidCandidates(
     state,
     context,
     currentTick
   );
+  if (!scheduledBoundary) {
+    return { nextState: state, events: [], decisions: [] };
+  }
+  const maxConcurrentRaids = resolveMaxConcurrentRaidsForPhase(config, phaseId);
+  const raidDurationTicks = Math.max(1, Math.floor(Number(config.raidDurationTicks || config.pendingRaidTtlTicks || 1)));
 
   for (const player of activePlayers) {
     const pressure = calculatePlayerPolicePressure(
@@ -71,16 +69,16 @@ export const triggerRaid = (
       player.id,
       context
     );
-    const isOpeningMiddayRaid = player.id === openingMiddayTargetId;
+    const isScheduledRaid = player.id === scheduledTargetId;
     const currentPoliceState = nextPoliceStatesById[player.policeStateId]
       ?? createPlayerPoliceState(player, currentTick);
 
-    if (pressure.riskTier === "low" && !isOpeningMiddayRaid) {
+    if (pressure.riskTier === "low" && !isScheduledRaid) {
       decisions.push({ playerId: player.id, type: "no_raid", aggregatePressure: pressure.aggregatePressure });
       continue;
     }
 
-    if (pressure.riskTier === "medium" && !isOpeningMiddayRaid) {
+    if (pressure.riskTier === "medium" && !isScheduledRaid) {
       const warning = createWarningIfAllowed(currentPoliceState, pressure.aggregatePressure, currentTick, config.raidCooldownTicks);
       if (!warning) {
         decisions.push({ playerId: player.id, type: "cooldown_active", aggregatePressure: pressure.aggregatePressure });
@@ -107,7 +105,7 @@ export const triggerRaid = (
       continue;
     }
 
-    if (isRaidCooldownActive(currentPoliceState, currentTick, config.raidCooldownTicks)) {
+    if (!isScheduledRaid && isRaidCooldownActive(currentPoliceState, currentTick, config.raidCooldownTicks)) {
       decisions.push({ playerId: player.id, type: "cooldown_active", aggregatePressure: pressure.aggregatePressure });
       continue;
     }
@@ -124,14 +122,16 @@ export const triggerRaid = (
     const severityPressure = Math.floor(
       pressure.aggregatePressure * Math.max(0, Number(getDayNightModifiers(state, context).raidSeverityMultiplier ?? 1)) + 1e-9
     );
-    const severity = isOpeningMiddayRaid
+    const usesScheduledMinimumSeverity = isScheduledRaid
+      && (pressure.riskTier === "low" || pressure.riskTier === "medium");
+    const severity = usesScheduledMinimumSeverity
       ? "medium"
       : resolveRaidSeverity(severityPressure, config.extremePressureRaidThreshold);
-    const targetDistrictId = isOpeningMiddayRaid || pressure.hottestDistrictHeat >= Math.max(0, config.districtTargetHeatThreshold)
+    const targetDistrictId = isScheduledRaid || pressure.hottestDistrictHeat >= Math.max(0, config.districtTargetHeatThreshold)
       ? pressure.hottestDistrictId
       : null;
     const raidId = `police:raid:${player.id}:${currentTick}:${(currentPoliceState.pendingRaids ?? []).length + 1}`;
-    const cityHallMitigation = isOpeningMiddayRaid ? null : resolveCityHallPoliceMitigation({
+    const cityHallMitigation = isScheduledRaid ? null : resolveCityHallPoliceMitigation({
       state,
       context,
       playerId: player.id,
@@ -159,8 +159,8 @@ export const triggerRaid = (
       playerId: player.id,
       targetDistrictId: targetDistrictId ?? undefined,
       severity,
-      reason: isOpeningMiddayRaid
-        ? `scheduled-midday-opening:${pressure.aggregatePressure}:district:${targetDistrictId ?? "none"}`
+      reason: isScheduledRaid
+        ? `scheduled-${scheduledBoundary}:${pressure.aggregatePressure}:district:${targetDistrictId ?? "none"}`
         : createRaidReason(pressure.aggregatePressure, targetDistrictId),
       createdAtTick: currentTick,
       expiresAtTick: currentTick + raidDurationTicks,
@@ -208,7 +208,7 @@ export const triggerRaid = (
         aggregatePressure: pressure.aggregatePressure,
         playerHeatPressure: pressure.playerHeatPressure,
         districtHeatPressure: pressure.districtHeatPressure,
-        threshold: isOpeningMiddayRaid
+        threshold: usesScheduledMinimumSeverity
           ? config.raidSeverityThresholds.medium
           : config.highPressureRaidThreshold,
         severity,

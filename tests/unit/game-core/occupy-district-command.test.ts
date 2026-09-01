@@ -10,6 +10,7 @@ import {
   seedSuccessfulSpyIntel
 } from "../../fixtures/game-state-fixtures";
 import { createOccupyDistrictCommandFixture } from "../../fixtures/command-fixtures";
+import { resolvePendingOccupation } from "../../fixtures/timed-operation-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 
@@ -163,10 +164,11 @@ describe("occupy district command", () => {
   it("claims a neutral adjacent district after successful empty-district spy intel", () => {
     const state = createNeutralOccupyState();
     seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
-    const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    const started = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    const result = resolvePendingOccupation(started.nextState, context);
     const occupyCooldownTicks = context.config.balance.conflict!.occupyCooldownTicks ?? 0;
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(5);
     expect(result.nextState.playersById["player:1"].population).toBe(955);
     expect(result.nextState.districtsById["district:2"]).toMatchObject({
@@ -197,7 +199,7 @@ describe("occupy district command", () => {
         cooldownTicks: occupyCooldownTicks
       })
     });
-    expect(result.events).toEqual([
+    expect(result.events).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: "district-captured",
         payload: expect.objectContaining({
@@ -221,7 +223,7 @@ describe("occupy district command", () => {
           category: "report.occupy"
         })
       })
-    ]);
+    ]));
     expect(Object.values(result.nextState.cityFeedEventsById)).toEqual(expect.arrayContaining([
       expect.objectContaining({
         sourceType: "district_occupy",
@@ -263,13 +265,14 @@ describe("occupy district command", () => {
   it("can fail occupation, keep the district neutral and consume the full population cost", () => {
     const state = createNeutralOccupyState();
     seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
-    const result = applyCommand(
+    const started = applyCommand(
       state,
       createOccupyDistrictCommandFixture({ id: "command:occupy:fail:1" }),
       context
     );
+    const result = resolvePendingOccupation(started.nextState, context);
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(5);
     expect(result.nextState.playersById["player:1"].population).toBe(950);
     expect(result.nextState.playersById["player:1"].recoveryPool).toEqual([
@@ -322,9 +325,10 @@ describe("occupy district command", () => {
       cooldownTicks: 4
     });
 
-    const result = applyCommand(state, createOccupyDistrictCommandFixture(), { config });
+    const started = applyCommand(state, createOccupyDistrictCommandFixture(), { config });
+    const result = resolvePendingOccupation(started.nextState, { config });
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(3);
     expect(result.nextState.playersById["player:1"].population).toBe(955);
     expect(result.nextState.districtsById["district:2"].heat).toBe(3);
@@ -345,9 +349,10 @@ describe("occupy district command", () => {
       cooldownTicks: 10
     });
 
-    const result = applyCommand(state, createOccupyDistrictCommandFixture(), { config });
+    const started = applyCommand(state, createOccupyDistrictCommandFixture(), { config });
+    const result = resolvePendingOccupation(started.nextState, { config });
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns["occupy:global"]).toBe(9);
     expect(result.nextState.notificationsById["notification:command:occupy:1:occupy-report"]?.payload).toMatchObject({
       cooldownTicks: 9
@@ -367,9 +372,10 @@ describe("occupy district command", () => {
       cooldownTicks: 10
     });
 
-    const result = applyCommand(state, createOccupyDistrictCommandFixture(), { config });
+    const started = applyCommand(state, createOccupyDistrictCommandFixture(), { config });
+    const result = resolvePendingOccupation(started.nextState, { config });
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"].heat).toBe(3);
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(3);
     expect(result.events.find((event) => event.type === "district-captured")?.payload).toMatchObject({
@@ -420,9 +426,10 @@ describe("occupy district command", () => {
       enabled: true,
       cost: { influence: 10 }
     });
-    const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    const started = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    const result = resolvePendingOccupation(started.nextState, context);
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(0);
     expect(result.nextState.districtsById["district:3"].influence).toBe(2);
   });
@@ -545,9 +552,10 @@ describe("occupy district command", () => {
       influence: 10,
       population: 50
     });
-    const result = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    const started = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    const result = resolvePendingOccupation(started.nextState, context);
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:1"].influence).toBe(4_990);
     expect(result.nextState.playersById["player:1"].population).toBe(955);
     expect(createDistrictOccupyTargetViews(result.nextState, "player:1", "district:2")[0]?.cost).toEqual({
@@ -559,7 +567,8 @@ describe("occupy district command", () => {
   it("rejects repeated occupation of an already owned district", () => {
     const state = createNeutralOccupyState();
     seedSuccessfulSpyIntel(state, "player:1", "district:1", "district:2", null);
-    const claimed = applyCommand(state, createOccupyDistrictCommandFixture(), context).nextState;
+    const started = applyCommand(state, createOccupyDistrictCommandFixture(), context);
+    const claimed = resolvePendingOccupation(started.nextState, context).nextState;
 
     const repeated = applyCommand(
       claimed,

@@ -1899,13 +1899,13 @@ export function createBuildingDetailViewModel({
     },
     stats: createBuildingDetailStatRows({ buildingName, mechanics, detailEntry, buildingProfile, playerHeat, now }),
     mechanics: createBuildingDetailMechanicRows({ buildingName, mechanics }),
-    hideMechanicsSection: ["recruitment-center", "street-dealers", "warehouse"].includes(mechanics.mechanicsType),
+    hideMechanicsSection: ["apartment-block", "recruitment-center", "street-dealers", "warehouse"].includes(mechanics.mechanicsType),
     effectsLabel: mechanics.effectsLabel || "Žádné aktivní mechaniky.",
     effects: createEffectItemsWithOwnedCount(mechanics.effectsLabel || "Žádné aktivní mechaniky.", mechanics, {
       buildingName,
       phaseState
     }),
-    intro: profile.info || "",
+    intro: mechanics.mechanicsType === "apartment-block" ? "" : profile.info || "",
     showActionsInSinglePanel: !suppressSinglePanelActions,
     actions
   };

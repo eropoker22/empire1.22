@@ -2,31 +2,61 @@ import type { Player } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { GameCoreContext } from "../../engine/context";
 import { calculatePlayerPolicePressure } from "./policePressure";
-import { isMiddayRaidBoundary } from "./raidSchedule";
+import { resolvePoliceConfig } from "./policeConfig";
+import { getOpenPendingRaids, isRaidCooldownActive } from "./raidTriggerHelpers";
+import {
+  resolveScheduledRaidBoundary,
+  type ScheduledRaidBoundary
+} from "./raidSchedule";
 
-export const resolveRaidOpeningCandidates = (
+export const resolveScheduledRaidCandidates = (
   state: CoreGameState,
   context: GameCoreContext | undefined,
   currentTick: number
-): { activePlayers: Player[]; openingMiddayTargetId: string | null } => {
+): {
+  activePlayers: Player[];
+  scheduledBoundary: ScheduledRaidBoundary | null;
+  scheduledTargetId: string | null;
+} => {
   const activePlayers = Object.values(state.playersById)
     .filter((player) => player.status === "active");
-  const firstRaidHasNotStarted = Object.values(state.policeStatesById).every((policeState) => (
-    policeState.lastRaidCreatedAtTick === undefined
-    && policeState.lastRaidResolvedAtTick === undefined
-    && (policeState.pendingRaids ?? []).length === 0
-  ));
-  if (!firstRaidHasNotStarted || !isMiddayRaidBoundary(state, context, currentTick)) {
-    return { activePlayers, openingMiddayTargetId: null };
+  const scheduledBoundary = resolveScheduledRaidBoundary(state, context, currentTick);
+  if (!scheduledBoundary || activePlayers.length === 0) {
+    return { activePlayers, scheduledBoundary, scheduledTargetId: null };
   }
-  const openingMiddayTargetId = activePlayers
-    .filter((player) => Object.values(state.districtsById)
-      .some((district) => district.ownerPlayerId === player.id))
-    .map((player) => calculatePlayerPolicePressure(state, player.id, context))
+
+  const config = resolvePoliceConfig(context);
+  const playersWithDistricts = activePlayers.filter((player) => Object.values(state.districtsById)
+    .some((district) => district.ownerPlayerId === player.id));
+  const candidatePlayers = playersWithDistricts.length > 0 ? playersWithDistricts : activePlayers;
+  const availableCandidates = candidatePlayers
+    .map((player) => ({
+      player,
+      policeState: state.policeStatesById[player.policeStateId],
+      pressure: calculatePlayerPolicePressure(state, player.id, context)
+    }))
+    .filter(({ policeState }) => !policeState || getOpenPendingRaids(policeState).length === 0);
+  const cooldownEligibleCandidates = availableCandidates.filter(({ policeState }) => (
+    !policeState || !isRaidCooldownActive(policeState, currentTick, config.raidCooldownTicks)
+  ));
+  const scheduledTargetId = (cooldownEligibleCandidates.length > 0
+    ? cooldownEligibleCandidates
+    : availableCandidates)
     .sort((left, right) => (
-      right.aggregatePressure - left.aggregatePressure
-      || right.hottestDistrictHeat - left.hottestDistrictHeat
-      || left.playerId.localeCompare(right.playerId)
-    ))[0]?.playerId ?? null;
-  return { activePlayers, openingMiddayTargetId };
+      left.pressure.aggregatePressure - right.pressure.aggregatePressure
+      || left.pressure.hottestDistrictHeat - right.pressure.hottestDistrictHeat
+      || left.player.id.localeCompare(right.player.id)
+    ))[0]?.player.id ?? null;
+  const orderedActivePlayers = scheduledTargetId
+    ? [
+        ...activePlayers.filter((player) => player.id !== scheduledTargetId),
+        activePlayers.find((player) => player.id === scheduledTargetId)!
+      ]
+    : activePlayers;
+
+  return {
+    activePlayers: orderedActivePlayers,
+    scheduledBoundary,
+    scheduledTargetId
+  };
 };

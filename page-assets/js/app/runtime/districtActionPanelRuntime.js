@@ -85,6 +85,75 @@ function formatPanelPower(value = 0) {
     : rounded.toFixed(1).replace(/0+$/u, "").replace(/\.$/u, "");
 }
 
+function normalizeDefenseAmount(value) {
+  return Math.max(0, Math.floor(Number(value || 0) || 0));
+}
+
+export function createAuthoritativeDefenseSetupState(defenseView = null) {
+  const ownerOwnedAmounts = defenseView?.ownerOwnedAmounts || {};
+  const alliedContributionAmounts = defenseView?.alliedContributionAmounts || {};
+  const resourceIds = new Set([
+    ...Object.keys(ownerOwnedAmounts),
+    ...Object.keys(alliedContributionAmounts)
+  ]);
+  const loadout = {};
+
+  for (const resourceId of resourceIds) {
+    const amount = normalizeDefenseAmount(ownerOwnedAmounts[resourceId])
+      + normalizeDefenseAmount(alliedContributionAmounts[resourceId]);
+    if (amount > 0) {
+      loadout[resourceId] = amount;
+    }
+  }
+
+  return {
+    weaponInventory: Object.fromEntries(
+      Object.entries(defenseView?.availableInventoryAmounts || {})
+        .map(([resourceId, amount]) => [resourceId, normalizeDefenseAmount(amount)])
+    ),
+    currentDefense: {
+      loadout,
+      residents: 0
+    }
+  };
+}
+
+export function createServerDefenseAdjustment({
+  placeView,
+  removeView = null,
+  defenseItemId,
+  desiredTotalAmount
+} = {}) {
+  const normalizedItemId = String(defenseItemId || "").trim();
+  if (!placeView || !normalizedItemId) {
+    return null;
+  }
+
+  const ownerAmount = normalizeDefenseAmount(placeView.ownerOwnedAmounts?.[normalizedItemId]);
+  const alliedAmount = normalizeDefenseAmount(placeView.alliedContributionAmounts?.[normalizedItemId]);
+  const currentOwnAmount = normalizeDefenseAmount(
+    removeView?.playerRemovableAmounts?.[normalizedItemId]
+      ?? placeView.playerRemovableAmounts?.[normalizedItemId]
+  );
+  const lockedAmount = Math.max(0, ownerAmount + alliedAmount - currentOwnAmount);
+  const desiredOwnAmount = Math.max(0, normalizeDefenseAmount(desiredTotalAmount) - lockedAmount);
+  const delta = desiredOwnAmount - currentOwnAmount;
+  if (delta === 0) {
+    return { delta, command: null };
+  }
+
+  const commandView = delta > 0 ? placeView : (removeView || placeView);
+  return {
+    delta,
+    command: {
+      type: delta > 0 ? "place-defense" : "remove-defense",
+      defenseItemId: normalizedItemId,
+      amount: Math.abs(delta),
+      expectedTargetVersion: commandView.expectedTargetVersion
+    }
+  };
+}
+
 export function createDistrictActionPanelRuntime(deps = {}) {
   const elements = deps.elements || {};
   const state = {
@@ -246,24 +315,27 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     }
 
     const interactionState = getInteractionState();
+    const authoritative = deps.isServerAuthoritativeGameplayRuntimeReady?.() === true;
     const sourceDistrictId = isHtmlSelectElement(elements.attackSourceSelect) ? elements.attackSourceSelect.value : "";
     const { totalResidents, totalPower, canConfirm, bonusPowerLabel, powerLabel } = renderAttackSummary();
     const worldState = deps.getResolvedWorldState();
     const baseDefensePower = worldState.districtDefenseById?.[district.id]
-      ?? deps.estimateDistrictDefense({
+      ?? (authoritative ? 0 : deps.estimateDistrictDefense({
         districtType: district.districtType,
         isOccupied: deps.getDistrictOwnerLabel(district, interactionState) !== "Neobsazeno",
         districtId: district.id
-      });
+      }));
     const boostContext = deps.getPlayerAttackBoostContext({
       attackPower: totalPower,
       defensePower: baseDefensePower
     });
     const hasTrapDefense = Boolean(worldState.districtTrapById?.[district.id]?.isArmed);
-    const resolvedScenario = deps.resolveAttackOutcome({
-      attackPower: boostContext.effectiveAttackPower,
-      defensePower: boostContext.effectiveDefensePower
-    });
+    const resolvedScenario = authoritative
+      ? null
+      : deps.resolveAttackOutcome({
+          attackPower: boostContext.effectiveAttackPower,
+          defensePower: boostContext.effectiveDefensePower
+        });
     const attackLoadout = {};
     const selectedWeapons = [];
 
@@ -291,6 +363,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       baseDefensePower,
       boostContext,
       hasTrapDefense,
+      authoritative,
       resolvedScenario
     };
   };
@@ -306,23 +379,35 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     }
 
     const availableMembers = getAvailableAttackPopulation();
-    const deployedMembers = clamp(Number.parseInt(elements.robberyMemberInput.value || "0", 10) || 0, 0, availableMembers);
-    const remainingMembers = Math.max(0, availableMembers - deployedMembers);
+    const authoritative = deps.isServerAuthoritativeGameplayRuntimeReady?.() === true;
+    const deployedMembers = authoritative
+      ? availableMembers > 0 ? 1 : 0
+      : clamp(Number.parseInt(elements.robberyMemberInput.value || "0", 10) || 0, 0, availableMembers);
+    const remainingMembers = authoritative ? availableMembers : Math.max(0, availableMembers - deployedMembers);
     elements.robberyMemberInput.value = String(deployedMembers);
+    elements.robberyMemberInput.disabled = authoritative;
     elements.robberyAvailableMembers.textContent = String(remainingMembers);
 
     const hasSourceDistrict = Boolean(elements.robberySourceSelect.value);
     const canConfirm = hasSourceDistrict && deployedMembers > 0;
-    const preview = createRobberyPreviewForDistrict(state.pendingRobberyDistrict, deployedMembers);
+    const preview = authoritative ? null : createRobberyPreviewForDistrict(state.pendingRobberyDistrict, deployedMembers);
 
     elements.robberyStatus.textContent = !hasSourceDistrict
       ? "Chybí sousední district"
       : deployedMembers <= 0
         ? "Vyber členy gangu"
-        : "Připraveno";
+        : authoritative ? "Připraveno · server ověřil 1 volného člena" : "Připraveno";
     setElementValidationState(elements.robberyStatus, canConfirm ? "" : "error");
 
-    if (preview) {
+    if (authoritative) {
+      setElementText(elements.robberyRecommendation, "1 volný člen · pouze podmínka");
+      setElementText(elements.robberyRiskLevel, "Výsledek po doběhnutí operace");
+      setElementText(elements.robberyLootPreview, "Jen skutečný zbývající městský loot");
+      setElementText(elements.robberyTrapPreview, "Bez odhadu pasti");
+      setElementText(elements.robberyScoutReport, "Serverový stav cíle");
+      setElementText(elements.robberyHeatEstimate, "1–6");
+      setElementText(elements.robberyRiskDescription, "Populace se nenasazuje ani neodečítá. Server po odpočtu připíše přijatelnou kořist a skutečný Heat.");
+    } else if (preview) {
       setElementText(elements.robberyZone, preview.zoneLabel);
       setElementText(elements.robberyRecommendation, `${preview.recommendationLabel} členů`);
       setElementText(elements.robberyRiskLevel, `${preview.previewRiskLabel || preview.riskLabel} · ${preview.previewSuccessChanceLabel || preview.successChanceLabel}`);
@@ -337,7 +422,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
 
     setElementDisabled(elements.robberyConfirmButton, !canConfirm);
 
-    return { deployedMembers, canConfirm, preview };
+    return { deployedMembers, canConfirm, preview, authoritative };
   };
 
   const renderDefenseSummary = () => {
@@ -367,16 +452,33 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       }
     }
 
-    const residents = Math.max(0, Number.parseInt(elements.defenseResidentsInput.value || "0", 10) || 0);
+    const authoritative = deps.isServerAuthoritativeGameplayRuntimeReady?.() === true;
+    const residents = authoritative
+      ? 0
+      : Math.max(0, Number.parseInt(elements.defenseResidentsInput.value || "0", 10) || 0);
     elements.defenseResidentsInput.value = String(residents);
+    elements.defenseResidentsInput.disabled = authoritative;
+    const residentsRow = elements.defenseResidentsInput.closest?.(".defense-setup-popup-row");
+    if (residentsRow) {
+      residentsRow.hidden = authoritative;
+    }
 
-    const powerView = normalizePowerResult(deps.calculateTotalDefensePower({ loadout: selectedLoadout, residents }));
+    const powerView = normalizePowerResult(deps.calculateTotalDefensePower(
+      authoritative ? { loadout: selectedLoadout } : { loadout: selectedLoadout, residents }
+    ));
     const totalPower = powerView.totalPower;
     elements.defenseEstimatedPower.textContent = powerView.powerLabel;
     elements.defenseStatus.textContent = totalPower > 0 ? "Připraveno" : "Bez obrany";
     setElementDisabled(elements.defenseConfirmButton, false);
 
-    return { residents, totalPower, canConfirm: true, bonusPowerLabel: powerView.bonusPowerLabel, powerLabel: powerView.powerLabel };
+    return {
+      residents,
+      totalPower,
+      canConfirm: true,
+      authoritative,
+      bonusPowerLabel: powerView.bonusPowerLabel,
+      powerLabel: powerView.powerLabel
+    };
   };
 
   const populateAttackSetupPopup = (district) => {
@@ -464,7 +566,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
     }
 
     const atmosphereMeta = getDistrictAtmosphereMeta(district, getInteractionState());
-    const { deployedMembers, canConfirm } = renderRobberySummary();
+    const { deployedMembers, canConfirm, authoritative } = renderRobberySummary();
     const sourceDistrictId = isHtmlSelectElement(elements.robberySourceSelect) ? elements.robberySourceSelect.value : "";
     const cooldownView = getRobberyCooldownView();
 
@@ -475,6 +577,7 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       canConfirm,
       robberyCooldownMs: cooldownView.effectiveCooldownMs || deps.robberyCooldownMs,
       robberyCooldownLabel: cooldownView.label || "",
+      authoritative,
       atmosphereMeta
     }, elements);
   };
@@ -490,8 +593,12 @@ export function createDistrictActionPanelRuntime(deps = {}) {
       return;
     }
 
-    const ownedInventory = deps.getResolvedWeaponInventory();
-    const currentDefense = deps.getDistrictDefenseState(district.id);
+    const authoritative = deps.isServerAuthoritativeGameplayRuntimeReady?.() === true;
+    const authoritativeState = authoritative
+      ? createAuthoritativeDefenseSetupState(deps.getAuthoritativeDefenseView?.())
+      : null;
+    const ownedInventory = authoritativeState?.weaponInventory || deps.getResolvedWeaponInventory();
+    const currentDefense = authoritativeState?.currentDefense || deps.getDistrictDefenseState(district.id);
     const atmosphereMeta = getDistrictAtmosphereMeta(district, getInteractionState());
 
     renderDefenseSetupPanel(createDefenseSetupViewModel({

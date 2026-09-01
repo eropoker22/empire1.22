@@ -103,7 +103,7 @@ describe("conflict concurrency integrity", () => {
           expectedConflictRevision: first.nextState.districtsById["district:2"].conflictRevision
         }
       }, context);
-      expect(["TARGET_ATTACK_PROTECTED", "TARGET_OWNER_CHANGED", "TARGET_STABILIZING"]).toContain(retry.errors[0]?.code);
+      expect(["DISTRICT_OPERATION_ACTIVE", "TARGET_ATTACK_PROTECTED", "TARGET_OWNER_CHANGED", "TARGET_STABILIZING"]).toContain(retry.errors[0]?.code);
       expect(retry.nextState).toBe(first.nextState);
       expect(first.nextState.districtsById["district:2"].attackProtectedUntilTick).toBe(protectionAfterFirst);
     }
@@ -260,7 +260,7 @@ describe("conflict concurrency integrity", () => {
     expect(attack.errors[0]?.code).toBe("DISTRICT_OPERATION_ACTIVE");
   });
 
-  it("serializes competitive robbery against the current finite pool", () => {
+  it("serializes competitive robbery by blocking a second in-flight target operation", () => {
     const state = createCombatStateFixture();
     state.districtsById["district:2"] = {
       ...state.districtsById["district:2"],
@@ -308,15 +308,12 @@ describe("conflict concurrency integrity", () => {
     }), context);
 
     expect(first.errors).toEqual([]);
-    expect(second.errors).toEqual([]);
-    expect(second.nextState.notificationsById["notification:command:race:rob:2:rob-report"]?.payload)
-      .toMatchObject({ poolChangedBeforeResolution: true, resolvedLootPoolRevision: expectedLootPoolRevision + 1 });
-    const finalPool = second.nextState.districtsById["district:2"].neutralLootPool!;
-    const cashCredits = Number(second.nextState.resourceStatesById["resource:1"].balances.cash ?? 0) - beforeA
-      + Number(second.nextState.resourceStatesById["resource:player:3"].balances.cash ?? 0) - beforeB;
-    expect(poolTotal(finalPool)).toBeGreaterThanOrEqual(0);
-    expect(cashCredits).toBeLessThanOrEqual(pool.cash);
-    expect(initialTotal - poolTotal(finalPool)).toBeGreaterThanOrEqual(cashCredits);
+    expect(second.errors).toContainEqual(expect.objectContaining({ code: "DISTRICT_OPERATION_ACTIVE" }));
+    expect(second.nextState).toBe(first.nextState);
+    expect(first.nextState.districtsById["district:2"].neutralLootPool).toEqual(pool);
+    expect(Number(first.nextState.resourceStatesById["resource:1"].balances.cash ?? 0)).toBe(beforeA);
+    expect(Number(first.nextState.resourceStatesById["resource:player:3"].balances.cash ?? 0)).toBe(beforeB);
+    expect(poolTotal(pool)).toBe(initialTotal);
   });
 });
 

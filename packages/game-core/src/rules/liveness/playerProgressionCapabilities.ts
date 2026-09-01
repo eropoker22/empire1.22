@@ -125,7 +125,13 @@ export const resolvePlayerProgressionCapabilities = (
           expectedRouteVersion: candidate.routeDistrictId ? state.districtsById[candidate.routeDistrictId]?.version : undefined
         }
       };
-      return { errors: validateRob(state, command, conflictConfig), payload: command.payload };
+      return {
+        errors: validateRob(state, command, conflictConfig, {
+          dayLengthTicks: context?.config.balance.dayLengthTicks,
+          nightLengthTicks: context?.config.balance.nightLengthTicks
+        }),
+        payload: command.payload
+      };
     }),
     occupy: resolveCandidateCapability("occupy", neutral, (candidate) => {
       const target = state.districtsById[candidate.targetDistrictId];

@@ -140,7 +140,7 @@ test("local-demo production chain credits inventory atomically without queues or
   const pharmacy = page.locator("[data-pharmacy-popup]");
   const chemicals = cardByHeading(page, pharmacy, ".pharmacy-slot", "Chemicals");
   await expect(pharmacy.locator(".pharmacy-slot")).toHaveCount(3);
-  await expect(metric(chemicals, "Čas")).toHaveText("Okamžitě");
+  await expect(metric(chemicals, "Čas")).toHaveText("Bez odpočtu · demo");
   await expect(metric(chemicals, "Fronta")).toHaveText("Bez fronty");
   await expect(metric(chemicals, "Ve skladu")).toHaveText("59/60 ks");
   await expect(chemicals.locator(".pharmacy-slot__quantity-btn").last()).toBeDisabled();

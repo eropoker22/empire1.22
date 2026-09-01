@@ -15,6 +15,14 @@ const getPlayerBalance = (playerView, resourceId) => Math.max(0, Math.floor(Numb
   ?? 0
 ) || 0));
 
+const getPlayerStorageAvailableAmount = (playerView, resourceId) => {
+  const item = (playerView?.storage?.groups || [])
+    .flatMap((group) => group?.items || [])
+    .find((entry) => String(entry?.resourceKey || "") === String(resourceId || ""));
+  if (!item) return Number.POSITIVE_INFINITY;
+  return Math.max(0, Number(item.maxAmount || 0) - Number(item.currentAmount || 0));
+};
+
 export function createServerPlayerMarketPanelPayload({
   serverMarket = {},
   playerView = {},
@@ -29,6 +37,9 @@ export function createServerPlayerMarketPanelPayload({
       name: resource.name || resource.id,
       category: resource.category || "Trade",
       amount: getPlayerBalance(playerView, resource.id),
+      maxUnitPrice: Math.max(1, Math.floor(Number(
+        resource.maxPlayerListingUnitPrice ?? Number.MAX_SAFE_INTEGER
+      ))),
       suggestedUnitPrice: Math.max(1, Math.floor(Number(
         resource.normalMarket?.price || resource.blackMarket?.price || 1
       )))
@@ -37,6 +48,7 @@ export function createServerPlayerMarketPanelPayload({
 
   const listings = (serverMarket.playerMarket?.listings || []).map((listing) => {
     const resource = resourceById.get(listing.resourceId) || {};
+    const hasStorage = getPlayerStorageAvailableAmount(playerView, listing.resourceId) >= Number(listing.amount || 0);
     return {
       id: listing.id,
       sellerId: listing.sellerPlayerId,
@@ -52,12 +64,14 @@ export function createServerPlayerMarketPanelPayload({
       expiresAt: listing.expiresAt,
       total: listing.totalPrice,
       isOwn: Boolean(listing.isOwn),
-      disabled: !listing.isOwn && listing.canBuy !== true,
+      disabled: !listing.isOwn && (listing.canBuy !== true || !hasStorage),
       title: listing.isOwn
         ? "Stáhnout nabídku a vrátit položku do SKLADU."
-        : listing.canBuy
+        : listing.canBuy && hasStorage
           ? "Koupit nabídku přes serverový escrow převod."
-          : "Na tento obchod nemáš dost prostředků nebo místa ve SKLADU."
+          : !hasStorage
+            ? "Celá nabídka se do SKLADU nevejde."
+            : "Na tento obchod nemáš dost prostředků."
     };
   });
 

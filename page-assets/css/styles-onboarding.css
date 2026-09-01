@@ -752,9 +752,6 @@
     grid-template-columns: 23px minmax(0, 1fr) 44px;
   }
 
-  .elimination-ai-panel__leaderboard-row span:last-child {
-    display: none;
-  }
 
   .elimination-ai-panel__hero strong {
     font-size: clamp(30px, 11vw, 42px);

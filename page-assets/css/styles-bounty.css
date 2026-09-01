@@ -2776,11 +2776,104 @@
   }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 460px) {
+  #bounty-modal[data-bounty-tab="active"]:not(.hidden) {
+    --bounty-active-inset-top: max(5px, env(safe-area-inset-top));
+    --bounty-active-inset-bottom: max(5px, env(safe-area-inset-bottom));
+
+    align-items: stretch;
+    padding: var(--bounty-active-inset-top) 5px var(--bounty-active-inset-bottom);
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__content {
+    width: 100%;
+    height: calc(100dvh - var(--bounty-active-inset-top) - var(--bounty-active-inset-bottom));
+    max-height: calc(100dvh - var(--bounty-active-inset-top) - var(--bounty-active-inset-bottom));
+    padding: 8px;
+    margin: 0 auto;
+    border-radius: 19px;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__header {
+    grid-template-columns: minmax(0, 1fr) 34px;
+    padding: 9px;
+    margin-bottom: 4px;
+    gap: 7px;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__tabs {
+    display: flex;
+    width: 100%;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__tab {
+    flex: 1 1 50%;
+    padding: 0 5px;
+    overflow: hidden;
+    font-size: 0.61rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .modal__close {
+    width: 34px;
+    height: 34px;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table-wrap {
+    padding: 4px;
+    scrollbar-gutter: auto;
+  }
+
   #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody tr {
-    grid-template-columns: minmax(0, 1fr) minmax(78px, 0.4fr);
-    gap: 8px 9px;
-    padding: 10px;
+    grid-template-areas:
+      "target"
+      "type"
+      "district"
+      "reward"
+      "status";
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 11px;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td {
+    padding: 9px 0;
+    text-align: left;
+    border-top: 1px solid rgba(255, 255, 255, 0.065);
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="DISTRICT"],
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="ODMĚNA"] {
+    text-align: left;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__table tbody td[data-label="STATUS / VYPSAL"] {
+    padding-top: 9px;
+    border-top: 1px solid rgba(255, 255, 255, 0.065);
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__reward-value {
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 340px) {
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__status-cell {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  #bounty-modal[data-bounty-tab="active"] .bounty-board__row-action {
+    width: 100%;
+    max-width: none;
   }
 }
 

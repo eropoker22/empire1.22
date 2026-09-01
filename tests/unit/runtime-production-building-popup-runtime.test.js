@@ -530,6 +530,7 @@ describe("production building popup runtime", () => {
             { resourceKey: "metal-parts", label: "Metal Parts", requiredAmount: 3, availableAmount: 12 },
             { resourceKey: "tech-core", label: "Tech Core", requiredAmount: 1, availableAmount: 4 }
           ],
+          baseUnitDurationTicks: 100,
           effectiveUnitDurationTicks: 75,
           remainingMs: 120000,
           status: "processing",
@@ -542,6 +543,7 @@ describe("production building popup runtime", () => {
       getArmoryRecipeStrengthPreview,
       getProductionResourceLabel,
       getServerTickRateMs: () => 4000,
+      formatDurationLabel: (value) => `${value / 1000}s`,
       normalizeProductionResourceColorKey: (resourceKey) => `color:${resourceKey}`,
       renderProductionPanelUi: vi.fn(() => true),
       renderRecipeCard,
@@ -569,6 +571,9 @@ describe("production building popup runtime", () => {
         queuedAmount: 3,
         producedAmount: 2
       },
+      baseDurationMs: 400000,
+      effectiveDurationMs: 300000,
+      durationAdjustmentLabel: "Server: základ 400s → reálně 300s",
       slotState: { label: "Výroba", isActive: true },
       outputInventoryAmount: 7,
       outputInventoryCapacity: 24,

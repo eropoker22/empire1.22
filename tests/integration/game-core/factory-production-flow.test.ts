@@ -9,6 +9,7 @@ import {
 import type { CraftItemCommand } from "@empire/shared-types";
 import { createCraftItemCommandFixture } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import { advanceProductionUntilIdle } from "../../fixtures/timed-operation-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 
@@ -18,7 +19,7 @@ const produce = (buildingId: string, recipeId: string, quantity = 1): CraftItemC
     payload: { districtId: "district:1", buildingId, recipeId, quantity }
   });
 
-describe("instant factory production", () => {
+describe("timed factory production", () => {
   it("keeps the existing three-recipe economy contract", () => {
     const recipes = context.config.balance.factory!.recipes;
     expect(recipes["metal-parts"]).toMatchObject({
@@ -38,41 +39,57 @@ describe("instant factory production", () => {
     });
   });
 
-  it("produces the material chain into canonical player storage without a tick or collect", () => {
+  it("reserves the material chain at start and stores output after each timer", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
       playerBalances: { cash: 10_000, "metal-parts": 20, "tech-core": 10, "combat-module": 0 }
     });
     const metal = applyCommand(state, produce(building.id, "metal-parts"), context);
     const tech = applyCommand(metal.nextState, produce(building.id, "tech-core"), context);
     const combat = applyCommand(tech.nextState, produce(building.id, "combat-module"), context);
+    let completed = combat.nextState;
+    for (const recipeId of ["metal-parts", "tech-core", "combat-module"]) {
+      completed = advanceProductionUntilIdle(completed, building.id, recipeId, context);
+    }
 
     expect(combat.errors).toEqual([]);
     expect(combat.nextState.root.tick).toBe(state.root.tick);
     expect(combat.nextState.resourceStatesById["resource:1"]?.balances).toMatchObject({
       cash: 6_300,
-      "metal-parts": 13,
-      "tech-core": 9,
+      "metal-parts": 12,
+      "tech-core": 8,
+      "combat-module": 0
+    });
+    expect(completed.resourceStatesById["resource:1"]?.balances).toMatchObject({
+      cash: 6_300,
+      "metal-parts": 12,
+      "tech-core": 8,
+      "combat-module": 0
+    });
+    expect(completed.resourceStatesById[`resource:${building.id}`]?.balances).toMatchObject({
+      "metal-parts": 1,
+      "tech-core": 1,
       "combat-module": 1
     });
-    expect(combat.nextState.buildingsById[building.id]?.productionLines).toBeUndefined();
   });
 
-  it("repairs a legacy neutral Factory owner in the same instant production transition", () => {
+  it("repairs a legacy neutral Factory owner at start and defers its output", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
       playerBalances: { cash: 300, "metal-parts": 0 },
       buildingOverrides: { ownerPlayerId: "player:neutral" }
     });
     const result = applyCommand(state, produce(building.id, "metal-parts"), context);
+    const completed = advanceProductionUntilIdle(result.nextState, building.id, "metal-parts", context);
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.buildingsById[building.id]?.ownerPlayerId).toBe("player:1");
     expect(result.nextState.resourceStatesById["resource:1"]?.balances).toMatchObject({
       cash: 0,
-      "metal-parts": 1
+      "metal-parts": 0
     });
+    expect(completed.resourceStatesById[`resource:${building.id}`]?.balances["metal-parts"]).toBe(1);
   });
 
-  it("projects player storage as the output destination and disables collect", () => {
+  it("projects timed player-storage production and disables collect", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("factory", {
       playerBalances: { cash: 5_000, "metal-parts": 8, "tech-core": 3 }
     });
@@ -86,15 +103,15 @@ describe("instant factory production", () => {
 
     expect(view.canCollect).toBe(false);
     expect(view.collectableAmount).toBe(0);
-    expect(view.productionLines.every((line) => line.executionMode === "instant")).toBe(true);
+    expect(view.productionLines.every((line) => line.executionMode === "legacy-timed")).toBe(true);
     expect(view.productionLines.every((line) => line.queuedAmount === 0 && line.remainingTicks === 0)).toBe(true);
     expect(view.producedSummary).toContainEqual(expect.objectContaining({
       resourceKey: "metal-parts",
-      currentAmount: 8
+      currentAmount: 0
     }));
   });
 
-  it("rejects insufficient resources and full storage without any partial transition", () => {
+  it("rejects insufficient resources and safely waits when completed storage is full", () => {
     const missingFixture = createCoreStateWithFixedBuildingFixture("factory", {
       playerBalances: { cash: 900, "metal-parts": 3 }
     });
@@ -107,11 +124,25 @@ describe("instant factory production", () => {
     expect(missing.nextState).toBe(missingFixture.state);
 
     const fullFixture = createCoreStateWithFixedBuildingFixture("factory", {
-      playerBalances: { cash: 900, "metal-parts": 4, "tech-core": 24 }
+      productionResourceKey: "tech-core",
+      productionStoredAmount: 5,
+      playerBalances: { cash: 900, "metal-parts": 4, "tech-core": 0 }
     });
     const full = applyCommand(fullFixture.state, produce(fullFixture.building.id, "tech-core"), context);
-    expect(full.errors[0]?.code).toBe("storage_capacity_full");
-    expect(full.nextState).toBe(fullFixture.state);
+    const dueTick = full.nextState.buildingsById[fullFixture.building.id]?.productionLines?.["tech-core"]?.activeCompletesAtTick;
+    const completed = advanceProductionUntilIdle(full.nextState, fullFixture.building.id, "tech-core", context);
+    expect(full.errors).toEqual([]);
+    expect(full.nextState.resourceStatesById["resource:1"]?.balances).toMatchObject({
+      cash: 0,
+      "metal-parts": 0,
+      "tech-core": 0
+    });
+    expect(completed.resourceStatesById[`resource:${fullFixture.building.id}`]?.balances["tech-core"]).toBe(5);
+    expect(completed.buildingsById[fullFixture.building.id]?.productionLines?.["tech-core"]).toMatchObject({
+      queuedAmount: 1,
+      activeCompletesAtTick: dueTick
+    });
+    expect(completed.root.tick).toBe(dueTick);
   });
 
   it("settles a paid legacy Factory job once without duplicating its output", () => {

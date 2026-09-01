@@ -40,6 +40,7 @@ import {
   parityViewports,
   readElementRelativeParityIgnoreRegions,
   resolveEnclosingRasterBounds,
+  syncParityLocalDemoMarketFromHosted,
   syncParityLocalDemoPopulationBufferFromHosted
 } from "../e2e/helpers/uiParityCapture.js";
 import { ARMORY_RECIPES } from "../../packages/game-config/src/legacy-page/economy-config.js";
@@ -385,6 +386,65 @@ describe("UI parity class signature", () => {
     )).toBeNull();
     expect(hostedPage.evaluate).toHaveBeenCalledOnce();
     expect(localPage.evaluate).toHaveBeenCalledOnce();
+  });
+
+  it("synchronizes local parity market prices and stock from hosted authority", async () => {
+    const serverId = "instance:test:market-parity";
+    let storedSession = {
+      registration: { serverId },
+      marketByServerId: {
+        [serverId]: {
+          items: {
+            "market:chemicals": { price: 1_120, previousPrice: 920 }
+          },
+          stock: {
+            "market:chemicals": 84
+          }
+        }
+      }
+    };
+    const previousWindow = globalThis.window;
+    globalThis.window = {
+      empireLocalDemoGameplayBridge: {
+        getStoredPreviewSession: () => storedSession,
+        updateStoredPreviewSession: (update) => {
+          storedSession = update(storedSession);
+        }
+      },
+      EmpireMarketState: {
+        createDefaultMarketPriceState: vi.fn()
+      }
+    };
+    const hostedResources = [{
+      id: "chemicals",
+      normalMarket: { price: 3_099, stock: 2 },
+      trend: "down"
+    }];
+    const hostedPage = {
+      evaluate: vi.fn().mockResolvedValue(hostedResources)
+    };
+    const localPage = {
+      evaluate: vi.fn(async (callback, input) => callback(input))
+    };
+
+    try {
+      await expect(syncParityLocalDemoMarketFromHosted(localPage, hostedPage))
+        .resolves.toEqual(hostedResources);
+    } finally {
+      if (previousWindow === undefined) delete globalThis.window;
+      else globalThis.window = previousWindow;
+    }
+
+    expect(storedSession.marketByServerId[serverId]).toMatchObject({
+      items: {
+        "market:chemicals": { price: 3_099, previousPrice: 3_100 },
+        "black-market:chemicals": { price: 3_099, previousPrice: 3_100 }
+      },
+      stock: {
+        "market:chemicals": 2,
+        "black-market:chemicals": 2
+      }
+    });
   });
 
   it("stabilizes fractional population drift within the same visible whole amount", async () => {

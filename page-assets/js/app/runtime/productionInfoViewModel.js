@@ -27,9 +27,14 @@ export function formatProductionRecipeInputList(recipe = {}, options = {}) {
 
 export function formatProductionRecipeInfoLine(recipe = {}, options = {}) {
   const getResourceLabel = safeFunction(options.getResourceLabel, (itemId) => itemId);
+  const formatDurationLabel = safeFunction(options.formatDurationLabel, (value) => `${value}ms`);
   const outputLabel = getResourceLabel(recipe.output?.itemId || recipe.name);
   const outputAmount = Math.max(0, Number(recipe.output?.amount || 0));
-  return `${recipe.name || outputLabel}: ${formatProductionRecipeInputList(recipe, options)} -> ${outputLabel} x${outputAmount} · okamžitě`;
+  const durationMs = Math.max(0, Number(recipe.effectiveDurationMs ?? recipe.durationMs ?? 0));
+  const durationLabel = durationMs > 0
+    ? formatDurationLabel(durationMs)
+    : "čas určí server při spuštění";
+  return `${recipe.name || outputLabel}: ${formatProductionRecipeInputList(recipe, options)} -> ${outputLabel} x${outputAmount} · hotovo za ${durationLabel}`;
 }
 
 export function getProductionBuildingEffectsLabel(buildingName = "", level = 1, options = {}) {
@@ -88,6 +93,7 @@ export function createFactoryBuildingInfoViewModel({
   syncResult = {},
   config = {},
   formatCurrency = (value) => String(value),
+  formatDurationLabel = (value) => `${value}ms`,
   getResourceLabel = (resourceKey) => ({
     "metal-parts": "Metal Parts",
     "tech-core": "Tech Core",
@@ -109,17 +115,28 @@ export function createFactoryBuildingInfoViewModel({
   const recipes = safeObject(config.recipes);
   const products = recipeOrder.map((recipeId) => {
     const recipe = safeObject(recipes[recipeId]);
+    const projectedSlot = (Array.isArray(factoryState.slots) ? factoryState.slots : [])
+      .find((slot) => slot?.recipeId === recipeId || slot?.resourceKey === recipeId);
+    const durationMs = Math.max(0, Number(
+      projectedSlot?.effectiveDurationMs
+      ?? projectedSlot?.durationMs
+      ?? recipe.durationMs
+      ?? 0
+    ));
     return {
       id: recipeId,
       title: recipe.name || getResourceLabel(recipeId),
       description: recipeDescriptions[recipeId],
-      durationLabel: recipe.name ? "Okamžitě" : "Načítám",
+      durationLabel: recipe.name
+        ? durationMs > 0 ? formatDurationLabel(durationMs) : "Čas určí server"
+        : "Načítám",
       costLabel: recipe.name ? formatProductionRecipeInputList(recipe, { formatCurrency, getResourceLabel }) : "Načítám"
     };
   });
   const combatModuleRecipe = safeObject(recipes["combat-module"]);
+  const combatModuleDuration = products.find((product) => product.id === "combat-module")?.durationLabel || "Čas určí server";
   return {
-    description: "Továrna vyrábí Metal Parts, Tech Core a Combat Module okamžitě do skladu. Combat Module je vstup pro high-tier vybavení a pokročilé boost protokoly.",
+    description: "Příkaz výrobu spustí hned; Metal Parts, Tech Core a Combat Module se dokončí až po serverovém čase. Combat Module je vstup pro high-tier vybavení a pokročilé boost protokoly.",
     effectsLabel: nextLevel
       ? `Další level: pasivní produkce ${formatMultiplierBonus(safeNextMultiplier)}`
       : "Maximální level",
@@ -133,16 +150,16 @@ export function createFactoryBuildingInfoViewModel({
       { label: "Upgrade", value: nextLevel ? `${formatCurrency(upgradeCost)} -> L${nextLevel}` : "Maximální level" },
       { label: "Další level", value: nextLevel ? `Pasivní produkce budovy ${formatMultiplierBonus(safeNextMultiplier)}.` : "Budova už je na maximu." },
       { label: "Výstup", value: `Metal Parts ${Number(syncResult.rates?.metalPartsPerHour || 0).toFixed(2)}/h · Tech Core ${Number(syncResult.rates?.techCorePerHour || 0).toFixed(2)}/h · Bojový modul ${Number(syncResult.rates?.combatModulePerHour || 0).toFixed(2)}/h` },
-      { label: "Ruční výroba", value: "Výstup se po potvrzení okamžitě uloží do skladu." },
+      { label: "Ruční výroba", value: "Rozkaz se odešle hned, výstup vznikne až po doběhnutí serverového času." },
       {
         label: "Bojový modul",
         value: combatModuleRecipe.name
-          ? `${formatProductionRecipeInputList(combatModuleRecipe, { formatCurrency, getResourceLabel })} · okamžitě`
+          ? `${formatProductionRecipeInputList(combatModuleRecipe, { formatCurrency, getResourceLabel })} · hotovo za ${combatModuleDuration}`
           : "Recept se načítá"
       }
     ],
     actions: [
-      { title: "+ Vyrobit", description: "Po serverové kontrole vstupů a kapacity vznikne výstup okamžitě ve skladu." },
+      { title: "+ Vyrobit", description: "Po serverové kontrole se výroba hned spustí; výstup vznikne až po doběhnutí uvedeného času." },
       { title: "⇪ Upgrade", description: nextLevel ? `Stojí ${formatCurrency(upgradeCost)} clean cash a zvedne pasivní produkci na ${formatMultiplierBonus(safeNextMultiplier)}.` : "Maximální level, další upgrade není dostupný." },
       { title: "Kapacita skladu", description: "Výroba se nespustí, pokud se celý výstup nevejde do skladu; vstupy se při odmítnutí neodečtou." }
     ]

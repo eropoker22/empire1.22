@@ -34,10 +34,15 @@ export interface ApplyRaidConsequencesResult {
   applied: boolean;
 }
 
+export interface ApplyRaidConsequencesOptions {
+  preservePlayerHeat?: boolean;
+}
+
 export const applyRaidConsequences = (
   state: CoreGameState,
   raid: PendingRaid,
-  context?: GameCoreContext
+  context?: GameCoreContext,
+  options: ApplyRaidConsequencesOptions = {}
 ): ApplyRaidConsequencesResult => {
   const eventId = `police:event:${raid.raidId}:resolved`;
   const emptyResult: RaidConsequencesResult = {
@@ -69,13 +74,16 @@ export const applyRaidConsequences = (
     };
   }
 
-  const preview = createRaidPreviewConsequences(
+  const basePreview = createRaidPreviewConsequences(
     state,
     raid.playerId,
     raid.severity,
     raid.targetDistrictId ?? null,
     context
   );
+  const preview = options.preservePlayerHeat && basePreview.heatReducedBy > 0
+    ? { ...basePreview, heatReducedBy: 0 }
+    : basePreview;
   const resourceState = state.resourceStatesById[player.resourceStateId] ?? createPlayerResourceState(player, state.root.tick);
   const nextResourceState = applyResourceSeizures(resourceState, preview);
   const targetDistrict = preview.lockedDistrictId ? state.districtsById[preview.lockedDistrictId] ?? null : null;

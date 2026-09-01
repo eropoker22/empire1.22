@@ -1,4 +1,4 @@
-import type { HeistDistrictCommand, PendingDistrictActionOperation } from "@empire/shared-types";
+import type { HeistDistrictCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
@@ -7,9 +7,6 @@ import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   createHeistAttackerTargetCooldownKey,
   createHeistGlobalCooldownKey,
-  createSourceConflictLockKey,
-  MAJOR_OFFENSE_COOLDOWN_KEY,
-  applyDistrictOperationLock,
   applyMajorOperationCooldowns,
   resolveImmediateHeist
 } from "../rules";
@@ -20,7 +17,6 @@ import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 import { createHeistReportNotification, createPlayerResourceState, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
 import { bumpDistrictConflictRevision, bumpDistrictSecurityRevision, resolvePlayerPopulation } from "../state";
-import { startPendingDistrictAction } from "./pendingDistrictActionShared";
 
 const HEIST_CASH_RESOURCES = ["cash", "dirty-cash"] as const;
 const HEIST_MATERIAL_RESOURCES = [
@@ -35,40 +31,7 @@ const HEISTABLE_RESOURCES = [...HEIST_CASH_RESOURCES, ...HEIST_MATERIAL_RESOURCE
 const MIN_MATERIAL_LOOT_FRACTION = 0.02;
 const MAX_MATERIAL_LOOT_FRACTION = 0.07;
 
-export const handleHeistDistrict = (
-  state: CoreGameState,
-  command: HeistDistrictCommand,
-  context: GameCoreContext
-): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
-  const errors = validateHeist(state, command, context.config.balance.conflict);
-  if (errors.length > 0) return { nextState: state, events: [], errors };
-  const config = context.config.balance.conflict?.heist;
-  if (!config) return { nextState: state, events: [], errors: [{ code: "HEIST_CONFIG_MISSING", message: "Canonical heist config is unavailable." }] };
-
-  const player = state.playersById[command.playerId]!;
-  const targetDistrict = state.districtsById[command.payload.targetDistrictId]!;
-  const sourceDistrictId = command.payload.sourceDistrictId
-    ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
-  const durationTicks = Math.max(1, config.globalCooldownTicks);
-  const operation: PendingDistrictActionOperation = {
-    id: `district-action-operation:${command.id}`,
-    operationType: "heist",
-    command,
-    playerId: player.id,
-    sourceDistrictId,
-    targetDistrictId: targetDistrict.id,
-    issuedAtTick: state.root.tick,
-    resolveAtTick: state.root.tick + durationTicks,
-    cooldownKeys: [
-      createHeistGlobalCooldownKey(),
-      createHeistAttackerTargetCooldownKey(targetDistrict.id),
-      MAJOR_OFFENSE_COOLDOWN_KEY,
-      createSourceConflictLockKey(sourceDistrictId)
-    ],
-    version: 1
-  };
-  return { nextState: startPendingDistrictAction(state, operation), events: [], errors: [] };
-};
+export { handleHeistDistrict } from "./startPendingHeistDistrict";
 
 export const resolvePendingHeistDistrict = (
   state: CoreGameState,
@@ -164,13 +127,13 @@ export const resolvePendingHeistDistrict = (
     },
     districtsById: {
       ...state.districtsById,
-      [targetDistrict.id]: bumpTargetRevision(applyDistrictOperationLock({
+      [targetDistrict.id]: bumpTargetRevision({
         ...targetDistrict,
         heat: Math.max(0, targetDistrict.heat + resolution.heatGain),
         heistProtectedUntilTick: state.root.tick + config.victimProtectionTicks,
         lastHeatDecayTick: state.root.tick,
         version: targetDistrict.version + 1
-      }, "heist", state.root.tick + config.sameTargetCooldownTicks))
+      })
     },
     resourceStatesById: {
       ...state.resourceStatesById,

@@ -1,6 +1,5 @@
 import type {
   CooldownState,
-  PendingDistrictActionOperation,
   PlayerSpyOperationState,
   SpyDistrictCommand
 } from "@empire/shared-types";
@@ -11,7 +10,6 @@ import type { CoreError } from "../errors";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   calculateBaseDefensePower,
-  applyDistrictOperationLock,
   resolveSpy,
   resolvePlayerSpyBoostEffects,
   type SpyOutcome
@@ -34,61 +32,8 @@ import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
 import { resolveCombinedCameraAlarmBonuses } from "./recruitmentCenterBuildingActions";
 import { createSpyReportNotification } from "./conflictReportNotifications";
 import { bumpDistrictConflictRevision } from "../state";
-import { startPendingDistrictAction } from "./pendingDistrictActionShared";
 
-/**
- * Responsibility: Starts one authoritative spy operation and resolves it when due.
- * Belongs here: command-scoped validation, operation timing, and deferred report emission.
- * Does not belong here: UI fog-of-war rendering or transport concerns.
- */
-export const handleSpyDistrict = (
-  state: CoreGameState,
-  command: SpyDistrictCommand,
-  context: GameCoreContext
-): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
-  const errors = validateSpy(state, command);
-  if (errors.length > 0) return { nextState: state, events: [], errors };
-
-  const player = state.playersById[command.playerId];
-  const spyOperationState = getPlayerSpyOperationState(state, player.id);
-  const selectedSlot = resolveAvailableSpySlot(state, player.id)!;
-  const targetDistrict = state.districtsById[command.payload.districtId];
-  const boostSnapshot = resolvePlayerSpyBoostEffects(state, player.id);
-  const baseSpySlotCooldownTicks = context.config.balance.conflict?.spySlotCooldownTicks
-    ?? context.config.balance.conflict?.spyCooldownTicks
-    ?? 2;
-  const spyCooldownTicks = applyGarageCooldownReductionTicks({
-    baseTicks: baseSpySlotCooldownTicks,
-    state,
-    playerId: player.id,
-    config: context.config.balance.garage,
-    category: "districtSpy"
-  });
-  const durationTicks = Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
-  const operation: PendingDistrictActionOperation = {
-    id: `district-action-operation:${command.id}`,
-    operationType: "spy",
-    command,
-    playerId: player.id,
-    sourceDistrictId: command.payload.sourceDistrictId,
-    targetDistrictId: targetDistrict.id,
-    issuedAtTick: state.root.tick,
-    resolveAtTick: state.root.tick + durationTicks,
-    cooldownKeys: [`spy:${targetDistrict.id}`],
-    spySlotId: selectedSlot.slotId,
-    version: 1
-  };
-  const stateWithSpySlots = state.playerSpyOperationStatesByPlayerId?.[player.id]
-    ? state
-    : {
-        ...state,
-        playerSpyOperationStatesByPlayerId: {
-          ...state.playerSpyOperationStatesByPlayerId,
-          [player.id]: spyOperationState
-        }
-      };
-  return { nextState: startPendingDistrictAction(stateWithSpySlots, operation), events: [], errors: [] };
-};
+export { handleSpyDistrict } from "./startPendingSpyDistrict";
 
 export const resolvePendingSpyDistrict = (
   state: CoreGameState,
@@ -125,7 +70,13 @@ export const resolvePendingSpyDistrict = (
   });
   const defenderFactionModifiers = getFactionPassiveModifiers(state, targetDistrict.ownerPlayerId, context);
   const spyFactionModifiers = getFactionPassiveModifiers(state, player.id, context);
-  const boostSnapshot = resolvePlayerSpyBoostEffects(state, player.id);
+  const pendingOperation = Object.values(state.pendingDistrictActionOperationsById ?? {}).find(
+    (operation) => operation.operationType === "spy"
+      && operation.command.id === command.id
+      && operation.playerId === player.id
+  );
+  const boostSnapshot = pendingOperation?.spyBoostSnapshot
+    ?? resolvePlayerSpyBoostEffects(state, player.id);
   const cameraStrengthBonusPct = ((1 + combinedCameraAlarmBonuses.cameraStrengthBonusPct / 100) * resolveFactionCameraEffectivenessMultiplier(defenderFactionModifiers) - 1) * 100;
   const alarmStrengthBonusPct = ((1 + combinedCameraAlarmBonuses.alarmStrengthBonusPct / 100) * resolveFactionAlarmEffectivenessMultiplier(defenderFactionModifiers) - 1) * 100;
   const reportResult = resolveSpy({
@@ -224,11 +175,7 @@ export const resolvePendingSpyDistrict = (
       },
       districtsById: {
         ...state.districtsById,
-        [targetDistrict.id]: bumpDistrictConflictRevision(applyDistrictOperationLock(
-          targetDistrict,
-          "spy",
-          slotAvailableAtTick
-        ))
+        [targetDistrict.id]: bumpDistrictConflictRevision(targetDistrict)
       },
       playerSpyOperationStatesByPlayerId: {
         ...state.playerSpyOperationStatesByPlayerId,

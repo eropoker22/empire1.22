@@ -886,7 +886,10 @@ import { renderServerGameplayDistrictSummary } from "./ui/serverGameplayDistrict
 import { resolveDistrictBuildingPresentationKind } from "./ui/districtBuildingChipKind.js";
 import { createDistrictBuildingProfileRuntime } from "./runtime/districtBuildingProfileRuntime.js";
 import { createBuildingNetworkRuntime } from "./runtime/buildingNetworkRuntime.js";
-import { createDistrictActionPanelRuntime } from "./runtime/districtActionPanelRuntime.js";
+import {
+  createDistrictActionPanelRuntime,
+  createServerDefenseAdjustment
+} from "./runtime/districtActionPanelRuntime.js";
 import {
   TRAP_MOVE_LOCK_MS,
   createDistrictPopupMetricsRuntime
@@ -4604,6 +4607,8 @@ function collectServerMissionCooldownStreetNewsEntries(now) {
   for (const mission of selectServerPendingMissionCooldowns(readModel, now)) {
     const title = mission.type === "spy"
       ? "Špehování"
+      : mission.type === "heist"
+        ? "Heist"
       : mission.type === "robbery"
         ? "Vykrást district"
         : mission.type === "attack"
@@ -4616,7 +4621,7 @@ function collectServerMissionCooldownStreetNewsEntries(now) {
       summary: mission.type === "occupy" ? `${districtLabel} je obsazován` : districtLabel,
       meta: `Čekání ${formatStreetNewsCooldownRemaining(mission.expiresAt - now)}`,
       expiresAt: mission.expiresAt,
-      resultKind: mission.type === "robbery" ? "raid" : ""
+      resultKind: mission.type === "robbery" || mission.type === "heist" ? "raid" : ""
     }, now);
   }
   return entries;
@@ -12385,6 +12390,12 @@ function bindDistrictCanvas(root) {
     getResolvedSpyState,
     getResolvedWeaponInventory,
     getResolvedWorldState,
+    getAuthoritativeDefenseView: () => (
+      latestGameplaySliceReadModel?.district?.placeDefense
+      || latestGameplaySliceReadModel?.district?.removeDefense
+      || null
+    ),
+    isServerAuthoritativeGameplayRuntimeReady,
     renderAttackPanel,
     renderAttackProgress,
     resolveAttackOutcome,
@@ -12488,26 +12499,26 @@ function bindDistrictCanvas(root) {
 
       const placeView = latestGameplaySliceReadModel?.district?.placeDefense;
       const removeView = latestGameplaySliceReadModel?.district?.removeDefense;
-      if (!placeView || !removeView) {
+      if (!placeView) {
         return { accepted: false, errors: [{ message: "Serverová obrana není dostupná." }] };
       }
 
-      const alliedAmount = Math.max(0, Number(placeView.alliedContributionAmounts?.[defenseItemId] || 0));
-      const currentOwnAmount = Math.max(0, Number(removeView.playerRemovableAmounts?.[defenseItemId] || 0));
       const desiredTotalAmount = Math.max(0, Number.parseInt(input.value || "0", 10) || 0);
-      const desiredOwnAmount = Math.max(0, desiredTotalAmount - alliedAmount);
-      const delta = desiredOwnAmount - currentOwnAmount;
-      if (delta === 0) continue;
+      const adjustment = createServerDefenseAdjustment({
+        placeView,
+        removeView,
+        defenseItemId,
+        desiredTotalAmount
+      });
+      if (!adjustment?.command) continue;
 
       const response = await submitServerDistrictActionCommand({
-        type: delta > 0 ? "place-defense" : "remove-defense",
+        type: adjustment.command.type,
         payload: {
           targetDistrictId,
-          defenseItemId,
-          amount: Math.abs(delta),
-          expectedTargetVersion: delta > 0
-            ? placeView.expectedTargetVersion
-            : removeView.expectedTargetVersion
+          defenseItemId: adjustment.command.defenseItemId,
+          amount: adjustment.command.amount,
+          expectedTargetVersion: adjustment.command.expectedTargetVersion
         },
         focusDistrictId: targetDistrictId
       });
@@ -14132,6 +14143,8 @@ function bindDistrictCanvas(root) {
   }
 
   const ensureMissionAnimationLoop = () => {
+    const initialAnimationTick = Date.now();
+    syncMapMissionMarkers(initialAnimationTick);
     const hasActiveMissions = hasActiveMapMissions();
 
     if (document.hidden || getCurrentPerformanceMode().reducedMotion || !hasActiveMissions) {
@@ -14150,6 +14163,9 @@ function bindDistrictCanvas(root) {
     if (spyAnimationFrameId !== null) {
       return;
     }
+
+    interactionState.animationTick = initialAnimationTick;
+    renderMapEffects();
 
     const animate = (time) => {
       if (document.hidden) {
@@ -15250,6 +15266,9 @@ function bindDistrictCanvas(root) {
       const defenseInput = defenseWeaponInputs.find((input) => input.dataset.defenseWeaponInput === target);
       if (defenseInput) {
         adjustStepperInput(defenseInput, delta, () => {
+          if (isServerAuthoritativeGameplayRuntimeReady()) {
+            return Number(defenseInput.max || 0);
+          }
           const selectedDistrict = getSelectedDistrict();
           if (!selectedDistrict) {
             return Number(defenseInput.max || 0);
@@ -15853,6 +15872,7 @@ const {
   getPoliceTierShortEffect,
   getResolvedDistrictPoliceActions,
   getResolvedEconomyState,
+  isLocalDemoMode: () => getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.localDemo,
   isServerAuthoritativeMode: () => getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative,
   normalizeGangHeatJournal,
   renderHeatBadge,

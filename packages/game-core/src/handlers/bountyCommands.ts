@@ -50,6 +50,9 @@ export const createBounty = (
   if (!creator) return rejected(state, "bounty_creator_not_found", "Zadavatel bounty nebyl nalezen.");
   if (!target || target.status !== "active") return rejected(state, "bounty_target_not_found", "Cíl bounty není aktivní.");
   if (target.id === creator.id) return rejected(state, "bounty_target_self", "Nemůžeš vypsat bounty sám na sebe.");
+  if (creator.allianceId && target.allianceId === creator.allianceId) {
+    return rejected(state, "bounty_target_ally", "Bounty na aktivního spojence není povolená.");
+  }
   if (!isBountyObjectiveType(objectiveType)) return rejected(state, "bounty_invalid_objective", "Neplatný typ cíle bounty.");
   if (!Number.isInteger(command.payload.rewardCleanCash) || rewardCleanCash < BOUNTY_MIN_REWARD_CLEAN_CASH) {
     return rejected(state, "bounty_reward_too_low", `Minimální odměna bounty je ${BOUNTY_MIN_REWARD_CLEAN_CASH} clean cash.`);

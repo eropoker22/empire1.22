@@ -8,7 +8,6 @@ import type {
 import { createNotification } from "../events";
 import type { CoreGameState } from "../entities";
 import { composeEntityId } from "../utils";
-
 export const createPlayerCooldownState = (
   playerId: string,
   cooldownStateId: string
@@ -19,7 +18,6 @@ export const createPlayerCooldownState = (
   cooldowns: {},
   version: 1
 });
-
 export const filterDefenseLoadout = (
   loadout: CoreGameState["districtsById"][string]["defenseLoadout"]
 ) =>

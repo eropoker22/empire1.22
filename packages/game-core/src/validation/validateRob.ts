@@ -5,17 +5,21 @@ import type { CoreError } from "../errors";
 import {
   createRobCooldownKey,
   createRobSourceCooldownKey,
+  hasNeutralDistrictRobberyLoot,
+  resolveCurrentNeutralDistrictLootPool,
   resolveDistrictOperationBlock,
   resolveDistrictActionAvailability,
   validateMapAction
 } from "../rules";
+import type { NeutralRobberyTimingConfig } from "../rules";
 import { formatTickDuration } from "../utils/time";
 import { resolvePlayerPopulation } from "../state/playerPopulation";
 
 export const validateRob = (
   state: CoreGameState,
   command: RobDistrictCommand,
-  _conflictConfig?: ConflictBalanceConfig
+  conflictConfig?: ConflictBalanceConfig,
+  timing: NeutralRobberyTimingConfig = {}
 ): CoreError[] => {
   const targetDistrict = state.districtsById[command.payload.targetDistrictId];
   if (!targetDistrict) return [{ code: "TARGET_NOT_FOUND", message: "Cílový district neexistuje." }];
@@ -23,6 +27,23 @@ export const validateRob = (
   if (availabilityError) return [availabilityError];
   const operationBlock = resolveDistrictOperationBlock(targetDistrict, "rob", state.root.tick);
   if (operationBlock) return [operationBlock];
+
+  const robberyConfig = conflictConfig?.robbery;
+  if (robberyConfig) {
+    const currentPool = resolveCurrentNeutralDistrictLootPool(
+      state.serverInstance.worldSeed,
+      targetDistrict,
+      state.root.tick,
+      robberyConfig,
+      timing
+    );
+    if (!hasNeutralDistrictRobberyLoot(currentPool)) {
+      return [{
+        code: "TARGET_LOOT_EXHAUSTED",
+        message: "Někdo byl rychlejší. V districtu už nezbyl použitelný loot."
+      }];
+    }
+  }
 
   const originDistrictId = command.payload.sourceDistrictId
     ?? resolveSingleOwnedOrigin(state, command.playerId, command.payload.targetDistrictId);

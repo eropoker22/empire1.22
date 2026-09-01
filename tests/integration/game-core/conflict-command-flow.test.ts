@@ -16,6 +16,11 @@ import {
   createDistrictFixture,
   seedSuccessfulSpyIntel
 } from "../../fixtures/game-state-fixtures";
+import {
+  advanceStateToTick,
+  resolvePendingDistrictAction,
+  resolvePendingOccupation
+} from "../../fixtures/timed-operation-fixtures";
 
 const freeConfig = resolveModeConfig("free");
 const context = {
@@ -44,9 +49,12 @@ describe("conflict command flow", () => {
     const command = createSpyDistrictCommandFixture();
 
     const result = applyCommand(state, command, context);
+    const resolved = resolvePendingDistrictAction(result.nextState, context, command.id);
 
     expect(result.errors).toEqual([]);
-    const notification = result.nextState.notificationsById["notification:command:spy:1:spy-report"];
+    expect(result.events).toEqual([]);
+    expect(result.nextState.notificationsById["notification:command:spy:1:spy-report"]).toBeUndefined();
+    const notification = resolved.nextState.notificationsById["notification:command:spy:1:spy-report"];
 
     expect(notification?.category).toBe("report.spy");
     expect(notification?.payload).toMatchObject({
@@ -57,7 +65,8 @@ describe("conflict command flow", () => {
       issuedAtTick: 0,
       heatGained: 2
     });
-    expect(result.nextState.policeStatesById["police:1"]?.heat).toBe(2);
+    expect(result.nextState.policeStatesById["police:1"]?.heat ?? 0).toBe(0);
+    expect(resolved.nextState.policeStatesById["police:1"]?.heat).toBe(2);
   });
 
   it("keeps spy authorization across passive version changes but invalidates security changes", () => {
@@ -134,7 +143,8 @@ describe("conflict command flow", () => {
     const trappedState = applyCommand(state, createPlaceTrapCommandFixture(), context).nextState;
 
     const result = applyCommand(trappedState, createSpyDistrictCommandFixture(), context);
-    const notification = result.nextState.notificationsById["notification:command:spy:1:spy-report"];
+    const resolved = resolvePendingDistrictAction(result.nextState, context);
+    const notification = resolved.nextState.notificationsById["notification:command:spy:1:spy-report"];
 
     expect(result.errors).toEqual([]);
     expect(notification?.payload).toMatchObject({
@@ -144,43 +154,30 @@ describe("conflict command flow", () => {
   });
 
   it("successful spy intel unlocks neutral district occupation", () => {
-    const state = createCombatStateFixture();
-    removeSeededSpyIntel(state, "player:1", "district:2");
-    state.serverInstance.worldSeed = "spy-seed-10";
-    state.playersById["player:1"] = {
-      ...state.playersById["player:1"],
-      population: 100
-    };
-    state.districtsById["district:1"] = {
-      ...state.districtsById["district:1"],
-      influence: 20
-    };
-    state.districtsById["district:2"] = {
-      ...state.districtsById["district:2"],
-      ownerPlayerId: null,
-      status: "neutral",
-      defenseLoadout: {}
-    };
+    const spy = findSpyOutcome("success");
+    expect(spy, "Expected at least one deterministic successful spy seed.").toBeTruthy();
+    const resolvedSpy = spy!;
+    const report = resolvedSpy.nextState.notificationsById["notification:command:spy:1:spy-report"];
 
-    const spy = applyCommand(state, createSpyDistrictCommandFixture(), context);
-    const report = spy.nextState.notificationsById["notification:command:spy:1:spy-report"];
-
-    expect(spy.errors).toEqual([]);
+    expect(resolvedSpy.errors).toEqual([]);
     expect(report?.payload).toMatchObject({
       result: "success",
       targetDistrictId: "district:2"
     });
-    const occupied = applyCommand(spy.nextState, createOccupyDistrictCommandFixture({
+    const occupied = applyCommand(resolvedSpy.nextState, createOccupyDistrictCommandFixture({
       payload: {
-        expectedConflictRevision: spy.nextState.districtsById["district:2"].conflictRevision
+        expectedConflictRevision: resolvedSpy.nextState.districtsById["district:2"].conflictRevision
       }
     }), context);
+    const resolvedOccupation = resolvePendingOccupation(occupied.nextState, context);
 
     expect(occupied.errors).toEqual([]);
-    expect(occupied.nextState.root.tick).toBe(spy.nextState.root.tick);
-    expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBe("player:1");
-    expect(Object.values(occupied.nextState.pendingOccupyOperationsById ?? {})).toEqual([]);
-    expect(occupied.nextState.notificationsById["notification:command:occupy:1:occupy-report"]?.payload)
+    expect(occupied.nextState.root.tick).toBe(resolvedSpy.nextState.root.tick);
+    expect(occupied.nextState.districtsById["district:2"]?.ownerPlayerId).toBeNull();
+    expect(Object.values(occupied.nextState.pendingOccupyOperationsById ?? {})).toHaveLength(1);
+    expect(resolvedOccupation.nextState.districtsById["district:2"]?.ownerPlayerId).toBe("player:1");
+    expect(Object.values(resolvedOccupation.nextState.pendingOccupyOperationsById ?? {})).toEqual([]);
+    expect(resolvedOccupation.nextState.notificationsById["notification:command:occupy:1:occupy-report"]?.payload)
       .toMatchObject({ result: "success", districtCaptured: true });
   });
 
@@ -275,20 +272,24 @@ describe("conflict command flow", () => {
         sourceDistrictId: "district:1"
       }
     }), context);
+    const dueTick = Math.max(...Object.values(second.nextState.pendingDistrictActionOperationsById ?? {})
+      .map((operation) => operation.resolveAtTick));
+    const resolved = advanceStateToTick(second.nextState, dueTick, context);
 
     expect(first.errors).toEqual([]);
     expect(second.errors).toEqual([]);
     expect([
-      first.nextState.notificationsById["notification:command:spy:slot:1:spy-report"]?.payload.result,
-      second.nextState.notificationsById["notification:command:spy:slot:2:spy-report"]?.payload.result
+      resolved.notificationsById["notification:command:spy:slot:1:spy-report"]?.payload.result,
+      resolved.notificationsById["notification:command:spy:slot:2:spy-report"]?.payload.result
     ]).toEqual(["success", "success"]);
     expect(third.errors).toContainEqual(expect.objectContaining({
       code: "SPY_SLOT_LIMIT_REACHED"
     }));
 
-    second.nextState.root.tick = second.nextState.playerSpyOperationStatesByPlayerId?.["player:1"]?.slots[0]
-      ?.availableAtTick ?? second.nextState.root.tick;
-    const afterExpiry = applyCommand(second.nextState, createSpyDistrictCommandFixture({
+    const availableAtTick = resolved.playerSpyOperationStatesByPlayerId?.["player:1"]?.slots[0]
+      ?.availableAtTick ?? resolved.root.tick;
+    const afterCooldown = advanceStateToTick(resolved, availableAtTick, context);
+    const afterExpiry = applyCommand(afterCooldown, createSpyDistrictCommandFixture({
       id: "command:spy:slot:4",
       payload: {
         districtId: "district:4",
@@ -306,10 +307,12 @@ describe("conflict command flow", () => {
     const result = applyCommand(trappedState, createAttackDistrictCommandFixture({
       payload: { expectedConflictRevision: trappedState.districtsById["district:2"].conflictRevision }
     }), context);
-    const notification = result.nextState.notificationsById["notification:command:attack:1:battle:player:1"];
+    const resolved = resolvePendingDistrictAction(result.nextState, context);
+    const notification = resolved.nextState.notificationsById["notification:command:attack:1:battle:player:1"];
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.trapsById["trap:district:2"]?.status).toBe("triggered");
+    expect(result.nextState.trapsById["trap:district:2"]?.status).toBe("active");
+    expect(resolved.nextState.trapsById["trap:district:2"]?.status).toBe("triggered");
     expect(result.nextState.playersById["player:1"]?.attackLoadout["baseball-bat"]).toBe(0);
     expect(notification?.payload).toMatchObject({
       trapTriggered: true,
@@ -327,10 +330,12 @@ describe("conflict command flow", () => {
     };
 
     const result = applyCommand(state, createAttackDistrictCommandFixture(), context);
-    const notification = result.nextState.notificationsById["notification:command:attack:1:battle:player:1"];
+    const resolved = resolvePendingDistrictAction(result.nextState, context);
+    const notification = resolved.nextState.notificationsById["notification:command:attack:1:battle:player:1"];
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:1");
+    expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
+    expect(resolved.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:1");
     expect(notification?.payload).toMatchObject({
       result: "success",
       districtCaptured: true,
@@ -366,18 +371,24 @@ describe("conflict command flow", () => {
       createAttackDistrictCommandFixture({ id: "command:2" }),
       hardenedContext
     );
+    const firstResolved = resolvePendingDistrictAction(first.nextState, hardenedContext);
+    const secondResolved = resolvePendingDistrictAction(second.nextState, hardenedContext);
 
     expect(first.errors).toEqual([]);
     expect(second.errors).toEqual([]);
-    expect(first.nextState.districtsById["district:2"].status).toBe(second.nextState.districtsById["district:2"].status);
-    expect(first.nextState.districtsById["district:2"].ownerPlayerId).toBe(second.nextState.districtsById["district:2"].ownerPlayerId);
-    expect(first.events.map((event) => event.type)).toEqual(second.events.map((event) => event.type));
+    expect(firstResolved.nextState.districtsById["district:2"].status).toBe(secondResolved.nextState.districtsById["district:2"].status);
+    expect(firstResolved.nextState.districtsById["district:2"].ownerPlayerId).toBe(secondResolved.nextState.districtsById["district:2"].ownerPlayerId);
+    expect(firstResolved.events.map((event) => event.type)).toEqual(secondResolved.events.map((event) => event.type));
   });
 });
 
 const createNeutralSpyState = (worldSeed: string) => {
   const state = createCombatStateFixture();
   state.serverInstance.worldSeed = worldSeed;
+  state.playersById["player:1"] = {
+    ...state.playersById["player:1"],
+    population: 100
+  };
   state.districtsById["district:1"] = {
     ...state.districtsById["district:1"],
     influence: 20
@@ -397,10 +408,11 @@ const createNeutralSpyState = (worldSeed: string) => {
   return state;
 };
 
-const findSpyOutcome = (outcome: "partial" | "failed" | "critical_failed") =>
+const findSpyOutcome = (outcome: "success" | "partial" | "failed" | "critical_failed") =>
   Array.from({ length: 200 }, (_, index) => {
     const state = createNeutralSpyState(`spy-parity-${outcome}-${index}`);
-    return applyCommand(state, createSpyDistrictCommandFixture(), context);
+    const started = applyCommand(state, createSpyDistrictCommandFixture(), context);
+    return resolveSeedCandidate(started);
   }).find((candidate) =>
     candidate.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload.result === outcome
   );
@@ -422,7 +434,8 @@ const findTrapRevealSeed = () =>
     state.serverInstance.worldSeed = worldSeed;
     const trappedState = applyCommand(state, createPlaceTrapCommandFixture(), context).nextState;
     const result = applyCommand(trappedState, createSpyDistrictCommandFixture(), context);
-    const payload = result.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload;
+    const resolved = resolveSeedCandidate(result);
+    const payload = resolved.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload;
     return payload?.result === "success" && payload.trapDetected === true;
   });
 
@@ -443,8 +456,9 @@ const findSuccessCapacitySeed = () =>
         sourceDistrictId: "district:1"
       }
     }), context);
-    const firstResult = first.nextState.notificationsById["notification:command:spy:slot:1:spy-report"]?.payload.result;
-    const secondResult = second.nextState.notificationsById["notification:command:spy:slot:2:spy-report"]?.payload.result;
+    const resolved = resolveSeedCandidate(second).nextState;
+    const firstResult = resolved.notificationsById["notification:command:spy:slot:1:spy-report"]?.payload.result;
+    const secondResult = resolved.notificationsById["notification:command:spy:slot:2:spy-report"]?.payload.result;
     return (
       firstResult === "success" && secondResult === "success"
     );
@@ -464,15 +478,24 @@ const createThreeTargetSpyState = (worldSeed: string) => {
       serverInstanceId: state.serverInstance.id,
       adjacentDistrictIds: ["district:1"],
       ownerPlayerId: "player:2",
-      defenseLoadout: {
-        vest: 6,
-        barricades: 6,
-        cameras: 5,
-        "defense-tower": 2,
-        alarm: 5
-      }
+      defenseLoadout: {}
     });
   }
   state.root.districtIds = Array.from(new Set([...state.root.districtIds, "district:3", "district:4"]));
   return state;
+};
+
+const resolveSeedCandidate = (started: ReturnType<typeof applyCommand>) => {
+  const operations = Object.values(started.nextState.pendingDistrictActionOperationsById ?? {});
+  const dueTick = Math.max(...operations.map((operation) => operation.resolveAtTick));
+  const beforeDue = {
+    ...started.nextState,
+    root: { ...started.nextState.root, tick: dueTick - 1 },
+    serverInstance: { ...started.nextState.serverInstance, currentTick: dueTick - 1 }
+  };
+  return {
+    nextState: advanceStateToTick(beforeDue, dueTick, context),
+    events: [],
+    errors: started.errors
+  };
 };

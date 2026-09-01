@@ -48,13 +48,9 @@ function toProductionSnapshot(readModel, type, buildingId, recipeId = "") {
     ? {
         ...projectedLine,
         producedAmount: Number(
-          projectedLine.executionMode === "instant"
-            ? projectedLine.playerStoredAmount
-              ?? factorySummary?.currentAmount
-              ?? 0
-            : projectedLine.producedAmount
-              ?? factorySummary?.currentAmount
-              ?? 0
+          projectedLine.producedAmount
+            ?? factorySummary?.currentAmount
+            ?? 0
         ),
         producedCapacity: Number(
           projectedLine.producedCapacity
@@ -107,14 +103,15 @@ async function waitForRenderedProductionState(page, {
   message,
   predicate,
   recipeId,
-  surfaceName
+  surfaceName,
+  timeoutMs = 30_000
 }) {
   await expect.poll(async () => {
     const snapshot = await readProductionSnapshot(page, surfaceName, buildingId, recipeId);
     return snapshot.stateVersion >= expectedStateVersion && predicate(snapshot);
   }, {
     message,
-    timeout: 30_000
+    timeout: timeoutMs
   }).toBe(true);
 }
 
@@ -336,6 +333,7 @@ async function attachScreenshot(testInfo, name, page) {
 }
 
 export async function exerciseHostedProductionLifecycleThroughVisibleUi({
+  baseTestTimeoutMs = 360_000,
   buildingTypeId,
   captureInfoScreenshotName = "",
   captureInitialParity = false,
@@ -349,7 +347,7 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
   recipeId,
   resourceKey,
   surfaceName,
-  evidenceAttachmentName = surfaceName + "-authoritative-instant-production.json",
+  evidenceAttachmentName = surfaceName + "-authoritative-timed-production.json",
   testInfo
 }) {
   let opened = await openExactProductionBuilding(page, {
@@ -385,7 +383,7 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
   const initial = await readProductionSnapshot(page, surfaceName, buildingId, recipeId);
   assertProductionIdentity(initial, identity);
   expect(initial.line).toMatchObject({
-    executionMode: "instant",
+    executionMode: "legacy-timed",
     queuedAmount: 0,
     activeAmount: 0,
     waitingAmount: 0,
@@ -394,9 +392,7 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
     canCollect: false,
     canStart: true
   });
-  expect(initial.line?.producedAmount).toBe(
-    Number(initial.resourceBalances[resourceKey] || 0)
-  );
+  expect(initial.line?.producedAmount).toBe(0);
   if (expectedInitialPlayerOutput !== null) {
     expect(initial.resourceBalances[resourceKey]).toBe(expectedInitialPlayerOutput);
   }
@@ -408,7 +404,7 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
 
   const controls = await findProductionControls(shell, recipeId);
   expect(controls, label + " must expose the canonical " + recipeId + " card").toBeTruthy();
-  await expect(controls.start).toHaveText("Vyrobit");
+  await expect(controls.start).toHaveText("Spustit");
   await expect(controls.plus).toBeVisible();
   await expect(controls.plus).toBeEnabled();
   await controls.plus.click();
@@ -416,60 +412,63 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
   const unitCosts = getUnitReservationCosts(initial.line);
   expect(Object.keys(unitCosts).length).toBeGreaterThan(0);
   const producedQuantity = 2;
-  const produced = await submitAndReadResponse(page, controls.start);
-  expect(produced.request?.command?.type).toBe("craft-item");
-  expect(produced.request?.command?.payload).toMatchObject({
+  const started = await submitAndReadResponse(page, controls.start);
+  expect(started.request?.command?.type).toBe("craft-item");
+  expect(started.request?.command?.payload).toMatchObject({
     districtId,
     buildingId,
     recipeId,
     quantity: producedQuantity
   });
-  expect(produced.body?.accepted).toBe(true);
+  expect(started.body?.accepted).toBe(true);
 
-  const afterProduction = toProductionSnapshot(
-    produced.body?.readModel,
+  const afterStart = toProductionSnapshot(
+    started.body?.readModel,
     surfaceName,
     buildingId,
     recipeId
   );
-  assertProductionIdentity(afterProduction, identity);
-  expect(afterProduction.stateVersion).toBeGreaterThan(initial.stateVersion);
-  expect(afterProduction.line).toMatchObject({
-    executionMode: "instant",
-    queuedAmount: 0,
-    activeAmount: 0,
-    waitingAmount: 0,
-    remainingTicks: 0,
-    canCancelWaiting: false,
+  assertProductionIdentity(afterStart, identity);
+  expect(afterStart.stateVersion).toBeGreaterThan(initial.stateVersion);
+  expect(afterStart.line).toMatchObject({
+    executionMode: "legacy-timed",
+    queuedAmount: producedQuantity,
+    activeAmount: 1,
+    waitingAmount: producedQuantity - 1,
+    canCancelWaiting: true,
     canCollect: false
   });
+  expect(afterStart.line?.remainingTicks).toBeGreaterThan(0);
+  expect(afterStart.line?.status).toBe("processing");
+  expect(afterStart.line?.producedAmount).toBe(initial.line?.producedAmount);
 
   const commandDeltas = invertCosts(multiplyCosts(unitCosts, producedQuantity));
-  commandDeltas[resourceKey] = Number(commandDeltas[resourceKey] || 0) + producedQuantity;
-  const productionBalanceEvidence = assertBalanceTransition(
+  const reservationBalanceEvidence = assertBalanceTransition(
     initial,
-    afterProduction,
+    afterStart,
     commandDeltas,
-    label + " instant atomic production"
+    label + " timed production reservation"
   );
-  expect(afterProduction.line?.producedAmount).toBe(
-    Number(afterProduction.resourceBalances[resourceKey] || 0)
+  const outputUnchangedAtStartEvidence = assertPassiveBalanceTransition(
+    initial,
+    afterStart,
+    resourceKey,
+    label + " no player output before due tick"
   );
-  expect(afterProduction.storageItem?.currentAmount).toBe(
-    Number(afterProduction.resourceBalances[resourceKey] || 0)
+  expect(afterStart.storageItem?.currentAmount).toBe(
+    Number(afterStart.resourceBalances[resourceKey] || 0)
   );
 
   await waitForRenderedProductionState(page, {
     buildingId,
-    expectedStateVersion: afterProduction.stateVersion,
-    message: label + " command response must render without waiting for worker polling",
+    expectedStateVersion: afterStart.stateVersion,
+    message: label + " accepted command must render its active and waiting queue",
     predicate: (snapshot) => (
-      snapshot.line?.executionMode === "instant"
-      && snapshot.line?.queuedAmount === 0
-      && snapshot.line?.activeAmount === 0
-      && snapshot.line?.waitingAmount === 0
-      && Number(snapshot.resourceBalances[resourceKey] || 0)
-        === Number(afterProduction.resourceBalances[resourceKey] || 0)
+      snapshot.line?.executionMode === "legacy-timed"
+      && snapshot.line?.queuedAmount === producedQuantity
+      && snapshot.line?.activeAmount === 1
+      && snapshot.line?.waitingAmount === producedQuantity - 1
+      && snapshot.line?.producedAmount === initial.line?.producedAmount
     ),
     recipeId,
     surfaceName
@@ -477,18 +476,69 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
   await expect(shell).toBeVisible();
   await attachScreenshot(testInfo, captureStartedScreenshotName, page);
 
+  const firstDueTick = afterStart.currentTick + Number(afterStart.line?.remainingTicks || 0);
+  const expectedFinalDueTick = firstDueTick
+    + Math.max(0, producedQuantity - 1) * Number(afterStart.line?.effectiveUnitDurationTicks || 0);
+  const firstOutputTimeoutMs = Math.min(
+    Math.max(30_000, baseTestTimeoutMs - 15_000),
+    Math.max(
+      30_000,
+      (firstDueTick - afterStart.currentTick) * Math.max(1, afterStart.tickRateMs) + 30_000
+    )
+  );
   const timing = {
-    executionMode: "instant",
-    completionWaitMs: 0,
-    roundTripMs: produced.roundTripMs,
-    server: produced.body?.metadata?.commandTiming || null
+    executionMode: "legacy-timed",
+    firstDueTick,
+    expectedFinalDueTick,
+    firstOutputTimeoutMs,
+    roundTripMs: started.roundTripMs,
+    server: started.body?.metadata?.commandTiming || null
   };
   await onWorkerPollingStarted({
     buildingId,
     districtId,
-    stateVersion: afterProduction.stateVersion,
+    stateVersion: afterStart.stateVersion,
     timing
   });
+
+  await waitForRenderedProductionState(page, {
+    buildingId,
+    expectedStateVersion: afterStart.stateVersion,
+    message: `${label} first output must remain deferred until authoritative tick ${firstDueTick}`,
+    predicate: (snapshot) => (
+      snapshot.currentTick >= firstDueTick
+      && snapshot.line?.executionMode === "legacy-timed"
+      && snapshot.line?.queuedAmount === producedQuantity - 1
+      && snapshot.line?.activeAmount === 1
+      && snapshot.line?.waitingAmount === 0
+      && snapshot.line?.remainingTicks > 0
+      && snapshot.line?.producedAmount === Number(initial.line?.producedAmount || 0) + 1
+    ),
+    recipeId,
+    surfaceName,
+    timeoutMs: firstOutputTimeoutMs
+  });
+  const afterFirstDue = await readProductionSnapshot(page, surfaceName, buildingId, recipeId);
+  assertProductionIdentity(afterFirstDue, identity);
+  expect(afterFirstDue.currentTick).toBeGreaterThanOrEqual(firstDueTick);
+  expect(afterFirstDue.line).toMatchObject({
+    executionMode: "legacy-timed",
+    queuedAmount: producedQuantity - 1,
+    activeAmount: 1,
+    waitingAmount: 0,
+    status: "processing",
+    canCancelWaiting: false,
+    canCollect: true
+  });
+  expect(afterFirstDue.line?.remainingTicks).toBeGreaterThan(0);
+  expect(afterFirstDue.line?.producedAmount)
+    .toBe(Number(initial.line?.producedAmount || 0) + 1);
+  const deferredOutputBalanceEvidence = assertPassiveBalanceTransition(
+    afterStart,
+    afterFirstDue,
+    resourceKey,
+    label + " local output remains uncollected after due tick"
+  );
 
   await page.reload({ waitUntil: "load" });
   await waitForLiveGame(page, expectedServerInstanceId);
@@ -500,25 +550,24 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
   expect(opened.buildingId).toBe(buildingId);
   const persisted = await readProductionSnapshot(page, surfaceName, buildingId, recipeId);
   assertProductionIdentity(persisted, identity);
-  expect(persisted.stateVersion).toBeGreaterThanOrEqual(afterProduction.stateVersion);
+  expect(persisted.stateVersion).toBeGreaterThanOrEqual(afterFirstDue.stateVersion);
   const reloadBalanceEvidence = assertPassiveBalanceTransition(
-    afterProduction,
+    afterFirstDue,
     persisted,
     resourceKey,
-    label + " instant output persistence after reload"
+    label + " timed output persistence after reload"
   );
   expect(persisted.line).toMatchObject({
-    executionMode: "instant",
-    queuedAmount: 0,
-    activeAmount: 0,
+    executionMode: "legacy-timed",
+    queuedAmount: producedQuantity - 1,
+    activeAmount: 1,
     waitingAmount: 0,
-    remainingTicks: 0,
+    status: "processing",
     canCancelWaiting: false,
-    canCollect: false
+    canCollect: true
   });
-  expect(persisted.line?.producedAmount).toBe(
-    Number(persisted.resourceBalances[resourceKey] || 0)
-  );
+  expect(persisted.line?.remainingTicks).toBeGreaterThan(0);
+  expect(persisted.line?.producedAmount).toBe(afterFirstDue.line?.producedAmount);
 
   const resourceKeys = Array.from(new Set([
     "cash",
@@ -526,28 +575,34 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
     ...Object.keys(unitCosts)
   ]));
   const evidence = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     authority: "server-authoritative-visible-ui",
-    productionMode: "instant-atomic",
+    productionMode: "timed-reserved-queue",
     identity,
     unitProductionCosts: unitCosts,
     commands: {
-      produce: summarizeCommand(produced.request)
+      produce: summarizeCommand(started.request)
     },
     balanceEvidence: {
-      atomicProduction: productionBalanceEvidence,
-      reloadAfterProduction: reloadBalanceEvidence
+      reservationAtStart: reservationBalanceEvidence,
+      outputUnchangedAtStart: outputUnchangedAtStartEvidence,
+      uncollectedOutputAfterDue: deferredOutputBalanceEvidence,
+      reloadAfterFirstDue: reloadBalanceEvidence
     },
     timing,
     snapshots: {
       initial: summarizeSnapshot(initial, resourceKeys),
-      afterProduction: summarizeSnapshot(afterProduction, resourceKeys),
+      afterStart: summarizeSnapshot(afterStart, resourceKeys),
+      afterFirstDue: summarizeSnapshot(afterFirstDue, resourceKeys),
       afterReload: summarizeSnapshot(persisted, resourceKeys)
     },
     persistence: {
-      outputPersisted: true,
-      noQueueCreated: true,
-      noCollectCommandRequired: true
+      queueObservedAfterStart: true,
+      firstOutputAvailableOnlyAfterDue: true,
+      queuePersistedAcrossReload: true,
+      timedOutputPersistedAfterReload: true,
+      playerOutputRequiresCollect: true,
+      collectCommandSubmitted: false
     }
   };
   await testInfo.attach(evidenceAttachmentName, {

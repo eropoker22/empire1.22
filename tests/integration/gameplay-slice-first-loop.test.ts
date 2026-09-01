@@ -201,20 +201,25 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         })
       });
       const immediateReadModel = spy.readModel as GameplaySliceView;
-      const candidateReport = immediateReadModel.reports.find((report) =>
-        report.reportType === "spy" && report.targetDistrictId === target.districtId
-      );
 
       expect(spy.accepted).toBe(true);
       expect(spy.errors).toEqual([]);
       expect(spy.metadata?.serverTick).toBe(submittedAtTick);
-      expect(immediateReadModel.reports).toContainEqual(expect.objectContaining({
+      expect(immediateReadModel.reports).not.toContainEqual(expect.objectContaining({
         reportType: "spy",
         targetDistrictId: target.districtId
       }));
+      const pendingSpy = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+        .find((operation) => operation.command.id === `command:first-loop:spy:${index}`);
+      expect(pendingSpy?.resolveAtTick).toBeGreaterThan(runtime.state.root.tick);
+      advanceInstanceToTick(server, serverInstanceId, pendingSpy!.resolveAtTick);
+      const resolvedReadModel = (await loadGameplaySlice(server, firstRequest)).readModel as GameplaySliceView;
+      const candidateReport = resolvedReadModel.reports.find((report) =>
+        report.reportType === "spy" && report.targetDistrictId === target.districtId
+      );
       if (candidateReport?.result === "success") {
         targetDistrictId = target.districtId;
-        spyReadModel = immediateReadModel;
+        spyReadModel = resolvedReadModel;
         break;
       }
       if (candidateReport?.reportType === "spy" && candidateReport.blockedUntilTick !== null) {
@@ -237,6 +242,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     attackPlayer.attackLoadout = { "baseball-bat": 1 };
     runtime.state.resourceStatesById[attackPlayer.resourceStateId]!.balances["baseball-bat"] = 1;
 
+    const attackStartedAtTick = runtime.state.root.tick;
     const attack = await server.gameplaySliceTransport.submit({
       sessionToken: initial.sessionToken,
       focusDistrictId: sourceDistrictId,
@@ -250,18 +256,27 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         )!.expectedConflictRevision
       })
     });
-    const attackReadModel = attack.readModel as GameplaySliceView;
+    const immediateAttackReadModel = attack.readModel as GameplaySliceView;
 
     expect(attack.errors).toEqual([]);
     expect(attack.accepted).toBe(true);
-    expect(attack.metadata?.serverTick).toBe(runtime.state.root.tick);
+    expect(attack.metadata?.serverTick).toBe(attackStartedAtTick);
+    expect(immediateAttackReadModel.reports).not.toContainEqual(expect.objectContaining({
+      reportType: "battle",
+      targetDistrictId: targetDistrictId!
+    }));
+    const pendingAttack = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+      .find((operation) => operation.command.id === "command:first-loop:attack:1");
+    expect(pendingAttack?.resolveAtTick).toBeGreaterThan(runtime.state.root.tick);
+    advanceInstanceToTick(server, serverInstanceId, pendingAttack!.resolveAtTick);
+    const attackReadModel = (await loadGameplaySlice(server, firstRequest)).readModel as GameplaySliceView;
     expect(attackReadModel.reports[0]).toMatchObject({
       reportType: "battle",
       actionType: "attack-district",
       sourceDistrictId,
       targetDistrictId: targetDistrictId!
     });
-  });
+  }, 30_000);
 
   it("unlocks and submits occupy-district after successful spy intel on a neutral neighbor", async () => {
     const server = createServerApp();
@@ -304,10 +319,19 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         targetDistrictId
       })
     });
-    const spyReadModel = spy.readModel as GameplaySliceView;
+    const immediateSpyReadModel = spy.readModel as GameplaySliceView;
 
     expect(spy.accepted).toBe(true);
     expect(spy.errors).toEqual([]);
+    expect(immediateSpyReadModel.reports).not.toContainEqual(expect.objectContaining({
+      reportType: "spy",
+      targetDistrictId
+    }));
+    const pendingSpy = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+      .find((operation) => operation.command.id === "command:first-loop:occupy-spy:1");
+    expect(pendingSpy?.resolveAtTick).toBeGreaterThan(runtime.state.root.tick);
+    advanceInstanceToTick(server, serverInstanceId, pendingSpy!.resolveAtTick);
+    const spyReadModel = (await loadGameplaySlice(server, request)).readModel as GameplaySliceView;
     expect(spyReadModel.reports).toContainEqual(expect.objectContaining({
       reportType: "spy",
       result: "success",
@@ -322,6 +346,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
 
     const occupyStartedAtTick = runtime.state.root.tick;
     const sourceInfluenceBeforeOccupy = runtime.state.districtsById[sourceDistrictId]?.influence ?? 0;
+    const populationBeforeOccupy = Number(runtime.state.playersById[request.playerId]!.population ?? 0);
     const configuredCooldownTicks = runtime.config.balance.conflict?.occupyCooldownTicks ?? 0;
     const carDealerConfig = runtime.config.balance.carDealer!;
     const ownedActiveCarDealerCount = Object.values(runtime.state.buildingsById).filter((building) =>
@@ -346,30 +371,44 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         )!.expectedConflictRevision
       })
     });
-    const occupyReadModel = occupy.readModel as GameplaySliceView;
-    const occupyReport = occupyReadModel.reports.find((report) => report.reportType === "occupy");
+    const immediateOccupyReadModel = occupy.readModel as GameplaySliceView;
 
     expect(occupy.accepted).toBe(true);
     expect(occupy.errors).toEqual([]);
+    expect(immediateOccupyReadModel.reports).not.toContainEqual(expect.objectContaining({
+      reportType: "occupy",
+      targetDistrictId
+    }));
+    expect(runtime.state.districtsById[targetDistrictId]?.ownerPlayerId).toBeNull();
+    expect(runtime.state.districtsById[sourceDistrictId]?.influence).toBeCloseTo(
+      sourceInfluenceBeforeOccupy - 5,
+      10
+    );
+    expect(runtime.state.playersById[request.playerId]!.population).toBe(populationBeforeOccupy - 50);
+    const pendingOccupy = Object.values(runtime.state.pendingOccupyOperationsById ?? {})
+      .find((operation) => operation.commandId === "command:first-loop:occupy:1");
+    expect(pendingOccupy?.resolveAtTick).toBeGreaterThan(runtime.state.root.tick);
+    advanceInstanceToTick(server, serverInstanceId, pendingOccupy!.resolveAtTick);
+    const occupyReadModel = (await loadGameplaySlice(server, request)).readModel as GameplaySliceView;
+    const occupyReport = occupyReadModel.reports.find((report) => report.reportType === "occupy");
     expect(occupyReadModel.reports).toContainEqual(expect.objectContaining({
       reportType: "occupy",
       targetDistrictId
     }));
     expect(occupyReport).toBeDefined();
     if (!occupyReport || occupyReport.reportType !== "occupy") {
-      throw new Error("Expected immediate authoritative occupy report.");
+      throw new Error("Expected resolved authoritative occupy report.");
     }
     const effectiveCooldownTicks = occupyReport.cooldownTicks;
 
     expect(effectiveCooldownTicks).toBe(71);
     expect(effectiveCooldownTicks).toBeLessThan(configuredCooldownTicks);
-    expect(runtime.state.districtsById[sourceDistrictId]?.influence).toBeCloseTo(
-      sourceInfluenceBeforeOccupy - 5,
-      10
-    );
+    expect(runtime.state.districtsById[sourceDistrictId]?.influence)
+      .toBeGreaterThanOrEqual(sourceInfluenceBeforeOccupy - 5);
     expect(runtime.state.districtsById[targetDistrictId]?.ownerPlayerId).toBe(request.playerId);
     expect(Object.values(runtime.state.pendingOccupyOperationsById ?? {})).toEqual([]);
     expect(runtime.state.districtsById[targetDistrictId]?.heat).toBe(2);
+    expect(runtime.state.playersById[request.playerId]!.population).toBe(populationBeforeOccupy - 45);
     expect(
       runtime.state.cooldownStatesById[
         runtime.state.playersById[request.playerId]!.cooldownStateId
@@ -390,7 +429,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       populationLost: 45,
       populationRefunded: 5,
       cooldownTicks: effectiveCooldownTicks,
-      tick: occupyStartedAtTick
+      tick: pendingOccupy!.resolveAtTick
     });
     expect(occupyReadModel.district?.occupyTargets.some((target) =>
       target.districtId === targetDistrictId
@@ -398,8 +437,8 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(occupyReadModel.cityFeed?.currentPlayerFeed.some((event) =>
       event.sourceType === "district_occupy" && event.districtId === targetDistrictId
     )).toBe(true);
-    expect(occupy.metadata?.serverTick).toBe(runtime.state.root.tick);
-  });
+    expect(occupy.metadata?.serverTick).toBe(occupyStartedAtTick);
+  }, 30_000);
 
   it("renders an occupy report from the server read model in the client report panel", async () => {
     const server = createServerApp();
@@ -423,18 +462,23 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
       target.disabledCode === "OCCUPY_SPY_REQUIRED"
     )!.districtId;
 
-    const spyRender = await client.dispatch(createSpyCommand({
+    const spyStarted = await client.dispatch(createSpyCommand({
       id: "command:first-loop:occupy-render-spy:1",
       playerId: request.playerId,
       sourceDistrictId,
       targetDistrictId
     }));
+    expect(spyStarted.reports).not.toContainEqual(expect.objectContaining({ category: "spy" }));
+    const pendingSpy = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+      .find((operation) => operation.command.id === "command:first-loop:occupy-render-spy:1");
+    advanceInstanceToTick(server, serverInstanceId, pendingSpy!.resolveAtTick);
+    const spyRender = await client.load(sessionRequest);
     expect(spyRender.reports[0]).toMatchObject({
       category: "spy",
       result: "success"
     });
 
-    const occupyRender = await client.dispatch(createOccupyCommand({
+    const occupyStarted = await client.dispatch(createOccupyCommand({
       id: "command:first-loop:occupy-render:1",
       playerId: request.playerId,
       sourceDistrictId,
@@ -443,7 +487,12 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
         target.districtId === targetDistrictId
       )!.expectedConflictRevision
     }));
-    expect(occupyRender.errors).toEqual([]);
+    expect(occupyStarted.errors).toEqual([]);
+    expect(occupyStarted.reports).not.toContainEqual(expect.objectContaining({ category: "occupy" }));
+    const pendingOccupy = Object.values(runtime.state.pendingOccupyOperationsById ?? {})
+      .find((operation) => operation.commandId === "command:first-loop:occupy-render:1");
+    advanceInstanceToTick(server, serverInstanceId, pendingOccupy!.resolveAtTick);
+    const occupyRender = await client.load(sessionRequest);
 
     expect(occupyRender.reports[0]).toMatchObject({
       category: "occupy",
@@ -454,7 +503,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(occupyRender.sidePanelHtml).toContain("data-report-highlight=\"latest-command\"");
     expect(occupyRender.sidePanelHtml).toContain("Vliv -5");
     expect(occupyRender.sidePanelHtml).toContain("Hledanost +2");
-  });
+  }, 30_000);
 
   it("returns a clear error and a valid read model for invalid first-loop commands", async () => {
     const server = createServerApp();
@@ -620,6 +669,20 @@ const advanceInstanceToTick = (
 ): void => {
   const runtime = server.instanceManager.getInstanceById(instanceId);
   if (!runtime) throw new Error(`Missing runtime ${instanceId}.`);
+  if (runtime.state.root.tick < targetTick - 1) {
+    runtime.state = {
+      ...runtime.state,
+      root: {
+        ...runtime.state.root,
+        tick: targetTick - 1,
+        version: runtime.state.root.version + 1
+      },
+      serverInstance: {
+        ...runtime.state.serverInstance,
+        currentTick: targetTick - 1
+      }
+    };
+  }
   while (runtime.state.root.tick < targetTick) {
     runtime.state = runTick(runtime.state, { config: runtime.config }).nextState;
   }

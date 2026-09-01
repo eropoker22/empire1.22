@@ -2,6 +2,7 @@ import { resolveDistrictBuildingChipKind } from "./districtBuildingChipKind.js";
 import { resolveMapDistrictAtmosphereMeta } from "../map/mapDataAdapter.js";
 import { resolveLivePlayerAvatarSrc } from "../model/livePlayerAvatarCatalog.js";
 import { createAuthoritativeDistrictEconomyPresentation } from "../runtime/authoritativeDistrictEconomyPresentation.js";
+import { createHeistTargetActionOptions } from "./heistTargetActionOptions.js";
 const toLabel = (value, fallback = "—") => {
   const normalized = String(value || "").trim();
   if (!normalized) return fallback;
@@ -66,7 +67,6 @@ const targetActionOptions = (target, key) => ({
   inlineDisabledReason: true,
   disabledCode: target.disabledCode || ""
 });
-
 const createTargetActions = (targetActions = {}) => [
   ...(targetActions.spyTargets || []).map((target) => action(
     "spy",
@@ -98,7 +98,7 @@ const createTargetActions = (targetActions = {}) => [
     !target.enabled,
     target.disabledReason,
     { heistTargetId: target.districtId },
-    targetActionOptions(target, `heist:${target.districtId}`)
+    createHeistTargetActionOptions(target, `heist:${target.districtId}`, targetActionOptions)
   )),
   ...(targetActions.attackTargets || []).map((target) => action(
     "attack",

@@ -82,6 +82,10 @@ export const resolveDistrictOperationBlock = (
   };
 };
 
+/**
+ * Marks work that is still in flight on a district. Post-resolution actor
+ * cooldowns and target protection belong to their dedicated state fields.
+ */
 export const applyDistrictOperationLock = <TDistrict extends District>(
   district: TDistrict,
   action: DistrictOperationType,

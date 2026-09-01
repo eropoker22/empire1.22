@@ -12,6 +12,11 @@ export interface NeutralRobberyResolution {
   districtHeat: number;
 }
 
+export interface NeutralRobberyTimingConfig {
+  dayLengthTicks?: number;
+  nightLengthTicks?: number;
+}
+
 const DEFAULT_ZONE = "residential";
 export const NEUTRAL_ROBBERY_MIN_CASH_LOOT = 1_000;
 export const NEUTRAL_ROBBERY_MATERIAL_KEYS = [
@@ -93,6 +98,29 @@ export const regenerateNeutralDistrictLootPool = (
     lastRegenerationCityDay: cityDay,
     version: pool.version + 1
   };
+};
+
+export const resolveCurrentNeutralDistrictLootPool = (
+  worldSeed: string,
+  district: District,
+  currentTick: number,
+  config: NonNullable<ConflictBalanceConfig["robbery"]>,
+  timing: NeutralRobberyTimingConfig = {}
+): NeutralDistrictLootPool => {
+  const cityDayLength = Math.max(
+    0,
+    Number(timing.dayLengthTicks ?? 0) + Number(timing.nightLengthTicks ?? 0)
+  );
+  const cityDay = cityDayLength > 0
+    ? Math.floor(Math.max(0, currentTick) / cityDayLength)
+    : 0;
+  const seededPool = district.neutralLootPool
+    ?? seedNeutralDistrictLootPool(worldSeed, district, cityDay, config);
+  return regenerateNeutralDistrictLootPool(
+    seededPool,
+    cityDay,
+    config.cityDayRegenerationFraction
+  );
 };
 
 export const resolveNeutralRobbery = (

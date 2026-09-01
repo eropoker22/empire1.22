@@ -7,10 +7,11 @@ import {
   resolveNextCityTimeBoundaryTick
 } from "../day-night/dayNight";
 
+export type ScheduledRaidBoundary = "midday" | "midnight";
+
 const RAID_SCHEDULE = Object.freeze([
-  Object.freeze({ hour: 6, minute: 0 }),
-  Object.freeze({ hour: 12, minute: 0 }),
-  Object.freeze({ hour: 22, minute: 0 })
+  Object.freeze({ id: "midday" as const, hour: 12, minute: 0 }),
+  Object.freeze({ id: "midnight" as const, hour: 0, minute: 0 })
 ]);
 
 const isRaidTimeBoundary = (
@@ -44,11 +45,15 @@ export const isScheduledRaidBoundary = (
   state: CoreGameState,
   context: GameCoreContext | undefined,
   currentTick: number
-): boolean => {
-  return RAID_SCHEDULE.some(({ hour, minute }) =>
-    isRaidTimeBoundary(state, context, currentTick, hour, minute)
-  );
-};
+): boolean => resolveScheduledRaidBoundary(state, context, currentTick) !== null;
+
+export const resolveScheduledRaidBoundary = (
+  state: CoreGameState,
+  context: GameCoreContext | undefined,
+  currentTick: number
+): ScheduledRaidBoundary | null => RAID_SCHEDULE.find(({ hour, minute }) =>
+  isRaidTimeBoundary(state, context, currentTick, hour, minute)
+)?.id ?? null;
 
 export const isMiddayRaidBoundary = (
   state: CoreGameState,

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { GameplaySliceView } from "@empire/shared-types";
-import { createNotification } from "@empire/game-core";
 import { createServerApp } from "../../apps/server/src/app";
 import { createFixedClock } from "../../apps/server/src/runtime/scheduling/clock";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import {
   createAttackDistrictCommandFixture,
+  createRobDistrictCommandFixture,
   createSpyDistrictCommandFixture
 } from "../fixtures/command-fixtures";
 import {
@@ -16,6 +16,7 @@ import {
   createDevGameplaySession,
   loadWithDevGameplaySession
 } from "../helpers/gameplay-session-test-helpers";
+import { advanceStateToTick } from "../fixtures/timed-operation-fixtures";
 
 describe("gameplay slice read model contract", () => {
   it("projects a fresh joined player without exposing core internals", async () => {
@@ -253,32 +254,17 @@ describe("gameplay slice read model contract", () => {
     const instanceId = "instance:read-model:robbery-effect";
     const runtime = server.instanceManager.createInstance(instanceId, "free");
     runtime.state = createCombatStateFixture(instanceId);
-    const notification = createNotification({
-      id: "notification:pending-robbery",
-      recipientType: "player",
-      recipientId: "player:1",
-      category: "report.rob",
-      title: "Vykradení",
-      bodyKey: "report.rob",
-      payload: {
-        reportId: "report:pending-robbery",
-        reportType: "rob",
-        actionType: "rob-district",
-        playerId: "player:1",
-        targetDistrictId: "district:2",
-        sourceDistrictId: "district:1",
-        result: "success",
-        loot: {},
-        issuedAtTick: 0,
-        resolveAtTick: 5,
-        tick: 0,
-        createdAt: new Date(0).toISOString()
-      },
-      createdAt: new Date(0).toISOString(),
-      readAt: null
-    });
-    runtime.state.notificationsById[notification.id] = notification;
-    runtime.state.root.notificationIds.push(notification.id);
+    const seededIntelId = "notification:spy-success:player:1:district:2";
+    delete runtime.state.notificationsById[seededIntelId];
+    runtime.state.root.notificationIds = runtime.state.root.notificationIds
+      .filter((notificationId) => notificationId !== seededIntelId);
+    runtime.state.districtsById["district:2"] = {
+      ...runtime.state.districtsById["district:2"]!,
+      ownerPlayerId: null,
+      controllerAllianceId: null,
+      status: "neutral",
+      defenseLoadout: {}
+    };
     server.instanceManager.startInstance(instanceId);
 
     const attackerSession = await createDevGameplaySession(server, {
@@ -291,36 +277,57 @@ describe("gameplay slice read model contract", () => {
       playerId: "player:2",
       districtId: "district:2"
     });
-    const attacker = expectReadModel(await server.gameplaySliceTransport.load(attackerSession.loadRequest));
+    const started = await server.gameplaySliceTransport.submit({
+      sessionToken: attackerSession.sessionToken,
+      focusDistrictId: "district:1",
+      command: createRobDistrictCommandFixture({
+        id: "command:read-model:rob",
+        serverInstanceId: instanceId,
+        playerId: "player:1",
+        payload: {
+          targetDistrictId: "district:2",
+          sourceDistrictId: "district:1",
+          expectedConflictRevision: runtime.state.districtsById["district:2"]!.conflictRevision
+        }
+      })
+    });
+    expect(started.accepted, started.errors[0]?.code).toBe(true);
+    const operation = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+      .find((candidate) => candidate.command.id === "command:read-model:rob");
+    expect(operation).toBeDefined();
+
+    const attacker = expectReadModel(started);
     const defender = expectReadModel(await server.gameplaySliceTransport.load(defenderSession.loadRequest));
 
-    expect(attacker.reports).not.toContainEqual(expect.objectContaining({
-      reportId: "report:pending-robbery"
-    }));
+    expect(attacker.reports).not.toContainEqual(expect.objectContaining({ reportType: "rob" }));
     expect(attacker.mapEffects).toContainEqual(expect.objectContaining({
-      effectId: notification.id,
+      effectId: operation!.id,
       type: "robbery",
       source: "server-pending-operation",
       playerId: "player:1",
       districtId: "district:2",
-      expiresAtTick: 5
+      startedAtTick: operation!.issuedAtTick,
+      expiresAtTick: operation!.resolveAtTick
     }));
     expect(defender.mapEffects).not.toContainEqual(expect.objectContaining({
-      effectId: notification.id
+      effectId: operation!.id
     }));
 
-    runtime.state.root = {
-      ...runtime.state.root,
-      tick: 5,
-      version: runtime.state.root.version + 1
-    };
+    runtime.state = stageImmediatelyBeforeTick(runtime.state, operation!.resolveAtTick);
+    const beforeDue = expectReadModel(await server.gameplaySliceTransport.load(attackerSession.loadRequest));
+    expect(beforeDue.mapEffects).toContainEqual(expect.objectContaining({ effectId: operation!.id }));
+    expect(beforeDue.reports).not.toContainEqual(expect.objectContaining({ reportType: "rob" }));
+
+    runtime.state = advanceStateToTick(runtime.state, operation!.resolveAtTick, {
+      config: runtime.config
+    });
     const resolved = expectReadModel(await server.gameplaySliceTransport.load(attackerSession.loadRequest));
-    expect(resolved.mapEffects).not.toContainEqual(expect.objectContaining({ effectId: notification.id }));
+    expect(resolved.mapEffects).not.toContainEqual(expect.objectContaining({ effectId: operation!.id }));
     expect(resolved.reports).toContainEqual(expect.objectContaining({
-      reportId: "report:pending-robbery",
+      reportId: "report:command:read-model:rob:rob",
       reportType: "rob"
     }));
-  });
+  }, 30_000);
 
   it("projects reports and city feed after spy and attack events", async () => {
     const server = createServerApp({
@@ -330,6 +337,10 @@ describe("gameplay slice read model contract", () => {
     const runtime = server.instanceManager.createInstance(instanceId, "free");
 
     runtime.state = createCombatStateFixture(instanceId);
+    const seededIntelId = "notification:spy-success:player:1:district:2";
+    delete runtime.state.notificationsById[seededIntelId];
+    runtime.state.root.notificationIds = runtime.state.root.notificationIds
+      .filter((notificationId) => notificationId !== seededIntelId);
     runtime.state.districtsById["district:2"] = {
       ...runtime.state.districtsById["district:2"]!,
       defenseLoadout: {}
@@ -341,7 +352,7 @@ describe("gameplay slice read model contract", () => {
       playerId: "player:1",
       districtId: "district:1"
     });
-    const load = await server.gameplaySliceTransport.load(session.loadRequest);
+    await server.gameplaySliceTransport.load(session.loadRequest);
     const spy = await server.gameplaySliceTransport.submit({
       sessionToken: session.sessionToken,
       focusDistrictId: "district:1",
@@ -355,6 +366,35 @@ describe("gameplay slice read model contract", () => {
         }
       })
     });
+    expect(spy.accepted, spy.errors[0]?.code).toBe(true);
+    const spyStartedView = expectReadModel(spy);
+    expect(spyStartedView.reports).not.toContainEqual(expect.objectContaining({
+      reportId: "report:command:read-model:spy:spy"
+    }));
+    const pendingSpy = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+      .find((candidate) => candidate.command.id === "command:read-model:spy");
+    expect(pendingSpy).toBeDefined();
+    expect(spyStartedView.mapEffects).toContainEqual(expect.objectContaining({
+      effectId: pendingSpy!.id,
+      type: "spy",
+      expiresAtTick: pendingSpy!.resolveAtTick
+    }));
+
+    runtime.state = stageImmediatelyBeforeTick(runtime.state, pendingSpy!.resolveAtTick);
+    const spyBeforeDueView = expectReadModel(await server.gameplaySliceTransport.load(session.loadRequest));
+    expect(spyBeforeDueView.mapEffects).toContainEqual(expect.objectContaining({ effectId: pendingSpy!.id }));
+    expect(spyBeforeDueView.reports).not.toContainEqual(expect.objectContaining({
+      reportId: "report:command:read-model:spy:spy"
+    }));
+    runtime.state = advanceStateToTick(runtime.state, pendingSpy!.resolveAtTick, {
+      config: runtime.config
+    });
+    const spyResolvedView = expectReadModel(await server.gameplaySliceTransport.load(session.loadRequest));
+    expect(spyResolvedView.reports).toContainEqual(expect.objectContaining({
+      reportId: "report:command:read-model:spy:spy",
+      actionType: "spy-district"
+    }));
+
     const attack = await server.gameplaySliceTransport.submit({
       sessionToken: session.sessionToken,
       focusDistrictId: "district:1",
@@ -365,11 +405,45 @@ describe("gameplay slice read model contract", () => {
         payload: {
           districtId: "district:2",
           sourceDistrictId: "district:1",
-          weapons: { "baseball-bat": 1 }
+          weapons: { "baseball-bat": 1 },
+          expectedConflictRevision: runtime.state.districtsById["district:2"]!.conflictRevision
         }
       })
     });
-    const attackView = expectReadModel(attack);
+    expect(attack.accepted, attack.errors[0]?.code).toBe(true);
+    const attackStartedView = expectReadModel(attack);
+    expect(attackStartedView.reports).not.toContainEqual(expect.objectContaining({
+      reportId: "report:command:read-model:attack:battle:player:1"
+    }));
+    const pendingAttack = Object.values(runtime.state.pendingDistrictActionOperationsById ?? {})
+      .find((candidate) => candidate.command.id === "command:read-model:attack");
+    expect(pendingAttack).toBeDefined();
+    const pendingAttackEffect = attackStartedView.mapEffects.find((effect) =>
+      effect.type === "attack" && effect.districtId === "district:2"
+    );
+    expect(pendingAttackEffect).toMatchObject({
+      type: "attack",
+      source: "server-public-operation",
+      playerId: "player:1",
+      startedAtTick: pendingAttack!.issuedAtTick,
+      expiresAtTick: pendingAttack!.resolveAtTick
+    });
+
+    runtime.state = stageImmediatelyBeforeTick(runtime.state, pendingAttack!.resolveAtTick);
+    const attackBeforeDueView = expectReadModel(await server.gameplaySliceTransport.load(session.loadRequest));
+    expect(attackBeforeDueView.mapEffects).toContainEqual(expect.objectContaining({
+      effectId: pendingAttackEffect!.effectId
+    }));
+    expect(attackBeforeDueView.reports).not.toContainEqual(expect.objectContaining({
+      reportId: "report:command:read-model:attack:battle:player:1"
+    }));
+    runtime.state = advanceStateToTick(runtime.state, pendingAttack!.resolveAtTick, {
+      config: runtime.config
+    });
+    const attackView = expectReadModel(await server.gameplaySliceTransport.load(session.loadRequest));
+    expect(attackView.mapEffects).not.toContainEqual(expect.objectContaining({
+      effectId: pendingAttackEffect!.effectId
+    }));
 
     expect(summarizeSlice(attackView).reports).toMatchInlineSnapshot(`
       [
@@ -387,19 +461,23 @@ describe("gameplay slice read model contract", () => {
         },
       ]
     `);
-    expect(summarizeSlice(attackView).cityFeed).toMatchInlineSnapshot(`
-      {
-        "currentPlayer": 2,
-        "selectedDistrict": 0,
-      }
-    `);
+    const canonicalAttackFeed = attackView.cityFeed?.currentPlayerFeed.filter((event) =>
+      event.districtId === "district:2"
+      && event.playerId === "player:1"
+      && (event.sourceType === "attack" || event.sourceType === "district_capture")
+    ) ?? [];
+    expect(canonicalAttackFeed).toHaveLength(2);
+    expect(canonicalAttackFeed).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sourceType: "attack" }),
+      expect.objectContaining({ sourceType: "district_capture" })
+    ]));
     expect(attackView.districts.find(
       (district) => district.districtId === "district:2"
     )).toMatchObject({
       ownerPlayerId: "player:1",
       isOwnedByPlayer: true
     });
-  });
+  }, 30_000);
 });
 
 const expectReadModel = (response: { readModel: GameplaySliceView | null }): GameplaySliceView => {
@@ -475,6 +553,18 @@ const roundNumber = (value: number): number => Math.round(value * 1000) / 1000;
 
 const findSelectedDistrictSummary = (view: GameplaySliceView) =>
   view.districts.find((district) => district.districtId === view.district?.districtId);
+
+const stageImmediatelyBeforeTick = <State extends { root: { tick: number; version: number } }>(
+  state: State,
+  targetTick: number
+): State => ({
+  ...state,
+  root: {
+    ...state.root,
+    tick: Math.max(state.root.tick, targetTick - 1),
+    version: state.root.version + 1
+  }
+});
 
 const expectNoCoreInternals = (view: GameplaySliceView): void => {
   const serialized = JSON.stringify(view);

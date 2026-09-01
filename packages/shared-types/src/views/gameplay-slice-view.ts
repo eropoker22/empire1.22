@@ -52,7 +52,7 @@ export interface GameplaySliceView {
 
 export interface GameplayMapEffectView {
   effectId: string;
-  type: "spy" | "robbery" | "attack" | "occupy";
+  type: "spy" | "robbery" | "heist" | "attack" | "occupy";
   source: "server-pending-operation" | "server-public-operation";
   playerId: string;
   playerName?: string;

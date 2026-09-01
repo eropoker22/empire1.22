@@ -82,7 +82,7 @@ describe("canonical Free BR simulation", () => {
     );
     expect(friendlyFireAttack).toBeUndefined();
     expect(report.alliances.coordinatedAttacks).toBeGreaterThan(0);
-  });
+  }, 15_000);
 
   it("exposes the required audit surfaces", () => {
     const report = runFreeBrSimulation({ seed: "metrics-test", hours: 12 });

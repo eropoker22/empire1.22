@@ -41,7 +41,7 @@ export const renderBasicDistrictActionSections = (panel: DistrictPanelViewModel)
     renderTargetSection<DistrictPanelHeistTargetViewModel>({
       attribute: "data-heist-targets",
       title: "Cíle heistu",
-      copy: "Okamžitý alpha heist krade zdroje bez převzetí území. Výsledek počítá server.",
+      copy: "Heist se spustí hned, ale kořist, ztráty a Heat vyhodnotí server až po doběhnutí operace. Území nepřebírá.",
       emptyCopy: "Z tohoto distriktu není dostupný nepřátelský cíl heistu.",
       targetAttribute: "data-heist-target-id",
       buttonModifier: "heist",

@@ -1,4 +1,5 @@
 import type {
+  AttackWeaponId,
   DistrictOperationType,
   PendingDistrictActionOperation,
   PlayerSpyOperationState
@@ -6,7 +7,9 @@ import type {
 import type { CoreGameState } from "../entities";
 import { applyDistrictOperationLock } from "../rules";
 import { bumpDistrictConflictRevision } from "../state";
+import { getAttackWeaponInventory } from "../validation";
 import { createPlayerCooldownState } from "./attackDistrictHelpers";
+import { writeAttackWeaponInventory } from "./attackWeaponInventory";
 
 export const startPendingDistrictAction = (
   state: CoreGameState,
@@ -79,22 +82,29 @@ export const startPendingDistrictAction = (
 export const preparePendingDistrictActionResolution = (
   state: CoreGameState,
   operation: PendingDistrictActionOperation
-): CoreGameState => clearPendingDistrictActionState(state, operation, false);
+): CoreGameState => restoreReservedAttackLoadout(
+  restoreReservedPopulation(clearPendingDistrictActionState(state, operation), operation),
+  operation
+);
 
 export const finishPendingDistrictActionResolution = (
   state: CoreGameState,
   operation: PendingDistrictActionOperation
-): CoreGameState => clearPendingDistrictActionState(state, operation, true);
-
-const clearPendingDistrictActionState = (
-  state: CoreGameState,
-  operation: PendingDistrictActionOperation,
-  removeOperation: boolean
 ): CoreGameState => {
   const pendingDistrictActionOperationsById = {
     ...(state.pendingDistrictActionOperationsById ?? {})
   };
-  if (removeOperation) delete pendingDistrictActionOperationsById[operation.id];
+  delete pendingDistrictActionOperationsById[operation.id];
+  return { ...state, pendingDistrictActionOperationsById };
+};
+
+const clearPendingDistrictActionState = (
+  state: CoreGameState,
+  operation: PendingDistrictActionOperation
+): CoreGameState => {
+  const pendingDistrictActionOperationsById = {
+    ...(state.pendingDistrictActionOperationsById ?? {})
+  };
 
   const player = state.playersById[operation.playerId];
   const cooldownState = player ? state.cooldownStatesById[player.cooldownStateId] : undefined;
@@ -135,5 +145,49 @@ const clearPendingDistrictActionState = (
     cooldownStatesById,
     districtsById,
     playerSpyOperationStatesByPlayerId
+  };
+};
+
+const restoreReservedAttackLoadout = (
+  state: CoreGameState,
+  operation: PendingDistrictActionOperation
+): CoreGameState => {
+  if (operation.operationType !== "attack" || !operation.reservedAttackLoadout) return state;
+  const player = state.playersById[operation.playerId];
+  if (!player) return state;
+  const inventory = getAttackWeaponInventory(state, player);
+  const restoredInventory = { ...inventory };
+  for (const [weaponId, rawAmount] of Object.entries(operation.reservedAttackLoadout) as Array<[AttackWeaponId, number]>) {
+    restoredInventory[weaponId] = Math.max(0, Number(restoredInventory[weaponId] ?? 0))
+      + Math.max(0, Number(rawAmount ?? 0));
+  }
+  return {
+    ...state,
+    playersById: {
+      ...state.playersById,
+      [player.id]: { ...player, attackLoadout: restoredInventory }
+    },
+    resourceStatesById: writeAttackWeaponInventory(state, player, restoredInventory)
+  };
+};
+
+const restoreReservedPopulation = (
+  state: CoreGameState,
+  operation: PendingDistrictActionOperation
+): CoreGameState => {
+  const reservedPopulation = Math.max(0, Number(operation.reservedPopulation ?? 0));
+  if (operation.operationType !== "heist" || reservedPopulation <= 0) return state;
+  const player = state.playersById[operation.playerId];
+  if (!player) return state;
+  return {
+    ...state,
+    playersById: {
+      ...state.playersById,
+      [player.id]: {
+        ...player,
+        population: Math.max(0, Number(player.population ?? 0)) + reservedPopulation,
+        version: player.version + 1
+      }
+    }
   };
 };

@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import { resolveModeConfig } from "@empire/game-config";
 import { applyCommand } from "@empire/game-core";
 import type { CoreGameState } from "@empire/game-core";
-import { createCraftItemCommandFixture } from "../../fixtures/command-fixtures";
+import {
+  createCollectProductionCommandFixture,
+  createCraftItemCommandFixture
+} from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import { advanceProductionUntilIdle } from "../../fixtures/timed-operation-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 
@@ -13,7 +17,7 @@ const craft = (buildingId: string, recipeId: string, quantity = 1) => createCraf
 });
 
 describe("authoritative production chain to Armory", () => {
-  it("moves a one-piece production chain directly through canonical storage into a Pistol", () => {
+  it("moves a production chain through due ticks into a Pistol", () => {
     const base = createCoreStateWithFixedBuildingFixture("pharmacy", {
       playerBalances: { cash: 10_000 }
     });
@@ -38,10 +42,26 @@ describe("authoritative production chain to Armory", () => {
     };
 
     const chemicals = applyCommand(state, craft(base.building.id, "chemicals", 2), context);
-    const neonDust = applyCommand(chemicals.nextState, craft(drugLab.id, "neon-dust"), context);
-    const metalParts = applyCommand(neonDust.nextState, craft(factory.id, "metal-parts", 7), context);
-    const techCore = applyCommand(metalParts.nextState, craft(factory.id, "tech-core"), context);
-    const pistol = applyCommand(techCore.nextState, craft(armory.id, "pistol"), context);
+    expect(chemicals.nextState.resourceStatesById["resource:1"]?.balances.chemicals ?? 0).toBe(0);
+    state = advanceProductionUntilIdle(chemicals.nextState, base.building.id, "chemicals", context);
+    const chemicalsCollected = collect(state, base.building.id, "chemicals");
+    state = chemicalsCollected.nextState;
+    const neonDust = applyCommand(state, craft(drugLab.id, "neon-dust"), context);
+    state = advanceProductionUntilIdle(neonDust.nextState, drugLab.id, "neon-dust", context);
+    const neonDustCollected = collect(state, drugLab.id, "neon-dust");
+    state = neonDustCollected.nextState;
+    const metalParts = applyCommand(state, craft(factory.id, "metal-parts", 7), context);
+    state = advanceProductionUntilIdle(metalParts.nextState, factory.id, "metal-parts", context);
+    const metalPartsCollected = collect(state, factory.id, "metal-parts");
+    state = metalPartsCollected.nextState;
+    const techCore = applyCommand(state, craft(factory.id, "tech-core"), context);
+    state = advanceProductionUntilIdle(techCore.nextState, factory.id, "tech-core", context);
+    const techCoreCollected = collect(state, factory.id, "tech-core");
+    state = techCoreCollected.nextState;
+    const pistol = applyCommand(state, craft(armory.id, "pistol"), context);
+    state = advanceProductionUntilIdle(pistol.nextState, armory.id, "pistol", context);
+    const pistolCollected = collect(state, armory.id, "pistol");
+    const completed = pistolCollected.nextState;
 
     expect([
       chemicals.errors,
@@ -50,8 +70,15 @@ describe("authoritative production chain to Armory", () => {
       techCore.errors,
       pistol.errors
     ]).toEqual([[], [], [], [], []]);
-    expect(pistol.nextState.root.tick).toBe(state.root.tick);
-    expect(pistol.nextState.resourceStatesById["resource:1"]?.balances).toMatchObject({
+    expect([
+      chemicalsCollected.errors,
+      neonDustCollected.errors,
+      metalPartsCollected.errors,
+      techCoreCollected.errors,
+      pistolCollected.errors
+    ]).toEqual([[], [], [], [], []]);
+    expect(pistol.nextState.resourceStatesById["resource:1"]?.balances.pistol ?? 0).toBe(0);
+    expect(completed.resourceStatesById["resource:1"]?.balances).toMatchObject({
       cash: 5780,
       chemicals: 0,
       "neon-dust": 1,
@@ -60,13 +87,13 @@ describe("authoritative production chain to Armory", () => {
       pistol: 1
     });
     expect([base.building.id, drugLab.id, factory.id, armory.id].every((buildingId) => {
-      const building = pistol.nextState.buildingsById[buildingId];
+      const building = completed.buildingsById[buildingId];
       return building?.processing === null
         && Object.values(building.productionLines ?? {}).every((line) => line.queuedAmount === 0);
     })).toBe(true);
   });
 
-  it("prevents sequential instant crafts from spending the same Metal Parts twice", () => {
+  it("prevents a pending craft from making reserved inputs available to another craft", () => {
     const base = createCoreStateWithFixedBuildingFixture("factory", {
       playerBalances: { cash: 1800, "metal-parts": 9, "tech-core": 1 }
     });
@@ -84,15 +111,31 @@ describe("authoritative production chain to Armory", () => {
     };
     const factoryCraft = applyCommand(state, craft(base.building.id, "tech-core", 2), context);
     const armoryCraft = applyCommand(factoryCraft.nextState, craft(armory.id, "pistol"), context);
+    const completedFactory = advanceProductionUntilIdle(
+      factoryCraft.nextState,
+      base.building.id,
+      "tech-core",
+      context
+    );
 
     expect(factoryCraft.errors).toEqual([]);
     expect(factoryCraft.nextState.resourceStatesById["resource:1"]?.balances).toMatchObject({
       cash: 0,
       "metal-parts": 1,
-      "tech-core": 3
+      "tech-core": 1
     });
     expect(armoryCraft.errors[0]?.code).toBe("armory_missing_inputs");
     expect(armoryCraft.nextState).toBe(factoryCraft.nextState);
-    expect(armoryCraft.nextState.buildingsById[base.building.id]?.productionLines ?? {}).toEqual({});
+    expect(completedFactory.resourceStatesById["resource:1"]?.balances["tech-core"]).toBe(1);
+    expect(completedFactory.resourceStatesById[`resource:${base.building.id}`]?.balances["tech-core"]).toBe(2);
   });
 });
+
+const collect = (state: CoreGameState, buildingId: string, resourceKey: string) => applyCommand(
+  state,
+  createCollectProductionCommandFixture({
+    id: `command:chain:collect:${buildingId}:${resourceKey}:${state.root.tick}`,
+    payload: { districtId: "district:1", buildingId, resourceKey }
+  }),
+  context
+);

@@ -20,6 +20,10 @@ import {
   createFixedBuildingFixture,
   seedSuccessfulSpyIntel
 } from "../../fixtures/game-state-fixtures";
+import {
+  advanceStateToTick,
+  resolvePendingDistrictAction
+} from "../../fixtures/timed-operation-fixtures";
 
 const config = resolveModeConfig("free");
 const fixedNow = new Date("2026-07-14T12:00:00.000Z");
@@ -57,12 +61,15 @@ const fundedState = () => {
   return state;
 };
 
-const armedGrid = (activatedAtTick = 0): PlayerBoostState => ({
+const armedGrid = (
+  activatedAtTick = 0,
+  expiresAtTick = activatedAtTick + config.balance.playerBoosts!["tactical-grid"].activeDurationTicks
+): PlayerBoostState => ({
   version: 1,
   active: {
     boostId: "tactical-grid",
     activatedAtTick,
-    expiresAtTick: activatedAtTick + config.balance.playerBoosts!["tactical-grid"].activeDurationTicks,
+    expiresAtTick,
     status: "armed",
     effectSnapshot: { combatPowerMultiplier: 1.12 }
   },
@@ -193,7 +200,8 @@ describe("authoritative player boost flow", () => {
   });
 
   it("snapshots Ghost Network into spy resolution and leaves pre-activation missions unaffected", () => {
-    const findSuccessful = (withBoost: boolean) => Array.from({ length: 400 }, (_, index) => {
+    const findSuccessful = (withBoost: boolean) => {
+      for (let index = 0; index < 400; index += 1) {
       const state = createCombatStateFixture();
       state.serverInstance.worldSeed = `boost-spy-success-${index}`;
       state.notificationsById = {};
@@ -216,11 +224,17 @@ describe("authoritative player boost flow", () => {
           }
         };
       }
-      return applyCommand(state, createSpyDistrictCommandFixture(), context);
-    }).find((candidate) => candidate.nextState.notificationsById["notification:command:spy:1:spy-report"]?.payload.result === "success");
+      const started = applyCommand(state, createSpyDistrictCommandFixture(), context);
+        const candidate = { started, resolved: resolveBoostSeedCandidate(started) };
+        if (candidate.resolved.notificationsById["notification:command:spy:1:spy-report"]?.payload.result === "success") {
+          return candidate;
+        }
+      }
+      throw new Error(`Expected a deterministic successful ${withBoost ? "boosted" : "unboosted"} spy seed.`);
+    };
 
-    const boosted = findSuccessful(true)!;
-    const report = boosted.nextState.notificationsById["notification:command:spy:1:spy-report"];
+    const boosted = findSuccessful(true);
+    const report = boosted.resolved.notificationsById["notification:command:spy:1:spy-report"];
     expect(report.payload).toMatchObject({
       boostSnapshot: {
         boostId: "ghost-network",
@@ -230,24 +244,30 @@ describe("authoritative player boost flow", () => {
       },
       extraIntelBlocks: [{ category: "security-profile" }]
     });
-    const boostedCooldown = boosted.nextState.cooldownStatesById["cooldown:1"].cooldowns["spy:district:2"];
+    const boostedOperation = Object.values(boosted.started.nextState.pendingDistrictActionOperationsById ?? {})[0]!;
+    const boostedDuration = boostedOperation.resolveAtTick - boostedOperation.issuedAtTick;
 
-    const unboosted = findSuccessful(false)!;
-    const unboostedCooldown = unboosted.nextState.cooldownStatesById["cooldown:1"].cooldowns["spy:district:2"];
-    expect(boostedCooldown).toBe(Math.ceil(unboostedCooldown * 0.65));
-    expect(unboosted.nextState.notificationsById["notification:command:spy:1:spy-report"].payload.extraIntelBlocks)
+    const unboosted = findSuccessful(false);
+    const unboostedOperation = Object.values(unboosted.started.nextState.pendingDistrictActionOperationsById ?? {})[0]!;
+    const unboostedDuration = unboostedOperation.resolveAtTick - unboostedOperation.issuedAtTick;
+    expect(boostedDuration).toBe(Math.ceil(unboostedDuration * 0.65));
+    expect(unboosted.resolved.notificationsById["notification:command:spy:1:spy-report"].payload.extraIntelBlocks)
       .toEqual([]);
   });
 
   it("consumes Tactical Grid for both players only after a valid PvP resolution", () => {
     const state = createCombatStateFixture();
     state.playerBoostStatesByPlayerId = {
-      "player:1": armedGrid(),
-      "player:2": armedGrid()
+      "player:1": armedGrid(0, 10_000),
+      "player:2": armedGrid(0, 10_000)
     };
-    const resolved = applyCommand(state, createAttackDistrictCommandFixture(), context);
+    const started = applyCommand(state, createAttackDistrictCommandFixture(), context);
+    const resolved = resolvePendingDistrictAction(started.nextState, context);
 
-    expect(resolved.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
+    expect(started.nextState.playerBoostStatesByPlayerId?.["player:1"]?.active?.boostId).toBe("tactical-grid");
+    expect(started.nextState.playerBoostStatesByPlayerId?.["player:2"]?.active?.boostId).toBe("tactical-grid");
+    expect(started.events).toEqual([]);
     expect(resolved.nextState.playerBoostStatesByPlayerId?.["player:1"]?.active).toBeNull();
     expect(resolved.nextState.playerBoostStatesByPlayerId?.["player:2"]?.active).toBeNull();
     expect(resolved.events.filter((event) => event.type === "player-boost-consumed")).toHaveLength(2);
@@ -267,9 +287,12 @@ describe("authoritative player boost flow", () => {
       .toBe("tactical-grid");
 
     const neutral = createCombatStateFixture();
-    neutral.playerBoostStatesByPlayerId = { "player:1": armedGrid() };
+    neutral.playerBoostStatesByPlayerId = { "player:1": armedGrid(0, 10_000) };
     neutral.districtsById["district:2"].ownerPlayerId = "player:neutral";
-    const neutralResult = applyCommand(neutral, createAttackDistrictCommandFixture(), context);
+    const neutralStarted = applyCommand(neutral, createAttackDistrictCommandFixture(), context);
+    const neutralResult = Object.keys(neutralStarted.nextState.pendingDistrictActionOperationsById ?? {}).length > 0
+      ? resolvePendingDistrictAction(neutralStarted.nextState, context)
+      : { nextState: neutralStarted.nextState, events: neutralStarted.events };
     expect(neutralResult.nextState.playerBoostStatesByPlayerId?.["player:1"]?.active?.boostId)
       .toBe("tactical-grid");
     expect(neutralResult.events.filter((event) => event.type === "player-boost-consumed"))
@@ -287,8 +310,8 @@ describe("authoritative player boost flow", () => {
     const trappedContext = { ...context, config: trappedConfig };
     const state = createCombatStateFixture();
     state.playerBoostStatesByPlayerId = {
-      "player:1": armedGrid(),
-      "player:2": armedGrid()
+      "player:1": armedGrid(0, 10_000),
+      "player:2": armedGrid(0, 10_000)
     };
     const withTrap = applyCommand(state, createPlaceTrapCommandFixture(), trappedContext).nextState;
     seedSuccessfulSpyIntel(withTrap, "player:1", "district:1", "district:2", "player:2");
@@ -297,12 +320,13 @@ describe("authoritative player boost flow", () => {
         expectedConflictRevision: withTrap.districtsById["district:2"].conflictRevision
       }
     }), trappedContext);
+    const resolved = resolvePendingDistrictAction(blocked.nextState, trappedContext);
 
     expect(blocked.errors).toEqual([]);
-    expect(blocked.nextState.playerBoostStatesByPlayerId?.["player:1"]?.active?.boostId).toBe("tactical-grid");
-    expect(blocked.nextState.playerBoostStatesByPlayerId?.["player:2"]?.active?.boostId).toBe("tactical-grid");
-    expect(blocked.events.filter((event) => event.type === "player-boost-consumed")).toHaveLength(0);
-    expect(blocked.nextState.notificationsById["notification:command:attack:1:battle:player:1"].payload.tacticalGridSummary).toBeNull();
+    expect(resolved.nextState.playerBoostStatesByPlayerId?.["player:1"]?.active?.boostId).toBe("tactical-grid");
+    expect(resolved.nextState.playerBoostStatesByPlayerId?.["player:2"]?.active?.boostId).toBe("tactical-grid");
+    expect(resolved.events.filter((event) => event.type === "player-boost-consumed")).toHaveLength(0);
+    expect(resolved.nextState.notificationsById["notification:command:attack:1:battle:player:1"].payload.tacticalGridSummary).toBeNull();
   });
 
   it("expires an unused Tactical Grid once while keeping its original cooldown", () => {
@@ -385,3 +409,13 @@ describe("authoritative player boost flow", () => {
     expect(Number(line?.activeCompletesAtTick) - expiresAtTick).toBe(normalDuration);
   });
 });
+
+const resolveBoostSeedCandidate = (started: ReturnType<typeof applyCommand>) => {
+  const operation = Object.values(started.nextState.pendingDistrictActionOperationsById ?? {})[0]!;
+  const beforeDue = {
+    ...started.nextState,
+    root: { ...started.nextState.root, tick: operation.resolveAtTick - 1 },
+    serverInstance: { ...started.nextState.serverInstance, currentTick: operation.resolveAtTick - 1 }
+  };
+  return advanceStateToTick(beforeDue, operation.resolveAtTick, context);
+};

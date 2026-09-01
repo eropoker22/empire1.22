@@ -21,15 +21,15 @@ Rejected submit responses keep the UI on the committed read-model and expose the
 
 Closed-alpha caveats:
 
-- `rob-district` is server-authoritative but uses fixed alpha loot from the handler.
-- `heist-district` is server-authoritative but resolves instantly; UI copy must call it an immediate alpha heist and must not present timed async countdowns until pending operation recovery is implemented.
-- Allied `place-defense` and `remove-defense` are disabled with `ALLIANCE_DEFENSE_NOT_IMPLEMENTED`; only own-district aggregate defense is enabled.
+- `rob-district` is server-authoritative, resolves after its timer, and draws deterministic loot from the target district's finite shared pool.
+- `heist-district` starts immediately, persists a recoverable pending operation, and resolves only after its authoritative timer expires.
+- Allied `place-defense` and `remove-defense` use owner-aware contribution records, so each supporting player can recover only their own surviving items.
 
 Basic action status:
 
 | Action | Server-authoritative | Closed-alpha ready | Placeholder | Legacy mutation blocked | Known follow-up |
 | --- | --- | --- | --- | --- | --- |
-| rob-district | yes | yes | fixed alpha loot | yes | balanced server loot rules |
-| heist-district | yes | yes as instant alpha | no async lifecycle | yes | recoverable pending lifecycle |
-| place-defense | yes | own district only | allied disabled | yes | owner-aware allied contributions |
-| remove-defense | yes | own district only | allied disabled | yes | allied cleanup on membership changes |
+| rob-district | yes | yes | finite target pool with alpha balance profile | yes | continue balance tuning |
+| heist-district | yes | yes as timed alpha | recoverable pending start/resolve lifecycle | yes | extend balancing and cancellation coverage |
+| place-defense | yes | own and allied districts | owner-aware contribution ledger | yes | keep conservation coverage across combat and alliance exit |
+| remove-defense | yes | own and allied contributions | returns only the actor's surviving contribution | yes | keep conservation coverage across combat and alliance exit |

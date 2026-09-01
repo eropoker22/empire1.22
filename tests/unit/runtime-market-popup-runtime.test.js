@@ -417,7 +417,13 @@ describe("market popup runtime", () => {
         ],
         playerMarket: { listings: [] }
       })),
-      getServerPlayerView: vi.fn(() => ({ economy: { cleanCash: 10000 }, resourceBalances: {} })),
+      getServerPlayerView: vi.fn(() => ({
+        economy: { cleanCash: 10000 },
+        resourceBalances: {},
+        storage: {
+          groups: [{ items: [{ resourceKey: "chemicals", currentAmount: 4, maxAmount: 5 }] }]
+        }
+      })),
       renderMarketPanel
     });
     const root = createRoot({
@@ -442,6 +448,20 @@ describe("market popup runtime", () => {
       expect.objectContaining({ items: [expect.objectContaining({ resourceId: "chemicals" })] }),
       expect.anything()
     );
+
+    const [, viewModel, callbacks] = renderMarketPanel.mock.calls.at(-1);
+    const item = viewModel.items[0];
+    expect(callbacks.getTradeState(item, 1).buyDisabled).toBe(false);
+    expect(callbacks.getTradeState(item, 2)).toMatchObject({
+      buyDisabled: true,
+      buyTitle: "Do SKLADU se zvolené množství nevejde."
+    });
+    expect(callbacks.getTradeState({ ...item, storageAvailableAmount: 99 }, 9).buyTitle).toBe("Trh má jen 8 ks.");
+    expect(callbacks.getTradeState({
+      ...item,
+      storageAvailableAmount: 99,
+      playerCleanCash: 500
+    }, 2).buyTitle).toContain("nemáš dost clean cash");
   });
 
   it("uses the authoritative player bazaar projection when the server provides it", () => {

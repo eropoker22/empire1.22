@@ -321,6 +321,23 @@ describe("server map presentation controller", () => {
     })]);
   });
 
+  it("renders a newly received map effect immediately before the animation frame", () => {
+    const harness = createHarness();
+    harness.controller.mount();
+    harness.composition.renderDistrictEffectsCanvas.mockClear();
+
+    harness.source.emit(createSlice({
+      mapEffects: [{
+        type: "attack-district",
+        districtId: "district:1",
+        expiresAt: Date.now() + 60_000
+      }]
+    }));
+
+    expect(harness.composition.renderDistrictEffectsCanvas).toHaveBeenCalledTimes(1);
+    expect(harness.windowRef.frames.size).toBe(1);
+  });
+
   it("uses the injected selection adapter and commits its response immediately", async () => {
     const commandSlice = createSlice({
       server: { ...createSlice().server, selectedDistrictId: "district:2" },

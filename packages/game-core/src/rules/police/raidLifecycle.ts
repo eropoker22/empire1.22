@@ -6,6 +6,10 @@ import type { GameCoreContext } from "../../engine/context";
 import { applyRaidConsequences } from "./raidConsequences";
 import { resolvePoliceConfig } from "./policeConfig";
 
+export interface ResolvePendingRaidOptions {
+  preservePlayerHeat?: boolean;
+}
+
 export const acknowledgePendingRaid = (
   state: CoreGameState,
   playerId: string,
@@ -62,7 +66,8 @@ export const resolvePendingRaid = (
   state: CoreGameState,
   playerId: string,
   raidId: string,
-  context?: GameCoreContext
+  context?: GameCoreContext,
+  options: ResolvePendingRaidOptions = {}
 ): { nextState: CoreGameState; events: CoreEvent[]; result: ReturnType<typeof applyRaidConsequences>["result"] | null } => {
   const player = state.playersById[playerId] ?? null;
   const policeState = player?.policeStateId ? state.policeStatesById[player.policeStateId] ?? null : null;
@@ -78,7 +83,7 @@ export const resolvePendingRaid = (
     };
   }
 
-  const applyResult = applyRaidConsequences(state, raid, context);
+  const applyResult = applyRaidConsequences(state, raid, context, options);
 
   return {
     nextState: applyResult.nextState,
@@ -111,7 +116,18 @@ export const expirePendingRaids = (
 
     for (const raid of expiredRaids) {
       if (config.autoResolveExpiredPendingRaids !== false) {
-        const resolved = resolvePendingRaid(nextState, policeState.ownerPlayerId, raid.raidId, context);
+        const resolved = resolvePendingRaid(
+          nextState,
+          policeState.ownerPlayerId,
+          raid.raidId,
+          context,
+          {
+            // An unacknowledged raid has no authoritative evidence that the
+            // player was present. Its other consequences still resolve, but
+            // being away must never passively lower the player's heat.
+            preservePlayerHeat: raid.status === "pending"
+          }
+        );
         nextState = resolved.nextState;
         events.push(...resolved.events);
         continue;

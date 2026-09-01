@@ -2292,9 +2292,6 @@ body.servers-page .auth-server-card.is-selected {
     color: transparent;
   }
 
-  .auth-body--faction .brand__tag {
-    display: none;
-  }
 
   .structure-grid {
     display: flex;
@@ -3800,9 +3797,6 @@ html:has(body.auth-body--faction) .matrix-canvas {
     padding: 9px;
   }
 
-  .auth-body--faction .faction-link {
-    height: 40px;
-  }
 
   .auth-body--faction .gang-color-grid {
     grid-template-columns: repeat(10, minmax(20px, 1fr));

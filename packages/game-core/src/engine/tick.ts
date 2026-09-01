@@ -8,6 +8,7 @@ import { completePharmacyProduction } from "../rules/production/completePharmacy
 import { completeDrugLabProduction } from "../rules/production/completeDrugLabProduction";
 import { completeFactoryProduction } from "../rules/production/completeFactoryProduction";
 import { completeArmoryProduction } from "../rules/production/completeArmoryProduction";
+import { createProductionCompletionEvents } from "../rules/production/createProductionCompletionEvents";
 import { expirePlayerBoosts } from "../rules/player-boosts";
 import { releaseExpiredPoliceConsequences } from "../rules/police/policeConsequenceExpiry";
 import { expirePendingRaids } from "../rules/police/raidLifecycle";
@@ -24,6 +25,7 @@ import { applyCityHallCorruptionScandals } from "../handlers/cityHallBuildingAct
 import { completeStreetDealerSales } from "../handlers/streetDealersBuildingActions";
 import { completePendingOccupations } from "../handlers/completePendingOccupations";
 import { completePendingDistrictActions } from "../handlers/completePendingDistrictActions";
+import { expireBounties } from "../handlers/bountyCommands";
 import { applyStockExchangeFinancialInspections, applyStockExchangePassiveEffects } from "../handlers/stockExchangeBuildingActions";
 import { completeDuePlayerCityEvents } from "../rules/city-events/cityEventLifecycle";
 import { tickMarket } from "../rules/market";
@@ -66,6 +68,11 @@ export const runTick = (
   const drugLabProductionState = completeDrugLabProduction(pharmacyProductionState, context);
   const factoryProductionState = completeFactoryProduction(drugLabProductionState, context);
   const armoryProductionState = completeArmoryProduction(factoryProductionState, context);
+  const productionCompletionEvents = createProductionCompletionEvents(
+    producedState,
+    armoryProductionState,
+    context
+  );
   const processingResult = completeCraftProcessing(armoryProductionState, context);
   const streetDealerResult = context.config.balance.streetDealers
     ? completeStreetDealerSales(
@@ -100,7 +107,8 @@ export const runTick = (
   const marketNow = context.clock?.now().getTime() ?? centralBankState.root.tick * context.config.tickRateMs;
   const marketState = tickMarket(centralBankState, marketNow).nextState as CoreGameState;
   const cityEventResult = completeDuePlayerCityEvents(marketState, context);
-  const districtActionResult = completePendingDistrictActions(cityEventResult.nextState, context);
+  const bountyExpiryResult = expireBounties(cityEventResult.nextState, context);
+  const districtActionResult = completePendingDistrictActions(bountyExpiryResult.nextState, context);
   const occupyResult = completePendingOccupations(districtActionResult.nextState, context);
   const allianceLifecycleResult = runAllianceLifecycleScheduled(occupyResult.nextState, context);
   const lifecycleResult = expirePendingRaids(allianceLifecycleResult.nextState, context);
@@ -110,9 +118,11 @@ export const runTick = (
   const victoryResult = checkVictory(finalLockdownResult.nextState, context);
   const events = [
     ...boostLifecycleResult.events,
+    ...productionCompletionEvents,
     ...processingResult.events,
     ...streetDealerResult.events,
     ...cityEventResult.events,
+    ...bountyExpiryResult.events,
     ...districtActionResult.events,
     ...occupyResult.events,
     ...lifecycleResult.events,

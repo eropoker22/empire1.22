@@ -167,14 +167,16 @@ describe("server gameplay district presentation", () => {
     expect(view?.actionHidden).toBe(false);
   });
 
-  it("keeps enabled target actions single-line while retaining authoritative routing metadata", () => {
+  it("shows the exact recommended heist launch plan while retaining authoritative routing metadata", () => {
     const fixture = createFixture();
     fixture.readModel.district.isOwnedByPlayer = false;
     fixture.readModel.district.targetActions = {
       heistTargets: [{
         districtId: "district:21",
         enabled: true,
-        name: "District 21"
+        name: "District 21",
+        recommendedStyle: "stealth",
+        styles: [{ style: "stealth", label: "Tichý", enabled: true, defaultPopulationSent: 5 }]
       }]
     };
 
@@ -185,8 +187,9 @@ describe("server gameplay district presentation", () => {
         id: "heist",
         key: "heist:district:21",
         enabled: true,
-        stacked: false,
-        subtitle: "",
+        stacked: true,
+        subtitle: "Tichý · 5 lidí · verdikt po odpočtu",
+        title: "Kliknutí okamžitě vyšle Tichý · 5 lidí · verdikt po odpočtu.",
         targetDistrictId: "district:21"
       })
     ]);

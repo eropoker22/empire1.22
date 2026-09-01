@@ -4,9 +4,13 @@ import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
+import {
+  advanceStateAcrossDueTick,
+  stageStateImmediatelyBeforeTick
+} from "../fixtures/timed-operation-fixtures";
 
 describe("production craft gameplay slice", () => {
-  it("produces a server-authoritative pharmacy Stim Pack immediately from a minimal intent", async () => {
+  it("starts a server-authoritative pharmacy Stim Pack immediately and produces it when due", async () => {
     const server = createServerApp();
     const instanceId = "instance:production-craft-slice";
     const playerId = "player:producer";
@@ -32,18 +36,32 @@ describe("production craft gameplay slice", () => {
       clientRequestId: null,
       payload: { districtId, buildingId: buildingId!, recipeId: "stim-pack", quantity: 1 }
     });
+    const line = runtime.state.buildingsById[buildingId!]?.productionLines?.["stim-pack"];
 
     expect(crafted.errors).toEqual([]);
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === buildingId)?.pharmacy?.lines.find(
       (line) => line.recipeId === "stim-pack"
     )).toMatchObject({
-      executionMode: "instant",
-      queuedAmount: 0,
-      activeAmount: 0,
-      playerStoredAmount: stimPacksBefore + 1,
+      executionMode: "legacy-timed",
+      queuedAmount: 1,
+      activeAmount: 1,
+      playerStoredAmount: stimPacksBefore,
       unitCleanCashCost: 800
     });
-    expect(runtime.state.resourceStatesById[resourceStateId]?.balances["stim-pack"]).toBe(stimPacksBefore + 1);
+    expect(line?.activeCompletesAtTick).toBeGreaterThan(runtime.state.root.tick);
+    runtime.state = stageStateImmediatelyBeforeTick(runtime.state, line!.activeCompletesAtTick!);
+    expect(runtime.state.resourceStatesById[resourceStateId]?.balances["stim-pack"] ?? 0).toBe(stimPacksBefore);
+    runtime.state = advanceStateAcrossDueTick(
+      runtime.state,
+      line!.activeCompletesAtTick!,
+      { config: runtime.config }
+    ).nextState;
+    await client.load(session.loadRequest);
+    expect(runtime.state.resourceStatesById[resourceStateId]?.balances["stim-pack"] ?? 0).toBe(stimPacksBefore);
+    expect(runtime.state.resourceStatesById[`resource:${buildingId}`]?.balances["stim-pack"]).toBe(1);
+    expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === buildingId)?.pharmacy?.lines.find(
+      (candidate) => candidate.recipeId === "stim-pack"
+    )).toMatchObject({ producedAmount: 1, playerStoredAmount: stimPacksBefore, canCollect: true });
     expect(runtime.state.buildingsById[buildingId!]?.processing).toBeNull();
-  });
+  }, 30_000);
 });

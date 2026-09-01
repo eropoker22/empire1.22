@@ -10,12 +10,12 @@
 | run-building-action | yes | yes | yes | building validation | building actions | building button | existing | server |
 | collect-production | yes | yes | yes | collect validation | slot production | collect button | existing | server |
 | craft-item | yes | yes | yes | craft validation | craft options | craft button | existing | server |
-| rob-district | yes | yes | yes | map validator | robTargets | district button | targeted transport + handler tests | server-authoritative fixed-loot alpha; legacy local robbery blocked when server slice is ready |
-| heist-district | yes | yes | yes | map validator | heistTargets | district button | targeted transport + handler tests | server-authoritative instant alpha; legacy preview only |
-| place-defense | yes | yes | yes | map validator | placeDefense | district button | targeted transport + handler tests | own-district only; allied disabled with `ALLIANCE_DEFENSE_NOT_IMPLEMENTED` |
-| remove-defense | yes | yes | yes | map validator | removeDefense | district button | targeted transport + handler tests | own-district only; allied disabled with `ALLIANCE_DEFENSE_NOT_IMPLEMENTED` |
+| rob-district | yes | yes | yes | map validator + finite loot pool | robTargets | district button | targeted transport + handler tests | server-authoritative timed loot; legacy local robbery blocked when server slice is ready |
+| heist-district | yes | yes | yes | map validator | heistTargets | district button | targeted transport + handler tests | server-authoritative timed alpha; legacy preview only |
+| place-defense | yes | yes | yes | map validator + contribution ownership | placeDefense | district button | transport + conservation + handler tests | own and allied districts; real inventory contribution |
+| remove-defense | yes | yes | yes | map validator + contribution ownership | removeDefense | district button | transport + conservation + handler tests | returns only actor-owned surviving contribution |
 | relocate-trap | no | no | no | map validator only | capability only | no closed-alpha button | not ready | not ready |
-| market action | legacy/system-specific | partial | legacy market rules | market rules | market views | legacy modal | existing market tests | not part of this pass |
+| market action | yes | yes | yes | market rules + storage/escrow validation | market read model | market modal | core + transport + UI tests | server-authoritative |
 | create-bounty | yes | yes | yes | bounty payload + core target/escrow validation | bounty read model | Bounty Board create tab ready | bounty core + transport tests + page smoke | server-authoritative MVP |
 | cancel-bounty | yes | yes | yes | bounty payload + core ownership/status validation | bounty read model | Bounty Board active tab ready | bounty core + transport tests + page smoke | server-authoritative MVP |
 | bounty claim | core side-effect | no browser command | yes | post-action claim matching | bounty read model/events | Bounty Board active status ready | bounty core tests | server-authoritative side-effect after attack/destroy |
@@ -28,7 +28,7 @@
 
 | Action | Server-authoritative | Closed-alpha ready | Placeholder | Legacy mutation blocked | Known follow-up |
 | --- | --- | --- | --- | --- | --- |
-| rob-district | yes | yes | fixed alpha loot | yes | Move from fixed loot to balanced server loot rules. |
-| heist-district | yes | yes, instant alpha only | async lifecycle not implemented | yes | Implement recoverable pending heist start/resolve before timers. |
-| place-defense | yes | own district only | allied defense disabled | yes | Owner-aware alliance defense contributions and cleanup. |
-| remove-defense | yes | own district only | allied defense disabled | yes | Owner-aware alliance defense removal and cleanup. |
+| rob-district | yes | yes | finite target pool with alpha balance profile | yes | Continue balance tuning from observed sessions. |
+| heist-district | yes | yes, timed alpha | recoverable pending start/resolve | yes | Extend balancing and cancellation rules for invalidated targets. |
+| place-defense | yes | own and allied districts | owner-aware contribution ledger | yes | Preserve item conservation across combat and alliance lifecycle. |
+| remove-defense | yes | own and allied contributions | actor-owned surviving items only | yes | Preserve item conservation across combat and alliance lifecycle. |

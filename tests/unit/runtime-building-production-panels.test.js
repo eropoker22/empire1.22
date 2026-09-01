@@ -377,6 +377,65 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.classList.contains("building-detail-card--casino")).toBe(true);
   });
 
+  it.each([
+    ["pharmacy", false],
+    ["drug_lab", false],
+    ["factory", false],
+    ["armory", false],
+    ["apartment_block", true],
+    ["recruitment_center", true],
+    ["garage", true],
+    ["warehouse", true],
+    ["power_plant", true],
+    ["recycling_center", true],
+    ["smuggling_tunnel", true],
+    ["street_dealers", true]
+  ])("classifies %s for centered mobile building layout", (mechanicsType, expectedStandard) => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: `1:${mechanicsType}` });
+    const card = shell.querySelector(".district-building-detail-card");
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType,
+      title: mechanicsType,
+      stats: [],
+      mechanics: [],
+      collect: { visible: false },
+      upgrade: { visible: false },
+      actions: []
+    });
+
+    expect(shell.classList.contains("is-standard-building-detail")).toBe(expectedStandard);
+    expect(card.classList.contains("is-standard-building-detail")).toBe(expectedStandard);
+  });
+
+  it("keeps a standard building open when its dimmed surroundings are pressed", () => {
+    const document = setupDocument();
+    const root = document.createElement("div");
+    const shell = ensureBuildingDetailPanel(root, {}, { popupKey: "1:apartment" });
+
+    renderBuildingDetailPanel({
+      shell,
+      mechanicsType: "apartment_block",
+      title: "Bytový blok",
+      stats: [],
+      mechanics: [],
+      hideMechanicsSection: true,
+      effects: [{ text: "Populace +2/min", tone: "population" }],
+      collect: { visible: false },
+      upgrade: { visible: false },
+      actions: []
+    });
+
+    shell.querySelector(".district-building-detail-backdrop").click();
+    expect(shell.hidden).toBe(false);
+
+    shell.querySelector(".modal__close").click();
+    expect(shell.hidden).toBe(true);
+  });
+
   it("hides building header badges when only the type text is present", () => {
     const document = setupDocument();
     const root = document.createElement("div");
@@ -1175,7 +1234,8 @@ describe("building detail, production and recipe UI modules", () => {
             label: "Investice",
             required: true,
             min: 1,
-            max: 5000
+            max: 5000,
+            defaultValue: 1000
           },
           {
             id: "targetZone",
@@ -1195,8 +1255,10 @@ describe("building detail, production and recipe UI modules", () => {
     expect(targetCategory.tagName).toBe("SELECT");
     expect(targetCategory.children.map((option) => option.value)).toEqual(["chemicals", "electronics"]);
     expect(investment.type).toBe("number");
+    expect(investment.step).toBe("1");
     expect(investment.min).toBe("1");
     expect(investment.max).toBe("5000");
+    expect(investment.value).toBe("1000");
     expect(targetZone.type).toBe("text");
 
     investment.value = "";
@@ -1359,7 +1421,7 @@ describe("building detail, production and recipe UI modules", () => {
       collect: { visible: false, enabled: false, title: "" },
       upgrade: { disabled: false, title: "Upgrade na L3" },
       showActionsInSinglePanel: true,
-      actions: [{ index: 0, title: "Otevřít kanál", description: "Zvedne dirty cash tunelů.", cooldownLabel: "Cooldown: 18m 00s" }]
+      actions: [{ index: 0, buildingTypeId: "smuggling_tunnel", title: "Otevřít kanál", description: "Zvedne dirty cash tunelů.", cooldownLabel: "Cooldown: 18m 00s" }]
     });
 
     const infoPanel = shell.querySelector("[data-district-building-detail-panel='info']");
@@ -1370,6 +1432,7 @@ describe("building detail, production and recipe UI modules", () => {
     expect(infoPanel).toBe(null);
     expect(actions).toHaveLength(1);
     expect(actions[0].querySelector(".building-info-action-row__title").textContent).toBe("Otevřít kanál");
+    expect(actions[0].querySelector('[data-faction-passive-inline-context="building-action"]')?.dataset.factionPassiveBuildingType).toBe("smuggling_tunnel");
   });
 
   it("keeps arcade special actions at the bottom of the single-panel card", () => {
@@ -1791,6 +1854,69 @@ describe("building detail, production and recipe UI modules", () => {
     expect(renderRecipeList([{ buildingName: "pharmacy", recipeId: "stim", recipe }], {}, { mount }).children).toHaveLength(1);
   });
 
+  it("renders authoritative base-to-effective time and exposes a faction production target", () => {
+    const document = setupDocument();
+    document.defaultView = {
+      CustomEvent: class {
+        constructor(type) {
+          this.type = type;
+        }
+      }
+    };
+    document.dispatchEvent = vi.fn();
+    const mount = document.createElement("div");
+    const card = renderRecipeCard({
+      buildingName: "druglab",
+      recipeId: "neon-dust",
+      recipe: {
+        name: "Neon Dust",
+        inputs: {},
+        output: { inventory: "drugs", itemId: "neon-dust", amount: 1 },
+        durationMs: 240_000
+      },
+      executionMode: "legacy-timed",
+      effectiveDurationMs: 180_000,
+      durationAdjustmentLabel: "Server: základ 4m → reálně 3m",
+      outputCap: 10,
+      queueCap: 8,
+      maxBatches: 1,
+      canStart: true
+    }, {}, { mount });
+
+    const durationNote = card.querySelector("[data-production-duration-adjustment]");
+    const factionNote = card.querySelector("[data-faction-passive-stat-label]");
+    expect(durationNote.textContent).toBe("Server: základ 4m → reálně 3m");
+    expect(factionNote.dataset.factionPassiveStatLabel).toBe("Produkce");
+    expect(factionNote.dataset.factionPassiveBuildingType).toBe("druglab");
+    expect(factionNote.hidden).toBe(true);
+
+    expect(renderProductionPanel({ mount, recipes: [{ prebuiltCard: card }] })).toBe(true);
+    expect(document.dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({
+      type: "empire:faction-passive-targets-changed"
+    }));
+  });
+
+  it("renders the same authoritative duration notes on Factory cards", () => {
+    const document = setupDocument();
+    const mount = document.createElement("div");
+    const card = renderFactorySlotCard({
+      slot: { id: "metal", resourceKey: "metalParts", producedAmount: 0, queuedAmount: 0 },
+      recipeId: "metal-parts",
+      title: "Metal Parts",
+      durationMs: 180_000,
+      durationAdjustmentLabel: "Server: základ 4m → reálně 3m",
+      slotOutputCap: 12,
+      queueCap: 17,
+      maxStartQuantity: 1,
+      canStart: true,
+      displayCost: { cleanCash: 300, metalParts: 0, techCore: 0 }
+    }, {}, { mount });
+
+    expect(card.querySelector("[data-production-duration-adjustment]").textContent).toBe("Server: základ 4m → reálně 3m");
+    expect(card.querySelector("[data-faction-passive-stat-label]").dataset.factionPassiveStatLabel).toBe("Produkce");
+    expect(card.querySelector("[data-faction-passive-stat-label]").dataset.factionPassiveBuildingType).toBe("factory");
+  });
+
   it("renders instant Pharmacy output from authoritative warehouse inventory", () => {
     const document = setupDocument();
     const mount = document.createElement("div");
@@ -1815,8 +1941,10 @@ describe("building detail, production and recipe UI modules", () => {
 
     expect(findMetricValue(card, "Ve skladu")).toBe("59/60 ks");
     expect(findMetricValue(card, "Vyrobeno")).toBe(null);
-    expect(findMetricValue(card, "Čas")).toBe("Okamžitě");
+    expect(findMetricValue(card, "Čas")).toBe("Bez odpočtu · demo");
     expect(findMetricValue(card, "Fronta")).toBe("Bez fronty");
+    expect(card.querySelector("[data-production-duration-adjustment]")).toBe(null);
+    expect(card.querySelector("[data-faction-passive-stat-label]")?.dataset.factionPassiveStatLabel).toBe("Produkce");
     expect(card.querySelector(".pharmacy-slot__btn--stop")).toBe(null);
   });
 
@@ -1843,8 +1971,10 @@ describe("building detail, production and recipe UI modules", () => {
 
     expect(findMetricValue(card, "Ve skladu")).toBe("20/60 ks");
     expect(findMetricValue(card, "Vyrobeno")).toBe(null);
-    expect(findMetricValue(card, "Čas")).toBe("Okamžitě");
+    expect(findMetricValue(card, "Čas")).toBe("Bez odpočtu · demo");
     expect(findMetricValue(card, "Fronta")).toBe("Bez fronty");
+    expect(card.querySelector("[data-production-duration-adjustment]")).toBe(null);
+    expect(card.querySelector("[data-faction-passive-stat-label]")?.dataset.factionPassiveStatLabel).toBe("Produkce");
     expect(card.querySelector("[data-drug-lab-slot-stop]")).toBe(null);
   });
 
@@ -2045,6 +2175,9 @@ describe("building detail, production and recipe UI modules", () => {
     expect(card.querySelector(".armory-slot__head")).not.toBe(null);
     expect(card.querySelector(".armory-slot__strength").children.map((child) => child.textContent).join(""))
       .toBe("Síla útoku 4 (+0.4)");
+    const factionStrength = card.querySelector("[data-faction-passive-inline-context]");
+    expect(factionStrength.dataset.factionPassiveInlineContext).toBe("attack-strength");
+    expect(factionStrength.classList.contains("faction-passive-inline--armory")).toBe(true);
     expect(findMetricValue(card, "Vyrobeno")).toBe("2/5 ks");
     expect(findMetricValue(card, "Ve skladu")).toBe("200/90 ks");
     expect(findMetricValue(card, "Fronta")).toBe("3/4 ks");

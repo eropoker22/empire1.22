@@ -41,6 +41,12 @@ const createContext = (policeOverride = {}) => {
   };
 };
 const FREE_POLICE_CONFIG = resolveModeConfig("free").balance.police!;
+const readEventPlayerId = (payload: unknown): string | null => {
+  if (payload === null || typeof payload !== "object" || !("playerId" in payload)) {
+    return null;
+  }
+  return typeof payload.playerId === "string" ? payload.playerId : null;
+};
 const addPoliceState = (state: ReturnType<typeof createCoreStateFixture>, heat: number) => {
   state.policeStatesById["police:1"] = {
     id: "police:1",
@@ -50,6 +56,26 @@ const addPoliceState = (state: ReturnType<typeof createCoreStateFixture>, heat: 
     lastDecayTick: 0,
     activeFlags: [],
     version: 1
+  };
+};
+
+const moveToRaidBoundary = (
+  state: ReturnType<typeof createCoreStateFixture>,
+  tick = 360
+) => {
+  state.root.tick = tick;
+  state.serverInstance.currentTick = tick;
+  return state;
+};
+
+const addQuietRaidFallback = (
+  state: ReturnType<typeof createCoreStateFixture>,
+  index = 99
+) => {
+  addRaidReadyPlayer(state, index, 0);
+  state.districtsById[`district:${index}`] = {
+    ...state.districtsById[`district:${index}`],
+    heat: 0
   };
 };
 
@@ -122,7 +148,7 @@ const addCityHallOfficialCover = (
           districtId,
           {
             districtId,
-            expiresAtTick: 100,
+            expiresAtTick: 10_000,
             heatGainReductionPct: 35,
             policeControlChanceReductionPct,
             rumorChanceReductionPct: 15
@@ -212,6 +238,7 @@ describe("core police system completion", () => {
   it("creates one district-targeted pending raid without duplicating it every tick", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 80);
+    moveToRaidBoundary(state);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       heat: 75
@@ -227,8 +254,8 @@ describe("core police system completion", () => {
       targetDistrictId: "district:1",
       status: "pending",
       sourcePressure: 147,
-      createdAtTick: 0,
-      expiresAtTick: createContext().config.balance.police.raidDurationTicks
+      createdAtTick: 360,
+      expiresAtTick: 360 + createContext().config.balance.police.raidDurationTicks
     });
     expect(second.events).toEqual([]);
     expect(second.nextState.policeStatesById["police:1"].pendingRaids).toHaveLength(1);
@@ -237,6 +264,7 @@ describe("core police system completion", () => {
   it("keeps Free BR police raids open for the canonical configured duration", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 150);
+    moveToRaidBoundary(state);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       heat: 70
@@ -252,28 +280,30 @@ describe("core police system completion", () => {
     expect(raid?.expiresAtTick).toBe(raid!.createdAtTick + duration);
   });
 
-  it("does not skip the 06:00 raid boundary on the first ten-second gameplay tick", () => {
-    const atFirstTick = createCoreStateFixture();
-    addPoliceState(atFirstTick, 150);
-    atFirstTick.root.tick = 1;
-    atFirstTick.districtsById["district:1"] = {
-      ...atFirstTick.districtsById["district:1"],
-      heat: 70
-    };
+  it("runs police raids at 12:00 and 00:00, not the old 06:00 or 22:00 boundaries", () => {
+    for (const tick of [1, 960]) {
+      const outsideBoundary = createCoreStateFixture();
+      addPoliceState(outsideBoundary, 150);
+      moveToRaidBoundary(outsideBoundary, tick);
+      outsideBoundary.districtsById["district:1"] = {
+        ...outsideBoundary.districtsById["district:1"],
+        heat: 70
+      };
+      expect(triggerRaid(outsideBoundary, createContext()).events).toEqual([]);
+    }
 
-    const afterBoundary = triggerRaid(atFirstTick, createContext());
-
-    expect(afterBoundary.events.some((event) => event.type === "police-raid-triggered")).toBe(true);
-
-    const outsideBoundary = createCoreStateFixture();
-    addPoliceState(outsideBoundary, 150);
-    outsideBoundary.root.tick = 2;
-    outsideBoundary.districtsById["district:1"] = {
-      ...outsideBoundary.districtsById["district:1"],
-      heat: 70
-    };
-
-    expect(triggerRaid(outsideBoundary, createContext()).events).toEqual([]);
+    for (const tick of [360, 1080]) {
+      const atBoundary = createCoreStateFixture();
+      addPoliceState(atBoundary, 150);
+      moveToRaidBoundary(atBoundary, tick);
+      atBoundary.districtsById["district:1"] = {
+        ...atBoundary.districtsById["district:1"],
+        heat: 70
+      };
+      expect(triggerRaid(atBoundary, createContext()).events.some(
+        (event) => event.type === "police-raid-triggered"
+      )).toBe(true);
+    }
   });
 
   it("starts the first midday police raid check at exactly 12:00 game time", () => {
@@ -314,11 +344,11 @@ describe("core police system completion", () => {
       playerId: "player:1",
       severity: "medium",
       createdAtTick: 360,
-      reason: expect.stringContaining("scheduled-midday-opening")
+      reason: expect.stringContaining("scheduled-midday")
     });
   });
 
-  it("does not force another quiet-city raid after the opening raid already happened", () => {
+  it("forces another quiet-city raid at every later scheduled boundary", () => {
     const nextDayNoon = createCoreStateFixture();
     addPoliceState(nextDayNoon, 0);
     nextDayNoon.root.tick = 1800;
@@ -327,11 +357,50 @@ describe("core police system completion", () => {
       lastRaidCreatedAtTick: 360
     };
 
-    expect(triggerRaid(nextDayNoon, createContext()).events).toEqual([]);
+    const result = triggerRaid(nextDayNoon, createContext());
+
+    expect(result.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
+    expect(result.nextState.policeStatesById["police:1"].pendingRaids?.[0]).toMatchObject({
+      severity: "medium",
+      createdAtTick: 1800,
+      reason: expect.stringContaining("scheduled-midday")
+    });
+  });
+
+  it("starts one raid at both scheduled boundaries with only two quiet active players", () => {
+    const state = createCoreStateFixture();
+    state.playersById = {};
+    state.districtsById = {};
+    state.resourceStatesById = {};
+    state.policeStatesById = {};
+    state.root.playerIds = [];
+    state.root.districtIds = [];
+    addRaidReadyPlayer(state, 1, 0);
+    addRaidReadyPlayer(state, 2, 0);
+    state.districtsById["district:1"] = { ...state.districtsById["district:1"], heat: 0 };
+    state.districtsById["district:2"] = { ...state.districtsById["district:2"], heat: 0 };
+    moveToRaidBoundary(state, 359);
+
+    const midday = runTick(state, createContext());
+    expect(midday.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
+
+    const beforeMidnight = {
+      ...midday.nextState,
+      root: { ...midday.nextState.root, tick: 1079 },
+      serverInstance: { ...midday.nextState.serverInstance, currentTick: 1079 }
+    };
+    const midnight = runTick(beforeMidnight, createContext());
+    const triggeredPlayerIds = [...midday.events, ...midnight.events]
+      .filter((event) => event.type === "police-raid-triggered")
+      .map((event) => readEventPlayerId(event.payload));
+
+    expect(midnight.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
+    expect(triggeredPlayerIds).toEqual(["player:1", "player:2"]);
   });
 
   it("caps simultaneous police raids to the canonical day limit", () => {
     const state = createCoreStateFixture();
+    moveToRaidBoundary(state, 360);
     state.playersById = {};
     state.districtsById = {};
     state.resourceStatesById = {};
@@ -356,8 +425,7 @@ describe("core police system completion", () => {
 
   it("caps simultaneous police raids to one during night", () => {
     const state = createCoreStateFixture();
-    const mode = resolveModeConfig("free");
-    state.root.tick = mode.balance.dayLengthTicks + Math.round(mode.balance.nightLengthTicks / 3);
+    moveToRaidBoundary(state, 1080);
     state.playersById = {};
     state.districtsById = {};
     state.resourceStatesById = {};
@@ -381,6 +449,7 @@ describe("core police system completion", () => {
   it("applies raid consequences deterministically and never seizes protected resources", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 150);
+    moveToRaidBoundary(state);
     const building = createFixedBuildingFixture("pharmacy");
     state.buildingsById[building.id] = building;
     state.districtsById["district:1"] = {
@@ -414,7 +483,7 @@ describe("core police system completion", () => {
       },
       lockedDistrictId: "district:1",
       disruptedBuildingIds: [building.id],
-      buildingDisruptionUntilTick: FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme,
+      buildingDisruptionUntilTick: 360 + FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme,
       heatReducedBy: 55
     });
     expect(balances).toMatchObject({
@@ -427,11 +496,11 @@ describe("core police system completion", () => {
     expect(resolved.nextState.playersById["player:1"].salvagePool).toBeUndefined();
     expect(resolved.nextState.districtsById["district:1"]).toMatchObject({
       status: "locked",
-      lockdownUntilTick: FREE_POLICE_CONFIG.lockdownTicksBySeverity.extreme
+      lockdownUntilTick: 360 + FREE_POLICE_CONFIG.lockdownTicksBySeverity.extreme
     });
     expect(resolved.nextState.buildingsById[building.id]).toMatchObject({
       status: "disabled",
-      disruptedUntilTick: FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme
+      disruptedUntilTick: 360 + FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme
     });
 
     const secondResolve = resolvePendingRaid(resolved.nextState, "player:1", raid!.raidId, createContext());
@@ -567,6 +636,7 @@ describe("core police system completion", () => {
   it("mitigates police raid consequences when the player owns courthouses", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 150);
+    moveToRaidBoundary(state);
     const targetBuilding = createFixedBuildingFixture("pharmacy");
     const firstCourt = createFixedBuildingFixture("court", {
       id: "building:district-legal:court:1",
@@ -622,7 +692,7 @@ describe("core police system completion", () => {
       },
       lockedDistrictId: "district:1",
       disruptedBuildingIds: [targetBuilding.id],
-      buildingDisruptionUntilTick: Math.ceil(
+      buildingDisruptionUntilTick: 360 + Math.ceil(
         FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme * 0.25
       ),
       heatReducedBy: 55,
@@ -639,7 +709,7 @@ describe("core police system completion", () => {
       chemicals: 49
     });
     expect(resolved.nextState.districtsById["district:1"].lockdownUntilTick).toBe(
-      Math.ceil(FREE_POLICE_CONFIG.lockdownTicksBySeverity.extreme * 0.25)
+      360 + Math.ceil(FREE_POLICE_CONFIG.lockdownTicksBySeverity.extreme * 0.25)
     );
     expect(resolved.events[0]?.payload).toMatchObject({
       courtMitigationPct: 75,
@@ -653,6 +723,7 @@ describe("core police system completion", () => {
   it("supports pending to acknowledged to resolved lifecycle", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 130);
+    moveToRaidBoundary(state);
     state.resourceStatesById["resource:1"] = {
       ...state.resourceStatesById["resource:1"],
       balances: {
@@ -670,9 +741,72 @@ describe("core police system completion", () => {
     expect(resolved.result?.seizedDirtyCash).toBe(12);
   });
 
+  it("does not lower heat when an unacknowledged raid auto-resolves while the player is away", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 150);
+    moveToRaidBoundary(state);
+    state.resourceStatesById["resource:1"] = {
+      ...state.resourceStatesById["resource:1"],
+      balances: {
+        "dirty-cash": 100
+      }
+    };
+    const context = createContext({
+      raidDurationTicks: 1,
+      pendingRaidTtlTicks: 1
+    });
+    const triggered = triggerRaid(state, context);
+    const raid = triggered.nextState.policeStatesById["police:1"].pendingRaids?.[0];
+    const expiredInput = {
+      ...triggered.nextState,
+      root: { ...triggered.nextState.root, tick: 361 },
+      serverInstance: { ...triggered.nextState.serverInstance, currentTick: 361 }
+    };
+
+    const resolved = expirePendingRaids(expiredInput, context);
+
+    expect(raid?.status).toBe("pending");
+    expect(raid?.previewConsequences.heatReducedBy).toBe(30);
+    expect(resolved.nextState.policeStatesById["police:1"].pendingRaids?.[0].status).toBe("resolved");
+    expect(resolved.nextState.policeStatesById["police:1"].heat).toBe(150);
+    expect(resolved.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeLessThan(100);
+    expect(resolved.events).toContainEqual(expect.objectContaining({
+      type: "police-raid-resolved",
+      payload: expect.objectContaining({ heatReducedBy: 0 })
+    }));
+  });
+
+  it("keeps the normal heat reduction for a raid acknowledged while playing", () => {
+    const state = createCoreStateFixture();
+    addPoliceState(state, 150);
+    moveToRaidBoundary(state);
+    const context = createContext({
+      raidDurationTicks: 1,
+      pendingRaidTtlTicks: 1
+    });
+    const triggered = triggerRaid(state, context);
+    const raid = triggered.nextState.policeStatesById["police:1"].pendingRaids?.[0];
+    const acknowledged = acknowledgePendingRaid(triggered.nextState, "player:1", raid!.raidId);
+    const expiredInput = {
+      ...acknowledged.nextState,
+      root: { ...acknowledged.nextState.root, tick: 361 },
+      serverInstance: { ...acknowledged.nextState.serverInstance, currentTick: 361 }
+    };
+
+    const resolved = expirePendingRaids(expiredInput, context);
+
+    expect(resolved.nextState.policeStatesById["police:1"].pendingRaids?.[0].status).toBe("resolved");
+    expect(resolved.nextState.policeStatesById["police:1"].heat).toBe(120);
+    expect(resolved.events).toContainEqual(expect.objectContaining({
+      type: "police-raid-resolved",
+      payload: expect.objectContaining({ heatReducedBy: 30 })
+    }));
+  });
+
   it("can expire pending raids without consequences when configured", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 130);
+    moveToRaidBoundary(state);
     state.resourceStatesById["resource:1"] = {
       ...state.resourceStatesById["resource:1"],
       balances: {
@@ -689,7 +823,7 @@ describe("core police system completion", () => {
       ...triggered.nextState,
       root: {
         ...triggered.nextState.root,
-        tick: 1
+        tick: 361
       }
     };
 
@@ -702,6 +836,7 @@ describe("core police system completion", () => {
   it("projects pending raid and last police event safely", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 130);
+    moveToRaidBoundary(state);
     const triggered = triggerRaid(state, createContext());
     const model = createPoliceReadModel(triggered.nextState, "player:1", createContext());
 
@@ -719,8 +854,9 @@ describe("core police system completion", () => {
 
   it("uses City Hall official cover to reduce high raid trigger chance", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 0;
     addPoliceState(state, 80);
+    moveToRaidBoundary(state);
+    addQuietRaidFallback(state);
     addCityHallOfficialCover(state);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
@@ -729,18 +865,24 @@ describe("core police system completion", () => {
 
     const result = triggerRaid(state, createContext());
 
-    expect(result.events).toEqual([]);
-    expect(result.decisions[0]).toMatchObject({
+    expect(result.decisions.find((decision) => decision.playerId === "player:1")).toMatchObject({
       type: "political_cover_delayed",
       aggregatePressure: 143
     });
     expect(result.nextState.policeStatesById["police:1"].pendingRaids).toBeUndefined();
+    expect(result.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
+    expect(
+      readEventPlayerId(
+        result.events.find((event) => event.type === "police-raid-triggered")?.payload
+      )
+    ).toBe("player:99");
   });
 
   it("does not make high raid pressure immune under City Hall cover", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 1;
     addPoliceState(state, 80);
+    moveToRaidBoundary(state, 1080);
+    addQuietRaidFallback(state);
     addCityHallOfficialCover(state);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
@@ -769,8 +911,9 @@ describe("core police system completion", () => {
 
   it("applies City Hall official cover to a raid targeting any owned district", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 1;
     addPoliceState(state, 60);
+    moveToRaidBoundary(state, 1080);
+    addQuietRaidFallback(state);
     state.districtsById["district:2"] = createDistrictFixture({
       id: "district:2",
       ownerPlayerId: "player:1",
@@ -819,8 +962,9 @@ describe("core police system completion", () => {
 
   it("still allows extreme raids under reduced City Hall cover", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 0;
     addPoliceState(state, 140);
+    moveToRaidBoundary(state);
+    addQuietRaidFallback(state);
     addCityHallOfficialCover(state);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
@@ -845,8 +989,9 @@ describe("core police system completion", () => {
 
   it("does not erase heat when City Hall cover delays a raid", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 0;
     addPoliceState(state, 80);
+    moveToRaidBoundary(state);
+    addQuietRaidFallback(state);
     addCityHallOfficialCover(state);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
@@ -855,7 +1000,7 @@ describe("core police system completion", () => {
 
     const result = triggerRaid(state, createContext());
 
-    expect(result.decisions[0]?.type).toBe("political_cover_delayed");
+    expect(result.decisions.find((decision) => decision.playerId === "player:1")?.type).toBe("political_cover_delayed");
     expect(result.nextState.policeStatesById["police:1"].heat).toBe(80);
     expect(result.nextState.districtsById["district:1"].heat).toBe(70);
   });
@@ -863,6 +1008,7 @@ describe("core police system completion", () => {
   it("keeps existing pending raids under City Hall cover", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 80);
+    moveToRaidBoundary(state);
     addCityHallOfficialCover(state);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
@@ -901,6 +1047,8 @@ describe("core police system completion", () => {
   it("does not suppress confirmed police warning events under City Hall cover", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 20);
+    moveToRaidBoundary(state);
+    addQuietRaidFallback(state);
     addCityHallOfficialCover(state);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
@@ -945,8 +1093,9 @@ describe("core police system completion", () => {
 
   it("does not apply City Hall cover when high raid pressure has no target district", () => {
     const state = createCoreStateFixture();
-    state.root.tick = 1;
     addPoliceState(state, 130);
+    moveToRaidBoundary(state);
+    addQuietRaidFallback(state);
     addCityHallOfficialCover(state);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
@@ -991,6 +1140,7 @@ describe("core police system completion", () => {
   it("runs police raids from the authoritative tick", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 150);
+    moveToRaidBoundary(state, 359);
     state.districtsById["district:1"] = {
       ...state.districtsById["district:1"],
       heat: 70

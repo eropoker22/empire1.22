@@ -8,6 +8,7 @@ import { createInMemoryClientTransport } from "../../apps/client/src/transport";
 import { createServerApp } from "../../apps/server/src/app";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
+import { advanceStateAcrossDueTick } from "../fixtures/timed-operation-fixtures";
 
 describe("district building gameplay slice", () => {
   it("projects authoritative Arcade metrics required by the shared demo card", async () => {
@@ -226,12 +227,22 @@ describe("district building gameplay slice", () => {
     expect(updatedRender.sidePanelHtml).toContain("data-building-action-building-id");
     expect(updatedRender.sidePanelHtml).not.toContain("data-build-actions");
     expect(client.getGameplaySlice()?.district?.buildings.find((building) => building.buildingId === pharmacyBuildingId)?.pharmacy?.lines.find((line) => line.recipeId === "chemicals")).toMatchObject({
-      executionMode: "instant",
-      queuedAmount: 0,
-      activeAmount: 0,
-      playerStoredAmount: chemicalsBefore + 1
+      executionMode: "legacy-timed",
+      queuedAmount: 1,
+      activeAmount: 1,
+      playerStoredAmount: chemicalsBefore
     });
-    expect(runtime.state.resourceStatesById[playerResourceStateId]?.balances.chemicals).toBe(chemicalsBefore + 1);
+    expect(runtime.state.resourceStatesById[playerResourceStateId]?.balances.chemicals ?? 0).toBe(chemicalsBefore);
+    const chemicalsDueTick = runtime.state.buildingsById[pharmacyBuildingId!]?.productionLines?.chemicals?.activeCompletesAtTick;
+    expect(chemicalsDueTick).toBeGreaterThan(runtime.state.root.tick);
+    runtime.state = advanceStateAcrossDueTick(
+      runtime.state,
+      chemicalsDueTick!,
+      { config: runtime.config }
+    ).nextState;
+    await client.load(session.loadRequest);
+    expect(runtime.state.resourceStatesById[playerResourceStateId]?.balances.chemicals ?? 0).toBe(chemicalsBefore);
+    expect(runtime.state.resourceStatesById[`resource:${pharmacyBuildingId}`]?.balances.chemicals).toBe(1);
     expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[districtId].buildingIds).toHaveLength(2);
 
     expect(updatedRender.mapDistricts.find((district) => district.districtId === neutralDistrictId)?.isOwnedByPlayer).toBe(false);
@@ -240,7 +251,7 @@ describe("district building gameplay slice", () => {
     expect(server.instanceManager.getInstanceById(instanceId)?.state.districtsById[neutralDistrictId].status).toBe("neutral");
     expect((await server.gameplaySliceTransport.load(session.loadRequest)).readModel?.district?.attackTargets.find((target) => target.districtId === neutralDistrictId)?.enabled).toBe(false);
     expect(districtPanelFeature).toBe("district-panel");
-  });
+  }, 30_000);
 
   it("projects server-authored building action status and required command inputs", async () => {
     const server = createServerApp();

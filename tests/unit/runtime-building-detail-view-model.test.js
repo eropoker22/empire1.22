@@ -1820,6 +1820,8 @@ describe("building detail view-model builder", () => {
       text: "Večerní kurz: nábor členů +60 % · zbývá 1m 30s",
       tone: "population"
     });
+    expect(model.hideMechanicsSection).toBe(true);
+    expect(model.intro).toBe("");
   });
 
   it("renders garage as passive support info and hides building upgrades", () => {
@@ -2612,7 +2614,7 @@ describe("building detail view-model builder", () => {
     });
 
     expect(model.title).toBe("");
-    expect(model.intro).toBe("Bytový blok negeneruje cash ani heat. Jen lidi. A v tomhle městě jsou lidi palivo každé války.");
+    expect(model.intro).toBe("");
     expect(model.actionsTitle).toBe("");
     expect(model.actions).toEqual([]);
     expect(model.rows).toEqual([]);

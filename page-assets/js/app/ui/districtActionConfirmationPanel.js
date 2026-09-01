@@ -224,15 +224,21 @@ export function createAttackConfirmationViewModel({
   atmosphereMeta = {},
   attackCooldownMs = 0
 } = {}) {
-  const scenarioLabel = context?.hasTrapDefense ? "Toxická past" : (context?.resolvedScenario?.label || "Neznámý");
+  const scenarioLabel = context?.authoritative
+    ? context?.hasTrapDefense ? "Server vyhodnotí · známá past" : "Server vyhodnotí po odpočtu"
+    : context?.hasTrapDefense ? "Toxická past" : (context?.resolvedScenario?.label || "Neznámý");
   const cooldownMs = Number(context?.boostContext?.cooldownMs || attackCooldownMs || 0);
   const note = !context?.sourceDistrictId
     ? "Útok vyžaduje sousední vlastní district."
     : !context?.canConfirm
       ? "Nejdřív nastav validní loadout a dostatek obyvatel pro útok."
-      : context?.hasTrapDefense
-        ? `Cíl je krytý toxickou pastí. Útočná výzbroj: ${context.selectedWeaponsLabel || "bez výzbroje"}.`
-        : `Výzbroj: ${context?.selectedWeaponsLabel || "bez výzbroje"}.${context?.boostContext?.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`;
+      : context?.authoritative
+        ? context?.hasTrapDefense
+          ? `Rozkaz odejde hned, střet se vyhodnotí po uvedeném čase. Cíl kryje toxická past; ta spálí až nastavený počet kusů výzbroje a může útok zastavit. Výzbroj: ${context.selectedWeaponsLabel || "bez výzbroje"}.`
+          : `Rozkaz odejde hned, výsledek dorazí po uvedeném čase. Výzbroj: ${context?.selectedWeaponsLabel || "bez výzbroje"}.${context?.boostContext?.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`
+        : context?.hasTrapDefense
+          ? `Cíl je krytý toxickou pastí. Útočná výzbroj: ${context.selectedWeaponsLabel || "bez výzbroje"}.`
+          : `Výzbroj: ${context?.selectedWeaponsLabel || "bez výzbroje"}.${context?.boostContext?.summaryLabel ? ` ${context.boostContext.summaryLabel}.` : ""}`;
 
   return {
     targetDistrictId: district?.id,
@@ -307,18 +313,21 @@ export function createRobberyConfirmationViewModel({
   canConfirm = false,
   robberyCooldownMs = 0,
   robberyCooldownLabel = "",
+  authoritative = false,
   atmosphereMeta = {}
 } = {}) {
   return {
     targetDistrictId: district?.id,
     sourceLabel: sourceDistrictId ? `District ${sourceDistrictId}` : "Žádný soused",
-    membersLabel: String(deployedMembers),
+    membersLabel: authoritative ? "1 volný člen (podmínka)" : String(deployedMembers),
     durationLabel: robberyCooldownLabel || formatActionDuration(robberyCooldownMs),
     note: !sourceDistrictId
       ? "Vykrást district vyžaduje sousední vlastní district."
       : deployedMembers <= 0
         ? "Nejdřív nastav počet nasazených členů gangu."
-        : "Vykrást district cílí jen na prázdný sousední district. Neobsazuje území, pouze získává loot z města.",
+        : authoritative
+          ? "Příkaz odstartuje operaci hned; městský loot a Heat server připíše až po uvedeném čase. Populace se při této akci neodečítá."
+          : "Vykrást district cílí jen na prázdný sousední district. Neobsazuje území, pouze získává loot z města.",
     canConfirm,
     atmosphereMeta
   };
@@ -384,7 +393,7 @@ export function createTrapConfirmationViewModel({
       ? "Toxická past už je aktivní v tomto districtu."
       : isMovingTrap
         ? `Přesune aktivní toxickou past z District ${currentTrapDistrictId} sem. Po přesunu se znovu rozjede toxický kouř.`
-        : "Nastraží toxickou past do vybraného distriktu. Útočník v ní ztratí všechny nasazené lidi i výzbroj.",
+        : "Nastraží toxickou past do vybraného districtu. Při útoku spálí až nastavený počet kusů útočné výzbroje; pokud nezůstane žádná, útok zastaví. Populaci sama neodebírá.",
     confirmLabel: isMovingTrap ? "Přesunout past" : "Nastražit past",
     canConfirm: !(isSameDistrict || (isMovingTrap && trapMoveCooldownSeconds > 0)),
     atmosphereMeta
@@ -442,7 +451,7 @@ export function createSpyConfirmationViewModel({
     ? "Špehování vyžaduje sousední vlastní district."
     : availableSpies <= 0
       ? "Nemáš dostupného špeha. Bez špeha akci nespustíš."
-      : "Částečný úspěch odhalí typ distriktu. Úspěch odhalí i obranu a odemkne akci Obsadit.";
+      : "Špeh vyrazí hned, ale report dorazí až po uvedeném čase. Částečný úspěch odhalí typ districtu; úplný i obranu a dočasně odemkne akci Obsadit.";
 
   return {
     targetDistrictId: district?.id,

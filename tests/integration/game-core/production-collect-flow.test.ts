@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { resolveModeConfig } from "@empire/game-config";
-import { applyCommand } from "../../../packages/game-core/src/engine";
+import { applyCommand, runTick } from "../../../packages/game-core/src/engine";
 import { createCollectProductionCommandFixture, createCraftItemCommandFixture } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import { advanceStateToTick } from "../../fixtures/timed-operation-fixtures";
 
 describe("production collect command flow", () => {
   it.each([
     ["factory", "metal-parts", "metal-parts", { cash: 300 }],
     ["drug_lab", "neon-dust", "neon-dust", { cash: 500, chemicals: 2 }]
-  ])("credits a completed %s output to player resources in the craft command", (
+  ])("credits a completed %s output only when the craft timer is due", (
     buildingTypeId,
     recipeId,
     resourceKey,
@@ -32,21 +33,35 @@ describe("production collect command flow", () => {
     const started = applyCommand(state, createCraftItemCommandFixture({
       payload: { districtId: "district:1", buildingId, recipeId, quantity: 1 }
     }), context);
+    const line = started.nextState.buildingsById[buildingId]?.productionLines?.[recipeId];
+    expect(line?.activeCompletesAtTick).toBeGreaterThan(state.root.tick);
+    const beforeDue = advanceStateToTick(started.nextState, line!.activeCompletesAtTick! - 1, context);
+    const completed = runTick(beforeDue, context);
+    const collected = applyCommand(completed.nextState, createCollectProductionCommandFixture({
+      payload: { districtId: "district:1", buildingId, resourceKey }
+    }), context);
     expect(started.errors).toEqual([]);
     expect(started.nextState.root.tick).toBe(state.root.tick);
     expect(started.nextState.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(0);
-    expect(started.nextState.resourceStatesById["resource:1"]?.balances[resourceKey]).toBe(1);
+    expect(started.nextState.resourceStatesById["resource:1"]?.balances[resourceKey] ?? 0).toBe(0);
+    expect(beforeDue.resourceStatesById["resource:1"]?.balances[resourceKey] ?? 0).toBe(0);
+    expect(completed.nextState.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(1);
+    expect(completed.nextState.resourceStatesById["resource:1"]?.balances[resourceKey] ?? 0).toBe(0);
+    expect(collected.errors).toEqual([]);
+    expect(collected.nextState.resourceStatesById[buildingResourceStateId]?.balances[resourceKey]).toBe(0);
+    expect(collected.nextState.resourceStatesById["resource:1"]?.balances[resourceKey]).toBe(1);
     expect(started.nextState.buildingsById[buildingId]?.processing).toBeNull();
-    expect(Object.values(started.nextState.buildingsById[buildingId]?.productionLines ?? {})).toEqual([]);
-    expect(started.events).toHaveLength(1);
-    expect(started.events[0]).toMatchObject({
+    expect(started.events).toEqual([]);
+    expect(completed.events).toContainEqual(expect.objectContaining({
       type: "item-crafted",
       payload: expect.objectContaining({
+        buildingId,
+        recipeId,
         outputResourceKey: resourceKey,
         outputAmount: 1,
-        instant: true
+        completedAtTick: line!.activeCompletesAtTick
       })
-    });
+    }));
   });
 
   it("collects only available capacity from a legacy ready output and leaves the remainder", () => {

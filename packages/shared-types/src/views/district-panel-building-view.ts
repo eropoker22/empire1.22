@@ -5,7 +5,6 @@ import type { DrugLabProductionBuildingView } from "./drug-lab-production-view";
 import type { FactoryProductionBuildingView } from "./factory-production-view";
 import type { PharmacyProductionBuildingView } from "./pharmacy-production-view";
 import type { WarehouseUpgradePreviewView } from "./warehouse-storage-view";
-
 export interface DistrictBuildOptionView {
   buildingTypeId: string;
   label: string;
@@ -13,7 +12,6 @@ export interface DistrictBuildOptionView {
   disabledCode?: string | null;
   disabledReason: string | null;
 }
-
 export interface DistrictPanelSlotView {
   slotIndex: number;
   buildingId: BuildingId | null;
@@ -29,7 +27,6 @@ export interface DistrictPanelSlotView {
    */
   buildOptions: DistrictBuildOptionView[];
 }
-
 export interface DistrictPanelSlotProductionView {
   resourceKey: string;
   resourceLabel: string;
@@ -39,7 +36,6 @@ export interface DistrictPanelSlotProductionView {
   canCollect: boolean;
   collectDisabledReason: string | null;
 }
-
 export interface DistrictPanelSlotProcessingView {
   recipeId: string;
   label: string;
@@ -49,7 +45,6 @@ export interface DistrictPanelSlotProcessingView {
   outputResourceLabel: string;
   outputAmount: number;
 }
-
 export interface DistrictPanelSlotCraftView {
   recipeId: string;
   label: string;
@@ -102,8 +97,12 @@ export interface BuildingActionInputView {
   required: boolean;
   min?: number;
   max?: number;
+  defaultValue?: string | number;
   options?: BuildingActionInputOptionView[];
 }
+
+export interface BuildingActionVariableInputCostView { inputId: string; resourceKey: string; amountPerUnit: number; }
+export interface BuildingActionCostPreviewView { fixedInputCost: Record<string, number>; variableInputCosts: BuildingActionVariableInputCostView[]; }
 
 export interface BuildingActionView {
   buildingId: BuildingId;
@@ -118,6 +117,7 @@ export interface BuildingActionView {
   expectedEffectSummary: string[];
   riskSummary: string[];
   requiresInput: BuildingActionInputView[];
+  costPreview?: BuildingActionCostPreviewView | null;
   durationMs: number;
   cooldownMs: number;
   inputCost: Record<string, number>;

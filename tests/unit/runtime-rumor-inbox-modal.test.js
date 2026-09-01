@@ -44,6 +44,7 @@ describe("street rumor inbox modal", () => {
     expect(list.dataset.rumorScrollable).toBe("true");
     expect(list.dataset.rumorVisibleCount).toBe("7");
     expect(list.querySelectorAll(".rumor-inbox-message")).toHaveLength(9);
+    expect(list.querySelectorAll('[data-faction-passive-inline-context="rumor-truth"]')).toHaveLength(9);
     expect(list.textContent).toContain("District 1");
     expect(list.textContent).toContain("Drb číslo 1");
     shell.querySelector("[data-rumor-delete-id='rumor:1']").click();

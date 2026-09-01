@@ -13,6 +13,7 @@ import {
   createCoreStateWithFixedBuildingFixture,
   createFixedBuildingFixture
 } from "../../fixtures/game-state-fixtures";
+import { resolvePendingDistrictAction } from "../../fixtures/timed-operation-fixtures";
 
 const freeConfig = resolveModeConfig("free");
 const context = { config: freeConfig };
@@ -33,8 +34,9 @@ describe("Free BR strategic cooldowns", () => {
   it("applies day and night attack modifiers without breaking the Free guardrail", () => {
     const dayState = createCombatStateFixture();
     seedSuccessfulSpyIntel(dayState, "player:1", "district:1", "district:2", "attack_owned_district");
-    const dayResult = applyCommand(dayState, createAttackDistrictCommandFixture(), context);
-    expect(dayResult.errors).toEqual([]);
+    const dayStarted = applyCommand(dayState, createAttackDistrictCommandFixture(), context);
+    const dayResult = resolvePendingDistrictAction(dayStarted.nextState, context);
+    expect(dayStarted.errors).toEqual([]);
     expect(dayResult.events.find((event) => event.type === "district-attacked")?.payload).toMatchObject({
       attackDurationTicks: Math.ceil(22 * TICKS_PER_MINUTE * 1.05)
     });
@@ -42,8 +44,9 @@ describe("Free BR strategic cooldowns", () => {
     const nightState = createCombatStateFixture();
     nightState.root.tick = freeConfig.balance.dayLengthTicks;
     seedSuccessfulSpyIntel(nightState, "player:1", "district:1", "district:2", "attack_owned_district");
-    const nightResult = applyCommand(nightState, createAttackDistrictCommandFixture(), context);
-    expect(nightResult.errors).toEqual([]);
+    const nightStarted = applyCommand(nightState, createAttackDistrictCommandFixture(), context);
+    const nightResult = resolvePendingDistrictAction(nightStarted.nextState, context);
+    expect(nightStarted.errors).toEqual([]);
     expect(nightResult.events.find((event) => event.type === "district-attacked")?.payload).toMatchObject({
       attackDurationTicks: Math.ceil(22 * TICKS_PER_MINUTE * 0.95)
     });
@@ -53,13 +56,14 @@ describe("Free BR strategic cooldowns", () => {
     addOwnedBuildings(maxReductionState, "garage", 8);
     addOwnedBuildings(maxReductionState, "car_dealer", 7);
     seedSuccessfulSpyIntel(maxReductionState, "player:1", "district:1", "district:2", "attack_owned_district");
-    const reducedResult = applyCommand(maxReductionState, createAttackDistrictCommandFixture(), context);
+    const reducedStarted = applyCommand(maxReductionState, createAttackDistrictCommandFixture(), context);
+    const reducedResult = resolvePendingDistrictAction(reducedStarted.nextState, context);
     const reducedPayload = reducedResult.events.find((event) => event.type === "district-attacked")?.payload as
       | { attackDurationTicks?: number }
       | undefined;
     const reducedTicks = reducedPayload?.attackDurationTicks;
 
-    expect(reducedResult.errors).toEqual([]);
+    expect(reducedStarted.errors).toEqual([]);
     expect(reducedTicks).toBe(98);
     expect(Number(reducedTicks)).toBeGreaterThanOrEqual(15 * TICKS_PER_MINUTE);
   });

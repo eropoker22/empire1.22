@@ -13,6 +13,7 @@ import {
   createRobDistrictCommandFixture
 } from "../../fixtures/command-fixtures";
 import { createCombatStateFixture, createDistrictFixture } from "../../fixtures/game-state-fixtures";
+import { resolvePendingDistrictAction } from "../../fixtures/timed-operation-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 const heistConfig = context.config.balance.conflict!.heist!;
@@ -104,14 +105,15 @@ describe("immediate deterministic heist", () => {
       "combat-module": 100,
       bazooka: 4
     };
-    const command = findHeistCommand(state, ["clean_success", "success", "detected"]);
+    const command = findHeistCommand(state, ["clean_success", "success"], heistConfig.globalCooldownTicks);
     const beforeAttacker = { ...state.resourceStatesById["resource:1"].balances };
     const beforeDefender = { ...state.resourceStatesById["resource:2"].balances };
-    const result = applyCommand(state, command, context);
-    const eventPayload = result.events[0]?.payload as Record<string, unknown>;
+    const started = applyCommand(state, command, context);
+    const result = resolvePendingDistrictAction(started.nextState, context);
+    const eventPayload = result.events.find((event) => event.type === "district-heisted")?.payload as Record<string, unknown>;
     const loot = eventPayload.loot as Record<string, number>;
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     for (const key of [
       "cash", "dirty-cash", "chemicals", "biomass", "stim-pack", "metal-parts", "tech-core", "combat-module"
     ]) {
@@ -132,7 +134,7 @@ describe("immediate deterministic heist", () => {
     }
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBeGreaterThan(0);
     expect(result.nextState.districtsById["district:2"].heistProtectedUntilTick)
-      .toBe(context.config.balance.conflict!.heist!.victimProtectionTicks);
+      .toBe(result.nextState.root.tick + context.config.balance.conflict!.heist!.victimProtectionTicks);
     expect(createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0])
       .toMatchObject({
         reportType: "heist",
@@ -156,11 +158,12 @@ describe("immediate deterministic heist", () => {
       version: 1
     };
     state.root.trapIds.push("trap:test");
-    const command = findHeistCommand(state, ["trap_triggered"]);
-    const result = applyCommand(state, command, context);
+    const command = findHeistCommand(state, ["trap_triggered"], heistConfig.globalCooldownTicks);
+    const started = applyCommand(state, command, context);
+    const result = resolvePendingDistrictAction(started.nextState, context);
 
-    expect(result.errors).toEqual([]);
-    const eventPayload = result.events[0]?.payload as Record<string, unknown>;
+    expect(started.errors).toEqual([]);
+    const eventPayload = result.events.find((event) => event.type === "district-heisted")?.payload as Record<string, unknown>;
     expect(eventPayload.outcome).toBe("trap_triggered");
     expect(eventPayload.loot).toMatchObject({
       cash: 0,
@@ -193,12 +196,13 @@ describe("finite neutral robbery", () => {
     state.districtsById["district:2"].neutralLootPool = firstPool;
     const command = findRobCommand(state, "success");
     const beforeCash = Number(state.resourceStatesById["resource:1"].balances.cash ?? 0);
-    const result = applyCommand(state, command, context);
-    const eventPayload = result.events[0]?.payload as Record<string, unknown>;
+    const started = applyCommand(state, command, context);
+    const result = resolvePendingDistrictAction(started.nextState, context);
+    const eventPayload = result.events.find((event) => event.type === "district-robbed")?.payload as Record<string, unknown>;
     const loot = eventPayload.loot as Record<string, number>;
     const pool = result.nextState.districtsById["district:2"].neutralLootPool!;
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(Number(result.nextState.resourceStatesById["resource:1"].balances.cash ?? 0) - beforeCash).toBe(loot.cash);
     expect(firstPool.cash - pool.cash).toBe(loot.cash);
     expect(Math.max(loot.cash, loot["dirty-cash"])).toBeGreaterThanOrEqual(1_000);
@@ -319,11 +323,16 @@ const createNeutralRobState = () => {
 
 const findHeistCommand = (
   state: ReturnType<typeof createHeistState>,
-  outcomes: string[]
+  outcomes: string[],
+  tickOffset = 0
 ) => {
+  const resolutionState = tickOffset === 0 ? state : {
+    ...state,
+    root: { ...state.root, tick: state.root.tick + tickOffset }
+  };
   for (let index = 0; index < 5000; index += 1) {
     const command = createHeistDistrictCommandFixture({ id: `command:heist:outcome:${index}` });
-    if (outcomes.includes(resolveImmediateHeist(state, command, "district:1", heistConfig).outcome)) {
+    if (outcomes.includes(resolveImmediateHeist(resolutionState, command, "district:1", heistConfig).outcome)) {
       return command;
     }
   }

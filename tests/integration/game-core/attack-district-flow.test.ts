@@ -4,6 +4,7 @@ import { resolveModeConfig } from "../../../packages/game-config/src";
 import { freeModeAttackWeaponsConfig } from "../../../packages/game-config/src/public/free-mode-attack-weapons-config";
 import { createAttackDistrictCommandFixture } from "../../fixtures/command-fixtures";
 import { createCombatStateFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import { resolvePendingDistrictAction } from "../../fixtures/timed-operation-fixtures";
 
 const context = {
   config: {
@@ -30,7 +31,7 @@ const context = {
     },
     technical: {
       sessionTtlMs: 1,
-      gameDurationMs: 1,
+      gameDurationMs: 86_400_000,
       storageKeyPrefix: "test",
       snapshotIntervalTicks: 1,
       notificationBatchWindowMs: 1,
@@ -55,12 +56,14 @@ describe("attack-district command flow", () => {
     const command = createAttackDistrictCommandFixture();
 
     const result = applyCommand(state, command, context);
+    const resolved = resolvePendingDistrictAction(result.nextState, context);
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
-    expect(result.nextState.districtsById["district:2"].status).toBe("contested");
-    expect(result.events.some((event) => event.type === "district-attacked")).toBe(true);
-    expect(result.events.find((event) => event.type === "district-attacked")?.payload).toMatchObject({
+    expect(result.nextState.districtsById["district:2"].status).toBe("claimed");
+    expect(result.events).toEqual([]);
+    expect(resolved.nextState.districtsById["district:2"].status).toBe("contested");
+    expect(resolved.events.find((event) => event.type === "district-attacked")?.payload).toMatchObject({
       districtId: "district:2",
       attackSucceeded: false,
       towerAttackReductionPercent: 0.3,
@@ -173,9 +176,13 @@ describe("attack-district command flow", () => {
     };
 
     const result = applyCommand(state, createAttackDistrictCommandFixture(), garageContext);
-    const attackEvent = result.events.find((event) => event.type === "district-attacked");
+    const operation = Object.values(result.nextState.pendingDistrictActionOperationsById ?? {})[0]!;
+    const resolved = resolvePendingDistrictAction(result.nextState, garageContext);
+    const attackEvent = resolved.events.find((event) => event.type === "district-attacked");
 
     expect(result.errors).toEqual([]);
+    expect(result.events).toEqual([]);
+    expect(operation.resolveAtTick - operation.issuedAtTick).toBe(177);
     expect(attackEvent?.payload).toMatchObject({
       attackDurationTicks: 177
     });
@@ -204,9 +211,13 @@ describe("attack-district command flow", () => {
     };
 
     const result = applyCommand(state, createAttackDistrictCommandFixture(), bikerContext);
-    const attackEvent = result.events.find((event) => event.type === "district-attacked");
+    const operation = Object.values(result.nextState.pendingDistrictActionOperationsById ?? {})[0]!;
+    const resolved = resolvePendingDistrictAction(result.nextState, bikerContext);
+    const attackEvent = resolved.events.find((event) => event.type === "district-attacked");
 
     expect(result.errors).toEqual([]);
+    expect(result.events).toEqual([]);
+    expect(operation.resolveAtTick - operation.issuedAtTick).toBe(95);
     expect(attackEvent?.payload).toMatchObject({
       attackDurationTicks: 95
     });
@@ -233,7 +244,8 @@ describe("attack-district command flow", () => {
     };
 
     const result = applyCommand(state, createAttackDistrictCommandFixture(), armyContext);
-    const attackEvent = result.events.find((event) => event.type === "district-attacked");
+    const resolved = resolvePendingDistrictAction(result.nextState, armyContext);
+    const attackEvent = resolved.events.find((event) => event.type === "district-attacked");
     const attackPayload = attackEvent?.payload as Record<string, unknown>;
     const attackerLosses = attackPayload.attackerLosses as Record<string, number>;
 
@@ -276,7 +288,8 @@ describe("attack-district command flow", () => {
     };
 
     const result = applyCommand(state, createAttackDistrictCommandFixture(), recruitmentContext);
-    const attackPayload = result.events.find((event) => event.type === "district-attacked")?.payload as Record<string, unknown>;
+    const resolved = resolvePendingDistrictAction(result.nextState, recruitmentContext);
+    const attackPayload = resolved.events.find((event) => event.type === "district-attacked")?.payload as Record<string, unknown>;
 
     expect(result.errors).toEqual([]);
     expect(attackPayload.recruitmentAttackWeaponStrengthBonusPct).toBe(8);
@@ -337,9 +350,13 @@ describe("attack-district command flow", () => {
     };
 
     const result = applyCommand(state, createAttackDistrictCommandFixture(), carDealerContext);
-    const attackEvent = result.events.find((event) => event.type === "district-attacked");
+    const operation = Object.values(result.nextState.pendingDistrictActionOperationsById ?? {})[0]!;
+    const resolved = resolvePendingDistrictAction(result.nextState, carDealerContext);
+    const attackEvent = resolved.events.find((event) => event.type === "district-attacked");
 
     expect(result.errors).toEqual([]);
+    expect(result.events).toEqual([]);
+    expect(operation.resolveAtTick - operation.issuedAtTick).toBe(164);
     expect(attackEvent?.payload).toMatchObject({
       attackDurationTicks: 164
     });
@@ -351,11 +368,12 @@ describe("attack-district command flow", () => {
     const resolvedConfig = resolveModeConfig("free");
 
     const result = applyCommand(state, createAttackDistrictCommandFixture(), { config: resolvedConfig });
+    const resolved = resolvePendingDistrictAction(result.nextState, { config: resolvedConfig });
 
     expect(result.errors).toEqual([]);
-    expect(result.nextState.playersById["player:1"].salvagePool ?? []).toEqual([]);
-    expect(result.nextState.playersById["player:2"].salvagePool ?? []).toEqual([]);
-    expect(result.nextState.playersById["player:1"].recoveryPool ?? []).toEqual([]);
-    expect(result.nextState.playersById["player:2"].recoveryPool ?? []).toEqual([]);
+    expect(resolved.nextState.playersById["player:1"].salvagePool ?? []).toEqual([]);
+    expect(resolved.nextState.playersById["player:2"].salvagePool ?? []).toEqual([]);
+    expect(resolved.nextState.playersById["player:1"].recoveryPool ?? []).toEqual([]);
+    expect(resolved.nextState.playersById["player:2"].recoveryPool ?? []).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import type { PendingDistrictActionOperation, RobDistrictCommand } from "@empire/shared-types";
+import type { RobDistrictCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
@@ -6,7 +6,6 @@ import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
 import {
   applyDayNightHeatGain,
-  applyDistrictOperationLock,
   applyFactionAggressiveHeatGain,
   createRobCooldownKey,
   createRobSourceCooldownKey,
@@ -14,10 +13,9 @@ import {
   hasNeutralDistrictRobberyLoot,
   NEUTRAL_ROBBERY_LOOT_KEYS,
   NEUTRAL_ROBBERY_MATERIAL_KEYS,
-  regenerateNeutralDistrictLootPool,
+  resolveCurrentNeutralDistrictLootPool,
   resolveNeutralRobbery,
-  resolveRobCooldownTicks,
-  seedNeutralDistrictLootPool
+  resolveRobCooldownTicks
 } from "../rules";
 import { validateRob } from "../validation";
 import { createPlayerCooldownState } from "./attackDistrictHelpers";
@@ -27,45 +25,7 @@ import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
 import { createPlayerResourceState, createRobReportNotification, resolveSingleOwnedOrigin } from "./conflictReportNotifications";
 import { bumpDistrictConflictRevision } from "../state";
-import { startPendingDistrictAction } from "./pendingDistrictActionShared";
-
-export const handleRobDistrict = (
-  state: CoreGameState,
-  command: RobDistrictCommand,
-  context: GameCoreContext
-): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
-  const errors = validateRob(state, command, context.config.balance.conflict);
-  if (errors.length > 0) return { nextState: state, events: [], errors };
-  const config = context.config.balance.conflict?.robbery;
-  if (!config) return { nextState: state, events: [], errors: [{ code: "ROBBERY_CONFIG_MISSING", message: "Canonical robbery config is unavailable." }] };
-
-  const player = state.playersById[command.playerId]!;
-  const targetDistrict = state.districtsById[command.payload.targetDistrictId]!;
-  const sourceDistrictId = command.payload.sourceDistrictId
-    ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
-  const cityHallNightPatrol = resolveCityHallNightPatrolPressure({ state, context, targetDistrict, tick: state.root.tick });
-  const durationTicks = Math.max(1, Math.ceil(applyCarDealerCooldownReductionTicks({
-    baseTicks: resolveRobCooldownTicks(context.config.balance.conflict),
-    state,
-    playerId: player.id,
-    config: context.config.balance.carDealer,
-    garageConfig: context.config.balance.garage,
-    category: "districtRobbery"
-  }) * cityHallNightPatrol.cooldownMultiplier));
-  const operation: PendingDistrictActionOperation = {
-    id: `district-action-operation:${command.id}`,
-    operationType: "rob",
-    command,
-    playerId: player.id,
-    sourceDistrictId,
-    targetDistrictId: targetDistrict.id,
-    issuedAtTick: state.root.tick,
-    resolveAtTick: state.root.tick + durationTicks,
-    cooldownKeys: [createRobCooldownKey(targetDistrict.id), createRobSourceCooldownKey(sourceDistrictId)],
-    version: 1
-  };
-  return { nextState: startPendingDistrictAction(state, operation), events: [], errors: [] };
-};
+export { handleRobDistrict } from "./startPendingRobDistrict";
 
 export const resolvePendingRobDistrict = (
   state: CoreGameState,
@@ -73,7 +33,10 @@ export const resolvePendingRobDistrict = (
   context: GameCoreContext,
   skipValidation = false
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
-  const errors = skipValidation ? [] : validateRob(state, command, context.config.balance.conflict);
+  const errors = skipValidation ? [] : validateRob(state, command, context.config.balance.conflict, {
+    dayLengthTicks: context.config.balance.dayLengthTicks,
+    nightLengthTicks: context.config.balance.nightLengthTicks
+  });
   if (errors.length > 0) return { nextState: state, events: [], errors };
   const config = context.config.balance.conflict?.robbery;
   if (!config) {
@@ -88,18 +51,15 @@ export const resolvePendingRobDistrict = (
   const targetDistrict = state.districtsById[command.payload.targetDistrictId]!;
   const sourceDistrictId = command.payload.sourceDistrictId
     ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
-  const cityDayLength = Math.max(
-    1,
-    Number(context.config.balance.dayLengthTicks ?? 0)
-    + Number(context.config.balance.nightLengthTicks ?? 0)
-  );
-  const cityDay = Math.floor(state.root.tick / cityDayLength);
-  const seededPool = targetDistrict.neutralLootPool
-    ?? seedNeutralDistrictLootPool(state.serverInstance.worldSeed, targetDistrict, cityDay, config);
-  const currentPool = regenerateNeutralDistrictLootPool(
-    seededPool,
-    cityDay,
-    config.cityDayRegenerationFraction
+  const currentPool = resolveCurrentNeutralDistrictLootPool(
+    state.serverInstance.worldSeed,
+    targetDistrict,
+    state.root.tick,
+    config,
+    {
+      dayLengthTicks: context.config.balance.dayLengthTicks,
+      nightLengthTicks: context.config.balance.nightLengthTicks
+    }
   );
   if (!hasNeutralDistrictRobberyLoot(currentPool)) {
     return {
@@ -195,13 +155,13 @@ export const resolvePendingRobDistrict = (
       },
       districtsById: {
         ...state.districtsById,
-        [targetDistrict.id]: bumpDistrictConflictRevision(applyDistrictOperationLock({
+        [targetDistrict.id]: bumpDistrictConflictRevision({
           ...targetDistrict,
           neutralLootPool: nextPool,
           heat: Math.max(0, targetDistrict.heat + districtHeat),
           lastHeatDecayTick: state.root.tick,
           version: targetDistrict.version + 1
-        }, "rob", cooldownEndsAtTick))
+        })
       },
       resourceStatesById: {
         ...state.resourceStatesById,

@@ -27,6 +27,14 @@ function normalizeServerResources(serverMarket) {
   return Array.isArray(serverMarket?.resources) ? serverMarket.resources : [];
 }
 
+function resolvePlayerStorageAvailableAmount(playerView = {}, ...resourceKeys) {
+  const accepted = new Set(resourceKeys.map((key) => String(key || "")).filter(Boolean));
+  const items = (playerView?.storage?.groups || []).flatMap((group) => group?.items || []);
+  const item = items.find((entry) => accepted.has(String(entry?.resourceKey || "")));
+  if (!item) return Number.POSITIVE_INFINITY;
+  return Math.max(0, Number(item.maxAmount || 0) - Number(item.currentAmount || 0));
+}
+
 function createServerMarketCatalogPanelPayload({
   activeTab = "market",
   serverMarket = {},
@@ -75,6 +83,8 @@ function createServerMarketCatalogPanelPayload({
       const blackMarketHeatRisk = Math.max(0, Math.floor(Number(blackMarket.heatRisk || 0) || 0));
       const visibleHeatRisk = isBlackMarket ? blackMarketHeatRisk : 0;
       const cleanCash = Math.max(0, Number(playerView?.economy?.cleanCash || balances.cash || 0) || 0);
+      const dirtyCash = Math.max(0, Number(playerView?.economy?.dirtyCash || balances["dirty-cash"] || 0) || 0);
+      const storageAvailableAmount = resolvePlayerStorageAvailableAmount(playerView, resourceId, legacyItemId);
       const canBuyBlackClean = Boolean(blackMarket.canBuyWithCleanCash ?? cleanCash >= cleanBuyPrice);
       const trendDirection = resource.trend === "up" || resource.trend === "spike"
         ? "up"
@@ -117,6 +127,8 @@ function createServerMarketCatalogPanelPayload({
         canBuy: isBlackMarket ? Boolean(blackMarket.canBuyWithDirtyCash) : Boolean(normalMarket.canBuy),
         canBuyClean: isBlackMarket ? canBuyBlackClean : Boolean(normalMarket.canBuy),
         playerCleanCash: cleanCash,
+        playerDirtyCash: dirtyCash,
+        storageAvailableAmount,
         canBuyDirty: Boolean(blackMarket.canBuyWithDirtyCash),
         showCleanBuyAction: isBlackMarket,
         canSell: !isBlackMarket && Boolean(normalMarket.canSell),
@@ -594,8 +606,18 @@ function createServerMarketCallbacks(deps = {}) {
       const heatRisk = isBlackMarket
         ? (resolveHeatRisk(buyTotal, item.heatByValue) || Math.max(0, Number(item.heatRisk || 0)))
         : 0;
-      const buyDisabled = !item.canBuy;
       const stock = Number(item.stock);
+      const exceedsBuyStock = !isBlackMarket && Number.isFinite(stock) && stock < quantity;
+      const storageAvailableAmount = Number(item.storageAvailableAmount);
+      const exceedsStorage = Number.isFinite(storageAvailableAmount) && storageAvailableAmount < quantity;
+      const primaryCash = isBlackMarket ? Number(item.playerDirtyCash) : Number(item.playerCleanCash);
+      const lacksPrimaryCash = Number.isFinite(primaryCash) && primaryCash < buyTotal;
+      const buyDisabled = !item.canBuy || exceedsBuyStock || exceedsStorage || lacksPrimaryCash;
+      const cleanTotal = quantity * Math.max(1, Math.floor(Number(item.cleanBuyPrice || item.buyPrice || 1)));
+      const cleanCash = Number(item.playerCleanCash);
+      const cleanBuyDisabled = item.canBuyClean === false
+        || exceedsStorage
+        || (Number.isFinite(cleanCash) && cleanCash < cleanTotal);
       const maxStock = Number(item.maxStock);
       const sellCapacity = Number.isFinite(stock) && Number.isFinite(maxStock)
         ? Math.max(0, maxStock - stock)
@@ -606,7 +628,19 @@ function createServerMarketCallbacks(deps = {}) {
       return {
         buyDisabled,
         sellDisabled,
-        buyTitle: buyDisabled ? "Tenhle obchod teď nejde uzavřít." : "Koupit z trhu.",
+        buyTitle: exceedsStorage
+          ? "Do SKLADU se zvolené množství nevejde."
+          : exceedsBuyStock
+            ? `Trh má jen ${Math.max(0, Math.floor(stock))} ks.`
+            : lacksPrimaryCash
+              ? `Na ${quantity} ks nemáš dost ${isBlackMarket ? "dirty" : "clean"} cash.`
+              : buyDisabled ? "Tenhle obchod teď nejde uzavřít." : "Koupit z trhu.",
+        cleanBuyDisabled,
+        cleanBuyTitle: exceedsStorage
+          ? "Do SKLADU se zvolené množství nevejde."
+          : Number.isFinite(cleanCash) && cleanCash < cleanTotal
+            ? "Na zvolené množství nemáš dost clean cash."
+            : cleanBuyDisabled ? "Tenhle clean obchod teď nejde uzavřít." : "Koupit přes černý trh za clean cash.",
         sellTitle: sellDisabled
           ? isBlackMarket
             ? "Černý trh dnes výkup nedělá."

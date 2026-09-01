@@ -621,6 +621,7 @@ export const getMarketViewModel = (
         id: resourceId,
         name: resourceConfig.name,
         category: resourceConfig.category,
+        maxPlayerListingUnitPrice: getMaxPlayerListingUnitPrice(state, resourceId),
         normalMarket: {
           basePrice: baseNormalPrice,
           price: normalPrice,

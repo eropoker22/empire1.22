@@ -69,7 +69,7 @@ export function buildGangWantedStatusViewModel({
     heat: heatValue,
     heatLabel: typeof options.heatLabel === "string"
       ? options.heatLabel
-      : formatDistrictMetricNumber(heatValue, 1),
+      : formatDistrictMetricNumber(heatValue, 0),
     available: options.available !== false,
     levelId: heatLevel.id,
     levelLabel: typeof options.levelLabel === "string" ? options.levelLabel : heatLevel.label,
@@ -164,7 +164,7 @@ export function buildServerGangWantedStatusViewModel({
     ...options,
     available: authoritativeHeatAvailable,
     heatLabel: authoritativeHeatAvailable
-      ? formatDistrictMetricNumber(Math.max(0, heat), 1)
+      ? formatDistrictMetricNumber(Math.max(0, heat), 0)
       : UNAVAILABLE_VALUE_LABEL,
     levelLabel,
     protectionLabel: resolveAuthoritativeProtectionLabel(police),
@@ -270,6 +270,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
 
   const bindGangWantedStatus = (root) => {
     const elements = resolveWantedElements(root, selectors);
+    let lastAuthoritativeWantedViewModel = null;
 
     if (!hasRequiredWantedElements(elements)) {
       return false;
@@ -281,8 +282,11 @@ export function createGangWantedStatusRuntime(deps = {}) {
 
     const syncWantedStatus = () => {
       const serverAuthoritative = Boolean(deps.isServerAuthoritativeMode?.());
+      const localDemo = typeof deps.isLocalDemoMode === "function"
+        ? Boolean(deps.isLocalDemoMode())
+        : !serverAuthoritative;
       const serverPlayer = serverAuthoritative ? deps.getServerPlayerView?.() || null : null;
-      const wantedViewModel = serverAuthoritative
+      const serverWantedViewModel = serverAuthoritative
         ? buildServerGangWantedStatusViewModel({
             serverPlayer,
             heatTiers: deps.gangHeatTiers
@@ -295,7 +299,16 @@ export function createGangWantedStatusRuntime(deps = {}) {
             resolveHeatTier: deps.resolveGangHeatTier,
             resolvePoliceFeedback: deps.resolvePoliceHeatFeedback
           })
-        : (() => {
+        : null;
+      if (serverWantedViewModel?.available) {
+        lastAuthoritativeWantedViewModel = serverWantedViewModel;
+      }
+      const wantedViewModel = serverAuthoritative
+        ? serverWantedViewModel?.available
+          ? serverWantedViewModel
+          : lastAuthoritativeWantedViewModel || serverWantedViewModel
+        : localDemo
+          ? (() => {
             const gangState = deps.syncGangHeatDecay();
             const heatLevel = deps.resolveGangHeatTier(gangState.heat);
             const economyState = deps.getResolvedEconomyState();
@@ -317,7 +330,16 @@ export function createGangWantedStatusRuntime(deps = {}) {
               resolveAuditRisk: deps.resolveGangHeatAuditRisk,
               now: deps.now
             });
-          })();
+          })()
+          : buildServerGangWantedStatusViewModel({
+              serverPlayer: null,
+              heatTiers: deps.gangHeatTiers
+            }, {
+              getTierEffect: deps.getPoliceTierShortEffect,
+              now: deps.now,
+              resolveHeatTier: deps.resolveGangHeatTier,
+              resolvePoliceFeedback: deps.resolvePoliceHeatFeedback
+            });
 
       deps.renderHeatBadge(wantedViewModel, {
         heatButton: elements.heatButton,
@@ -362,7 +384,10 @@ export function createGangWantedStatusRuntime(deps = {}) {
 
     elements.heatButton.addEventListener("click", openPopup);
     const runWantedAction = (callback) => {
-      if (deps.isServerAuthoritativeMode?.()) {
+      const localDemo = typeof deps.isLocalDemoMode === "function"
+        ? Boolean(deps.isLocalDemoMode())
+        : !deps.isServerAuthoritativeMode?.();
+      if (!localDemo) {
         renderFeedback("warning", "Akce není v autoritativním serverovém modelu dostupná.");
         syncWantedStatus();
         return false;

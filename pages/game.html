@@ -286,7 +286,6 @@
               <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Populace</span><span data-population>—</span></p>
               <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Hledanost</span><button type="button" class="button gang-profile-value-button profile-heat-panel" data-gang-heat>—</button></p>
               <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>—</span></p>
-              <p class="faction-passive-note faction-passive-note--profile hidden" data-faction-passive-context="profile" hidden></p>
               <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>—</span></p>
               <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>—</span></p>
             </div>
@@ -313,10 +312,6 @@
               </div>
               <div class="alliance-chat__input server-chat-panel__composer">
                 <input id="alliance-chat-input" type="text" class="server-chat-panel__input" maxlength="240" placeholder="Napiš zprávu do městského chatu..." aria-label="Zpráva do městského chatu" data-global-chat-input>
-                <div class="server-chat-panel__composer-meta">
-                  <div class="server-chat-panel__status" id="global-chat-status">Zprávy uvidí všichni hráči na tomto serveru.</div>
-                  <span class="server-chat-panel__counter" data-global-chat-counter aria-live="polite">0/240</span>
-                </div>
               </div>
             </section>
           </div>
@@ -738,8 +733,9 @@
             <button class="button attack-setup-popup-close" id="spy-confirm-modal-close" type="button" aria-label="Zavřít" data-spy-confirm-close>✕</button>
           </div>
           <div class="modal__body spy-confirm-modal__body district-action-confirm-popup-body spy-confirm-popup-body">
-            <p class="attack-setup-popup-row">Dostupní špehové <span class="faction-value-stack"><strong data-spy-confirm-available>0</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="spy-success" hidden></small></span></p>
-            <p class="attack-setup-popup-row">Trvání <span><strong data-spy-confirm-duration>20s</strong></span></p>
+            <p class="attack-setup-popup-row">Dostupní špehové <span><strong data-spy-confirm-available>0</strong></span></p>
+            <p class="attack-setup-popup-row">Trvání <span class="faction-value-stack"><strong data-spy-confirm-duration>20s</strong><small class="faction-passive-inline hidden" data-faction-passive-inline-context="spy-duration" hidden></small></span></p>
+            <p class="attack-setup-popup-row hidden" data-faction-passive-inline-row hidden>Úspěšnost <span class="faction-value-stack"><small class="faction-passive-inline hidden" data-faction-passive-inline-context="spy-success" hidden></small></span></p>
             <p class="muted spy-confirm-modal__note attack-setup-popup-copy" data-spy-confirm-note>Každé špehování spotřebuje 1 špeha.</p>
             <div class="modal__actions spy-confirm-modal__actions">
               <button class="btn btn--ghost modal__cancel-btn" id="spy-confirm-modal-cancel" type="button" data-spy-confirm-close>Odmítnout</button>
@@ -882,9 +878,9 @@
             <div class="wanted-popup-header__title">
               <h3>Heat</h3>
               <div class="wanted-popup-meta wanted-popup-meta--header">
-                <p class="wanted-popup-row wanted-popup-row--compact">Heat <span data-wanted-popup-level>1 / 6</span></p>
-                <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
-                <p class="wanted-popup-row wanted-popup-row--compact">Audit risk <span data-wanted-popup-audit-risk>0 %</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Úroveň <span data-wanted-popup-level>—</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>—</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Audit risk <span data-wanted-popup-audit-risk>—</span></p>
               </div>
             </div>
             <button type="button" class="button wanted-popup-close" data-wanted-popup-close aria-label="Zavřít heat panel">✕</button>
@@ -893,13 +889,13 @@
             <div class="wanted-popup-hero">
               <div class="wanted-popup-hero__copy">
                 <div class="wanted-popup-value" data-wanted-popup-heat>—</div>
-                <h3 class="wanted-popup-title" data-wanted-popup-tier>Nízký heat</h3>
-                <p class="wanted-popup-copy" data-wanted-popup-description>Lehký dohled. Gang je skoro pod radarem.</p>
+                <h3 class="wanted-popup-title" data-wanted-popup-tier>Načítám serverový heat</h3>
+                <p class="wanted-popup-copy" data-wanted-popup-description>Čekám na autoritativní stav hry.</p>
               </div>
               <div class="wanted-popup-meta wanted-popup-meta--mobile">
-                <p class="wanted-popup-row wanted-popup-row--compact">Heat <span data-wanted-popup-level>1 / 6</span></p>
-                <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>Bez ochrany</span></p>
-                <p class="wanted-popup-row wanted-popup-row--compact">Audit risk <span data-wanted-popup-audit-risk>0 %</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Úroveň <span data-wanted-popup-level>—</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Ochrana <span data-wanted-popup-protection>—</span></p>
+                <p class="wanted-popup-row wanted-popup-row--compact">Audit risk <span data-wanted-popup-audit-risk>—</span></p>
               </div>
             </div>
             <div class="wanted-popup-side">
@@ -1635,7 +1631,7 @@
       </div>
 
       <div id="events-modal" class="modal hidden" data-ui-owner="city-events-shared">
-        <div id="events-modal-backdrop" class="modal__backdrop" data-shared-modal-close></div>
+        <div id="events-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content modal__content--profile events-modal__content">
           <div class="modal__header">
             <h3 id="events-modal-title">Pouliční zakázky <span id="events-refresh-countdown" class="events-modal__refresh-pill" data-countdown>MĚSTSKÝ ČAS · plánované nabídky</span></h3>
@@ -1683,7 +1679,7 @@
       </div>
 
       <div id="event-detail-modal" class="modal hidden" data-ui-owner="city-events-shared">
-        <div id="event-detail-modal-backdrop" class="modal__backdrop" data-shared-modal-close></div>
+        <div id="event-detail-modal-backdrop" class="modal__backdrop"></div>
         <div class="modal__content modal__content--profile event-detail-modal__content">
           <div class="modal__header">
             <h3 id="event-detail-title">Detail zakázky</h3>

@@ -11,37 +11,53 @@ const CONTEXT_PATTERNS = Object.freeze({
 });
 
 const INLINE_CONTEXT_PATTERNS = Object.freeze({
-  attack: [/síla útoku/iu, /doba čekání na útoky/iu, /délka útoků/iu, /ztráty vybavení/iu],
+  attack: [/síla útoku/iu, /doba čekání na útoky/iu, /délka útoků/iu, /ztráty vybavení/iu, /heat z útoků/iu],
   "attack-strength": [/síla útoku/iu],
   "attack-duration": [/doba čekání na útoky/iu, /délka útoků/iu],
-  robbery: [/peníze z vykrádání/iu, /kořist z vykrádání/iu, /doba čekání na vykrádání/iu, /heat z útoků, obsazování a vykrádání/iu, /heat z útoků, loupeží/iu],
+  robbery: [/peníze z vykrádání/iu, /kořist z vykrádání/iu, /doba čekání na vykrádání/iu, /heat z útoků, obsazování a vykrádání/iu, /heat z útoků, loupeží/iu, /heat z ilegálních akcí/iu],
   "robbery-loot": [/peníze z vykrádání/iu, /kořist z vykrádání/iu],
   "robbery-duration": [/doba čekání na vykrádání/iu],
-  "robbery-heat": [/heat z útoků, obsazování a vykrádání/iu, /heat z útoků, loupeží/iu],
-  defense: [/síla obrany/iu, /obrana districtů/iu, /základní obrana/iu, /účinnost kamer/iu, /účinnost alarmů/iu],
+  "robbery-heat": [/heat z útoků, obsazování a vykrádání/iu, /heat z útoků, loupeží/iu, /heat z ilegálních akcí/iu],
+  defense: [/síla obrany/iu, /obrana districtů/iu, /základní obrana/iu, /účinnost kamer/iu, /účinnost alarmů/iu, /efekt obranných systémů/iu],
   "defense-strength": [/síla obrany/iu, /obrana districtů/iu, /základní obrana/iu],
-  spy: [/šance na úspěšné špehování/iu, /šance odhalit pasti/iu],
-  "spy-success": [/šance na úspěšné špehování/iu],
-  occupy: [/doba čekání na obsazování/iu, /síla při obsazování/iu]
+  spy: [/šance na úspěšné špehování/iu, /šance odhalit pasti/iu, /^špehování\s+[+-]/iu, /doba čekání na špehování/iu, /délka špehování/iu],
+  "spy-success": [/šance na úspěšné špehování/iu, /^špehování\s+[+-]/iu],
+  "spy-duration": [/doba čekání na špehování/iu, /délka špehování/iu],
+  "camera-effectiveness": [/síla obrany/iu, /obrana districtů/iu, /účinnost kamer/iu, /efekt obranných systémů/iu],
+  "alarm-effectiveness": [/síla obrany/iu, /obrana districtů/iu, /účinnost alarmů/iu, /efekt obranných systémů/iu],
+  occupy: [/doba čekání na obsazování/iu, /síla při obsazování/iu, /heat z útoků.*obsazování/iu],
+  "rumor-truth": [/pravdivost potvrzených drbů/iu],
+  "building-action": [/heat z útoků, loupeží, akcí budov/iu]
 });
 
 const STAT_EFFECT_PATTERNS = Object.freeze([
   { stat: /clean|čist/iu, effect: /čistý příjem/iu },
   { stat: /dirty|špin/iu, effect: /špinavý příjem/iu },
   { stat: /populace|population/iu, effect: /tvorba populace/iu },
+  { stat: /vliv|influence/iu, effect: /zisk vlivu/iu },
+  { stat: /heat/iu, effect: /heat z útoků, loupeží, akcí budov a pasivního tlaku/iu },
   { stat: /síla útoku|attack power/iu, effect: /síla útoku/iu },
   { stat: /síla obrany|defense power/iu, effect: /síla obrany|obrana districtů|základní obrana/iu }
 ]);
 
-const PRODUCTION_EFFECT_BY_BUILDING = Object.freeze({
-  factory: /produkce technologií/iu,
-  "drug-lab": /produkce v podporovaných ilegálních budovách/iu,
-  drug_lab: /produkce v podporovaných ilegálních budovách/iu,
-  "smuggling-tunnel": /produkce v podporovaných ilegálních budovách/iu,
-  smuggling_tunnel: /produkce v podporovaných ilegálních budovách/iu,
-  "street-dealers": /produkce v podporovaných ilegálních budovách/iu,
-  street_dealers: /produkce v podporovaných ilegálních budovách/iu
+const BUILDING_STAT_EFFECT_PATTERNS = Object.freeze({
+  factory: [{ stat: /produkce|výroba|rychlost|výstup|čas/iu, effect: /produkce technologií/iu }],
+  "drug-lab": [{ stat: /produkce|výroba|rychlost|výstup|čas|špinav|dirty/iu, effect: /produkce v podporovaných ilegálních budovách/iu }],
+  druglab: [{ stat: /produkce|výroba|rychlost|výstup|čas|špinav|dirty/iu, effect: /produkce v podporovaných ilegálních budovách/iu }],
+  drug_lab: [{ stat: /produkce|výroba|rychlost|výstup|čas|špinav|dirty/iu, effect: /produkce v podporovaných ilegálních budovách/iu }],
+  "smuggling-tunnel": [
+    { stat: /špinav|dirty|produkce|výroba|výnos|tok/iu, effect: /produkce v podporovaných ilegálních budovách|pašování/iu },
+    { stat: /distribuce|pašov/iu, effect: /pašování/iu }
+  ],
+  smuggling_tunnel: [
+    { stat: /špinav|dirty|produkce|výroba|výnos|tok/iu, effect: /produkce v podporovaných ilegálních budovách|pašování/iu },
+    { stat: /distribuce|pašov/iu, effect: /pašování/iu }
+  ],
+  "street-dealers": [{ stat: /špinav|dirty|produkce|výroba|výnos|prodej/iu, effect: /produkce v podporovaných ilegálních budovách/iu }],
+  street_dealers: [{ stat: /špinav|dirty|produkce|výroba|výnos|prodej/iu, effect: /produkce v podporovaných ilegálních budovách/iu }]
 });
+
+const ILLEGAL_ACTION_BUILDINGS = new Set(["drug-lab", "druglab", "drug_lab", "smuggling-tunnel", "smuggling_tunnel", "street-dealers", "street_dealers"]);
 
 function resolveActiveEffects(factionId = "", factionView = null) {
   const faction = FACTION_CATALOG[String(factionId || "").trim()];
@@ -60,76 +76,45 @@ export function resolveFactionPassiveInlineEffects(factionId = "", context = "",
     const patterns = STAT_EFFECT_PATTERNS
       .filter((entry) => entry.stat.test(statLabel))
       .map((entry) => entry.effect);
-    if (/produkce|výroba|rychlost|výstup/iu.test(statLabel) && PRODUCTION_EFFECT_BY_BUILDING[buildingType]) {
-      patterns.push(PRODUCTION_EFFECT_BY_BUILDING[buildingType]);
+    for (const rule of BUILDING_STAT_EFFECT_PATTERNS[buildingType] || []) {
+      if (rule.stat.test(statLabel)) patterns.push(rule.effect);
     }
     return effects.filter((effect) => patterns.some((pattern) => pattern.test(effect)));
   }
-  const patterns = INLINE_CONTEXT_PATTERNS[context] || CONTEXT_PATTERNS[context] || [];
+  const patterns = [...(INLINE_CONTEXT_PATTERNS[context] || CONTEXT_PATTERNS[context] || [])];
+  if (context === "building-action" && ILLEGAL_ACTION_BUILDINGS.has(String(options.buildingType || "").trim().toLowerCase())) {
+    patterns.push(/heat z ilegálních akcí/iu);
+  }
   return effects.filter((effect) => patterns.some((pattern) => pattern.test(effect)));
 }
 
 export function resolveFactionPassiveInlineCopy(factionId = "", context = "", factionView = null, options = {}) {
   const effects = resolveFactionPassiveInlineEffects(factionId, context, factionView, options);
-  return effects.length > 0 ? `Frakce: ${effects.join(" · ")}` : "";
-}
-
-export function resolveFactionPassiveEffects(factionId = "", context = "profile", activeEffects = null) {
-  const faction = FACTION_CATALOG[String(factionId || "").trim()];
-  const effects = Array.isArray(activeEffects) ? [...activeEffects] : [...(faction?.coreBackedEffects || [])];
-  if (!faction && !Array.isArray(activeEffects)) return [];
-
-  if (context === "profile") return effects;
-
-  const patterns = CONTEXT_PATTERNS[context] || [];
-  return effects.filter((effect) => patterns.some((pattern) => pattern.test(effect)));
-}
-
-export function resolveFactionPassiveCopy(factionId = "", context = "profile", factionView = null) {
-  const faction = FACTION_CATALOG[String(factionId || "").trim()];
-  const authoritativeView = factionView?.factionId === factionId ? factionView : null;
-  if (!faction && !authoritativeView) return "";
-
-  const effects = resolveFactionPassiveEffects(
-    factionId,
-    context,
-    authoritativeView?.activePassiveEffects
-  );
-  if (context === "profile") {
-    return effects.length > 0
-      ? `Aktivní pasivy: ${effects.join(" · ")}`
-      : "Aktivní pasivy: bez přímých úprav.";
-  }
-
-  return effects.length > 0
-    ? `${authoritativeView?.name || faction.name}: ${effects.join(" · ")}`
-    : `${authoritativeView?.name || faction.name}: bez přímé úpravy této akce.`;
+  return effects.length > 0 ? effects.join(" · ") : "";
 }
 
 export function renderFactionPassiveUi(documentRef = document, factionView = latestFactionView) {
   const root = documentRef?.querySelector?.("[data-gameplay-slice-client]");
   const factionId = String(factionView?.factionId || root?.dataset?.factionId || "").trim();
 
-  for (const element of documentRef?.querySelectorAll?.("[data-faction-passive-context]") || []) {
-    const context = String(element.dataset?.factionPassiveContext || "profile");
-    const copy = resolveFactionPassiveCopy(factionId, context, factionView);
-    element.textContent = copy;
-    element.hidden = !copy;
-    element.classList?.toggle?.("hidden", !copy);
-    if (copy) element.title = copy;
-    else element.removeAttribute?.("title");
-  }
-
   for (const element of documentRef?.querySelectorAll?.("[data-faction-passive-inline-context], [data-faction-passive-stat-label]") || []) {
     const context = String(element.dataset?.factionPassiveInlineContext || "");
-    const shell = element.closest?.("[data-building-mechanics-type], [data-district-building-detail-popup]");
+    const shell = element.closest?.("[data-building-mechanics-type], [data-district-building-detail-building-type-id], [data-district-building-detail-popup]");
     const copy = resolveFactionPassiveInlineCopy(factionId, context, factionView, {
       statLabel: element.dataset?.factionPassiveStatLabel || "",
-      buildingType: shell?.dataset?.buildingMechanicsType || shell?.dataset?.districtBuildingDetailBuildingTypeId || ""
+      buildingType: element.dataset?.factionPassiveBuildingType
+        || shell?.dataset?.buildingMechanicsType
+        || shell?.dataset?.districtBuildingDetailBuildingTypeId
+        || ""
     });
     element.textContent = copy;
     element.hidden = !copy;
     element.classList?.toggle?.("hidden", !copy);
+    const conditionalRow = element.closest?.("[data-faction-passive-inline-row]");
+    if (conditionalRow) {
+      conditionalRow.hidden = !copy;
+      conditionalRow.classList?.toggle?.("hidden", !copy);
+    }
     if (copy) element.title = copy;
     else element.removeAttribute?.("title");
   }

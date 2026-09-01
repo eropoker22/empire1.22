@@ -2293,9 +2293,6 @@
   order: 2;
 }
 
-.district-popup-action-row:has(.district-popup-action[data-district-action-id="spy"]) {
-  order: 3;
-}
 
 .district-popup-action-row:has(.district-popup-action[data-district-action-id="rob"]) {
   order: 4;
@@ -3373,9 +3370,6 @@
   order: 3;
 }
 
-.district-popup-action-row:has(.district-popup-action[data-district-action-id="rob"]) {
-  order: 4;
-}
 
 .district-popup-action-row:has(.district-popup-action[data-district-action-id="occupy"]) {
   order: 5;

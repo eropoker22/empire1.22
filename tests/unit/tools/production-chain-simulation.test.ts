@@ -15,7 +15,7 @@ describe("authoritative production-chain simulation", () => {
       "factory:tech-core:1",
       "armory:pistol:1"
     ]);
-    expect(first.steps.every((step) => step.ticksElapsed === 0)).toBe(true);
+    expect(first.steps.every((step) => step.ticksElapsed > 0)).toBe(true);
     expect(first.steps.every((step) => step.producedAmount === step.quantity)).toBe(true);
     expect(first.finalBalances).toMatchObject({
       cash: 5_780,
@@ -27,7 +27,7 @@ describe("authoritative production-chain simulation", () => {
     });
   });
 
-  it("rejects an unaffordable instant craft without any partial mutation", () => {
+  it("rejects an unaffordable concurrent craft without any partial mutation", () => {
     const report = runProductionChainSimulation();
 
     expect(report.atomicityAudit).toEqual({
@@ -35,7 +35,7 @@ describe("authoritative production-chain simulation", () => {
       conflictingArmoryError: "armory_missing_inputs",
       metalPartsAfterFactoryCraft: 1,
       cleanCashAfterFactoryCraft: 0,
-      techCoreAfterFactoryCraft: 3,
+      techCoreAfterFactoryCraft: 1,
       rejectedArmoryPreservedBalances: true,
       legacyProductionJobsRemaining: 0
     });

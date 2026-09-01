@@ -15,6 +15,7 @@ import { resolveModeConfig, validateRumorTemplates } from "@empire/game-config";
 import { applyCommand } from "../../../packages/game-core/src/engine";
 import { createAttackDistrictCommandFixture } from "../../fixtures/command-fixtures";
 import { createCombatStateFixture, createCoreStateFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import { resolvePendingDistrictAction } from "../../fixtures/timed-operation-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 
@@ -32,9 +33,10 @@ const addPoliceState = (state: ReturnType<typeof createCoreStateFixture>, heat: 
 
 describe("city feed event integration", () => {
   it("creates idempotent attack feed events and keeps successful spy intel private", () => {
-    const attack = applyCommand(createCombatStateFixture(), createAttackDistrictCommandFixture(), context);
-    expect(attack.errors).toEqual([]);
-    expect(Object.values(attack.nextState.cityFeedEventsById)).toEqual([
+    const started = applyCommand(createCombatStateFixture(), createAttackDistrictCommandFixture(), context);
+    const attack = resolvePendingDistrictAction(started.nextState, context);
+    expect(started.errors).toEqual([]);
+    expect(Object.values(attack.nextState.cityFeedEventsById)).toEqual(expect.arrayContaining([
       expect.objectContaining({
         sourceType: "attack",
         category: "combat",
@@ -43,13 +45,13 @@ describe("city feed event integration", () => {
         confidence: "confirmed",
         templateId: expect.stringMatching(/^rumor\.attack_activity\.confirmed\./)
       })
-    ]);
+    ]));
 
     const repeated = appendCityFeedEvents(
       attack.nextState,
       Object.values(attack.nextState.cityFeedEventsById)
     );
-    expect(Object.keys(repeated.cityFeedEventsById)).toHaveLength(1);
+    expect(Object.values(repeated.cityFeedEventsById).filter((event) => event.sourceType === "attack")).toHaveLength(1);
 
     const successfulSpyState = appendCityFeedEventsFromCoreEvents(createCoreStateFixture(), [{
       type: "district-spied",
@@ -234,6 +236,8 @@ describe("city feed event integration", () => {
   it("adds police raid feed during tick without duplicate unresolved spam", () => {
     const state = createCoreStateFixture();
     addPoliceState(state, 130);
+    state.root.tick = 359;
+    state.serverInstance.currentTick = 359;
     const first = runTick(state, context);
     const second = runTick(first.nextState, context);
     const feedEvents = Object.values(second.nextState.cityFeedEventsById);

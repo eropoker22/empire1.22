@@ -98,6 +98,7 @@ export function createFactoryPopupRuntime(deps = {}) {
       return false;
     }
     popup.dataset.uiOwner = "legacy-shared";
+    popup.dataset.buildingMechanicsType = "factory";
 
     const tabButtons = queryAll(popup, selectors.tab);
     const panels = queryAll(popup, selectors.panel);
@@ -194,7 +195,7 @@ export function createFactoryPopupRuntime(deps = {}) {
           normalizeResourceColorKey: deps.normalizeProductionResourceColorKey
         }) || {};
         const collectTitle = dashboardViewModel.collectButton?.title
-          || "Výroba se ukládá do skladu okamžitě.";
+          || "Hotová výroba čeká na vyzvednutí po doběhnutí serverového času.";
         dashboardViewModel.collectButton = {
           ...(dashboardViewModel.collectButton || {}),
           visible: false,
@@ -232,7 +233,7 @@ export function createFactoryPopupRuntime(deps = {}) {
               }
             });
             const error = response?.errors?.[0];
-            deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Výrobek byl okamžitě uložen do skladu.");
+            deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Výroba byla spuštěna; výstup vznikne po doběhnutí serverového času.");
             renderFactoryDashboard();
           },
           onPauseSlot: async (slotView) => {
@@ -365,7 +366,7 @@ export function createFactoryPopupRuntime(deps = {}) {
         ...(dashboardViewModel.collectButton || {}),
         visible: false,
         disabled: true,
-        title: "Výroba se ukládá do skladu okamžitě."
+        title: "Výroba se spustí hned a dokončí po uvedeném čase."
       };
       deps.renderFactoryDashboardPanel?.({
         level: levelElement,

@@ -188,7 +188,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   }),
   lekarna: Object.freeze({
     role: "Chemická podpora",
-    info: "Lékárna vyrábí Chemicals, Biomass a Stim Pack okamžitě. Server v jednom kroku ověří cenu, odečte clean cash a uloží výstup do SKLADU.",
+    info: "Lékárna vyrábí Chemicals, Biomass a Stim Pack v čase určeném serverem. Server při startu ověří cenu a odečte vstupy; výstup uloží do SKLADU až po dokončení.",
     actions: Object.freeze([])
   }),
   "drug lab": Object.freeze({

@@ -55,13 +55,13 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("margin-right: 0 !important;");
     }
     for (const stylesheet of [mainCss, clientMainCss]) {
-      expect(stylesheet).toContain("width: min(438px, calc(100vw - 8px)) !important;");
+      expect(stylesheet).toContain("width: 100vw !important;");
       expect(stylesheet).toContain("margin: 0 !important;");
     }
   });
 
   it("draws the wanted close mark without a system-font glyph", () => {
-    for (const stylesheet of [css, clientCss]) {
+    for (const stylesheet of [`${css}\n${mainCss}`, `${clientCss}\n${clientMainCss}`]) {
       expect(stylesheet).toContain(
         "Wanted close mark is code-drawn so its shape does not depend on a system font raster."
       );
@@ -218,7 +218,7 @@ describe("mobile action modal CSS", () => {
   });
 
   it("keeps mobile district action windows below the resource bar", () => {
-    for (const stylesheet of [css, clientCss]) {
+    for (const stylesheet of [`${css}\n${mainCss}`, `${clientCss}\n${clientMainCss}`]) {
       expect(stylesheet).toContain("Final mobile district action window topbar guard.");
       expect(stylesheet).toContain("--district-window-safe-top: calc(var(--mobile-overlay-top-offset, var(--mobile-topbar-offset, 72px)) + 8px);");
       expect(stylesheet).toContain("--district-window-safe-height: calc(var(--mobile-locked-vh, 100svh) - var(--district-window-safe-top) - var(--district-window-safe-bottom));");
@@ -365,7 +365,7 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("display: none;");
     }
 
-    for (const stylesheet of [css, clientCss]) {
+    for (const stylesheet of [`${css}\n${mainCss}`, `${clientCss}\n${clientMainCss}`]) {
       expect(stylesheet).toContain("Final mobile district owner avatar lightbox top-layer guard.");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked #alliance-member-lightbox.avatar-lightbox.avatar-lightbox--district-owner:not(.hidden)");
       expect(stylesheet).toContain("z-index: 26000 !important;");
@@ -926,6 +926,41 @@ describe("mobile action modal CSS", () => {
     expect(cityEventsCss).toContain("height: auto;");
   });
 
+  it("dims and blocks the mobile City Events backdrops without making them close controls", () => {
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      expect(stylesheet).toContain("background: rgba(3, 7, 12, 0.82) !important;");
+      expect(stylesheet).toContain("backdrop-filter: blur(5px) saturate(105%) !important;");
+      expect(stylesheet).toContain("pointer-events: auto !important;");
+      expect(stylesheet).toContain("touch-action: none !important;");
+    }
+
+    for (const html of [gameHtml, clientGameHtml]) {
+      expect(html).toContain('<div id="events-modal-backdrop" class="modal__backdrop"></div>');
+      expect(html).toContain('<div id="event-detail-modal-backdrop" class="modal__backdrop"></div>');
+      expect(html).not.toContain('id="events-modal-backdrop" class="modal__backdrop" data-shared-modal-close');
+      expect(html).not.toContain('id="event-detail-modal-backdrop" class="modal__backdrop" data-shared-modal-close');
+    }
+  });
+
+  it("extends every dimmed mobile card backdrop to the display bottom", () => {
+    const marker = "Final phone backdrop viewport coverage: dimmed card surfaces must reach the display bottom.";
+
+    for (const stylesheet of [mainCss, clientMainCss]) {
+      const guardStart = stylesheet.lastIndexOf(marker);
+      expect(guardStart).toBeGreaterThan(-1);
+      const guard = stylesheet.slice(guardStart);
+      expect(guard).toContain('[class*="-popup-shell"]');
+      expect(guard).toContain('[class*="-detail-shell"]');
+      expect(guard).toContain('[class*="-modal"]');
+      expect(guard).toContain('> :is(\n    .modal__backdrop,\n    [class*="-backdrop"],\n    [class*="__backdrop"]');
+      expect(guard).toContain("position: fixed !important;");
+      expect(guard).toContain("inset: 0 !important;");
+      expect(guard).toContain("height: 100vh !important;\n    height: 100dvh !important;");
+      expect(guard).toContain("min-height: 100dvh !important;");
+      expect(guard).toContain("max-height: 100dvh !important;");
+    }
+  });
+
   it("uses one deadline for the mobile close guard and its click suppression", () => {
     expect(mobileRuntime).toContain("suppressClickUntil = getNow() + MOBILE_CLOSE_GUARD_MS;");
     expect(mobileRuntime).toContain("body.classList.add(MOBILE_CLOSE_GUARD_CLASS);");
@@ -934,7 +969,7 @@ describe("mobile action modal CSS", () => {
   });
 
   it("keeps the mobile page visually stable while popup cards are open", () => {
-    for (const stylesheet of [css, clientCss]) {
+    for (const stylesheet of [`${css}\n${mainCss}`, `${clientCss}\n${clientMainCss}`]) {
       expect(stylesheet).not.toContain("--mobile-topbar-offset: 0px !important;");
       expect(stylesheet).toContain("body.game-body.game-modal-scroll-locked");
       expect(stylesheet).toContain("height: auto !important;");
@@ -1317,8 +1352,8 @@ describe("mobile action modal CSS", () => {
   it("gives every production-building entry path full phone height and a dim backdrop", () => {
     for (const stylesheet of [mainCss, clientMainCss]) {
       expect(stylesheet).toContain("Final phone production-building contract");
-      expect(stylesheet).toContain("--production-building-phone-top: 0px;");
-      expect(stylesheet).toContain("--production-building-phone-bottom: 0px;");
+      expect(stylesheet).toContain("inset: 0 !important;");
+      expect(stylesheet).toContain("height: 100dvh !important;");
       expect(stylesheet).toContain(".armory-popup-shell:not([hidden]) > .armory-popup-backdrop");
       expect(stylesheet).toContain(".pharmacy-popup-shell:not([hidden]) > .pharmacy-popup-backdrop");
       expect(stylesheet).toContain(".druglab-popup-shell:not([hidden]) > .druglab-popup-backdrop");

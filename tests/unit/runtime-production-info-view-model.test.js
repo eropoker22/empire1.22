@@ -26,7 +26,7 @@ describe("production info view models", () => {
     };
 
     expect(formatProductionRecipeInputList(recipe, { formatCurrency, getResourceLabel })).toBe("50$ clean + Chemicals x2 + Biomass x1");
-    expect(formatProductionRecipeInfoLine(recipe, { formatCurrency, formatDurationLabel, getResourceLabel })).toBe("Neon Dust: 50$ clean + Chemicals x2 + Biomass x1 -> Neon Dust x3 · okamžitě");
+    expect(formatProductionRecipeInfoLine(recipe, { formatCurrency, formatDurationLabel, getResourceLabel })).toBe("Neon Dust: 50$ clean + Chemicals x2 + Biomass x1 -> Neon Dust x3 · hotovo za 5s");
     expect(formatProductionRecipeInputList()).toBe("Bez vstupu");
   });
 
@@ -57,7 +57,7 @@ describe("production info view models", () => {
     expect(viewModel.multiplier).toBe(1.2);
     expect(viewModel.nextMultiplier).toBe(1.3);
     expect(viewModel.effectsLabel).toBe("Drug Lab · pasivní produkce +20%");
-    expect(viewModel.recipeLines[0]).toBe("Neon Dust: Chemicals x1 -> Neon Dust x2 · okamžitě");
+    expect(viewModel.recipeLines[0]).toBe("Neon Dust: Chemicals x1 -> Neon Dust x2 · hotovo za 4s");
     expect(recipes.dust.inputs.chemicals).toBe(1);
   });
 
@@ -104,7 +104,7 @@ describe("production info view models", () => {
     expect(viewModel.rows[0]).toEqual({ label: "Level", value: "L2" });
     expect(viewModel.rows[1]).toEqual({ label: "Upgrade", value: "100$ -> L3" });
     expect(viewModel.rows[2].value).toBe("Pasivní produkce budovy +50%.");
-    expect(viewModel.rows[4].value).toBe("Výstup se po potvrzení okamžitě uloží do skladu.");
+    expect(viewModel.rows[4].value).toBe("Rozkaz se odešle hned, výstup vznikne až po doběhnutí serverového času.");
     expect(viewModel.actions[1].description).toBe("Stojí 100$ clean cash a zvedne pasivní produkci na +50%.");
     expect(viewModel.description).toContain("Metal Parts, Tech Core a Combat Module");
     expect(viewModel.description).toContain("pokročilé boost protokoly");
@@ -116,19 +116,19 @@ describe("production info view models", () => {
     expect(viewModel.products[0]).toMatchObject({
       id: "metal-parts",
       title: "Metal Parts",
-      durationLabel: "Okamžitě",
+      durationLabel: "240s",
       costLabel: "300$ clean"
     });
     expect(viewModel.products[2]).toMatchObject({
       id: "combat-module",
       title: "Bojový modul",
-      durationLabel: "Okamžitě",
+      durationLabel: "900s",
       costLabel: "2500$ clean + Metal Parts x4 + Tech Core x2"
     });
-    expect(viewModel.rows[5].value).toBe("2500$ clean + Metal Parts x4 + Tech Core x2 · okamžitě");
+    expect(viewModel.rows[5].value).toBe("2500$ clean + Metal Parts x4 + Tech Core x2 · hotovo za 900s");
   });
 
-  it("does not expose legacy Factory slot duration as current execution time", () => {
+  it("uses the projected Factory slot duration as current execution time", () => {
     const viewModel = createFactoryBuildingInfoViewModel({
       factoryState: {
         level: 1,
@@ -148,7 +148,7 @@ describe("production info view models", () => {
       formatDurationLabel
     });
 
-    expect(viewModel.products.find((product) => product.id === "metal-parts")?.durationLabel).toBe("Okamžitě");
+    expect(viewModel.products.find((product) => product.id === "metal-parts")?.durationLabel).toBe("160s");
   });
 
   it("handles missing config without crashing", () => {

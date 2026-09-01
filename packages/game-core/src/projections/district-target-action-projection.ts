@@ -70,7 +70,11 @@ export const createOpenedDistrictTargetActions = (
           input.playerId,
           sourceDistrictId,
           input.conflictConfig,
-          input.issuedAt
+          input.issuedAt,
+          {
+            dayLengthTicks: input.config?.balance.dayLengthTicks,
+            nightLengthTicks: input.config?.balance.nightLengthTicks
+          }
         )
       ),
       spyTargets: occupyAuthorization === true

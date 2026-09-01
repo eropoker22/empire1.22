@@ -460,6 +460,7 @@ describe("server market system", () => {
     expect(viewModel.recentTransactions.length).toBeGreaterThan(0);
     expect(getResourceTrend(bought.nextState!, "tech-core")).toBe("spike");
     expect(techCore.warnings).toContain("Stock dochází");
+    expect(Number(techCore.maxPlayerListingUnitPrice)).toBeGreaterThan(Number(techCore.normalMarket.price));
   });
 
   it("redacts private transaction authority fields from another player's market view", () => {

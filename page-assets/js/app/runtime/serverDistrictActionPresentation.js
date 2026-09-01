@@ -24,6 +24,16 @@ const resolveTargetDisabledReason = (definition, target) => {
   return String(target?.disabledReason || "Akce teď není dostupná.");
 };
 
+const resolveHeistLaunchCopy = (target) => {
+  const style = target?.styles?.find((entry) => entry.style === target?.recommendedStyle)
+    || target?.styles?.find((entry) => entry.enabled !== false)
+    || target?.styles?.[0]
+    || null;
+  const population = Math.max(0, Number(style?.defaultPopulationSent || style?.minMembers || 0));
+  const styleLabel = String(style?.label || style?.style || "doporučený plán");
+  return `${styleLabel} · ${population} lidí · verdikt po odpočtu`;
+};
+
 export function createServerDistrictActionPresentation(readModel, districtId) {
   const canonicalDistrictId = String(districtId || "");
   const district = readModel?.district || null;
@@ -83,17 +93,20 @@ export function createServerDistrictActionPresentation(readModel, districtId) {
     if (!target) return [];
     const enabled = target.enabled === true;
     const reason = enabled ? "" : resolveTargetDisabledReason(definition, target);
+    const heistLaunchCopy = enabled && definition.id === "heist"
+      ? resolveHeistLaunchCopy(target)
+      : "";
     return [{
       id: definition.id,
       enabled,
       label: definition.label,
       reason: "",
-      stacked: !enabled,
-      subtitle: reason,
+      stacked: !enabled || Boolean(heistLaunchCopy),
+      subtitle: reason || heistLaunchCopy,
       disabledTone: !enabled && definition.id === "spy" && target.disabledCode === "SPY_SLOT_LIMIT_REACHED"
         ? "no-spies"
         : !enabled ? "unavailable" : "",
-      title: reason,
+      title: reason || (heistLaunchCopy ? `Kliknutí okamžitě vyšle ${heistLaunchCopy}.` : ""),
       visible: true
     }];
   });

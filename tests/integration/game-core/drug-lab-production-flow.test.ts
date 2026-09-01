@@ -9,6 +9,7 @@ import {
 import type { CraftItemCommand } from "@empire/shared-types";
 import { createCraftItemCommandFixture } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import { advanceProductionUntilIdle } from "../../fixtures/timed-operation-fixtures";
 
 const context = { config: resolveModeConfig("free") };
 
@@ -18,7 +19,7 @@ const produce = (buildingId: string, recipeId: string, quantity = 1): CraftItemC
     payload: { districtId: "district:1", buildingId, recipeId, quantity }
   });
 
-describe("instant drug lab production", () => {
+describe("timed drug lab production", () => {
   it("keeps the five canonical recipes and their existing economy values", () => {
     const recipes = context.config.balance.drugLab!.recipes;
     expect(Object.keys(recipes)).toEqual([
@@ -40,7 +41,7 @@ describe("instant drug lab production", () => {
     });
   });
 
-  it("debits every dependency and stores each finished drug immediately", () => {
+  it("debits every dependency immediately and stores each drug only when due", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("drug_lab", {
       playerBalances: {
         cash: 20_000,
@@ -65,22 +66,42 @@ describe("instant drug lab production", () => {
       expect(result.errors).toEqual([]);
       return result.nextState;
     }, state);
+    const completed = recipeIds.reduce(
+      (current, recipeId) => advanceProductionUntilIdle(current, building.id, recipeId, context),
+      finished
+    );
 
     expect(finished.root.tick).toBe(state.root.tick);
     expect(finished.resourceStatesById["resource:1"]?.balances).toMatchObject({
       cash: 10_800,
       chemicals: 15,
       biomass: 17,
-      "neon-dust": 3,
-      "pulse-shot": 3,
-      "velvet-smoke": 3,
+      "neon-dust": 2,
+      "pulse-shot": 2,
+      "velvet-smoke": 2,
+      "ghost-serum": 0,
+      "overdrive-x": 0
+    });
+    expect(completed.resourceStatesById["resource:1"]?.balances).toMatchObject({
+      cash: 10_800,
+      chemicals: 15,
+      biomass: 17,
+      "neon-dust": 2,
+      "pulse-shot": 2,
+      "velvet-smoke": 2,
+      "ghost-serum": 0,
+      "overdrive-x": 0
+    });
+    expect(completed.resourceStatesById[`resource:${building.id}`]?.balances).toMatchObject({
+      "neon-dust": 1,
+      "pulse-shot": 1,
+      "velvet-smoke": 1,
       "ghost-serum": 1,
       "overdrive-x": 1
     });
-    expect(finished.buildingsById[building.id]?.productionLines).toBeUndefined();
   });
 
-  it("projects no active timer, queue or collect step", () => {
+  it("projects timed lines without a collect step", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("drug_lab", {
       playerBalances: { cash: 2_000, chemicals: 10, biomass: 10 }
     });
@@ -92,7 +113,7 @@ describe("instant drug lab production", () => {
       tickRateMs: context.config.tickRateMs
     })!;
 
-    expect(view.lines.every((line) => line.executionMode === "instant")).toBe(true);
+    expect(view.lines.every((line) => line.executionMode === "legacy-timed")).toBe(true);
     expect(view.lines.every((line) => line.remainingTicks === 0 && line.queuedAmount === 0)).toBe(true);
     expect(view.lines.every((line) => line.canCollect === false)).toBe(true);
   });

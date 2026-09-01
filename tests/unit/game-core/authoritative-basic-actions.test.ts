@@ -23,29 +23,33 @@ import {
   createRemoveDefenseCommandFixture,
   createRobDistrictCommandFixture
 } from "../../fixtures/command-fixtures";
+import { resolvePendingDistrictAction } from "../../fixtures/timed-operation-fixtures";
 
 const context = { config: resolveModeConfig("free") };
+const robCooldownTicks = context.config.balance.conflict?.robCooldownTicks ?? 0;
 
 describe("authoritative basic action commands", () => {
   it("robs an adjacent neutral district without changing ownership", () => {
     const state = createNeutralRobState();
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 2 };
-    const result = applyCommand(state, createRobDistrictCommandFixture(), context);
+    const started = applyCommand(state, createRobDistrictCommandFixture(), context);
+    const result = resolvePendingDistrictAction(started.nextState, context);
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"]).toMatchObject({
       ownerPlayerId: null,
       heat: expect.any(Number),
       neutralLootPool: expect.any(Object)
     });
-    const robLoot = (result.events[0]?.payload as Record<string, unknown>).loot as Record<string, number>;
+    const robbedEvent = result.events.find((event) => event.type === "district-robbed");
+    const robLoot = (robbedEvent?.payload as Record<string, unknown>).loot as Record<string, number>;
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1000 + robLoot.cash);
     expect(result.nextState.policeStatesById["police:1"]?.heat).toBeGreaterThan(0);
     expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns).toMatchObject({
-      [createRobCooldownKey("district:2")]: context.config.balance.conflict!.robCooldownTicks,
-      [createRobSourceCooldownKey("district:1")]: context.config.balance.conflict!.robCooldownTicks
+      [createRobCooldownKey("district:2")]: result.nextState.root.tick + robCooldownTicks,
+      [createRobSourceCooldownKey("district:1")]: result.nextState.root.tick + robCooldownTicks
     });
-    expect(result.events[0]).toMatchObject({
+    expect(robbedEvent).toMatchObject({
       type: "district-robbed",
       payload: expect.objectContaining({
         sourceDistrictId: "district:1",
@@ -58,7 +62,8 @@ describe("authoritative basic action commands", () => {
   it("blocks repeated robbing on the same target and from the same source while cooldown is active", () => {
     const state = createNeutralRobState();
     state.playersById["player:1"] = { ...state.playersById["player:1"], population: 2 };
-    const first = applyCommand(state, createRobDistrictCommandFixture({ id: "command:rob:cooldown:1" }), context);
+    const started = applyCommand(state, createRobDistrictCommandFixture({ id: "command:rob:cooldown:1" }), context);
+    const first = resolvePendingDistrictAction(started.nextState, context);
 
     const sameTarget = applyCommand(first.nextState, createRobDistrictCommandFixture({ id: "command:rob:cooldown:2" }), context);
     expect(sameTarget.errors).toContainEqual(expect.objectContaining({
@@ -129,19 +134,21 @@ describe("authoritative basic action commands", () => {
 
   it("heists an adjacent enemy district without changing ownership", () => {
     const state = createHeistState();
-    const result = applyCommand(state, createHeistDistrictCommandFixture(), context);
+    const started = applyCommand(state, createHeistDistrictCommandFixture(), context);
+    const result = resolvePendingDistrictAction(started.nextState, context);
 
-    expect(result.errors).toEqual([]);
+    expect(started.errors).toEqual([]);
     expect(result.nextState.districtsById["district:2"].ownerPlayerId).toBe("player:2");
-    const heistLoot = (result.events[0]?.payload as Record<string, unknown>).loot as Record<string, number>;
+    const heistedEvent = result.events.find((event) => event.type === "district-heisted");
+    const heistLoot = (heistedEvent?.payload as Record<string, unknown>).loot as Record<string, number>;
     expect(result.nextState.resourceStatesById["resource:1"].balances.cash).toBe(1000 + heistLoot.cash);
     expect(result.nextState.resourceStatesById["resource:2"].balances.cash).toBe(1000 - heistLoot.cash);
     expect(result.nextState.cooldownStatesById["cooldown:1"]?.cooldowns).toMatchObject({
-      [createHeistGlobalCooldownKey()]: context.config.balance.conflict!.heist!.globalCooldownTicks,
+      [createHeistGlobalCooldownKey()]: result.nextState.root.tick + context.config.balance.conflict!.heist!.globalCooldownTicks,
       [createHeistAttackerTargetCooldownKey("district:2")]:
-        context.config.balance.conflict!.heist!.sameTargetCooldownTicks
+        result.nextState.root.tick + context.config.balance.conflict!.heist!.sameTargetCooldownTicks
     });
-    expect(result.events[0]).toMatchObject({
+    expect(heistedEvent).toMatchObject({
       type: "district-heisted",
       payload: expect.objectContaining({
         style: "balanced",
@@ -153,7 +160,8 @@ describe("authoritative basic action commands", () => {
 
   it("blocks repeated heists while the authoritative cooldown is active", () => {
     const state = createHeistState();
-    const first = applyCommand(state, createHeistDistrictCommandFixture({ id: "command:heist:cooldown:1" }), context);
+    const started = applyCommand(state, createHeistDistrictCommandFixture({ id: "command:heist:cooldown:1" }), context);
+    const first = resolvePendingDistrictAction(started.nextState, context);
     const repeated = applyCommand(first.nextState, createHeistDistrictCommandFixture({
       id: "command:heist:cooldown:2",
       payload: {
@@ -641,8 +649,8 @@ describe("authoritative basic action commands", () => {
         enabled: false,
         disabledCode: "INSUFFICIENT_POPULATION",
         cooldownRemainingTicks: 0,
-        lootPoolLevel: "exhausted",
-        exhausted: true,
+        lootPoolLevel: "rich",
+        exhausted: false,
         heatRisk: { minimum: 1, maximum: 6 }
       })
     ]);
@@ -651,7 +659,8 @@ describe("authoritative basic action commands", () => {
   it("projects rob and heist cooldown reasons into the district panel", () => {
     const robState = createNeutralRobState();
     robState.playersById["player:1"] = { ...robState.playersById["player:1"], population: 2 };
-    const robbed = applyCommand(robState, createRobDistrictCommandFixture({ id: "command:rob:projection" }), context);
+    const robStarted = applyCommand(robState, createRobDistrictCommandFixture({ id: "command:rob:projection" }), context);
+    const robbed = resolvePendingDistrictAction(robStarted.nextState, context);
     const robPanel = createDistrictPanelView(robbed.nextState, {
       districtId: "district:1",
       playerId: "player:1",
@@ -669,7 +678,8 @@ describe("authoritative basic action commands", () => {
       })
     ]);
 
-    const heisted = applyCommand(createHeistState(), createHeistDistrictCommandFixture({ id: "command:heist:projection" }), context);
+    const heistStarted = applyCommand(createHeistState(), createHeistDistrictCommandFixture({ id: "command:heist:projection" }), context);
+    const heisted = resolvePendingDistrictAction(heistStarted.nextState, context);
     const heistPanel = createDistrictPanelView(heisted.nextState, {
       districtId: "district:1",
       playerId: "player:1",

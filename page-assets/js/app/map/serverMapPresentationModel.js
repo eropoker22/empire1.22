@@ -8,6 +8,7 @@ const EFFECT_TYPES = Object.freeze({
   occupy: "occupy",
   robbery: "robbery",
   rob: "robbery",
+  heist: "robbery",
   trap: "trap"
 });
 
