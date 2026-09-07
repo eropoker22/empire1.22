@@ -71,7 +71,7 @@ export function formatEliminationRemainingMs(remainingMs, options = {}) {
     : `${minutes}min ${String(seconds).padStart(2, "0")}s`;
 }
 
-export function resolveEliminationWarningMilestone(previousRemainingMs, remainingMs, initialCatchUpMs = 60_000) {
+export function resolveEliminationWarningMilestone(previousRemainingMs, remainingMs, initialCatchUpMs = 5 * 60_000) {
   const current = finiteNumber(remainingMs);
   if (current === null || current <= 0) return null;
   const previous = finiteNumber(previousRemainingMs);

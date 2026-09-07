@@ -107,6 +107,7 @@ describe("authoritative elimination countdown", () => {
       expect(resolveEliminationWarningMilestone(milestoneMs + 1_000, milestoneMs)).toBe(milestoneMs);
       expect(resolveEliminationWarningMilestone(null, milestoneMs)).toBe(milestoneMs);
     }
+    expect(resolveEliminationWarningMilestone(null, (7 * 60 + 55) * 60_000)).toBe(28_740_000);
     expect(resolveEliminationWarningMilestone(null, 8 * 60 * 60_000)).toBeNull();
   });
 });
