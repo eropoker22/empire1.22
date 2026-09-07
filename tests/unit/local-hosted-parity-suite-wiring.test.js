@@ -66,7 +66,7 @@ describe("local-hosted presentation parity suite wiring", () => {
   it("keeps bounded ui-parity group runs visibly debug-only", () => {
     expect(runnerSource).toContain('argument.startsWith("--ui-parity-group=")');
     expect(runnerSource).toContain(
-      '"--ui-parity-group is debug-only and requires --suite=ui-parity as the only suite."'
+      '"--ui-parity-group is debug-only and requires exactly one suite with configured Playwright groups."'
     );
     expect(runnerSource).toContain(
       `--ui-parity-group cannot be combined with \${UI_PARITY_DEBUG_BUILDING_TYPES_ENV}.`

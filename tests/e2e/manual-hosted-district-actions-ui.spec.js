@@ -366,24 +366,33 @@ async function clickAndReadTypedSubmit(page, commandType, button, options = {}) 
       };
       window.__empireImmediateActionTimeline = timeline;
       const originalFetch = window.fetch.bind(window);
+      const originalResponseJson = Response.prototype.json;
+      const isGameplaySubmitUrl = (requestUrl) => {
+        try {
+          return new URL(requestUrl, window.location.href).pathname === "/api/gameplay-slice/submit";
+        } catch {
+          return false;
+        }
+      };
       window.fetch = (...args) => {
         const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url;
-        const isGameplaySubmit = (() => {
-          try {
-            return new URL(requestUrl, window.location.href).pathname === "/api/gameplay-slice/submit";
-          } catch {
-            return false;
-          }
-        })();
+        const isGameplaySubmit = isGameplaySubmitUrl(requestUrl);
         if (isGameplaySubmit && timeline.clickAt !== null && timeline.requestAt === null) {
           timeline.requestAt = performance.now();
         }
-        const responsePromise = originalFetch(...args);
-        if (!isGameplaySubmit) return responsePromise;
-        return responsePromise.then((response) => {
+        return originalFetch(...args);
+      };
+      Response.prototype.json = async function (...args) {
+        const body = await originalResponseJson.apply(this, args);
+        if (isGameplaySubmitUrl(this.url) && timeline.clickAt !== null && timeline.responseAt === null) {
           timeline.responseAt ??= performance.now();
-          return response;
-        });
+        }
+        return body;
+      };
+      window.__empireImmediateActionRestore = () => {
+        window.fetch = originalFetch;
+        Response.prototype.json = originalResponseJson;
+        delete window.__empireImmediateActionRestore;
       };
       element.addEventListener("click", () => {
         timeline.clickAt = performance.now();
@@ -427,6 +436,7 @@ async function clickAndReadTypedSubmit(page, commandType, button, options = {}) 
       pendingRenderDelayMs: timeline.pendingAt - timeline.responseAt,
       submitRequestCount
     };
+    await page.evaluate(() => window.__empireImmediateActionRestore?.());
     await page.unroute("**/api/gameplay-slice/submit", delayedRoute);
   }
   page.off("request", requestListener);

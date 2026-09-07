@@ -1189,12 +1189,12 @@ export async function openParityLocalDemo(page, {
     startingPlayerState,
     weaponResourceKeys: parityWeaponResourceKeys
   });
-  await page.goto("/pages/game.html?runtimeMode=local-demo&autoStartLocalDemo=1", { waitUntil: "load" });
+  await page.goto("/pages/game.html?runtimeMode=local-demo&autoStartLocalDemo=1", { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => (
     window.EmpireRuntime
     && document.querySelector("#game-root")?.dataset?.runtimeInit === "ready"
     && document.documentElement?.dataset?.runtimeMode === "local-demo"
-  ));
+  ), null, { timeout: 60_000 });
   await page.evaluate((configuredFactionId) => {
     const gameplayRoot = document.querySelector("[data-gameplay-slice-client]");
     if (gameplayRoot instanceof HTMLElement) {

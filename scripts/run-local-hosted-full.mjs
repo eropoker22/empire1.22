@@ -344,10 +344,13 @@ const uiParityDebugBuildingTypeIds = parseUiParityDebugBuildingTypes(
 );
 if (
   requestedUiParityGroupNames.size > 0
-  && (selectedSuites.length !== 1 || selectedSuites[0]?.name !== "ui-parity")
+  && (
+    selectedSuites.length !== 1
+    || (selectedSuites[0]?.playwrightGroups || []).length === 0
+  )
 ) {
   throw new Error(
-    "--ui-parity-group is debug-only and requires --suite=ui-parity as the only suite."
+    "--ui-parity-group is debug-only and requires exactly one suite with configured Playwright groups."
   );
 }
 if (requestedUiParityGroupNames.size > 0 && uiParityDebugBuildingTypeIds.length > 0) {
@@ -367,7 +370,7 @@ if (requestedUiParityGroupNames.size > 0) {
     );
   }
   console.warn(
-    `[local-hosted] DEBUG-ONLY ui-parity groups: ${[...requestedUiParityGroupNames].join(", ")}. This is not a comprehensive parity gate.`
+    `[local-hosted] DEBUG-ONLY Playwright groups: ${[...requestedUiParityGroupNames].join(", ")}. This is not a comprehensive parity gate.`
   );
 }
 if (
@@ -833,7 +836,7 @@ try {
             name: "spawn-building-matrix-debug",
             grep: "live/demo spawn-reachable canonical building matrix"
           }]
-        : suite.name === "ui-parity" && requestedUiParityGroupNames.size > 0
+        : requestedUiParityGroupNames.size > 0
           ? configuredPlaywrightGroups.filter((group) => requestedUiParityGroupNames.has(group.name))
           : configuredPlaywrightGroups;
       for (const group of playwrightGroups) {

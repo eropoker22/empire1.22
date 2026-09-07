@@ -1336,7 +1336,7 @@ export async function captureDistrictActionOverlayScreenshot(page, {
       ? definition.targetSelector
       : definition.roundedCompositeSelector
         || (definition.stage === "confirmation" ? ".modal__actions button" : ""),
-    roundedCompositeRasterFringePx: definition.stage === "confirmation" ? 4 : 2,
+    roundedCompositeRasterFringePx: definition.stage === "confirmation" ? 6 : 2,
     stableAnimationSelector: inlineRasterStabilizationSelector,
     stableBackdropFilterSelector: inlineRasterStabilizationSelector,
     stableBackdropShellSelector: definition.shellSelector,

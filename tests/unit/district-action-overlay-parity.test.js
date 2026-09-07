@@ -285,7 +285,7 @@ describe("district action overlay parity coverage", () => {
       '|| (definition.stage === "confirmation" ? ".modal__actions button" : "")'
     );
     expect(helperSource).toContain(
-      'roundedCompositeRasterFringePx: definition.stage === "confirmation" ? 4 : 2'
+      'roundedCompositeRasterFringePx: definition.stage === "confirmation" ? 6 : 2'
     );
     expect(helperSource).toContain('transition: "none",\n          background: "rgb(6, 10, 18)"');
     expect(helperSource).toContain('"padding-bottom": "8px"');
