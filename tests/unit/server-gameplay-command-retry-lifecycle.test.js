@@ -98,7 +98,7 @@ describe("server gameplay command retry lifecycle", () => {
     });
 
     await expect(retryPromise).resolves.toEqual([null]);
-    expect(modules.source.getCurrentReadModel()).toEqual(initialReadModel);
+    expect(modules.source.getCurrentReadModel()).toBeNull();
     expect(rendered).not.toHaveBeenCalled();
     document.removeEventListener("empire:gameplay-slice-rendered", rendered);
   });

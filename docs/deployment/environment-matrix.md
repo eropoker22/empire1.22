@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **158 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **159 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -154,6 +154,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `EMPIRE_HOSTED_RUNTIME_AUTHORITY_ENABLED` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_HOSTED_STARTING_PLAYER_STATE_JSON` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_HOSTED_UI_PARITY_E2E` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `EMPIRE_IMMEDIATE_ACTION_E2E` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_KILL_SWITCH_PASSWORD` | Browser and hosted acceptance tests | No | No | Test secret | None | None | Local, CI or test-specific value | Yes outside public runtime | Discard after the test run; never reuse a public secret |
 | `EMPIRE_KILL_SWITCH_USERNAME` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_LOCAL_HOSTED_BROWSER_ARTIFACT_ROOT` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |

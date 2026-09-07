@@ -177,7 +177,7 @@ describe("atomic hosted tick persistence", () => {
     });
   });
 
-  it("persists tick income and instant Pharmacy production in the recovery head", async () => {
+  it("persists tick income and pending Pharmacy production in the recovery head", async () => {
     const fixture = await createFixture("production-income", "district:26");
     fixture.runtime.atomicCommandTransaction = createSerializedBoundary(fixture.repositories);
     const district = fixture.runtime.state.districtsById[fixture.districtId];
@@ -250,9 +250,13 @@ describe("atomic hosted tick persistence", () => {
       fixture.runtime.state.resourceStatesById[player.resourceStateId]?.balances.cash ?? 0
     );
     expect(fixture.runtime.state.resourceStatesById[player.resourceStateId]?.balances.chemicals)
-      .toBe(chemicalsBeforeCraft + 1);
+      .toBe(chemicalsBeforeCraft);
     expect(fixture.runtime.state.buildingsById[pharmacy.id]?.processing).toBeNull();
-    expect(fixture.runtime.state.buildingsById[pharmacy.id]?.productionLines?.chemicals).toBeUndefined();
+    expect(fixture.runtime.state.buildingsById[pharmacy.id]?.productionLines?.chemicals).toMatchObject({
+      recipeId: "chemicals",
+      queuedAmount: 1,
+      activeStartedAtTick: 0
+    });
 
     fixture.runtime.scheduler.lastTickAtMs = null;
     await fixture.server.instanceManager.tickInstanceDurably(fixture.instanceId);
@@ -264,9 +268,11 @@ describe("atomic hosted tick persistence", () => {
 
     expect(latest?.state.root.tick).toBe(1);
     expect(persistedPharmacy?.processing).toBeNull();
-    expect(persistedPharmacy?.productionLines?.chemicals).toBeUndefined();
+    expect(persistedPharmacy?.productionLines?.chemicals).toEqual(
+      fixture.runtime.state.buildingsById[pharmacy.id]?.productionLines?.chemicals
+    );
     expect(Number(persistedOutput?.balances.chemicals ?? 0)).toBe(0);
-    expect(persistedPlayerResources?.balances.chemicals).toBe(chemicalsBeforeCraft + 1);
+    expect(persistedPlayerResources?.balances.chemicals).toBe(chemicalsBeforeCraft);
     expect(Number(persistedPlayerResources?.balances.cash ?? 0)).toBeGreaterThan(cashAfterCraft);
     expect(fixture.runtime.state).toEqual(latest?.state);
   });
