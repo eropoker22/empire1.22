@@ -614,7 +614,13 @@ export async function dismissBlockingGameOverlays(page) {
           milestoneModal.querySelector("[data-server-milestone-confirm]")?.click();
         }
       });
-      await expect(page.locator("[data-server-milestone-modal]")).toBeHidden({ timeout: 2_000 });
+      const milestoneModal = page.locator("[data-server-milestone-modal]");
+      for (let milestoneAttempt = 0; milestoneAttempt < 3; milestoneAttempt += 1) {
+        if (!(await milestoneModal.isVisible({ timeout: 250 }).catch(() => false))) break;
+        await milestoneModal.locator("[data-server-milestone-confirm]").click();
+        await page.waitForTimeout(75);
+      }
+      await expect(milestoneModal).toBeHidden({ timeout: 2_000 });
       await expect(page.locator("[data-elimination-countdown-warning]")).toBeHidden({ timeout: 2_000 });
       return;
     } catch (error) {
