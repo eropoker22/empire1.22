@@ -34,7 +34,7 @@ describe("read-only admin Netlify boundary", () => {
     expect(login.json.data).toMatchObject({ adminUserId: "admin-user:test", username: TEST_USERNAME, role: "viewer", authenticationMethod: "password" });
     const overview = await json(handler(request("GET", "/api/admin/overview", null, cookie(login))));
     expect(overview.statusCode).toBe(200);
-    expect(overview.json.data.counts).toMatchObject({ known: 2, live: 1, offline: 1, players: 7 });
+    expect(overview.json.data.counts).toMatchObject({ known: 2, live: 1, offline: 1, players: 2 });
     expect(overview.json.data.runtimeWorkers).toEqual({
       expected: 1,
       live: 1,
@@ -84,6 +84,7 @@ describe("read-only admin Netlify boundary", () => {
       stale: 1,
       offline: 1,
       noWorker: 2
+      , players: template.playerCount
     });
     expect(overview.json.data.runtimeWorkers).toEqual({
       expected: 1,
