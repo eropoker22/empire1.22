@@ -2,7 +2,7 @@
 
 Generated: generated from tracked source
 
-The inventory found **159 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
+The inventory found **162 statically named environment reads** in tracked JavaScript and TypeScript source. Every read is classified below. 25 dynamic lookup site(s) are listed in the generated inventory artifact and must remain covered by explicit validator keys.
 
 Public releases fail closed: no wildcard origin, no loopback URL, no staging hostname in production, no implicit database or secret default, and no provider credential in a runtime scope.
 
@@ -138,6 +138,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `EMPIRE_ACCOUNT_REGISTRATION_LIVE_E2E` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_ADMIN_HOSTED_LIVE_E2E` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_ALLOW_LIVE_POSTGRES_SMOKE` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `EMPIRE_ALLOW_REMOTE_DATABASE_TESTS` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_BROWSER_PATH` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_CAPTURE_UI_PARITY_BASELINE` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_CLOSED_ALPHA_PREFLIGHT_STRICT` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
@@ -186,6 +187,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `EMPIRE_STAGING_NEON_ENDPOINTS_RESPONSE_PATH` | Staging Neon provider target binding | Protected staging release job only | No | No | Release job only; never injected into the site | None | Ephemeral runner path to the provider endpoint response | No | Delete immediately after target verification |
 | `EMPIRE_STAGING_NEON_SNAPSHOT_NAME` | Staging Neon snapshot binding | Protected staging release job only | No | No | Release job only; never injected into the site | None | Generated staging snapshot name bound to the exact release SHA | No | Regenerate for every staging snapshot |
 | `EMPIRE_STAGING_NEON_SNAPSHOT_RESPONSE_PATH` | Staging Neon snapshot binding | Protected staging release job only | No | No | Release job only; never injected into the site | None | Ephemeral runner path to the provider snapshot response | No | Delete immediately after snapshot verification |
+| `EMPIRE_STAGING_SNAPSHOT_SIZE_BYTES` | Local development or verification tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_TEST_DATABASE_URL` | Local persistence tests | No | No | Test secret | None | None | Local, CI or test-specific value | Yes outside public runtime | Discard after the test run; never reuse a public secret |
 | `EMPIRE_UI_PARITY_ARTIFACT_ROOT` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `EMPIRE_UI_PARITY_DISTRICT_ACTION_BATCH_KEYS` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
@@ -197,6 +199,7 @@ These values are forbidden as public-runtime dependencies. Secret-like test valu
 | `GAMEPLAY_PERSISTENCE_DIR` | Local persistence tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `GITHUB_ACTIONS` | CI platform tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `GITHUB_ENV` | CI platform tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
+| `GITHUB_EVENT_NAME` | CI platform tooling | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |
 | `NEON_BRANCH_ID` | Staging Neon workflow branch alias | Protected staging release job only | No | No | Release job only; never injected into the site | None | Exact protected staging branch ID | No | Change only after verified staging branch migration |
 | `NEON_PROJECT_ID` | Staging Neon workflow project alias | Protected staging release job only | No | No | Release job only; never injected into the site | None | Exact protected staging project ID | No | Change only when replacing the staging database project |
 | `PLAYWRIGHT_E2E_BASE_URL` | Browser and hosted acceptance tests | No | No | No | None | None | Local, CI or test-specific value | Yes outside public runtime | N/A |

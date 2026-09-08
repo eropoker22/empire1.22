@@ -57,9 +57,24 @@ describe("persistence suite boundary", () => {
     expect(() => assertExplicitLivePostgresTestEnvironment({
       EMPIRE_DATABASE_URL: "postgresql://runtime.example.invalid/empire"
     })).toThrow("EMPIRE_TEST_DATABASE_URL");
-    expect(assertExplicitLivePostgresTestEnvironment({
+    expect(() => assertExplicitLivePostgresTestEnvironment({
       EMPIRE_TEST_DATABASE_URL: "postgresql://test.example.invalid/empire_test"
+    })).toThrow("EMPIRE_ALLOW_REMOTE_DATABASE_TESTS");
+    expect(assertExplicitLivePostgresTestEnvironment({
+      EMPIRE_TEST_DATABASE_URL: "postgresql://postgres/empire_test"
     })).toBe(true);
+    expect(assertExplicitLivePostgresTestEnvironment({
+      EMPIRE_TEST_DATABASE_URL: "postgresql://branch.eu-central-1.aws.neon.tech/empire_test",
+      EMPIRE_ALLOW_REMOTE_DATABASE_TESTS: "true",
+      EMPIRE_RELEASE_ENVIRONMENT: "staging",
+      CI: "true",
+      GITHUB_EVENT_NAME: "workflow_dispatch"
+    })).toBe(true);
+    expect(() => assertExplicitLivePostgresTestEnvironment({
+      EMPIRE_TEST_DATABASE_URL: "postgresql://branch.eu-central-1.aws.neon.tech/empire_test",
+      EMPIRE_ALLOW_REMOTE_DATABASE_TESTS: "true",
+      EMPIRE_RELEASE_ENVIRONMENT: "production"
+    })).toThrow("explicit staging target");
   });
 
   it("keeps rejected database credentials out of guard errors", () => {

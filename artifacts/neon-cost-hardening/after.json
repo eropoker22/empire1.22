@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "workload": "100 stable ticks after one startup hydration",
+  "snapshotSizeBytes": 395035,
+  "fullSnapshotReadsPer100Ticks": 0,
+  "fullSnapshotBytesPer100Ticks": 0,
+  "metadataReadsPer100Ticks": 600,
+  "metadataReadBytesEstimatePer100Ticks": 96000,
+  "fullSnapshotWritesPer100Ticks": 100,
+  "checkpointWriteCadenceChanged": false,
+  "twentyPlayerUnchangedPolling": {
+    "pollsPerMinute": 120,
+    "fullSnapshotReadsPerMinute": 0,
+    "metadataReadsPerMinute": 120,
+    "estimatedBytesPerMinute": 19200
+  },
+  "externalCommandMismatchFullReloads": 1,
+  "followingStableTicks": 100,
+  "followingStableTickFullReloads": 0,
+  "restartRecoveryFullReloads": 1
+}
