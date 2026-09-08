@@ -38,6 +38,7 @@ describe("production game import graph", () => {
       expect(buildScript).toContain(`"${forbiddenPath}"`);
     }
     expect(requiredPublishFiles).toContain('"page-assets/js/app/runtime.js",');
+    expect(requiredPublishFiles).toContain('"packages/shared-types/src/views/authoritative-gameplay-slice.js",');
     expect(forbiddenPublishPaths).not.toContain('"page-assets/js/app/runtime.js"');
   });
 

@@ -18,7 +18,8 @@ const staticPageFiles = [
   "pages/faction.html",
   "pages/game.html",
   "pages/privacy.html",
-  "pages/closed-alpha-terms.html"
+  "pages/closed-alpha-terms.html",
+  "packages/shared-types/src/views/authoritative-gameplay-slice.js"
 ];
 const requiredPublishFiles = [
   ".htaccess",
@@ -29,6 +30,7 @@ const requiredPublishFiles = [
   "page-assets/js/app/runtime.js",
   "page-assets/js/app/auth-flow.js",
   "page-assets/js/app/model/authority-state.js",
+  "packages/shared-types/src/views/authoritative-gameplay-slice.js",
   "packages/game-config/src/public/public-server-registry.js",
   "packages/game-config/src/legacy-page/combat-config.js",
   "packages/game-config/src/legacy-page/economy-config.js",

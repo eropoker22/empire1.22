@@ -84,4 +84,4 @@ void resolveGameBootContext().then((context) => {
   } else if (document.querySelector(PAGE_ROOT_SELECTOR)) {
     bootGamePage(context);
   }
-});
+}).catch((error) => showLiveGameplayUnavailable(error));

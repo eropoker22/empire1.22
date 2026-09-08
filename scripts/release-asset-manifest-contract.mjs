@@ -8,6 +8,7 @@ export const RELEASE_ASSET_TARGETS = Object.freeze([
   ["page-assets/css/styles.css", "client/page-assets/css/styles.css", "/page-assets/css/styles.css", "revalidate"],
   ["page-assets/css/styles-mobile-fixes.css", "client/page-assets/css/styles-mobile-fixes.css", "/page-assets/css/styles-mobile-fixes.css", "revalidate"],
   ["page-assets/js/client-assets/gameplay-slice-client.js", "client/page-assets/js/client-assets/gameplay-slice-client.js", "/page-assets/js/client-assets/gameplay-slice-client.js", "revalidate"],
+  ["packages/shared-types/src/views/authoritative-gameplay-slice.js", "client/packages/shared-types/src/views/authoritative-gameplay-slice.js", "/packages/shared-types/src/views/authoritative-gameplay-slice.js", "revalidate"],
   ["img/logmes.png", "client/img/logmes.png", "/img/logmes.png", "revalidate"]
 ]);
 

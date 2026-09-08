@@ -35,6 +35,7 @@ describe("release asset manifest contract", () => {
       "/pages/game.html",
       "/page-assets/css/styles.css",
       "/page-assets/js/client-assets/gameplay-slice-client.js",
+      "/packages/shared-types/src/views/authoritative-gameplay-slice.js",
       "/img/logmes.png"
     ]));
   });
