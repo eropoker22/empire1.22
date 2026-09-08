@@ -176,8 +176,7 @@ export const verifyStagingNeonSnapshotBinding = ({
       const operationBranchId = String(operation?.branch_id ?? "").trim();
       return !PROVIDER_ID_PATTERN.test(String(operation?.id ?? ""))
         || operation?.project_id !== projectId
-        || (operationBranchId !== ""
-          && (!PROVIDER_ID_PATTERN.test(operationBranchId) || operationBranchId !== branchId));
+        || (operationBranchId !== "" && !PROVIDER_ID_PATTERN.test(operationBranchId));
     })) {
     fail("STAGING_NEON_SNAPSHOT_OPERATION_MISMATCH");
   }

@@ -97,7 +97,7 @@ describe("staging Neon target contract", () => {
     expect(evidenceText).not.toContain("fixture-password");
   });
 
-  it("binds a snapshot source branch and every provider operation to the preflight evidence", () => {
+  it("binds a snapshot source branch and every provider operation project to the preflight evidence", () => {
     const targetBinding = verifyStagingNeonTargetBinding({
       environment,
       branchResponse,
@@ -139,10 +139,6 @@ describe("staging Neon target contract", () => {
     ["operation from another project", {
       snapshot: { id: "snapshot-staging", source_branch_id: "branch-staging" },
       operations: [{ id: "operation-staging", project_id: "project-production", branch_id: "branch-staging" }]
-    }, "SNAPSHOT_OPERATION_MISMATCH"],
-    ["operation from another branch", {
-      snapshot: { id: "snapshot-staging", source_branch_id: "branch-staging" },
-      operations: [{ id: "operation-staging", project_id: "project-staging", branch_id: "branch-production" }]
     }, "SNAPSHOT_OPERATION_MISMATCH"]
   ])("rejects %s", (_label, snapshotResponse, code) => {
     expect(() => verifyStagingNeonSnapshotBinding({
@@ -163,7 +159,9 @@ describe("staging Neon target contract", () => {
     })).toMatchObject({ operationCount: 0, operationSetHash: expect.stringMatching(/^[0-9a-f]{64}$/u) });
   });
 
-  it.each([undefined, null])("accepts an operation with optional branch_id set to %s", (branchId) => {
+  it.each([undefined, null, "snapshot-internal-branch"])(
+    "accepts an operation with provider-managed branch_id set to %s",
+    (branchId) => {
     expect(verifyStagingNeonSnapshotBinding({
       environment: { ...environment, EMPIRE_STAGING_NEON_SNAPSHOT_NAME: "staging-pre-a" },
       targetBinding: verifyStagingNeonTargetBinding({ environment, branchResponse, endpointsResponse }),
@@ -176,7 +174,8 @@ describe("staging Neon target contract", () => {
         }]
       }
     })).toMatchObject({ operationCount: 1, operationSetHash: expect.stringMatching(/^[0-9a-f]{64}$/u) });
-  });
+    }
+  );
 
   it("rejects target-binding evidence carrying an unapproved raw provider field", () => {
     const targetBinding = verifyStagingNeonTargetBinding({ environment, branchResponse, endpointsResponse });
