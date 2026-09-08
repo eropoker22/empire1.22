@@ -17,11 +17,13 @@ window.empireStreetsRuntimeDiagnostics?.setMode?.(executionMode, {
   reason: "game-entry-mode-selected"
 });
 
-const entryModule = executionMode === CLIENT_EXECUTION_MODES.localDemo
-  ? import("./app-demo.js?v=20260731-e2e-parity-only")
-  : import("./app.js?v=ui-refresh-20260805-2");
-
-void entryModule.catch(() => showClientEntryUnavailable());
+if (executionMode === CLIENT_EXECUTION_MODES.localDemo) {
+  void import("./app-demo.js?v=20260731-e2e-parity-only")
+    .catch(() => showClientEntryUnavailable());
+} else {
+  void import("./app.js?v=ui-refresh-20260805-2")
+    .catch(() => showClientEntryUnavailable());
+}
 
 function showClientEntryUnavailable() {
   document.body?.classList.add("game-body--booting");
