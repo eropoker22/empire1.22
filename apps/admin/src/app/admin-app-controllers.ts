@@ -60,6 +60,27 @@ export const createAdminAppControllers = (options: {
         title: action === "delete" ? "Server archivován" : "Lifecycle požadavek přijat",
         message: `${adminActionLabel(action)} · ${result.status} · ${result.actionRequestId}`
       });
+    },
+    onObserved: (_instanceId, action, result) => {
+      if (result.state === "completed") {
+        options.setNotice({
+          tone: "success",
+          title: "Lifecycle změna dokončena",
+          message: `${adminActionLabel(action)} · ${result.serverStatus ?? "dokončeno"}`
+        });
+      } else if (result.state === "failed") {
+        options.setNotice({
+          tone: "danger",
+          title: "Lifecycle akce selhala",
+          message: `${adminActionLabel(action)} · ${result.errorCode ?? "neznámá chyba"}`
+        });
+      } else {
+        options.setNotice({
+          tone: "warning",
+          title: "Lifecycle požadavek se stále zpracovává",
+          message: `${adminActionLabel(action)} · aktuální stav ${result.serverStatus ?? "neznámý"}. Stav se dál automaticky obnovuje.`
+        });
+      }
     }
   });
   const creation = createAdminCreateController({

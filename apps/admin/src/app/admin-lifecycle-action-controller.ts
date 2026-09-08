@@ -19,7 +19,17 @@ interface Options {
   render: () => void;
   refresh: () => Promise<void>;
   onAccepted: (instanceId: string, action: HostedLifecycleAction, result: AdminLifecycleActionResultView) => void;
+  onObserved: (instanceId: string, action: HostedLifecycleAction, result: LifecycleObservation) => void;
 }
+
+interface LifecycleObservation {
+  state: "completed" | "failed" | "pending";
+  serverStatus: string | null;
+  errorCode: string | null;
+}
+
+const LIFECYCLE_OBSERVATION_ATTEMPTS = 20;
+const LIFECYCLE_OBSERVATION_DELAY_MS = 750;
 
 export const createAdminLifecycleActionController = (options: Options) => {
   let submitting = false;
@@ -114,6 +124,9 @@ export const createAdminLifecycleActionController = (options: Options) => {
       options.onAccepted(instanceId, action, result);
       dialog.closest("[data-admin-lifecycle-backdrop]")?.remove();
       await options.refresh();
+      const observation = await observeLifecycleResult(options, instanceId, action, hosted.version);
+      options.onObserved(instanceId, action, observation);
+      options.render();
     } catch (error) {
       if (message) message.textContent = error instanceof Error ? error.message : "Akci nebylo možné zařadit.";
       button.disabled = false;
@@ -126,6 +139,41 @@ export const createAdminLifecycleActionController = (options: Options) => {
 
   return { bind };
 };
+
+const observeLifecycleResult = async (
+  options: Options,
+  instanceId: string,
+  action: HostedLifecycleAction,
+  expectedVersion: number
+): Promise<LifecycleObservation> => {
+  for (let attempt = 0; attempt < LIFECYCLE_OBSERVATION_ATTEMPTS; attempt += 1) {
+    const server = options.controlPlane()?.servers.find((entry) => entry.serverInstanceId === instanceId) ?? null;
+    if (action === "delete" && (!server || server.status === "archived")) {
+      return { state: "completed", serverStatus: server?.status ?? "archived", errorCode: null };
+    }
+    if (server && server.version !== expectedVersion) {
+      if (server.lastErrorCode) {
+        return { state: "failed", serverStatus: server.status, errorCode: server.lastErrorCode };
+      }
+      if (server.status === lifecycleTargetStatus(action)) {
+        return { state: "completed", serverStatus: server.status, errorCode: null };
+      }
+    }
+    await delay(LIFECYCLE_OBSERVATION_DELAY_MS);
+    await options.refresh();
+  }
+  const server = options.controlPlane()?.servers.find((entry) => entry.serverInstanceId === instanceId) ?? null;
+  return { state: "pending", serverStatus: server?.status ?? null, errorCode: server?.lastErrorCode ?? null };
+};
+
+const lifecycleTargetStatus = (action: HostedLifecycleAction): string | null => {
+  if (action === "start" || action === "resume" || action === "restart") return "running";
+  if (action === "pause") return "paused";
+  if (action === "stop") return "stopped";
+  return null;
+};
+
+const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 export { adminActionLabel };
 
