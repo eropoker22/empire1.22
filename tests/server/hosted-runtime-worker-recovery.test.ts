@@ -177,6 +177,7 @@ describe("hosted runtime worker recovery", () => {
     const current = { value: T0 };
     const app = createServerApp({ clock: clock(() => current.value) });
     const snapshot = await createSnapshot(app, record);
+    app.instanceManager.destroyInstance(record.serverInstanceId);
     const controlPlane = createInMemoryHostedControlPlaneRepository({
       servers: [withSnapshot(record, snapshot)]
     });

@@ -75,12 +75,22 @@ export const runAtomicInstanceTickUnlocked = async (
   runtime.runtimeHealth.lastTickStartedAt = clock.nowIso();
   try {
     const committed = await runtime.atomicCommandTransaction.run(runtime.record.id, async (repositories) => {
-      const latest = await repositories.snapshotRepository.loadRecoveryHead(runtime.record.id);
+      const metadata = await repositories.snapshotRepository.loadRecoveryMetadata(
+        runtime.record.id,
+        { forUpdate: true }
+      );
+      const runtimeMatchesPersisted = metadata?.rootVersion === runtime.state.root.version
+        && metadata.tick === runtime.state.root.tick;
+      const latest = runtimeMatchesPersisted
+        ? null
+        : metadata
+          ? await repositories.snapshotRepository.loadRecoveryHead(runtime.record.id)
+          : (await repositories.snapshotRepository.loadForRecovery(runtime.record.id)).snapshot;
       const baseState = prepareHostedTickState(
         runtime,
         latest ? restoreInstanceState(latest, { config: runtime.config }) : structuredClone(runtime.state)
       );
-      const previousRootVersion = latest?.integrity.rootVersion ?? baseState.root.version;
+      const previousRootVersion = metadata?.rootVersion ?? latest?.integrity.rootVersion ?? baseState.root.version;
       const result = runTick(baseState, { config: runtime.config });
       const nextState = ensureAdvancedRootVersion(result.nextState, previousRootVersion);
       const processedCommandIds = new Set(latest?.runtime?.processedCommandIds ?? runtime.processedCommandIds);
@@ -110,7 +120,7 @@ export const runAtomicInstanceTickUnlocked = async (
         commandRateLimitWindow,
         ...(result.policeRaidEvaluation ? { policeRaidEvaluation: result.policeRaidEvaluation } : {})
       } satisfies CommittedTick;
-    }, { runtimeLeaseFence });
+    }, { runtimeLeaseFence, diagnosticsKind: "tick" });
 
     runtime.state = committed.nextState;
     runtime.processedCommandIds = committed.processedCommandIds;

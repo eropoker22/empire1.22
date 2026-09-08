@@ -28,6 +28,7 @@ export interface RuntimeTickLeaseFence extends RuntimeLeaseFence {
 export interface AtomicCommandTransactionOptions {
   runtimeLeaseFence?: RuntimeLeaseFence;
   hostedStatusFence?: "running-if-present";
+  diagnosticsKind?: "tick" | "command";
 }
 
 export class RuntimeLeaseFenceRejectedError extends Error {

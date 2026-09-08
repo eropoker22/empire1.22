@@ -285,12 +285,12 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
               { lockAlreadyHeld: true }
             );
           }
-          const snapshot = await options.server.instanceManager.getPersistenceRepositories()
-            .snapshotRepository.loadRecoveryHead(effectiveRecord.serverInstanceId);
-          if (!snapshot) throw safe("RUNTIME_SNAPSHOT_MISSING");
+          const snapshotMetadata = await options.server.instanceManager.getPersistenceRepositories()
+            .snapshotRepository.loadRecoveryMetadata(effectiveRecord.serverInstanceId);
+          if (!snapshotMetadata) throw safe("RUNTIME_SNAPSHOT_MISSING");
           if (runtime.record.status === "crashed") throw safe("RUNTIME_TICK_FAILED");
           await lease.writeInstanceHeartbeat({ serverInstanceId: record.serverInstanceId,
-            leaseExpiresAt, lastTick: runtime.state.root.tick, lastSnapshotAt: snapshot.createdAt,
+            leaseExpiresAt, lastTick: runtime.state.root.tick, lastSnapshotAt: snapshotMetadata.createdAt,
             lastErrorCode: null, at: now().toISOString() });
           const defeatedPlayerIds = Object.values(runtime.state.playersById)
             .filter((player) => player.status === "defeated").map((player) => player.id);
@@ -310,7 +310,7 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
             const resolvedAt = now().toISOString();
             if (!await options.controlPlane.finalizeResolvedServer({ serverInstanceId: effectiveRecord.serverInstanceId,
               workerId: options.workerId, workerIncarnationId: lease.workerIncarnationId,
-              expectedVersion: effectiveRecord.version, snapshotId: snapshot.snapshotId, at: resolvedAt })) {
+              expectedVersion: effectiveRecord.version, snapshotId: snapshotMetadata.snapshotId, at: resolvedAt })) {
               throw safe("RESOLVED_SERVER_CLOSE_CONFLICT");
             }
             runtime.lobby.joinPolicy = "closed";
@@ -327,6 +327,7 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
       }
     }
   };
+  const recoveryHydratedRuntimes = new WeakSet<ServerInstanceRuntime>();
   const ensureRuntime = async (record: HostedServerRecord, restoreLatest = false) => {
     const existing = options.server.instanceManager.getInstanceById(record.serverInstanceId);
     if (existing && !restoreLatest) {
@@ -334,12 +335,22 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
       return existing;
     }
     const snapshotRepository = options.server.instanceManager.getPersistenceRepositories().snapshotRepository;
+    if (existing && recoveryHydratedRuntimes.has(existing)) {
+      const metadata = await snapshotRepository.loadRecoveryMetadata(record.serverInstanceId);
+      if (metadata?.rootVersion === existing.state.root.version && metadata.tick === existing.state.root.tick) {
+        syncHostedRuntimeStatus(existing, record, now());
+        return existing;
+      }
+    }
     const recovery = await snapshotRepository.loadForRecovery(record.serverInstanceId);
     const snapshot = recovery.snapshot;
     if (snapshot && !isSnapshotForHostedRecord(snapshot, record)) throw safe("RUNTIME_SNAPSHOT_INVALID");
     if (record.provisioningState === "ready" && !snapshot) throw safe("RUNTIME_SNAPSHOT_MISSING");
     if (existing) {
-      if (snapshot) restoreRuntimeFromSnapshot(existing, snapshot);
+      if (snapshot) {
+        restoreRuntimeFromSnapshot(existing, snapshot);
+        recoveryHydratedRuntimes.add(existing);
+      }
       syncHostedRuntimeStatus(existing, record, now());
       return existing;
     }
@@ -354,7 +365,10 @@ export const createHostedRuntimeWorker = (options: HostedRuntimeWorkerOptions) =
       worldSeed: record.worldSeed
     });
     if (!creation.accepted) throw safe("RUNTIME_CREATE_FAILED");
-    if (snapshot) restoreRuntimeFromSnapshot(creation.runtime, snapshot);
+    if (snapshot) {
+      restoreRuntimeFromSnapshot(creation.runtime, snapshot);
+      recoveryHydratedRuntimes.add(creation.runtime);
+    }
     syncHostedRuntimeStatus(creation.runtime, record, now());
     return creation.runtime;
   };

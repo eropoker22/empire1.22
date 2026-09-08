@@ -7,7 +7,15 @@ import {
 import { assertSnapshotIntegrity } from "../services/snapshot-integrity-validator";
 import {
   createSnapshotPersistenceMetrics,
+  createSnapshotRecoveryMetadata,
   emptySnapshotCheckpointCounts,
+  readSnapshotInstanceIoMetrics,
+  recordCheckpointWrite,
+  recordFullSnapshotRead,
+  recordFullSnapshotWrite,
+  recordMetadataOnlyRead,
+  serializedJsonBytes,
+  snapshotFieldBytes,
   type SnapshotRepository
 } from "./snapshot-repository";
 import {
@@ -53,6 +61,7 @@ export const createFileSnapshotRepository = (
       await writeJsonFileAtomic(createLatestSnapshotPath(options.rootDir, snapshot.instanceId), snapshot);
       metrics.recoveryHeadUpdates += 1;
       recordSerializationMetrics(metrics, snapshot, startedAt);
+      recordFullSnapshotWrite(metrics, snapshot.instanceId, metrics.lastSerializedSnapshotSizeBytes);
       return latest ? "updated" as const : "created" as const;
     } catch (error) {
       metrics.recoveryHeadUpdateFailures += 1;
@@ -74,6 +83,7 @@ export const createFileSnapshotRepository = (
       }
       await writeJsonFileAtomic(path, checkpoint);
       recordCheckpointMetric(metrics, checkpoint);
+      recordCheckpointWrite(metrics, checkpoint.instanceId);
       return "created" as const;
     } catch (error) {
       metrics.checkpointSaveFailures += 1;
@@ -81,8 +91,16 @@ export const createFileSnapshotRepository = (
     }
   });
 
-  const loadHead = (instanceId: ServerInstanceId) =>
-    loadRecoveryHead(options.rootDir, instanceId);
+  const loadHead = async (instanceId: ServerInstanceId) => {
+    const snapshot = await loadRecoveryHead(options.rootDir, instanceId);
+    if (snapshot) recordFullSnapshotRead(metrics, instanceId, serializedJsonBytes(snapshot));
+    return snapshot;
+  };
+  const loadMetadata = async (instanceId: ServerInstanceId) => {
+    const snapshot = await loadRecoveryHead(options.rootDir, instanceId);
+    recordMetadataOnlyRead(metrics, instanceId, snapshot ? 160 : 8);
+    return snapshot ? createSnapshotRecoveryMetadata(snapshot) : null;
+  };
 
   const loadCheckpoint = (instanceId: ServerInstanceId) =>
     loadLatestCheckpoint(options.rootDir, instanceId);
@@ -91,6 +109,7 @@ export const createFileSnapshotRepository = (
     saveRecoveryHead,
     saveCheckpoint,
     loadRecoveryHead: loadHead,
+    loadRecoveryMetadata: loadMetadata,
     loadLatestCheckpoint: loadCheckpoint,
     loadForRecovery: async (instanceId) => {
       const head = await loadHead(instanceId);
@@ -132,6 +151,7 @@ export const createFileSnapshotRepository = (
       return counts;
     },
     getMetrics: () => ({ ...metrics }),
+    getInstanceIoMetrics: (instanceId) => readSnapshotInstanceIoMetrics(metrics, instanceId),
     save: async (snapshot) => { await saveRecoveryHead(snapshot); },
     loadLatest: loadHead
   };
@@ -202,4 +222,5 @@ const recordSerializationMetrics = (
   const serialized = JSON.stringify(snapshot);
   metrics.lastSnapshotSerializationDurationMs = Math.max(0, performance.now() - startedAt);
   metrics.lastSerializedSnapshotSizeBytes = new TextEncoder().encode(serialized).byteLength;
+  metrics.lastSnapshotFieldBytes = snapshotFieldBytes(snapshot);
 };
