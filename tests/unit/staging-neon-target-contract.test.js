@@ -163,6 +163,21 @@ describe("staging Neon target contract", () => {
     })).toMatchObject({ operationCount: 0, operationSetHash: expect.stringMatching(/^[0-9a-f]{64}$/u) });
   });
 
+  it.each([undefined, null])("accepts an operation with optional branch_id set to %s", (branchId) => {
+    expect(verifyStagingNeonSnapshotBinding({
+      environment: { ...environment, EMPIRE_STAGING_NEON_SNAPSHOT_NAME: "staging-pre-a" },
+      targetBinding: verifyStagingNeonTargetBinding({ environment, branchResponse, endpointsResponse }),
+      snapshotResponse: {
+        snapshot: { id: "snapshot-staging", source_branch_id: "branch-staging" },
+        operations: [{
+          id: "operation-staging",
+          project_id: "project-staging",
+          branch_id: branchId
+        }]
+      }
+    })).toMatchObject({ operationCount: 1, operationSetHash: expect.stringMatching(/^[0-9a-f]{64}$/u) });
+  });
+
   it("rejects target-binding evidence carrying an unapproved raw provider field", () => {
     const targetBinding = verifyStagingNeonTargetBinding({ environment, branchResponse, endpointsResponse });
     expect(() => verifyStagingNeonSnapshotBinding({

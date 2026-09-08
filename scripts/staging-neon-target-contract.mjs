@@ -172,11 +172,13 @@ export const verifyStagingNeonSnapshotBinding = ({
     fail("STAGING_NEON_SNAPSHOT_BRANCH_MISMATCH");
   }
   if (!Array.isArray(operations)
-    || operations.some((operation) => !PROVIDER_ID_PATTERN.test(String(operation?.id ?? ""))
-      || operation?.project_id !== projectId
-      || (Object.hasOwn(operation ?? {}, "branch_id")
-        && (!PROVIDER_ID_PATTERN.test(String(operation.branch_id ?? ""))
-          || operation.branch_id !== branchId)))) {
+    || operations.some((operation) => {
+      const operationBranchId = String(operation?.branch_id ?? "").trim();
+      return !PROVIDER_ID_PATTERN.test(String(operation?.id ?? ""))
+        || operation?.project_id !== projectId
+        || (operationBranchId !== ""
+          && (!PROVIDER_ID_PATTERN.test(operationBranchId) || operationBranchId !== branchId));
+    })) {
     fail("STAGING_NEON_SNAPSHOT_OPERATION_MISMATCH");
   }
 
