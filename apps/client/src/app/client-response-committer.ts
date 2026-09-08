@@ -30,6 +30,21 @@ export const createClientResponseCommitter = (options: {
     ): ClientRenderState => {
       if (!canCommit(operationSequence)) return options.getRenderState();
       const currentSlice = options.store.getReadModel().gameplaySlice;
+      if (response.accepted && response.changed === false && !response.readModel && currentSlice) {
+        const currentRenderState = options.getRenderState();
+        options.store.setGameplaySliceMetadata(response.metadata ?? {
+          serverTick: currentSlice.server.currentTick,
+          stateVersion: currentSlice.server.stateVersion
+        });
+        options.store.setErrors(response.errors);
+        options.store.setConnectionState({ status: "ready", lastErrorMessage: null, staleData: false });
+        markCommitted(operationSequence);
+        return currentRenderState.connection.status === "ready"
+          && currentRenderState.connection.lastErrorMessage === null
+          && currentRenderState.connection.staleData === false
+          ? currentRenderState
+          : options.recomputeRenderState("server-slice-unchanged");
+      }
       const mergedSlice = response.readModel
         ? mergeAuthoritativeGameplaySlice(currentSlice, response.readModel, {
             allowScopeChange: !commandId

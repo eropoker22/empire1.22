@@ -59,6 +59,8 @@ export const validateLoadGameplaySliceRequest = (
   validateOptionalStringField(errors, "load", value, "snapshotToken");
   validateOptionalStringField(errors, "load", value, "sessionToken");
   validateOptionalStringField(errors, "load", value, "joinTicket");
+  validateOptionalIntegerField(errors, "load", value, "knownStateVersion");
+  validateOptionalStringField(errors, "load", value, "knownFocusDistrictId");
 
   return errors.length > 0
     ? reject("load", errors)

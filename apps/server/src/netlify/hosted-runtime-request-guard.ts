@@ -1,4 +1,4 @@
-import type { ServerInstanceId } from "@empire/shared-types";
+import type { LoadGameplaySliceRequest, ServerInstanceId } from "@empire/shared-types";
 import type { AdminDurableRepositories } from "../admin/read-only";
 import type { ServerApp } from "../app";
 import { createHostedRuntimeLoader, type HostedRuntimeLoader } from "../bootstrap/hosted-runtime-loader";
@@ -18,6 +18,16 @@ export const createHostedRuntimeRequestGuard = (options: {
 
   return {
     prepare: (serverInstanceId: string) => prepareHostedRuntime(authorityRequired, loader, serverInstanceId),
+    prepareLoad: (request: LoadGameplaySliceRequest) => prepareHostedRuntime(
+      authorityRequired,
+      loader,
+      request.serverInstanceId,
+      false,
+      {
+        knownStateVersion: request.knownStateVersion,
+        allowUnhydratedUnchanged: hasUnchangedFocus(request)
+      }
+    ),
     prepareSubmit: (serverInstanceId: string) =>
       prepareHostedRuntime(authorityRequired, loader, serverInstanceId, true),
     prepareJoin: (body: unknown) =>
@@ -29,7 +39,8 @@ const prepareHostedRuntime = async (
   authorityRequired: boolean,
   loader: HostedRuntimeLoader | null,
   serverInstanceId: string,
-  requireRunning = false
+  requireRunning = false,
+  loadOptions: { knownStateVersion?: number | null; allowUnhydratedUnchanged?: boolean } = {}
 ): Promise<NetlifyFunctionResponse | null> => {
   if (!authorityRequired) return null;
   if (!serverInstanceId) return createJsonResponse(200, createGameplayFunctionErrorResponse([{
@@ -40,11 +51,28 @@ const prepareHostedRuntime = async (
     code: "server.runtime_authority_unavailable",
     message: "Hosted server authority is not configured."
   }]));
-  const result = await loader.load(serverInstanceId as ServerInstanceId, { requireRunning });
-  if (result.accepted) return null;
+  const result = await loader.load(serverInstanceId as ServerInstanceId, { requireRunning, ...loadOptions });
+  if (result.accepted) {
+    return result.unchanged
+      ? createJsonResponse(200, {
+          accepted: true,
+          changed: false,
+          readModel: null,
+          errors: [],
+          metadata: result.metadata,
+          snapshotToken: null
+        })
+      : null;
+  }
   const unavailable = result.errors.some((error) =>
     error.code === "server.runtime_authority_unavailable" || error.code === "server.snapshot_not_found");
   return createJsonResponse(unavailable ? 503 : 200, createGameplayFunctionErrorResponse(result.errors));
+};
+
+const hasUnchangedFocus = (request: LoadGameplaySliceRequest): boolean => {
+  const requestedFocus = String(request.districtId ?? "").trim();
+  const knownFocus = String(request.knownFocusDistrictId ?? "").trim();
+  return Boolean(requestedFocus && knownFocus && requestedFocus === knownFocus);
 };
 
 const readServerInstanceId = (body: unknown): string => {

@@ -39,6 +39,8 @@ export interface LoadGameplaySliceRequest {
    */
   sessionToken?: string | null;
   joinTicket?: string | null;
+  knownStateVersion?: number | null;
+  knownFocusDistrictId?: DistrictId | null;
 }
 
 export interface JoinGameplaySliceRequest {
@@ -90,6 +92,7 @@ export interface GameplayCommandResultLookupResponse {
 
 export interface GameplaySliceResponse {
   accepted: boolean;
+  changed?: boolean;
   readModel: GameplaySliceView | null;
   errors: DomainError[];
   metadata?: GameplaySliceResponseMetadata;

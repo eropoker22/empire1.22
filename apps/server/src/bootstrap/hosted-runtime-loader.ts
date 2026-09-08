@@ -9,17 +9,16 @@ import {
   writeSafeRuntimeLoadDiagnostic,
   type HostedRuntimeLoadStage
 } from "./hosted-runtime-load-diagnostic";
+import {
+  loadHostedRuntimeFastPath,
+  type HostedRuntimeLoader,
+  type HostedRuntimeLoadOptions,
+  type HostedRuntimeLoadResult
+} from "./hosted-runtime-load-fast-path";
 
-export type HostedRuntimeLoadResult =
-  | { accepted: true; runtime: ServerInstanceRuntime; errors: [] }
-  | { accepted: false; runtime: null; errors: DomainError[] };
-
-export interface HostedRuntimeLoader {
-  load(serverInstanceId: ServerInstanceId, options?: { requireRunning?: boolean }): Promise<HostedRuntimeLoadResult>;
-}
-
+export type { HostedRuntimeLoader, HostedRuntimeLoadOptions, HostedRuntimeLoadResult } from
+  "./hosted-runtime-load-fast-path";
 const LOADABLE_STATUSES = new Set(["lobby", "running", "paused"]);
-
 export const createHostedRuntimeLoader = (options: {
   server: ServerApp;
   controlPlane: Pick<HostedControlPlaneRepository, "getServer">;
@@ -30,7 +29,11 @@ export const createHostedRuntimeLoader = (options: {
 
   return {
     load: (serverInstanceId, loadOptions = {}) => {
-      const loadKey = `${serverInstanceId}:${loadOptions.requireRunning === true ? "running" : "read"}`;
+      const loadKey = [
+        serverInstanceId,
+        loadOptions.requireRunning === true ? "running" : "read",
+        loadOptions.allowUnhydratedUnchanged === true ? String(loadOptions.knownStateVersion ?? "unknown") : "hydrate"
+      ].join(":");
       const pending = pendingLoads.get(loadKey);
       if (pending) return pending;
 
@@ -39,7 +42,7 @@ export const createHostedRuntimeLoader = (options: {
         options,
         appliedSnapshots,
         serverInstanceId,
-        loadOptions.requireRunning === true
+        loadOptions
       )).finally(() => {
         if (pendingLoads.get(loadKey) === load) pendingLoads.delete(loadKey);
       });
@@ -60,17 +63,21 @@ const loadHostedRuntime = async (
   options: { server: ServerApp; controlPlane: Pick<HostedControlPlaneRepository, "getServer"> },
   appliedSnapshots: Map<string, AppliedSnapshot>,
   serverInstanceId: ServerInstanceId,
-  requireRunning: boolean
+  loadOptions: HostedRuntimeLoadOptions
 ): Promise<HostedRuntimeLoadResult> => {
   let stage: HostedRuntimeLoadStage = "server-record";
   try {
     const record = await loadHostedServerRecord(options.controlPlane, serverInstanceId);
-    const recordError = validateHostedRecord(record, serverInstanceId, requireRunning);
+    const recordError = validateHostedRecord(record, serverInstanceId, loadOptions.requireRunning === true);
     if (recordError) return rejected(recordError);
 
     stage = "recovery-snapshot";
-    const recovery = await options.server.instanceManager.getPersistenceRepositories()
-      .snapshotRepository.loadForRecovery(serverInstanceId);
+    const snapshotRepository = options.server.instanceManager.getPersistenceRepositories().snapshotRepository;
+    const fastPath = await loadHostedRuntimeFastPath({ snapshotRepository, record: record!, loadOptions,
+      getRuntime: () => options.server.instanceManager.getInstanceById(serverInstanceId) ?? null,
+      syncRuntime: (value) => syncRuntimeMetadata(value, record!, null) });
+    if (fastPath) return fastPath;
+    const recovery = await snapshotRepository.loadForRecovery(serverInstanceId);
     const snapshot = recovery.snapshot;
     const snapshotError = validateSnapshot(snapshot, record!);
     if (snapshotError) return rejected(snapshotError);
@@ -136,9 +143,9 @@ const loadHostedRuntime = async (
     }
     stage = "runtime-metadata";
     syncRuntimeMetadata(runtime, record!, appliedSnapshot);
-    return { accepted: true, runtime, errors: [] };
+    return { accepted: true, runtime, unchanged: false, errors: [] };
   } catch (error) {
-    writeSafeRuntimeLoadDiagnostic(error, serverInstanceId, requireRunning, stage);
+    writeSafeRuntimeLoadDiagnostic(error, serverInstanceId, loadOptions.requireRunning === true, stage);
     return rejected({
       code: "server.runtime_authority_unavailable",
       message: "Hosted server authority is temporarily unavailable."

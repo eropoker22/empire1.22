@@ -12,6 +12,8 @@ const LOAD_REQUEST_FIELDS = [
   "snapshotToken",
   "sessionToken",
   "joinTicket"
+  ,"knownStateVersion"
+  ,"knownFocusDistrictId"
 ] as const;
 
 const SUBMIT_REQUEST_FIELDS = [
