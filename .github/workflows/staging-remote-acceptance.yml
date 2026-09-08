@@ -337,7 +337,7 @@ jobs:
           netlify env:set EMPIRE_CLOSED_ALPHA_REGISTRATION_ENABLED true \
             --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           mkdir -p artifacts/release/staging/remote-acceptance
-          netlify deploy --prod --site "$NETLIFY_SITE_ID" --dir=client --functions=netlify/functions --skip-functions-cache \
+          netlify deploy --prod --site "$NETLIFY_SITE_ID" --dir=client --functions=netlify/functions --no-build --skip-functions-cache \
             --message "staging remote acceptance open ${RELEASE_SHA}" --json \
             > artifacts/release/staging/remote-acceptance/netlify-open-registration.json
           echo "expires_at=$expires_at" >> "$GITHUB_OUTPUT"
@@ -869,7 +869,7 @@ jobs:
             --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
           netlify env:unset EMPIRE_CLOSED_ALPHA_REGISTRATION_EXPIRES_AT \
             --site "$NETLIFY_SITE_ID" --filter @empire/client --force --context production >/dev/null
-          netlify deploy --prod --site "$NETLIFY_SITE_ID" --dir=client --functions=netlify/functions --skip-functions-cache \
+          netlify deploy --prod --site "$NETLIFY_SITE_ID" --dir=client --functions=netlify/functions --no-build --skip-functions-cache \
             --message "staging remote acceptance permanent-open ${RELEASE_SHA}" --json \
             > artifacts/release/staging/remote-acceptance/netlify-permanent-registration.json
 
