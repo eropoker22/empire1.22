@@ -507,3 +507,62 @@ body.auth-body--login .login-about-overlay--encyclopedia .login-about-terminal-h
 @media (prefers-reduced-motion: reduce) {
   .login-info-dialog { animation: none !important; }
 }
+
+/* Login information: readable copy within the existing modal design. */
+body.auth-body--login :is(.login-about-panel__intro, .login-about-section-block li, .login-about-story__copy p, .login-info-article) {
+  color: #d5dfeb;
+  font-weight: 450;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+body.auth-body--login :is(.login-about-panel__intro, .login-about-story__copy p) {
+  max-width: 68ch;
+}
+
+body.auth-body--login :is(.login-about-section-block li, .login-info-article) {
+  font-size: .875rem;
+}
+
+body.auth-body--login :is(.login-about-section-block h4, .login-info-section h3) {
+  font: 750 .94rem/1.35 var(--font-ui);
+  letter-spacing: .01em;
+  text-transform: none;
+}
+
+body.auth-body--login :is(.login-about-panel__hook, .login-info-article__intro) {
+  color: #f7fbff;
+  font-weight: 650;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+body.auth-body--login .login-info-article__intro {
+  max-width: 68ch;
+  font-size: clamp(1rem, 1.5vw, 1.15rem);
+}
+
+body.auth-body--login :is(.login-about-panel__identity h3, .login-about-story__heading h4) {
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+body.auth-body--login .login-about-story__heading h4 {
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+}
+
+body.auth-body--login .login-info-section { gap: 10px; }
+body.auth-body--login .login-info-section ul { gap: 9px; }
+body.auth-body--login .login-info-article__note { font-size: .8rem; line-height: 1.6; }
+body.auth-body--login .login-about-tab { font-size: .75rem; line-height: 1.4; }
+
+@media (max-width: 780px) {
+  body.auth-body--login :is(.login-about-panel__intro, .login-about-section-block li, .login-about-story__copy p, .login-info-article) {
+    font-size: .84rem;
+    line-height: 1.6;
+  }
+
+  body.auth-body--login :is(.login-about-section-block h4, .login-info-section h3) {
+    font-size: .9rem;
+  }
+}

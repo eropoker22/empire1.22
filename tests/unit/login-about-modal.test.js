@@ -220,8 +220,8 @@ describe("login about encyclopedia", () => {
 
     expect(LOGIN_INFO_CONTENT.news).toBeNull();
     expect(copy).toContain("16 let");
-    expect(copy).toContain("požádat o přístup, opravu nebo odstranění");
-    expect(copy).toContain("Nikdy neposílej heslo ani session údaje");
-    expect(copy).toContain("Virtuální měny a předměty nemají skutečnou peněžní hodnotu");
+    expect(copy).toContain("požádat o přístup k údajům, jejich opravu nebo odstranění");
+    expect(copy).toContain("Heslo ani přihlašovací údaje neposílej");
+    expect(copy).toContain("Herní měny a předměty nemají skutečnou peněžní hodnotu");
   });
 });
