@@ -136,7 +136,7 @@ const leaveMembership = async (
   mutationCommitter: HostedRuntimeMutationCommitter | null
 ): Promise<void> => {
   const runtime = stage.runtime;
-  const stateChanged = applyHostedEarlyLeaveCleanup(runtime, membership.playerId);
+  const stateChanged = applyHostedEarlyLeaveCleanup(runtime, membership.playerId, membership.membershipId);
   syncRuntimeCapacityStatus(runtime);
   const completion = {
     membershipId: membership.membershipId,

@@ -18,6 +18,10 @@ export interface Bounty {
   cancelledAtTick: number | null;
   isAnonymous: boolean;
   version: number;
+  creatorMembershipId?: string | null;
+  targetMembershipId?: string | null;
+  settlementReason?: "creator_cancelled" | "creator_left" | "target_left" | "expired";
+  refundedCleanCash?: number;
 }
 
 export const BOUNTY_MIN_REWARD_CLEAN_CASH = 5000;

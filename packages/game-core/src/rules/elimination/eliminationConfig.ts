@@ -1,5 +1,6 @@
 import type { EliminationBalanceConfig } from "../../contracts";
 import type { CoreGameState } from "../../entities";
+import { calendarTimeAtTick } from "./serverCalendar";
 
 export const DEFAULT_ELIMINATION_SCORE_WEIGHTS: EliminationBalanceConfig["scoreWeights"] = {
   controlledDistricts: 10000,
@@ -57,6 +58,7 @@ export const resolveQuietHoursResumeTick = (
   while (high < maxHigh && isTickInEliminationQuietHours(state, config, high, tickRateMs)) {
     high += ticksPerHour;
   }
+  if (isTickInEliminationQuietHours(state, config, high, tickRateMs)) return null;
 
   let low = tick;
   while (low + 1 < high) {
@@ -83,8 +85,7 @@ const getLocalHourAtTick = (
   tickRateMs: number,
   timeZone: string
 ): number => {
-  const startedAtMs = Date.parse(state.serverInstance.startedAt || new Date(0).toISOString());
-  const at = new Date((Number.isFinite(startedAtMs) ? startedAtMs : 0) + (Math.max(0, tick) * Math.max(1, tickRateMs)));
+  const at = new Date(calendarTimeAtTick(state, tick, Math.max(1, tickRateMs)));
   let formatter = hourFormatters.get(timeZone);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat("en-US", { timeZone, hour: "2-digit", hourCycle: "h23" });

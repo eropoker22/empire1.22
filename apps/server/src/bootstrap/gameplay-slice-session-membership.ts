@@ -62,15 +62,6 @@ export const ensureGameplaySliceMembershipInState = (
   const playerCount = countRegisteredPlayers(state);
   const maxPlayers = config.balance.maxPlayersPerServer;
 
-  const factionId = normalizeFactionId(request.factionId, config);
-  const factionPlayers = Object.values(state.playersById).filter((player) =>
-    player.status === "active" && player.factionId === factionId).length;
-  if (factionPlayers >= MAX_PLAYERS_PER_FACTION) {
-    return { accepted: false, state, joinedPlayer: false, stateChanged: false,
-      errors: [{ code: "server.faction_cap_reached", message: "Server je už touto frakcí zaplněn. Vyber jinou frakci.",
-        details: { factionId, currentPlayerCount: factionPlayers, maxPlayersPerFaction: MAX_PLAYERS_PER_FACTION } }] };
-  }
-
   if (playerCount >= maxPlayers) {
     return {
       accepted: false,
@@ -88,6 +79,15 @@ export const ensureGameplaySliceMembershipInState = (
         }
       ]
     };
+  }
+
+  const factionId = normalizeFactionId(request.factionId, config);
+  const factionPlayers = Object.values(state.playersById).filter((player) =>
+    player.status === "active" && player.factionId === factionId).length;
+  if (factionPlayers >= MAX_PLAYERS_PER_FACTION) {
+    return { accepted: false, state, joinedPlayer: false, stateChanged: false,
+      errors: [{ code: "server.faction_cap_reached", message: "Server je už touto frakcí zaplněn. Vyber jinou frakci.",
+        details: { factionId, currentPlayerCount: factionPlayers, maxPlayersPerFaction: MAX_PLAYERS_PER_FACTION } }] };
   }
 
   const nextState = addPlayerToGameplaySliceState(state, request);

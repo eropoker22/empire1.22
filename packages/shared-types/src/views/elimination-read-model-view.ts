@@ -27,6 +27,9 @@ export interface EliminationQuietHoursView {
 }
 
 export interface EliminationReadModel {
+  quietHoursWindow?: { active: boolean; timeZone: string; startTick: number | null; endTick: number | null; startsAt: string | null; endsAt: string | null } | null;
+  playersEliminatedPerRound?: number;
+  firstEliminationDelayTicks?: number;
   enabled: boolean;
   firstEliminationTick: number;
   intervalTicks: number;

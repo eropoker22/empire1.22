@@ -5,6 +5,7 @@ import type { EliminationRiskStatus } from "./elimination-read-model-view";
 export interface OnboardingReadModel {
   playerId: PlayerId;
   playerStatus: PlayerStatus;
+  completedActionStepIds?: Array<"spy" | "attack-order">;
   hasOwnedDistrict: boolean;
   firstOwnedDistrictId: DistrictId | null;
   hasNeighborDistricts: boolean;

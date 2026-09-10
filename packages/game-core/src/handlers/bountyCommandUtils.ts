@@ -26,7 +26,9 @@ export const createBountyEventPayload = (bounty: Bounty) => ({
   expiresAtTick: bounty.expiresAtTick,
   claimedByPlayerId: bounty.claimedByPlayerId,
   claimedAtTick: bounty.claimedAtTick,
-  cancelledAtTick: bounty.cancelledAtTick
+  cancelledAtTick: bounty.cancelledAtTick,
+  settlementReason: bounty.settlementReason,
+  refundedCleanCash: bounty.refundedCleanCash
 });
 
 export const rejected = (

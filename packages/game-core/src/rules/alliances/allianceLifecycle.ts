@@ -1,3 +1,6 @@
+import { addNotificationsAndAudit, createAllianceNotification, createPlayerNotification, createAudit } from "./allianceLifecycleEvents";
+import { invalidateDepartureVotes } from "./allianceDepartureVotes";
+import { repairAllianceLeadership } from "./allianceLeadershipRepair";
 import type {
   Alliance,
   AllianceAuditEvent,
@@ -518,10 +521,14 @@ export const runAllianceLifecycleScheduled = (
   const audits: AllianceAuditEvent[] = [];
 
   for (const allianceId of Object.keys(nextState.alliancesById)) {
+    for (const id of nextState.alliancesById[allianceId].memberIds) {
+      if (nextState.playersById[id]?.status === "active") continue;
+      nextState = removeMemberFromAlliance(nextState, allianceId, id, "server_leave", `inactive-member:${allianceId}:${id}:${nextState.root.tick}`, nowIso, context, undefined).nextState;
+    }
     const prepared = prepareAlliance(nextState, allianceId, nowIso, config);
     if (prepared.errors.length) continue;
-    nextState = prepared.nextState;
-    const alliance = prepared.alliance;
+    nextState = repairAllianceLeadership(prepared.nextState, allianceId, nowIso);
+    const alliance = nextState.alliancesById[allianceId];
 
     for (const membership of Object.values(alliance.membershipByPlayerId ?? {})) {
       if (membership.status === "removed") continue;
@@ -639,7 +646,7 @@ const createReadyMembership = (
   version: membership.version + 1
 });
 
-const removeMemberFromAlliance = (
+export const removeMemberFromAlliance = (
   state: CoreGameState,
   allianceId: string,
   playerId: string,
@@ -656,7 +663,9 @@ const removeMemberFromAlliance = (
   if (!membership || membership.status === "removed") return { nextState: prepared.nextState };
 
   const remainingIds = alliance.memberIds.filter((id) => id !== playerId);
-  const nextOwnerPlayerId = remainingIds.length === 0
+  const nextOwnerPlayerId = remainingIds.includes(alliance.ownerPlayerId)
+    ? alliance.ownerPlayerId
+    : remainingIds.length === 0
     ? alliance.ownerPlayerId
     : successorPlayerId ?? chooseLeaderSuccessor(alliance, undefined, nowIso, getAllianceLifecycleConfig(context), playerId)?.playerId ?? remainingIds[0];
   const nextMembershipByPlayerId = { ...(alliance.membershipByPlayerId ?? {}) };
@@ -679,12 +688,7 @@ const removeMemberFromAlliance = (
     }
   }
 
-  const invalidatedVotes = Object.fromEntries(Object.entries(alliance.kickVotesById ?? {}).map(([id, vote]) => [
-    id,
-    vote.status === "pending" && (vote.targetPlayerId === playerId || vote.eligibleVoterIds.includes(playerId))
-      ? { ...vote, status: "invalidated" as const, version: vote.version + 1 }
-      : vote
-  ]));
+  const invalidatedVotes = invalidateDepartureVotes(alliance, playerId, nextMembershipByPlayerId);
   const nextAlliance: Alliance = {
     ...alliance,
     ownerPlayerId: nextOwnerPlayerId,
@@ -694,6 +698,10 @@ const removeMemberFromAlliance = (
     status: remainingIds.length === 0 ? "disbanded" : alliance.status,
     version: alliance.version + 1
   };
+  const allianceInvitesById = Object.fromEntries(Object.entries(prepared.nextState.allianceInvitesById ?? {}).map(([id, invite]) => [id,
+    invite.status === "pending" && (invite.invitedByPlayerId === playerId || invite.targetPlayerId === playerId
+      || (nextAlliance.status === "disbanded" && (invite.allianceId === allianceId || invite.targetAllianceId === allianceId)))
+      ? { ...invite, status: "rejected" as const, respondedAt: nowIso, version: invite.version + 1 } : invite]));
   const previousAllies = alliance.memberIds.filter((id) => id !== playerId);
   const nextPlayersById = {
     ...prepared.nextState.playersById,
@@ -705,7 +713,8 @@ const removeMemberFromAlliance = (
   };
   const stateWithAlliance = {
     ...mergeAlliance(prepared.nextState, nextAlliance),
-    playersById: nextPlayersById
+    playersById: nextPlayersById,
+    allianceInvitesById
   };
   const cleaned = cleanupAllianceExitEffects(stateWithAlliance, {
     allianceId,
@@ -716,15 +725,20 @@ const removeMemberFromAlliance = (
     nowIso,
     context
   });
-  const auditType = reason === "inactive_kick"
+  const auditType = reason === "server_leave" ? "server_leave" : reason === "inactive_kick"
     ? "inactive_kick"
     : reason === "alliance_disbanded"
       ? "alliance_disbanded"
       : "voluntary_leave";
   return {
-    nextState: addNotificationsAndAudit(cleaned, [], [
+    nextState: addNotificationsAndAudit(cleaned, reason === "server_leave" ? [createAllianceNotification({
+      id: `${sourceEventId}:departure`, allianceId, createdAt: nowIso, bodyKey: "alliance.server_leave",
+      title: remainingIds.length === 0 ? "Aliance byla rozpuštěna" : alliance.ownerPlayerId === playerId
+        ? `Nový vůdce aliance: ${state.playersById[nextOwnerPlayerId]?.name ?? nextOwnerPlayerId}` : "Člen opustil server",
+      payload: { playerId, newLeaderPlayerId: remainingIds.length ? nextOwnerPlayerId : null }
+    })] : [], [
       createAudit(`${sourceEventId}:removed`, allianceId, auditType, nowIso, playerId, playerId),
-      ...(successorPlayerId ? [createAudit(`${sourceEventId}:leader-transfer`, allianceId, "leader_transfer", nowIso, playerId, successorPlayerId)] : [])
+      ...(remainingIds.length && nextOwnerPlayerId !== alliance.ownerPlayerId ? [createAudit(`${sourceEventId}:leader-transfer`, allianceId, "leader_transfer", nowIso, playerId, nextOwnerPlayerId)] : [])
     ])
   };
 };
@@ -741,6 +755,9 @@ const cleanupAllianceExitEffects = (
     context: GameCoreContext;
   }
 ): CoreGameState => {
+  if (input.reason === "server_leave") {
+    return cleanupAllianceDefense(invalidateFormerAllySpyAuth(state, input.playerId, input.previousAllies), input);
+  }
   const config = getAllianceLifecycleConfig(input.context);
   const penaltyConfig = input.reason === "inactive_kick"
     ? config.inactiveKickPenalty
@@ -950,91 +967,6 @@ const failure = (
   nextState: state,
   events: [],
   errors: [{ code, message }]
-});
-
-const addNotificationsAndAudit = (
-  state: CoreGameState,
-  notifications: Notification[],
-  auditEvents: AllianceAuditEvent[]
-): CoreGameState => {
-  const nextNotificationsById = { ...state.notificationsById };
-  const nextNotificationIds = [...state.root.notificationIds];
-  for (const notification of notifications) {
-    if (nextNotificationsById[notification.id]) continue;
-    nextNotificationsById[notification.id] = notification;
-    nextNotificationIds.push(notification.id);
-  }
-  const nextAuditEventsById = { ...(state.allianceAuditEventsById ?? {}) };
-  for (const auditEvent of auditEvents) {
-    if (nextAuditEventsById[auditEvent.id]) continue;
-    nextAuditEventsById[auditEvent.id] = auditEvent;
-  }
-  return {
-    ...state,
-    notificationsById: nextNotificationsById,
-    allianceAuditEventsById: nextAuditEventsById,
-    root: {
-      ...state.root,
-      notificationIds: nextNotificationIds,
-      version: state.root.version + (notifications.length || auditEvents.length ? 1 : 0)
-    }
-  };
-};
-
-const createAllianceNotification = (input: {
-  id: string;
-  allianceId: string;
-  title: string;
-  bodyKey: string;
-  createdAt: string;
-  payload: Record<string, unknown>;
-}): Notification => ({
-  id: input.id,
-  recipientType: "alliance",
-  recipientId: input.allianceId,
-  category: "alliance.lifecycle",
-  title: input.title,
-  bodyKey: input.bodyKey,
-  payload: input.payload,
-  createdAt: input.createdAt,
-  readAt: null
-});
-
-const createPlayerNotification = (input: {
-  id: string;
-  playerId: string;
-  title: string;
-  bodyKey: string;
-  createdAt: string;
-  payload: Record<string, unknown>;
-}): Notification => ({
-  id: input.id,
-  recipientType: "player",
-  recipientId: input.playerId,
-  category: "alliance.lifecycle",
-  title: input.title,
-  bodyKey: input.bodyKey,
-  payload: input.payload,
-  createdAt: input.createdAt,
-  readAt: null
-});
-
-const createAudit = (
-  id: string,
-  allianceId: string,
-  type: AllianceAuditEvent["type"],
-  createdAt: string,
-  actorPlayerId?: string,
-  targetPlayerId?: string,
-  payload: Record<string, unknown> = {}
-): AllianceAuditEvent => ({
-  id,
-  allianceId,
-  actorPlayerId,
-  targetPlayerId,
-  type,
-  createdAt,
-  payload
 });
 
 const nowIsoFromContext = (context: GameCoreContext): string =>

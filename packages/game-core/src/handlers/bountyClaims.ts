@@ -4,6 +4,7 @@ import type { GameCoreContext } from "../engine/context";
 import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
 import { changeCleanCash, createBountyEventPayload, getPlayerResourceState } from "./bountyCommandUtils";
+import { settleUnclaimedBounty } from "./bountySettlement";
 
 export interface BountyClaimInput {
   actorPlayerId: string;
@@ -24,18 +25,9 @@ export const expireBounties = (
   const events: CoreEvent[] = [];
   for (const bounty of Object.values(state.bountiesById || {})) {
     if (bounty.status !== "active" || bounty.expiresAtTick > state.root.tick) continue;
-    const creator = nextState.playersById[bounty.createdByPlayerId];
-    const resourceState = creator ? getPlayerResourceState(nextState, creator) : null;
-    const expired: Bounty = { ...bounty, status: "expired", version: bounty.version + 1 };
-    nextState = {
-      ...nextState,
-      bountiesById: { ...(nextState.bountiesById || {}), [expired.id]: expired },
-      resourceStatesById: resourceState
-        ? { ...nextState.resourceStatesById, [resourceState.id]: changeCleanCash(resourceState, bounty.rewardCleanCash) }
-        : nextState.resourceStatesById,
-      root: { ...nextState.root, version: nextState.root.version + 1 }
-    };
-    events.push(createEvent(CORE_EVENT_TYPES.bountyExpired, createBountyEventPayload(expired)));
+    const result = settleUnclaimedBounty(nextState, bounty.id, "expired", _context?.clock?.nowIso?.());
+    nextState = result.nextState;
+    events.push(...result.events);
   }
   return { nextState, events };
 };
@@ -51,6 +43,8 @@ export const resolveBountyClaims = (
 
   for (const bounty of Object.values(nextState.bountiesById || {})) {
     if (!matchesBountyClaim(bounty, input)) continue;
+    if (bounty.targetMembershipId && bounty.targetMembershipId !== nextState.playersById[bounty.targetPlayerId]?.metadata?.membershipId) continue;
+    if (nextState.playersById[bounty.targetPlayerId]?.status === "left") continue;
     const actor = nextState.playersById[input.actorPlayerId];
     const resourceState = actor ? getPlayerResourceState(nextState, actor) : null;
     if (!resourceState) continue;

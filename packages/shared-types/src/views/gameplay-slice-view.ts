@@ -70,6 +70,8 @@ export interface GameplaySliceSpawnSelectionView {
 }
 
 export interface GameplaySliceServerMetadataView {
+  logicalTime?: string;
+  phase?: string;
   serverInstanceId: string;
   mode: string;
   status?: GameplaySliceServerStatusView;

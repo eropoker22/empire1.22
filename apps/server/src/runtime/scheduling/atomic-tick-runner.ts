@@ -91,7 +91,7 @@ export const runAtomicInstanceTickUnlocked = async (
         latest ? restoreInstanceState(latest, { config: runtime.config }) : structuredClone(runtime.state)
       );
       const previousRootVersion = metadata?.rootVersion ?? latest?.integrity.rootVersion ?? baseState.root.version;
-      const result = runTick(baseState, { config: runtime.config });
+      const result = runTick(baseState, { config: runtime.config, clock, calendarNow: clock.nowIso() });
       const nextState = ensureAdvancedRootVersion(result.nextState, previousRootVersion);
       const processedCommandIds = new Set(latest?.runtime?.processedCommandIds ?? runtime.processedCommandIds);
       const commandRateLimitWindow = {

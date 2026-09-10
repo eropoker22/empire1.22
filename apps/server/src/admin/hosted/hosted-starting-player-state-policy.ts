@@ -57,15 +57,15 @@ export const parseHostedStartingPlayerState = (value: unknown) => {
   });
 };
 
-export const parsePersistedHostedStartingPlayerState = (value: unknown) => {
+export const parsePersistedHostedStartingPlayerState = (value: unknown): ReturnType<typeof parseHostedStartingPlayerState> => {
   if (value == null) {
     return reject("ADMIN_STARTING_STATE_INVALID", "Počáteční stav hráče není platný.");
   }
   if (typeof value !== "string") {
-    return parseHostedStartingPlayerState(value);
+    return parseHostedStartingPlayerState(record(value) && value.influence === undefined ? { ...value, influence: 0 } : value);
   }
   try {
-    return parseHostedStartingPlayerState(JSON.parse(value) as unknown);
+    return parsePersistedHostedStartingPlayerState(JSON.parse(value) as unknown);
   } catch {
     return reject("ADMIN_STARTING_STATE_INVALID", "Počáteční stav hráče není platný.");
   }

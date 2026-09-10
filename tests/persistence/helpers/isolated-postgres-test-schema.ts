@@ -1,3 +1,4 @@
+import { migrateDatabase } from "../../../apps/server/src/runtime/persistence/postgres/migration-runner";
 import * as crypto from "node:crypto";
 import {
   createPostgresDatabase,
@@ -13,7 +14,8 @@ export interface IsolatedPostgresTestSchema {
 
 export const createIsolatedPostgresTestSchema = async (
   databaseUrl: string,
-  prefix: string
+  prefix: string,
+  stopBeforeFilename?: string
 ): Promise<IsolatedPostgresTestSchema> => {
   const adminDatabase = createPostgresDatabase(databaseUrl);
   const schema = `${sanitize(prefix)}_${Date.now()}_${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
@@ -27,7 +29,8 @@ export const createIsolatedPostgresTestSchema = async (
   );
   const database = createPostgresDatabase(scopedUrl.toString());
   try {
-    await applyPostgresTestMigrations(database);
+    if (stopBeforeFilename) await migrateDatabase(database, new URL("../../../apps/server/src/runtime/persistence/postgres/migrations/", import.meta.url), { stopBeforeFilename });
+    else await applyPostgresTestMigrations(database);
   } catch (error) {
     await database.close().catch(() => undefined);
     await adminDatabase.query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(schema)} CASCADE`);

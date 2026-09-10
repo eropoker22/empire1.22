@@ -1,3 +1,5 @@
+import { migrateDatabase } from "../../apps/server/src/runtime/persistence/postgres/migration-runner";
+import { createPlayerMarketListing, cancelPlayerMarketListing } from "../../packages/game-core/src/rules/market/serverMarketSystem";
 import * as crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { MatchResult } from "@empire/shared-types";
@@ -20,7 +22,7 @@ const run = live.run ? it : it.skip;
 
 describe("player entry postgres live", () => {
   run("allows a fresh registration after leaving, revokes old sessions, and still closes rejoin at the deadline", async () => {
-    const fixture = await createFixture();
+    const fixture = await createFixture("027_registration_rejoin.sql");
     try {
       const hosted = await fixture.createServer(1);
       const account = await fixture.createAccount("rejoin");
@@ -36,10 +38,19 @@ describe("player entry postgres live", () => {
       const registration = await sessionService.getOrCreateRegistration({ accountId: account.accountId,
         serverInstanceId: hosted.serverInstanceId, nowIso: new Date().toISOString() });
       const oldSession = await sessionService.createSession({ registration, nowIso: new Date().toISOString(), ttlMs: 60_000 });
+      const runtime = fixture.server.instanceManager.getInstanceById(hosted.serverInstanceId)!;
+      const listing = createPlayerMarketListing(runtime.state, runtime.state.playersById[first.playerId], "chemicals", 5, 10, "cleanCash", Date.now());
+      expect(listing.success).toBe(true);
+      runtime.state = listing.nextState as typeof runtime.state;
+      runtime.state.root.version += 1; // Same version advance supplied by the command orchestrator.
+      await fixture.server.instanceManager.saveInstanceSnapshot(hosted.serverInstanceId);
+      await migrateDatabase(fixture.database, new URL("../../apps/server/src/runtime/persistence/postgres/migrations/", import.meta.url));
+      await migrateDatabase(fixture.database, new URL("../../apps/server/src/runtime/persistence/postgres/migrations/", import.meta.url)); // Idempotent upgrade with an existing membership.
       await fixture.entry.requestEarlyLeave(account.accountId, first.membershipId);
       await fixture.worker.runOnce();
       expect((await fixture.entry.getMembership(first.membershipId))?.status).toBe("left_early");
       expect((await sessionService.validateSession({ sessionId: oldSession.sessionId, nowIso: new Date().toISOString() })).accepted).toBe(false);
+      fixture.restartRuntime(); // Empty process caches; the next worker must recover the committed cleanup from PostgreSQL.
       const again = await fixture.entry.getSpawnSelection(account.accountId, hosted.serverInstanceId);
       expect(again.capacity.committedPlayers).toBe(0);
       expect(again.districts.find((entry) => entry.districtId === district.districtId)?.available).toBe(true);
@@ -58,6 +69,10 @@ describe("player entry postgres live", () => {
         .toMatchObject({ status: "active", factionId: "hackeri", homeDistrictId: district.districtId,
           metadata: { membershipId: second.membershipId } });
       const rejoinedState = fixture.server.instanceManager.getInstanceById(hosted.serverInstanceId)!.state;
+      const balances = rejoinedState.resourceStatesById[rejoinedState.playersById[second.playerId].resourceStateId].balances;
+      expect(balances.chemicals).toBe(10);
+      expect(cancelPlayerMarketListing(rejoinedState, rejoinedState.playersById[second.playerId], listing.listingId!, Date.now()).success).toBe(false);
+      expect(balances.chemicals).toBe(10);
       expect(rejoinedState.districtsById[district.districtId].buildingIds.every((id) =>
         rejoinedState.buildingsById[id].status === "active")).toBe(true);
       expect(await fixture.eventCount(second.membershipId, "player-activated")).toBe(1);
@@ -406,10 +421,10 @@ describe("player entry postgres live", () => {
   }, 90_000);
 });
 
-const createFixture = async () => {
+const createFixture = async (stopBeforeFilename?: string) => {
   const isolated = await createIsolatedPostgresTestSchema(
     live.databaseUrl!,
-    "player_entry_live"
+    "player_entry_live", stopBeforeFilename
   );
   const database = isolated.database;
   await database.query(
@@ -441,22 +456,25 @@ const createFixture = async () => {
     database,
     tickLockOwnerId: workerId
   });
-  const server = createServerApp({ persistence, environment: { NODE_ENV: "production", EMPIRE_PERSISTENCE_DRIVER: "postgres",
+  const makeServer = () => createServerApp({ persistence, environment: { NODE_ENV: "production", EMPIRE_PERSISTENCE_DRIVER: "postgres",
     EMPIRE_DATABASE_URL: isolated.databaseUrl, GAMEPLAY_SLICE_SESSION_SECRET: "player-entry-live-session-secret" },
     accountIdentityProvider: { productionReady: true, resolve: () => null },
     gameplaySessionService: createPersistentGameplaySessionService(createPostgresGameplayIdentitySessionRepository(database),
       { productionReady: true }) });
+  let server = makeServer();
   const scopedControlPlane = {
     ...admin.hosted,
     listServers: async () => (await admin.hosted.listServers())
       .filter((record) => record.serverInstanceId.startsWith(`instance:player-entry:${suffix}:`))
   };
-  const worker = createHostedRuntimeWorker({ workerId, workerIncarnationId, region: "eu-central", buildSha: "live-test",
+  const makeWorker = () => createHostedRuntimeWorker({ workerId, workerIncarnationId, region: "eu-central", buildSha: "live-test",
     controlPlane: scopedControlPlane, server, playerEntry: entry,
     runtimeMutationCommitter: createPostgresHostedRuntimeMutationCommitter(database, persistence.snapshotMetrics) });
+  let worker = makeWorker();
   let serverIndex = 0;
   return {
-    database, admin, entry, server, worker, suffix,
+    database, admin, entry, get server() { return server; }, get worker() { return worker; }, suffix,
+    restartRuntime: () => { server = makeServer(); worker = makeWorker(); },
     createAccount: async (label: string) => (await entry.registerAccount({ username: `p_${label}_${suffix.slice(0, 8)}`,
       password: "PlayerEntryFixturePassword", passwordConfirmation: "PlayerEntryFixturePassword",
       dateOfBirth: "1990-01-01", gangName: `Gang ${label}`,

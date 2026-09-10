@@ -58,6 +58,8 @@ export const createGameplaySliceProjection = (
   return {
     server: {
       serverInstanceId: runtime.record.id,
+      logicalTime: runtime.state.serverInstance.calendarAnchor?.at ?? new Date(Date.parse(runtime.state.serverInstance.startedAt) + runtime.state.root.tick * runtime.config.tickRateMs).toISOString(),
+      phase: runtime.state.root.phase,
       mode: runtime.record.mode,
       status: runtime.record.status,
       currentTick: runtime.state.root.tick,

@@ -38,7 +38,7 @@ export const runInstanceTick = (
   try {
     const previousRootVersion = runtime.state.root.version;
     const result = runTick(runtime.state, {
-      config: runtime.config
+      config: runtime.config, clock, calendarNow: clock.nowIso()
     });
     runtime.state = result.nextState.root.version > previousRootVersion
       ? result.nextState

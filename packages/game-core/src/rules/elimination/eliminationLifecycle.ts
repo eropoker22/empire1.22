@@ -54,9 +54,9 @@ export const runScheduledElimination = (
   }
 
   const deferredFromTick = stateRecord.deferredFromTick ?? null;
-  const quietHoursResumeTick = deferredFromTick === null
-    ? resolveQuietHoursResumeTick(state, config, scheduledTick, context.config.tickRateMs)
-    : null;
+  // Re-evaluate after administrative pause/recovery: a previously deferred
+  // logical deadline may now fall into a different real calendar night.
+  const quietHoursResumeTick = resolveQuietHoursResumeTick(state, config, currentTick, context.config.tickRateMs);
   if (quietHoursResumeTick !== null && currentTick < quietHoursResumeTick) {
     return {
       nextState: {

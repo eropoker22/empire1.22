@@ -11,11 +11,51 @@ import { createTimedFactoryProductionBuildingView } from "../../../packages/game
 import { completeFactoryProduction } from "../../../packages/game-core/src/rules/production/completeFactoryProduction";
 import { resolvePowerStationInfrastructureMultiplier } from "../../../packages/game-core/src/handlers/powerStationBuildingActions";
 import { retimeProductionSupport } from "../../../packages/game-core/src/rules/production/productionSpeedModifiers";
+import { createOnboardingReadModel } from "../../../packages/game-core/src/projections/onboarding-read-model-projection";
 
 const config = resolveModeConfig("free");
 const context = { config };
 
 describe("reported gameplay regressions", () => {
+  it("records only accepted learning actions and retains the fact after snapshot recovery", () => {
+    const state = createCombatStateFixture();
+    state.notificationsById = {};
+    state.root.notificationIds = [];
+    const command = createSpyDistrictCommandFixture();
+    const rejected = applyCommand(state, { ...command, payload: { ...command.payload, districtId: "district:missing" } }, context);
+    expect(rejected.errors.length).toBeGreaterThan(0);
+    expect(createOnboardingReadModel(rejected.nextState, "player:1", context).completedActionStepIds).not.toContain("spy");
+    const accepted = applyCommand(state, command, context);
+    expect(accepted.errors).toEqual([]);
+    const restored = JSON.parse(JSON.stringify(accepted.nextState));
+    restored.cooldownStatesById[state.playersById["player:1"].cooldownStateId].cooldowns = {};
+    expect(createOnboardingReadModel(restored, "player:1", context).completedActionStepIds).toContain("spy");
+    expect(restored.playersById["player:1"].metadata.learningActions).toEqual(["spy"]);
+  });
+  it("preserves completed work when a timed alliance penalty expires at tick 5", () => {
+    const { state, building } = createCoreStateWithFixedBuildingFixture("drug_lab");
+    const origin = Date.parse("2026-09-10T10:00:00.000Z");
+    const at = (tick: number) => new Date(origin + tick * config.tickRateMs).toISOString();
+    state.serverInstance.startedAt = at(0);
+    state.root.tick = 4;
+    state.allianceExitPenaltiesById = { penalty: {
+      id: "penalty", playerId: "player:1", formerAllianceId: "old", reason: "voluntary_leave",
+      startedAt: at(0), penaltyEndsAt: at(5), allianceJoinLockedUntil: at(5), allianceCreateLockedUntil: at(5),
+      formerAllyTruceUntil: at(5), influenceGenerationMultiplier: 1, actionCooldownMultiplier: 1,
+      productionMultiplier: 0.8, affectedActionIds: [], blocksAllianceDefenseSupport: false, sourceEventId: "leave", version: 1
+    } };
+    state.buildingsById[building.id] = { ...building, productionLines: { "neon-dust": {
+      recipeId: "neon-dust", queuedAmount: 2, activeStartedAtTick: 0, activeCompletesAtTick: 42,
+      reservedCleanCash: 100, unitCleanCashCost: 50, version: 1
+    } } };
+    const result = retimeProductionSupport(state, { ...state, root: { ...state.root, tick: 5 } }, {
+      config, clock: { now: () => new Date(at(5)), nowIso: () => at(5) }
+    });
+    expect(result.buildingsById[building.id].productionLines!["neon-dust"]).toMatchObject({
+      activeCompletesAtTick: 35, queuedAmount: 2, reservedCleanCash: 100, activeStartedAtTick: 0
+    });
+    expect(result.resourceStatesById).toEqual(state.resourceStatesById);
+  });
   it("returns every non-captured spy at resolution, including the player topbar projection", () => {
     const outcomes = new Set();
     for (let seed = 1; seed <= 150; seed++) {

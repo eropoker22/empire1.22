@@ -1,3 +1,4 @@
+import { normalizeAllianceChatBody, appendRetainedAllianceMessage, validateAllianceChatRate } from "./allianceChatPolicy";
 import { spendPlayerInfluence } from "../rules/economy/playerInfluence";
 import type {
   Alliance,
@@ -35,43 +36,6 @@ type AllianceMembershipCommand =
   | SendAllianceChatMessageCommand
   | SendPublicAllianceMessageCommand
   | SendPublicAllianceInviteCommand;
-
-const ALLIANCE_CHAT_RATE_LIMIT_MS = 2_000;
-const ALLIANCE_CHAT_RETENTION = 100;
-
-const normalizeAllianceChatBody = (value: unknown): string =>
-  String(value || "")
-    .replace(/[\u0000-\u001f\u007f]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const appendRetainedAllianceMessage = (
-  state: CoreGameState,
-  message: AllianceChatMessage
-): CoreGameState["allianceChatMessagesById"] => {
-  const allMessages = [...Object.values(state.allianceChatMessagesById ?? {}), message];
-  const retainedIds = new Set(allMessages
-    .filter((entry) => entry.allianceId === message.allianceId)
-    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
-    .slice(0, ALLIANCE_CHAT_RETENTION)
-    .map((entry) => entry.id));
-  return Object.fromEntries(allMessages.filter((entry) =>
-    entry.allianceId !== message.allianceId || retainedIds.has(entry.id)
-  ).map((entry) => [entry.id, entry]));
-};
-
-const validateAllianceChatRate = (
-  state: CoreGameState,
-  allianceId: string,
-  playerId: string,
-  nowIso: string
-): boolean => {
-  const now = Date.parse(nowIso);
-  const lastMessageAt = Object.values(state.allianceChatMessagesById ?? {})
-    .filter((message) => message.allianceId === allianceId && message.authorPlayerId === playerId)
-    .reduce((latest, message) => Math.max(latest, Date.parse(message.createdAt) || 0), 0);
-  return !Number.isFinite(now) || now - lastMessageAt >= ALLIANCE_CHAT_RATE_LIMIT_MS;
-};
 
 export const handleAllianceMembershipCommand = (
   state: CoreGameState,
@@ -163,8 +127,14 @@ const joinAlliance = (
   state: CoreGameState,
   command: JoinAllianceCommand,
   context: GameCoreContext
-): AllianceMembershipResult =>
-  addPlayerToAlliance(state, command.playerId, command.payload.allianceId, context, `${command.id}:join`);
+): AllianceMembershipResult => {
+  const invite = Object.values(state.allianceInvitesById ?? {}).find((entry) =>
+    entry.status === "pending" && entry.kind !== "alliance_contact"
+    && entry.targetPlayerId === command.playerId && entry.allianceId === command.payload.allianceId);
+  if (!invite) return rejected(state, "ALLIANCE_INVITE_REQUIRED", "Ke vstupu potřebuješ platnou pozvánku vůdce aliance.");
+  return respondAllianceInvite(state, { ...command, type: "respond-alliance-invite",
+    payload: { inviteId: invite.id, response: "accept" } }, context);
+};
 
 const inviteAllianceMember = (
   state: CoreGameState,
@@ -175,7 +145,9 @@ const inviteAllianceMember = (
   const actorMembership = alliance?.membershipByPlayerId?.[command.playerId];
   const target = state.playersById[command.payload.targetPlayerId];
   if (!alliance || alliance.status !== "active") return rejected(state, "ALLIANCE_NOT_FOUND", "Aliance nebyla nalezena.");
-  if (!actorMembership || actorMembership.role !== "leader") return rejected(state, "ALLIANCE_INVITE_NOT_ALLOWED", "Členy může zvát jen leader aliance.");
+  if (!actorMembership || actorMembership.status === "removed" || actorMembership.role !== "leader"
+    || alliance.ownerPlayerId !== command.playerId || !alliance.memberIds.includes(command.playerId)
+    || state.playersById[command.playerId]?.status !== "active") return rejected(state, "ALLIANCE_INVITE_NOT_ALLOWED", "Členy může zvát jen leader aliance.");
   if (!target) return rejected(state, "TARGET_PLAYER_NOT_FOUND", "Cílový hráč nebyl nalezen.");
   if (target.allianceId) return rejected(state, "TARGET_ALREADY_IN_ALLIANCE", "Cílový hráč už je v alianci.");
   if (alliance.memberIds.length >= context.config.balance.maxAllianceSize) return rejected(state, "ALLIANCE_FULL", "Aliance je plná.");
@@ -225,7 +197,8 @@ const respondAllianceInvite = (
   const targetAllianceId = invite.targetAllianceId ?? invite.allianceId;
   const isExternalJoinRequest = isContactInvite && invite.allianceId === targetAllianceId && invite.invitedByPlayerId !== invite.targetPlayerId;
   if (response === "accepted" && isExternalJoinRequest) {
-    const joined = addPlayerToAlliance(state, invite.invitedByPlayerId, targetAllianceId, context, `${command.id}:accept-public`);
+    const joined = addPlayerToAlliance(state, invite.invitedByPlayerId, targetAllianceId, context, `${command.id}:accept-public`,
+      { inviteId: invite.id, approvingPlayerId: command.playerId });
     if (joined.errors.length) return joined;
     return completeAllianceInviteAcceptance(joined, invite, response, nowIso,
       createEvent(CORE_EVENT_TYPES.allianceInviteResponded, { inviteId: invite.id, response }));
@@ -255,7 +228,8 @@ const respondAllianceInvite = (
     };
   }
 
-  const joined = addPlayerToAlliance(state, command.playerId, invite.allianceId, context, `${command.id}:accept`);
+  const joined = addPlayerToAlliance(state, command.playerId, invite.allianceId, context, `${command.id}:accept`,
+    { inviteId: invite.id, approvingPlayerId: command.playerId });
   if (joined.errors.length) return joined;
   return completeAllianceInviteAcceptance(joined, invite, response, nowIso,
     createEvent(CORE_EVENT_TYPES.allianceInviteResponded, { inviteId: invite.id, response }));

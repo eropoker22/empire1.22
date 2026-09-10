@@ -26,6 +26,16 @@ export interface FinalLockdownCurrentPlayerView {
 }
 
 export interface FinalLockdownReadModel {
+  startConditions?: {
+    registrationClosed: boolean; registrationClosesAt: string | null; registrationBaselinePlayers: number | null;
+    effectiveSurvivorThreshold: number | null; activePlayers: number;
+    earliestStartTick: number | null; latestStartTick: number | null;
+    waitingFor: "registration" | "earliest_start" | "survivors" | "confirmation";
+    singleSurvivorMayStartEarly: boolean;
+  };
+  pauseDuringQuietHours?: boolean;
+  result?: { endedAt: string; winnerPlayerId: PlayerId | null; currentPlayerRank: number | null;
+    ranking: Array<{ playerId: PlayerId; playerName: string; rank: number; score: number }> } | null;
   currentPlayerScoreContributions?: Record<string, number> | null;
   startRuleDescription?: string;
   enabled: boolean;

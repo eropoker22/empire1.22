@@ -127,6 +127,7 @@ export interface LobbyOverviewView {
 }
 
 export interface SpawnDistrictOptionView {
+  startPreview?: { cleanCashPerHour: number; dirtyCashPerHour: number; populationSource: string; buildingNames: string[]; difficulty: string; basis: string };
   districtId: string;
   zone: string;
   label: string;

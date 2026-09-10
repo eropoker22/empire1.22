@@ -35,6 +35,7 @@ export type AllianceMembershipStatus =
 export type AllianceMembershipRole = "leader" | "member";
 
 export type AllianceRemovalReason =
+  | "server_leave"
   | "voluntary_leave"
   | "inactive_kick"
   | "leader_kick_if_supported"
@@ -139,6 +140,7 @@ export interface AllianceAuditEvent {
   actorPlayerId?: PlayerId;
   targetPlayerId?: PlayerId;
   type:
+    | "server_leave"
     | "ready_confirmed"
     | "readiness_expired"
     | "vote_started"

@@ -40,7 +40,7 @@ export const applyHostedMembershipActivation = (
   if (rejoining) {
     // The completed leave revoked sessions and released territory. Recreate the
     // account's player with the new membership's starter state, once per attempt.
-    runtime.state = clearDepartedPlayerState(runtime.state, membership.playerId);
+    runtime.state = clearDepartedPlayerState(runtime.state, membership.playerId, { config: runtime.config, clock: runtime.clock });
     delete runtime.state.playersById[membership.playerId];
   }
 

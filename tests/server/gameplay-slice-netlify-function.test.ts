@@ -868,6 +868,7 @@ describe("gameplay slice Netlify function", () => {
         handler(
           postEvent("/api/gameplay-slice/join", {
             accountId: `function-capacity:${index}`,
+            factionId: ["mafian", "kartel", "hackeri", "kult", "korporace"][Math.floor((index - 1) / 4)],
             joinTicket: ticket.ticketId,
             serverInstanceId: PUBLIC_FREE_SERVER_INSTANCE_ID,
             preferredStartDistrictId: DEFAULT_SPAWN_DISTRICT_ID

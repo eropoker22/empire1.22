@@ -15,12 +15,24 @@ export const addPlayerToAlliance = (
   playerId: string,
   allianceId: string,
   context: GameCoreContext,
-  sourceId: string
+  sourceId: string,
+  authorization: { inviteId: string; approvingPlayerId: string }
 ): AllianceMembershipResult => {
   const player = state.playersById[playerId];
   const alliance = state.alliancesById[allianceId];
-  if (!player) return rejected(state, "PLAYER_NOT_FOUND", "Hráč nebyl nalezen.");
+  if (!player || player.status !== "active") return rejected(state, "PLAYER_NOT_FOUND", "Aktivní hráč nebyl nalezen.");
   if (!alliance || alliance.status !== "active") return rejected(state, "ALLIANCE_NOT_FOUND", "Aliance nebyla nalezena.");
+  const invite = state.allianceInvitesById?.[authorization.inviteId];
+  const leader = state.playersById[alliance.ownerPlayerId];
+  const leaderMembership = alliance.membershipByPlayerId?.[alliance.ownerPlayerId];
+  const authorized = invite?.status === "pending" && leader?.status === "active"
+    && leaderMembership?.role === "leader" && leaderMembership.status !== "removed" && alliance.memberIds.includes(leader.id)
+    && (invite.kind === "alliance_contact"
+      ? invite.allianceId === alliance.id && invite.targetAllianceId === alliance.id
+        && invite.invitedByPlayerId === playerId && invite.targetPlayerId === leader.id && authorization.approvingPlayerId === leader.id
+      : invite.allianceId === alliance.id && invite.invitedByPlayerId === leader.id
+        && invite.targetPlayerId === playerId && authorization.approvingPlayerId === playerId);
+  if (!authorized) return rejected(state, "ALLIANCE_INVITE_NOT_ALLOWED", "Pozvánka už nemá platný souhlas současného vůdce aliance.");
   const nowIso = nowIsoFromContext(context);
   const eligibility = canJoinOrCreateAlliance(state, player.id, "join", nowIso);
   if (eligibility !== true) return rejected(state, eligibility, "Teď se nemůžeš přidat do aliance.");

@@ -96,7 +96,8 @@ describe("Neon cost hardening", () => {
 
     for (let index = 0; index < 1_000; index += 1) {
       const previousVersion = reference.root.version;
-      const result = runTick(reference, { config: fixture.runtime.config });
+      const result = runTick(reference, { config: fixture.runtime.config, clock: fixture.runtime.clock,
+        calendarNow: fixture.runtime.clock.nowIso() });
       reference = result.nextState.root.version > previousVersion
         ? result.nextState
         : { ...result.nextState, root: { ...result.nextState.root, version: previousVersion + 1 } };
@@ -119,7 +120,8 @@ describe("Neon cost hardening", () => {
 
 const createTickFixture = async (name: string) => {
   const persistence = createInMemoryRuntimePersistenceRepositories();
-  const server = createServerApp({ persistence });
+  const at = "2026-09-10T10:00:00.000Z";
+  const server = createServerApp({ persistence, clock: { now: () => new Date(at), nowIso: () => at } });
   const instanceId = `instance:free:neon-cost:${name}`;
   await ensureGameplaySliceSessionResult(server.instanceManager, {
     serverInstanceId: instanceId,

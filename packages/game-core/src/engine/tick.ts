@@ -1,4 +1,5 @@
 import { retimeProductionSupport } from "../rules/production/productionSpeedModifiers";
+import { calendarTimeAtTick } from "../rules/elimination/serverCalendar";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
 import type { GameCoreContext } from "./context";
@@ -48,11 +49,18 @@ export const runTick = (
     return { nextState: state, events: [] };
   }
 
+  // A replayed/catch-up tick uses its own server calendar instant, never wall
+  // time or an epoch-relative duration. All timed domain rules share it.
+  if (!context.clock) {
+    const at = new Date(calendarTimeAtTick(state, state.root.tick + 1, context.config.tickRateMs));
+    context = { ...context, clock: { now: () => at, nowIso: () => at.toISOString() } };
+  }
   const advancedState: CoreGameState = {
     ...state,
     serverInstance: {
       ...state.serverInstance,
-      currentTick: state.serverInstance.currentTick + 1
+      currentTick: state.serverInstance.currentTick + 1,
+      ...(context.calendarNow ? { calendarAnchor: { tick: state.root.tick + 1, at: context.calendarNow } } : {})
     },
     root: {
       ...state.root,

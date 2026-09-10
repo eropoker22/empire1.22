@@ -5,6 +5,7 @@ import type { CoreEvent } from "../events";
 import type { GameCoreContext } from "./context";
 import { routeCommand } from "./commandRouter";
 import { appendCityFeedEventsFromCoreEvents } from "../rules/events";
+import { recordPlayerLearningAction } from "../rules/liveness/recordPlayerLearningActions";
 
 /**
  * Responsibility: Canonical command application entry point for the game core.
@@ -36,6 +37,6 @@ export const applyCommand = (
     : result.nextState;
   return {
     ...result,
-    nextState: appendCityFeedEventsFromCoreEvents(stateWithPresence, result.events, undefined, context)
+    nextState: appendCityFeedEventsFromCoreEvents(recordPlayerLearningAction(stateWithPresence, command.playerId, command.type), result.events, undefined, context)
   };
 };

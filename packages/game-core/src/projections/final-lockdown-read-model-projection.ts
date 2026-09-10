@@ -7,7 +7,7 @@ import {
 } from "../rules/victory/finalLockdownLifecycle";
 import { createFinalEmpireRanking } from "../rules/victory/finalEmpireScore";
 import { createScoreContributionView } from "./score-contribution-view";
-import { resolveFinalLockdownStartWindow } from "../rules/server-pacing/serverPacingPolicy";
+import { resolveFinalLockdownStartWindow, resolveEffectiveFinalLockdownTrigger } from "../rules/server-pacing/serverPacingPolicy";
 
 export const createFinalLockdownReadModel = (
   state: CoreGameState,
@@ -47,10 +47,30 @@ export const createFinalLockdownReadModel = (
   const top3Threshold = ranking[Math.min(topRankCount, ranking.length) - 1] ?? null;
   const firstPlace = ranking[0] ?? null;
   const startWindow = resolveFinalLockdownStartWindow(state, context.config);
-  const hours = (ticks: number) => Math.round(ticks * context.config.tickRateMs / 3_600_000);
+  const hours = (ticks: number) => Number((ticks * context.config.tickRateMs / 3_600_000).toFixed(3));
+  const trigger = resolveEffectiveFinalLockdownTrigger(state, context.config);
+  const activePlayers = ranking.length;
+  const earliest = activePlayers <= 1 ? state.root.tick : startWindow?.earliestStartTick ?? null;
+  const result = state.matchResult;
 
   return {
     enabled: true,
+    pauseDuringQuietHours: config.pauseDuringQuietHours,
+    startConditions: {
+      registrationClosed: !state.serverPacingState || Boolean(state.serverPacingState.registrationClosedAt),
+      registrationClosesAt: state.serverPacingState?.registrationClosesAt ?? null,
+      registrationBaselinePlayers: state.serverPacingState?.registrationBaselinePlayers ?? null,
+      effectiveSurvivorThreshold: trigger, activePlayers,
+      earliestStartTick: earliest, latestStartTick: startWindow?.latestStartTick ?? null,
+      waitingFor: trigger === null ? "registration" : earliest !== null && state.root.tick < earliest ? "earliest_start"
+        : activePlayers > trigger && (!startWindow || state.root.tick < startWindow.latestStartTick) ? "survivors" : "confirmation",
+      singleSurvivorMayStartEarly: true
+    },
+    result: result ? { endedAt: result.endedAt, winnerPlayerId: result.winnerPlayerId,
+      currentPlayerRank: result.ranking.find((entry) => entry.subjectType === "player" && entry.subjectId === playerId)?.rank ?? null,
+      ranking: result.ranking.filter((entry) => entry.subjectType === "player").map((entry) => ({
+        playerId: entry.subjectId, playerName: state.playersById[entry.subjectId]?.name ?? "Hráč", rank: entry.rank, score: entry.score
+      })) } : null,
     startRuleDescription: startWindow
       ? `Při dosažení finálního počtu hráčů začne finále nejdříve ${hours(startWindow.earliestStartTick)} h od startu, nejpozději ${hours(startWindow.latestStartTick)} h. Poté běží ${hours(config.activeDurationTicks)} aktivních hodin. Jediný přeživší může zahájit finále dříve. Registrace musí být uzavřena.`
       : "Final Lockdown začne podle počtu hráčů po uzavření registrace.",
@@ -95,7 +115,7 @@ export const createFinalLockdownReadModel = (
       activeBuildings: score.activeBuildings,
       heat: score.heat,
       isCurrentPlayer: score.playerId === playerId,
-      scoreBreakdown: score.scoreBreakdown
+      scoreBreakdown: score.playerId === playerId ? score.scoreBreakdown : {}
     })),
     quietHoursResumeTick: pausedByQuietHours
       ? resolveFinalLockdownQuietHoursResumeTick(state, context)

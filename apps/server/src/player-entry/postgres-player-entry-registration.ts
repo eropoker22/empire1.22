@@ -1,3 +1,5 @@
+import { registrationError } from "./registration-error";
+import { createStartingDistrictPreviewer } from "./starting-district-preview";
 import type {
   HostedServerRegistrationReasonCode,
   LobbyServerSummaryView,
@@ -145,6 +147,7 @@ export const loadHostedSpawnSelection = async (
     reservedIds,
     occupiedInProgressIds
   );
+  const previewStart = createStartingDistrictPreviewer(latest.payload.state, server.mode === "war" ? "war" : "free", startingPlayerState.data);
   const districts = Object.values(snapshotDistricts)
     .filter((district): district is SnapshotDistrict => Boolean(district && findSharedCitySpawnCandidate(String(district.id))?.enabled))
     .map((district) => {
@@ -161,6 +164,7 @@ export const loadHostedSpawnSelection = async (
         label: String(district.name || district.id),
         available: reason === null,
         disabledReason: reason,
+        startPreview: reason === null ? previewStart(String(district.id)) : undefined,
         buildingPreview: (district.buildingIds ?? []).slice(0, 3).map(String),
         neighboringDistrictCount: (district.adjacentDistrictIds ?? []).length,
         spawnCategory: String(findSharedCitySpawnCandidate(String(district.id))?.zones[0] ?? "edge"),
@@ -234,16 +238,6 @@ const disabledReason = (
     : !snapshotReady ? "SERVER_START_SNAPSHOT_MISSING"
       : !["lobby", "running"].includes(String(server.status)) ? "SERVER_NOT_PLAYABLE"
         : full ? "SERVER_FULL" : "SERVER_UNAVAILABLE");
-
-const registrationError = (code: HostedServerRegistrationReasonCode | null): Error => {
-  if (code === "SERVER_REGISTRATION_NOT_OPEN" || code === "SERVER_REGISTRATION_NOT_SCHEDULED") {
-    return entryError(code, "Registrace na tento server ještě nezačala.");
-  }
-  if (code === "SERVER_REGISTRATION_CLOSED_EARLY") {
-    return entryError(code, "Registrace na tento server byla bezpečnostně uzavřena.");
-  }
-  return entryError("SERVER_REGISTRATION_CLOSED", "Registrační okno tohoto serveru už skončilo.");
-};
 
 const iso = (value: unknown): string => value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
 const isoOrNull = (value: unknown): string | null => value == null ? null : iso(value);

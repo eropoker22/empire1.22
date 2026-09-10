@@ -101,9 +101,11 @@ export const createHostedInstanceFailureReporter = (options: {
 
 export const applyHostedEarlyLeaveCleanup = (
   runtime: ServerInstanceRuntime,
-  playerId: string
+  playerId: string,
+  membershipId?: string
 ): boolean => {
   const player = runtime.state.playersById[playerId];
+  if (membershipId && player?.metadata?.membershipId !== membershipId) return false;
   if (!player || player.status === "left") return false;
   runtime.state.playersById[playerId] = { ...player, status: "left", allianceId: null, version: player.version + 1 };
   for (const districtId of runtime.state.root.districtIds) {
@@ -121,19 +123,7 @@ export const applyHostedEarlyLeaveCleanup = (
       };
     }
   }
-  for (const allianceId of runtime.state.root.allianceIds) {
-    const alliance = runtime.state.alliancesById[allianceId];
-    if (!alliance || !alliance.memberIds.includes(playerId)) continue;
-    const membershipByPlayerId = { ...(alliance.membershipByPlayerId ?? {}) };
-    delete membershipByPlayerId[playerId];
-    runtime.state.alliancesById[allianceId] = {
-      ...alliance,
-      memberIds: alliance.memberIds.filter((id) => id !== playerId),
-      membershipByPlayerId,
-      version: alliance.version + 1
-    };
-  }
   runtime.state.root.version += 1;
-  runtime.state = clearDepartedPlayerState(runtime.state, playerId);
+  runtime.state = clearDepartedPlayerState(runtime.state, playerId, { config: runtime.config, clock: runtime.clock });
   return true;
 };

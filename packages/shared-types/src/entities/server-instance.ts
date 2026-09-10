@@ -15,6 +15,8 @@ export interface ServerInstance {
   endedAt: string | null;
   worldSeed: string;
   currentTick: number;
+  /** Last authoritative calendar observation; optional for older snapshots. */
+  calendarAnchor?: { tick: number; at: string };
   gameStateId: string;
   version: number;
 }

@@ -108,7 +108,9 @@ const createRecentBountyEventViews = (state: CoreGameState): BountyEventView[] =
           eventId: `bounty-event:cancelled:${bounty.id}`,
           bountyId: bounty.id,
           type: "cancelled",
-          label: `Bounty na ${targetName} bylo zrušeno.`,
+          label: bounty.settlementReason === "target_left"
+            ? `Zrušeno: cíl opustil server; ${(bounty.refundedCleanCash ?? 0) > 0 ? "odměna vrácena" : "vklad uzavřeného pokusu se nevrací"}.`
+            : bounty.settlementReason === "creator_left" ? "Bounty zrušeno: zadavatel opustil server." : `Bounty na ${targetName} bylo zrušeno.`,
           createdAtTick: bounty.cancelledAtTick ?? bounty.createdAtTick
         });
       } else if (bounty.status === "expired") {

@@ -7,6 +7,8 @@ import type { ResolvedGameModeConfig } from "../contracts";
  */
 export interface GameCoreContext {
   config: ResolvedGameModeConfig;
+  /** Actual calendar instant observed by the hosted scheduler for this tick. */
+  calendarNow?: string;
   mapRules?: {
     isEnabledSpawnCandidate?: (districtId: string) => boolean;
   };

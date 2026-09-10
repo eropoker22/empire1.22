@@ -5,7 +5,7 @@ import { createDistrictAttackTargetViews } from "./district-attack-target-projec
 import { createDistrictSpyTargetViews } from "./district-spy-target-projection";
 import { createEliminationReadModel } from "./elimination-read-model-projection";
 
-const WIN_CONDITION_TEXT = "Přežít do Final Lockdownu a mít nejsilnější impérium. Území, budovy, zdroje i heat rozhodují skóre.";
+const WIN_CONDITION_TEXT = "Přežij očistu a bojuj o individuální vítězství podle finálního skóre. Finále přidává bonusy a postih za HEAT. Termíny a podmínky tohoto serveru najdeš v kartě Očisty.";
 
 /**
  * Responsibility: Safe, read-only hints for the onboarding UI.
@@ -47,6 +47,12 @@ export const createOnboardingReadModel = (
   return {
     playerId,
     playerStatus: player?.status ?? "active",
+    completedActionStepIds: [
+      ...((Array.isArray(player?.metadata?.learningActions) && player.metadata.learningActions.includes("spy"))
+        || (player && Object.keys(state.cooldownStatesById[player.cooldownStateId]?.cooldowns ?? {}).some(key => key.startsWith("spy:"))) ? ["spy" as const] : []),
+      ...((Array.isArray(player?.metadata?.learningActions) && player.metadata.learningActions.includes("trap"))
+        || Object.values(state.trapsById).some(trap => trap.ownerPlayerId === playerId) ? ["attack-order" as const] : [])
+    ],
     hasOwnedDistrict: firstOwnedDistrict !== null,
     firstOwnedDistrictId: firstOwnedDistrict?.id ?? null,
     hasNeighborDistricts: suggestedNeighborDistrictId !== null,

@@ -342,10 +342,10 @@ describe("read-only admin app", () => {
     expect(document.body.textContent).toContain("Plnohodnotný server · 20 hráčů · canonical Očista");
     expect(document.body.textContent).toContain("Minimum ke spuštění");
     expect(document.body.textContent).toContain("60 minut");
-    expect(document.querySelector<HTMLInputElement>('[name="startingCleanCash"]')?.value).toBe("1500");
-    expect(document.querySelector<HTMLInputElement>('[name="startingDirtyCash"]')?.value).toBe("300");
-    expect(document.querySelector<HTMLInputElement>('[name="startingPopulation"]')?.value).toBe("0");
-    expect(document.querySelector<HTMLInputElement>('[name="startingInfluence"]')?.value).toBe("0");
+    expect(document.querySelector<HTMLInputElement>('[name="startingCleanCash"]')?.value).toBe("6000");
+    expect(document.querySelector<HTMLInputElement>('[name="startingDirtyCash"]')?.value).toBe("3000");
+    expect(document.querySelector<HTMLInputElement>('[name="startingPopulation"]')?.value).toBe("150");
+    expect(document.querySelector<HTMLInputElement>('[name="startingInfluence"]')?.value).toBe("15");
     expect(document.querySelector<HTMLInputElement>('[name="startingMaterial:chemicals"]')?.value).toBe("10");
     expect(document.querySelector<HTMLInputElement>('[name="startingMaterial:pistol"]')?.value).toBe("2");
     expect(document.body.textContent).toContain("Každý hráč má vždy přesně 2 špionážní sloty.");
@@ -443,10 +443,10 @@ describe("read-only admin app", () => {
     const payload = vi.mocked(client.createServer).mock.calls[0]![0];
     expect(payload).toMatchObject({ serverTemplate: "full", capacity: resolveModeConfig("free").balance.maxPlayersPerServer, joinPolicy: "closed" });
     expect(payload.startingPlayerState).toMatchObject({
-      cleanCash: 1_500,
-      dirtyCash: 300,
-      population: 0,
-      influence: 0,
+      cleanCash: 6_000,
+      dirtyCash: 3_000,
+      population: 150,
+      influence: 15,
       spySlots: 2,
       materials: {
         chemicals: 10,

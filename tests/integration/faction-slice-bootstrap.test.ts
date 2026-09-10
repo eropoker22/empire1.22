@@ -34,8 +34,8 @@ describe("faction gameplay slice bootstrap", () => {
 
     expect(player?.factionId).toBe("kartel");
     expect(resources?.balances).toMatchObject({
-      cash: 1500,
-      "dirty-cash": 300,
+      cash: 6000,
+      "dirty-cash": 3000,
       chemicals: 10
     });
     expect(client.getGameplaySlice()?.player.faction).toMatchObject({

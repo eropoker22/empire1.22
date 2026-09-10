@@ -131,6 +131,11 @@
       "filename": "026_control_server_elimination_timing.sql",
       "classification": "backward-compatible",
       "reason": "Relaxes the canonical timing constraint for new flexible servers while retaining legacy null timing pairs."
+    },
+    {
+      "filename": "027_registration_rejoin.sql",
+      "classification": "forward-only",
+      "reason": "Replaces lifetime membership uniqueness with current-attempt partial indexes. After rejoin, multiple historical rows per account/server and player/server are legitimate; older readers and unique constraints cannot safely handle them. Drain old API and workers before enabling rejoin; rollback requires a compatible forward fix, never deleting membership history."
     }
   ]
 }

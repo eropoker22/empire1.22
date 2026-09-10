@@ -14,6 +14,7 @@ import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
 import { expireBounties } from "./bountyClaims";
+import { settleUnclaimedBounty } from "./bountySettlement";
 import { changeCleanCash, createBountyEventPayload, getPlayerResourceState, rejected } from "./bountyCommandUtils";
 
 export type BountyCommand = CreateBountyCommand | CancelBountyCommand;
@@ -28,7 +29,7 @@ export const handleBountyCommand = (
   const currentState = expiry.nextState;
   const result = command.type === "create-bounty"
     ? createBounty(currentState, command, context)
-    : cancelBounty(currentState, command);
+    : cancelBounty(currentState, command, context);
   return {
     ...result,
     events: [...expiry.events, ...result.events]
@@ -84,6 +85,8 @@ export const createBounty = (
   const durationTicks = Math.ceil((durationHours * 60 * 60 * 1000) / Math.max(1, context.config.tickRateMs));
   const bounty: Bounty = {
     id: bountyId,
+    creatorMembershipId: typeof creator.metadata?.membershipId === "string" ? creator.metadata.membershipId : null,
+    targetMembershipId: typeof target.metadata?.membershipId === "string" ? target.metadata.membershipId : null,
     createdByPlayerId: creator.id,
     targetPlayerId: target.id,
     targetDistrictId,
@@ -124,45 +127,22 @@ export const createBounty = (
 
 export const cancelBounty = (
   state: CoreGameState,
-  command: CancelBountyCommand
+  command: CancelBountyCommand,
+  context?: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; errors: CoreError[] } => {
   const bounty = state.bountiesById?.[command.payload.bountyId];
   if (!bounty) return rejected(state, "bounty_not_found", "Bounty nebyla nalezena.");
   if (bounty.createdByPlayerId !== command.playerId) return rejected(state, "bounty_cancel_forbidden", "Bounty může zrušit jen její zadavatel.");
   if (bounty.status !== "active") return rejected(state, "bounty_cancel_not_active", "Zrušit jde jen aktivní bounty.");
+  if (bounty.creatorMembershipId && bounty.creatorMembershipId !== state.playersById[command.playerId]?.metadata?.membershipId) {
+    return rejected(state, "bounty_cancel_forbidden", "Bounty patří předchozímu pokusu o hru.");
+  }
 
   const creator = state.playersById[bounty.createdByPlayerId];
   const resourceState = creator ? getPlayerResourceState(state, creator) : null;
   if (!resourceState) return rejected(state, "bounty_resource_state_not_found", "Resource state zadavatele nebyl nalezen.");
 
-  const cancelled: Bounty = {
-    ...bounty,
-    status: "cancelled",
-    cancelledAtTick: state.root.tick,
-    version: bounty.version + 1
-  };
-  const nextResourceState = changeCleanCash(resourceState, bounty.rewardCleanCash);
-  const nextState: CoreGameState = {
-    ...state,
-    bountiesById: {
-      ...(state.bountiesById || {}),
-      [cancelled.id]: cancelled
-    },
-    resourceStatesById: {
-      ...state.resourceStatesById,
-      [nextResourceState.id]: nextResourceState
-    },
-    root: {
-      ...state.root,
-      version: state.root.version + 1
-    }
-  };
-
-  return {
-    nextState,
-    events: [createEvent(CORE_EVENT_TYPES.bountyCancelled, createBountyEventPayload(cancelled))],
-    errors: []
-  };
+  return { ...settleUnclaimedBounty(state, bounty.id, "creator_cancelled", context?.clock?.nowIso?.()), errors: [] };
 };
 
 const isActiveDistrictOwnedBy = (state: CoreGameState, districtId: string, playerId: string): boolean => {

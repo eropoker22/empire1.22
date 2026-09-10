@@ -19,6 +19,7 @@ import {
 } from "./finalLockdownMessages";
 import { resolveFinalLockdown } from "./finalLockdownResolution";
 import { resolveEffectiveFinalLockdownTrigger, resolveFinalLockdownStartWindow } from "../server-pacing/serverPacingPolicy";
+export { estimateFinalLockdownEndTick } from "./finalLockdownEstimate";
 
 export interface FinalLockdownLifecycleResult {
   nextState: CoreGameState;
@@ -82,22 +83,6 @@ export const resolveFinalLockdownQuietHoursResumeTick = (
   const eliminationConfig = resolveEliminationConfig(context.config);
   if (!finalConfig?.pauseDuringQuietHours || !eliminationConfig?.quietHours) return null;
   return resolveQuietHoursResumeTick(state, eliminationConfig, tick, context.config.tickRateMs);
-};
-
-export const estimateFinalLockdownEndTick = (
-  state: CoreGameState,
-  context: GameCoreContext
-): number | null => {
-  const finalState = state.finalLockdownState;
-  if (!finalState || finalState.status === "inactive" || finalState.status === "resolved") return null;
-  let remaining = Math.max(0, finalState.remainingActiveTicks);
-  let tick = state.root.tick;
-  const maxIterations = Math.max(remaining * 4, remaining + ticksPerDay(context));
-  for (let index = 0; remaining > 0 && index < maxIterations; index += 1) {
-    tick += 1;
-    if (!isFinalLockdownPausedByQuietHours(state, context, tick)) remaining -= 1;
-  }
-  return remaining <= 0 ? tick : state.root.tick + finalState.remainingActiveTicks;
 };
 
 const startFinalLockdown = (
@@ -239,6 +224,3 @@ const stopEliminations = (state: CoreGameState): EliminationState => {
     version: 1
   };
 };
-
-const ticksPerDay = (context: GameCoreContext): number =>
-  Math.ceil((24 * 60 * 60 * 1000) / Math.max(1, context.config.tickRateMs));

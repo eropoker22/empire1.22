@@ -28,7 +28,7 @@ export const resolveActiveAlliancePenaltyStatModifiers = (
   if (!Number.isFinite(now)) return createDefaultAlliancePenaltyStatModifiers();
 
   return Object.values(state.allianceExitPenaltiesById ?? {})
-    .filter((penalty) => penalty.playerId === playerId && Date.parse(penalty.penaltyEndsAt) > now)
+    .filter((penalty) => penalty.playerId === playerId && Date.parse(penalty.startedAt) <= now && Date.parse(penalty.penaltyEndsAt) > now)
     .reduce((modifiers, penalty) => ({
       attackMultiplier: modifiers.attackMultiplier * resolveMultiplier(penalty.attackMultiplier),
       defenseMultiplier: modifiers.defenseMultiplier * resolveMultiplier(penalty.defenseMultiplier),

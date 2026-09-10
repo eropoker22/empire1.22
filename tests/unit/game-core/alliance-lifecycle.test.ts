@@ -15,10 +15,90 @@ import type {
   Player
 } from "@empire/shared-types";
 import { createDistrictFixture, createPlayerFixture } from "../../fixtures/game-state-fixtures";
+import { clearDepartedPlayerState } from "../../../packages/game-core/src/rules/liveness/clearDepartedPlayerState";
 
 const BASE_TIME = "2026-01-01T00:00:00.000Z";
 
 describe("alliance lifecycle", () => {
+  it.each([["player:4", "player:5"], ["player:5", "player:4"]])("serializes invitations for the last seat in either order: %s then %s", (first, second) => {
+    let { state } = createAllianceState(["player:1", "player:2", "player:3"]);
+    for (const id of [first, second]) {
+      addUnalignedPlayer(state, id);
+      const invitation = applyCommand(state, command("invite-alliance-member", "player:1", { allianceId: "alliance:1", targetPlayerId: id }, `invite:${id}`), context(BASE_TIME));
+      expect(invitation.errors).toEqual([]); state = invitation.nextState;
+    }
+    const firstInviteId = Object.values(state.allianceInvitesById!).find(i => i.targetPlayerId === first)!.id;
+    const forged = applyCommand(state, command("respond-alliance-invite", second, { inviteId: firstInviteId, response: "accept" }), context(BASE_TIME));
+    expect(forged.errors.length).toBeGreaterThan(0);
+    const joined = applyCommand(state, command("join-alliance", first, { allianceId: "alliance:1" }), context(BASE_TIME));
+    expect(joined.errors).toEqual([]); state = joined.nextState;
+    expect(state.alliancesById["alliance:1"].memberIds).toHaveLength(4);
+    expect(applyCommand(state, command("join-alliance", second, { allianceId: "alliance:1" }), context(BASE_TIME)).errors[0]?.code).toBe("ALLIANCE_FULL");
+    expect(applyCommand(state, command("respond-alliance-invite", first, { inviteId: firstInviteId, response: "accept" }), context(BASE_TIME)).errors.length).toBeGreaterThan(0);
+    expect(state.playersById[second].allianceId).toBeNull();
+  });
+
+  it("invalidates a pending vote when its leader voter leaves", () => {
+    const { state } = createAllianceState(["player:1", "player:2", "player:3"]);
+    const started = applyCommand(state, command("start-alliance-kick-vote", "player:1", { allianceId: "alliance:1", targetPlayerId: "player:2" }), context(addHours(BASE_TIME, 29)));
+    expect(started.errors).toEqual([]);
+    const voteId = Object.keys(started.nextState.alliancesById["alliance:1"].kickVotesById!)[0];
+    started.nextState.playersById["player:1"].status = "left";
+    const cleaned = clearDepartedPlayerState(started.nextState, "player:1", context(addHours(BASE_TIME, 29)));
+    expect(cleaned.alliancesById["alliance:1"].kickVotesById![voteId].status).toBe("invalidated");
+    expect(cleaned.alliancesById["alliance:1"].membershipByPlayerId!["player:2"].activeVoteId).toBeUndefined();
+    expect(applyCommand(cleaned, command("cast-alliance-kick-vote", "player:1", { voteId, choice: "yes" }), context(addHours(BASE_TIME, 29))).errors.length).toBeGreaterThan(0);
+  });
+  it("repairs a persisted departed owner on the next tick and keeps the new leader on repeated ticks", () => {
+    const { state } = createAllianceState(["player:1", "player:2"]);
+    state.playersById["player:1"].status = "left";
+    state.playersById["player:1"].allianceId = null;
+    state.alliancesById["alliance:1"].memberIds = ["player:2"];
+    state.alliancesById["alliance:1"].membershipByPlayerId!["player:1"].status = "removed";
+    const repaired = runTick(state, context(BASE_TIME)).nextState;
+    expect(repaired.alliancesById["alliance:1"]).toMatchObject({ ownerPlayerId: "player:2", memberIds: ["player:2"] });
+    expect(repaired.alliancesById["alliance:1"].membershipByPlayerId!["player:2"].role).toBe("leader");
+    expect(runTick(repaired, context(BASE_TIME)).nextState.alliancesById["alliance:1"].ownerPlayerId).toBe("player:2");
+    expect(applyCommand(repaired, command("disband-alliance", "player:2", { allianceId: "alliance:1" }), context(BASE_TIME)).errors).toEqual([]);
+  });
+  it.each(["player:1", "player:2"])("keeps a valid leader after forced server departure of %s, without an alliance-leave penalty", (departing) => {
+    const { state } = createAllianceState(["player:1", "player:2"]);
+    addUnalignedPlayer(state, "player:3");
+    const invited = applyCommand(state, command("invite-alliance-member", "player:1", {
+      allianceId: "alliance:1", targetPlayerId: "player:3"
+    }, "departure-invite"), context(BASE_TIME));
+    expect(invited.errors).toEqual([]);
+    invited.nextState.playersById[departing].status = "left";
+    const cleaned = clearDepartedPlayerState(invited.nextState, departing, context(BASE_TIME));
+    const remaining = departing === "player:1" ? "player:2" : "player:1";
+    expect(cleaned.alliancesById["alliance:1"]).toMatchObject({ ownerPlayerId: remaining, memberIds: [remaining], status: "active" });
+    expect(cleaned.alliancesById["alliance:1"].membershipByPlayerId?.[remaining]?.role).toBe("leader");
+    expect(cleaned.playersById[departing].allianceId).toBeNull();
+    expect(Object.values(cleaned.allianceExitPenaltiesById ?? {})).toHaveLength(0);
+    expect(clearDepartedPlayerState(cleaned, departing, context(BASE_TIME)).alliancesById).toEqual(cleaned.alliancesById);
+    if (departing === "player:1") {
+      expect(Object.values(cleaned.allianceInvitesById ?? {})[0].status).toBe("rejected");
+      expect(applyCommand(cleaned, command("join-alliance", "player:3", { allianceId: "alliance:1" }), context(BASE_TIME)).errors[0]?.code).toBe("ALLIANCE_INVITE_REQUIRED");
+    }
+    expect(applyCommand(cleaned, command("disband-alliance", remaining, { allianceId: "alliance:1" }), context(BASE_TIME)).errors).toEqual([]);
+  });
+
+  it("disbands the last member's alliance and does not restore it when the player returns", () => {
+    const { state } = createAllianceState(["player:1"]);
+    state.playersById["player:1"].status = "left";
+    const cleaned = clearDepartedPlayerState(state, "player:1", context(BASE_TIME));
+    expect(cleaned.alliancesById["alliance:1"]).toMatchObject({ status: "disbanded", memberIds: [] });
+    cleaned.playersById["player:1"].status = "active";
+    expect(cleaned.playersById["player:1"].allianceId).toBeNull();
+    expect(applyCommand(cleaned, command("join-alliance", "player:1", { allianceId: "alliance:1" }), context(BASE_TIME)).errors.length).toBeGreaterThan(0);
+  });
+
+  it("rejects direct join and forged alliance chat without a leader invitation", () => {
+    const { state } = createAllianceState(["player:1"]);
+    addUnalignedPlayer(state, "player:2");
+    expect(applyCommand(state, command("join-alliance", "player:2", { allianceId: "alliance:1" }), context(BASE_TIME)).errors[0]?.code).toBe("ALLIANCE_INVITE_REQUIRED");
+    expect(applyCommand(state, command("send-alliance-chat-message", "player:2", { allianceId: "alliance:1", body: "forged" }), context(BASE_TIME)).errors.length).toBeGreaterThan(0);
+  });
   it("derives the 24 hour activity cycle, due-soon window, and four hour grace", () => {
     const { state, membership } = createAllianceState(["player:1", "player:2"]);
     const config = resolveModeConfig("free");
@@ -247,8 +327,14 @@ describe("alliance lifecycle", () => {
     expect(created.errors).toEqual([]);
     expect(created.nextState.playersById["player:1"].allianceId).toBe(allianceId);
 
-    const joined = applyCommand(
+    const joiningInvite = applyCommand(
       created.nextState,
+      command("invite-alliance-member", "player:1", { allianceId, targetPlayerId: "player:2" }, "command:invite-joining"),
+      context(BASE_TIME)
+    );
+    expect(joiningInvite.errors).toEqual([]);
+    const joined = applyCommand(
+      joiningInvite.nextState,
       command("join-alliance", "player:2", { allianceId }, "command:join-alliance"),
       context(BASE_TIME)
     );
@@ -260,7 +346,7 @@ describe("alliance lifecycle", () => {
       command("invite-alliance-member", "player:1", { allianceId, targetPlayerId: "player:3" }, "command:invite-alliance"),
       context(BASE_TIME)
     );
-    const inviteId = Object.keys(invited.nextState.allianceInvitesById ?? {})[0];
+    const inviteId = Object.values(invited.nextState.allianceInvitesById ?? {}).find((invite) => invite.targetPlayerId === "player:3")!.id;
     expect(invited.errors).toEqual([]);
     expect(invited.nextState.allianceInvitesById?.[inviteId].status).toBe("pending");
 
@@ -395,8 +481,16 @@ describe("alliance lifecycle", () => {
       context(BASE_TIME)
     );
     const inviteId = Object.keys(invited.nextState.allianceInvitesById ?? {})[0];
-    const filled = applyCommand(
+    const fillerInvited = applyCommand(
       invited.nextState,
+      command("invite-alliance-member", "player:1", {
+        allianceId: "alliance:1", targetPlayerId: "player:filler"
+      }, "command:invite-filler"),
+      context(BASE_TIME)
+    );
+    expect(fillerInvited.errors).toEqual([]);
+    const filled = applyCommand(
+      fillerInvited.nextState,
       command("join-alliance", "player:filler", {
         allianceId: "alliance:1"
       }, "command:fill-final-slot"),
