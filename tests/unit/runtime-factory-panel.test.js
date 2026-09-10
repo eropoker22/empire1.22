@@ -335,10 +335,10 @@ describe("factory dashboard view model and panel", () => {
     const collectButton = new FakeElement();
 
     expect(viewModel.collectableAmount).toBe(0);
-    expect(viewModel.collectButton).toEqual({ visible: false, disabled: true, text: "+", title: ownershipReason });
+    expect(viewModel.collectButton).toEqual({ visible: true, disabled: true, text: "Převzít", title: ownershipReason });
     expect(renderFactoryDashboardPanel({ collectButton }, viewModel)).toBe(true);
-    expect(collectButton.hidden).toBe(true);
-    expect(collectButton.style.display).toBe("none");
+    expect(collectButton.hidden).toBe(false);
+    expect(collectButton.style.display).toBe("");
     expect(collectButton.disabled).toBe(true);
     expect(collectButton.title).toBe(ownershipReason);
     expect(collectButton.attributes.get("aria-label")).toBe(ownershipReason);

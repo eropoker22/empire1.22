@@ -69,7 +69,7 @@ function trackPropertyAssignments(element, propertyName) {
 }
 
 describe("production building popup runtime", () => {
-  it("keeps obsolete collect controls hidden and stable on authoritative polls", async () => {
+  it("keeps collect stable on unchanged polls and enables it when the server reports ready output", async () => {
     const documentRef = createEventTarget();
     const openButton = createElement();
     const popup = createElement();
@@ -183,12 +183,12 @@ describe("production building popup runtime", () => {
       productionLines: [{ canCollect: true }]
     };
     await documentRef.dispatch("empire:gameplay-slice-rendered");
-    expect(collectWrites.disabled()).toBe(stableCounts.collectDisabled);
+    expect(collectWrites.disabled()).toBe(stableCounts.collectDisabled + 1);
     expect(collectWrites.text()).toBe(stableCounts.collectText);
-    expect(collectWrites.title()).toBe(stableCounts.collectTitle);
-    expect(collectButton.hidden).toBe(true);
-    expect(collectButton.style.display).toBe("none");
-    expect(collectButton.disabled).toBe(true);
+    expect(collectWrites.title()).toBe(stableCounts.collectTitle + 1);
+    expect(collectButton.hidden).toBe(false);
+    expect(collectButton.style.display).toBe("");
+    expect(collectButton.disabled).toBe(false);
   });
 
   it.each([

@@ -86,10 +86,10 @@ const ONBOARDING_STEPS_DATA = Object.freeze([
     kind: "resource",
     placement: "center",
     subtitle: "",
-    body: "Tady vidíš tvoji populaci, ta je palivem pro obsazování districtů, pro útok, pro obranu. Hledanost neboli Heat, tento ukazatel ti dává informaci jak moc blízko jsi průseru, policie tady funguje jako predátor každou hodinu u někoho vyvolá razii, číslo je klikatelné a roste díky tvojemu špinavému biznisu a chování ve hře.",
+    body: "Populaci potřebuješ pro obsazování, útok i obranu; Heat ovlivňuje policejní kontroly, jejichž termíny určuje server. Kliknutím na Heat otevřeš skutečné možnosti snížení, jejich cenu a čekání.",
     bodyParagraphs: Object.freeze([
       "Tady vidíš tvoji populaci, která je palivem pro obsazování districtů, útok i obranu.",
-      "Hledanost neboli Heat ukazuje, jak blízko jsi průšvihu. Policie každou hodinu u někoho vyvolá razii."
+      "Heat ovlivňuje policejní kontroly. Kliknutím zjistíš cenu a dostupnost snížení; policejní termíny určuje server."
     ]),
     bodyHighlights: Object.freeze([
       Object.freeze({ text: "populaci", tone: "green" }),
@@ -176,7 +176,7 @@ const ONBOARDING_STEPS_DATA = Object.freeze([
     body: "Výroba neběží sama. Otevři Lékárnu, Lab, Továrnu nebo Zbrojovku a vždy vyber konkrétní recept, který chceš spustit. Každý výrobek potřebuje správné vstupy, čas a volný výrobní slot. Po dokončení musíš hotový výstup převzít do SKLADU.",
     bodyParagraphs: Object.freeze([
       "Výroba neběží sama. Otevři Lékárnu, Lab, Továrnu nebo Zbrojovku a vždy vyber konkrétní recept, který chceš spustit.",
-      "Každý výrobek potřebuje správné vstupy, čas a volný výrobní slot. Po dokončení musíš hotový výstup převzít do SKLADU."
+      "Fronta obsahuje zaplacené kusy, které se teprve vyrábějí. Hotové kusy čekají v místním zásobníku budovy. Tlačítkem Převzít je přesuneš do SKLADU; teprve tam je použije další recept. Při plném skladu zbytek zůstane v budově."
     ]),
     bodyHighlights: Object.freeze([
       Object.freeze({ text: "neběží sama", tone: "red" }),
@@ -224,7 +224,7 @@ const ONBOARDING_STEPS_DATA = Object.freeze([
     body: "Aliance není jen znak vedle jména. Přes tlačítko Aliance můžeš založit vlastní skupinu, přijímat pozvánky, domlouvat se v chatu a koordinovat obranu i společný postup. Pomoc spojenci spotřebuje skutečné zásoby. Systém ti dá nástroje ke spolupráci — ne důvod někomu věřit.",
     bodyParagraphs: Object.freeze([
       "Aliance není jen znak vedle jména. Přes tlačítko Aliance můžeš založit vlastní skupinu, přijímat pozvánky, domlouvat se v chatu a koordinovat obranu i společný postup.",
-      "Pomoc spojenci spotřebuje skutečné zásoby. Systém ti dá nástroje ke spolupráci — ne důvod někomu věřit."
+      "Ke vstupu potřebuješ platnou pozvánku vůdce. Pomoc spojenci spotřebuje skutečné zásoby. Pořadí a vítězství jsou individuální; aliance nezaručuje společnou výhru."
     ]),
     bodyHighlights: Object.freeze([
       Object.freeze({ text: "Aliance", tone: "gold" }),
@@ -313,20 +313,18 @@ const ONBOARDING_STEPS_DATA = Object.freeze([
     kind: "intel",
     placement: "center",
     subtitle: "",
-    body: "Sousední districty můžeš špehovat, vykrádat, po úspěšném špehování obsazovat a na nepřátelské districty můžeš útočit, případně je zcela zničit. Dávej pozor i tady policie není slepá! Klikni na District 2, vyšli špeha a potvrď misi.",
+    body: "Špionáž získává informace; plný průzkum může otevřít další akce, částečný nemusí stačit. Loupež bere neutrální kořist, heist je samostatná operace, útok míří proti vlastníkovi území. Vyber dostupného souseda a vyšli špeha; oprávnění a náklady potvrzuje server.",
     bodyParagraphs: Object.freeze([
-      "Sousední districty můžeš špehovat, vykrádat a po úspěšném špehování obsazovat.",
-      "Na nepřátelské districty můžeš útočit, případně je zcela zničit. Klikni na District 2, vyšli špeha a potvrď misi."
+      "Sousední území můžeš špehovat. Plný průzkum může otevřít další akce; částečný či neúspěšný výsledek nemusí stačit. Platí dostupnost na serveru.",
+      "Neutrální loupež bere kořist, heist je samostatná operace a útok míří proti vlastníkovi území. Vyber dostupné sousední území a vyšli špeha."
     ]),
     bodyHighlights: Object.freeze([
       Object.freeze({ text: "špehovat", tone: "cyan" }),
-      Object.freeze({ text: "District 2", tone: "gold" })
+      Object.freeze({ text: "sousední území", tone: "gold" })
     ]),
     targetSelector: "[data-map-viewport], [data-mount-role=\"map\"], [data-district-canvas], [data-map-canvas]",
     mapViewMode: "zoom-out",
-    mapDistrictHighlights: Object.freeze([
-      Object.freeze({ districtId: 2, tone: "pulse", label: "District 2" })
-    ]),
+    mapDistrictHighlights: Object.freeze([]),
     scrollFocusIntoView: true,
     scrollFocusSelector: "[data-map-viewport], [data-mount-role=\"map\"], [data-district-canvas]",
     scrollFocusBlock: "center",
@@ -353,20 +351,18 @@ const ONBOARDING_STEPS_DATA = Object.freeze([
     kind: "danger",
     placement: "center",
     subtitle: "",
-    body: "V každém districtu máš různé typy budov, když jich máš víc tak se navzájem posilňují. Taky můžeš dát do svého districtu obranu ve formě svých lidí a obranných zbraní nebo past. Jednu tam vyzkoušej vložit, pokud zautočí hráč na district ve kterém máš past příjde o celý útok a možnost na nějakou dobu útočit!",
+    body: "Vlastní území můžeš posílit lidmi, výzbrojí a pastí. Obrana váže skutečné zásoby. Vyber svoje území a prohlédni dostupnou obranu; přesný účinek pasti a výsledek útoku určuje server.",
     bodyParagraphs: Object.freeze([
-      "V každém districtu máš různé typy budov. Když jich máš víc, navzájem se posilňují.",
-      "Do svého districtu můžeš vložit obranu nebo past. Jednu vyzkoušej vložit do District 1."
+      "Vlastní území můžeš posílit lidmi, výzbrojí a pastí. Obrana váže skutečné zásoby.",
+      "Vyber svoje území a dostupnou past. Její účinek i výsledek případného útoku potvrdí server."
     ]),
     bodyHighlights: Object.freeze([
       Object.freeze({ text: "past", tone: "green" }),
-      Object.freeze({ text: "District 1", tone: "gold" })
+      Object.freeze({ text: "svoje území", tone: "gold" })
     ]),
     targetSelector: "[data-map-viewport], [data-mount-role=\"map\"], [data-district-canvas], [data-map-canvas]",
     mapViewMode: "zoom-out",
-    mapDistrictHighlights: Object.freeze([
-      Object.freeze({ districtId: 1, tone: "pulse", label: "District 1" })
-    ]),
+    mapDistrictHighlights: Object.freeze([]),
     scrollFocusIntoView: true,
     scrollFocusSelector: "[data-map-viewport], [data-mount-role=\"map\"], [data-district-canvas]",
     scrollFocusBlock: "center",
@@ -392,15 +388,16 @@ const ONBOARDING_STEPS_DATA = Object.freeze([
     badge: "LOOP",
     kind: "objective",
     subtitle: "",
-    body: "Každé 4h reálného času (dva dny a dvě noci ve hře) probíhá eliminace tzv. Očista - Tvůj vliv, počet obyvatel, materiálů, districtů nebo například jak bohatý jsi počítá Empire score a nejslabší vypadává. Dokud hráčů není posledních 8 pak příjde final lockdown který trvá 12h a Empire score rozhodne o vítězi! Už je to na tobě jakou cestu zvolíš či sám nebo v Alianci, či čistě nebo cestou padoucha. Můžeš taky používat bounty nebo boosty které najdeš nad mapou. Základy znáš, hodně štěstí!",
+    body: "Karta Očisty ukazuje skutečný termín dalšího vyřazení, noční klid a podmínky Final Lockdownu. Ohrožená skupina neznamená několik současných obětí. Pořadí se mění podle serverového skóre; ve finále se přidávají bonusy a postih za HEAT.",
     bodyParagraphs: Object.freeze([
-      "Každé 4h reálného času probíhá eliminace tzv. Očista. Empire score počítá vliv, obyvatele, materiály, districty i bohatství.",
-      "Nejslabší vypadává. Jakmile zůstane posledních 8 hráčů, přijde final lockdown na 12h a Empire score rozhodne o vítězi.",
-      "Už je na tobě, jestli půjdeš sám, v Alianci, čistě nebo cestou padoucha. Můžeš používat bounty i boosty nad mapou. Základy znáš, hodně štěstí!"
+      "Otevři kartu Očisty: ukazuje termíny, počet vyřazovaných a tvoje skutečné riziko. Zvýrazněná ohrožená skupina není počet současně vyřazených.",
+      "Herní den a noc mění ekonomiku. Skutečný noční klid je jiné kalendářní okno: odkládá očistu a při zapnuté pauze zastaví aktivní čas finále. Výroba ani veškerý boj se tím automaticky nevypínají.",
+      "Začátek a délku Final Lockdownu určuje nastavení serveru, uzavření registrace a přeživší. Během finále vidíš průběžné skóre s bonusy a HEAT postihem; vítěze potvrdí až konečný výsledek.",
+      "Předčasný odchod ukončí pokus včetně vlastních nabídek, bounty a rozpracované výroby. Jejich vklady se nepřenášejí do nového startu. Návrat je možný jen při otevřené registraci."
     ]),
     bodyHighlights: Object.freeze([
-      Object.freeze({ text: "Očista", tone: "red" }),
-      Object.freeze({ text: "Empire score", tone: "gold" }),
+      Object.freeze({ text: "Očisty", tone: "red" }),
+      Object.freeze({ text: "Final Lockdownu", tone: "gold" }),
       Object.freeze({ text: "Alianci", tone: "cyan" }),
       Object.freeze({ text: "bounty", tone: "red" })
     ]),

@@ -318,10 +318,10 @@ describe("server milestone cards", () => {
       }
     });
     expect(document.querySelector('[data-server-milestone-stat="final-lockdown-countdown"] strong').textContent)
-      .toBe("11 h 59 min 59 s");
+      .toBe("12 h 0 min 0 s");
     vi.advanceTimersByTime(1_000);
     expect(document.querySelector('[data-server-milestone-stat="final-lockdown-countdown"] strong').textContent)
-      .toBe("11 h 59 min 58 s");
+      .toBe("11 h 59 min 59 s");
   });
 
   it("reopens a selected card from a street news event", () => {

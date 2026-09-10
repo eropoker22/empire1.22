@@ -242,8 +242,8 @@ describe("free session MVP flow", () => {
 
     const text = collectText(onboardingMount);
     expect(text).toContain("Eliminace");
-    expect(text).toContain("Každé 4h reálného času");
-    expect(text).toContain("Základy znáš, hodně štěstí!");
+    expect(text).toContain("Skutečný noční klid");
+    expect(text).toContain("Město čeká. Vrať se na mapu.");
     expect(text).toContain("Pokračovat");
     expect(text).not.toContain("Rozkazy běží v čase");
   });

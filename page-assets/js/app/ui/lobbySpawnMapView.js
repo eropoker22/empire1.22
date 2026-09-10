@@ -69,7 +69,11 @@ export const describeLobbyMapDistrict = (spawn, districtId) => {
   }
   if (district?.reserved) return `${label} · ${zone.label} · rezervováno jiným hráčem`;
   if (district?.status === "destroyed") return `${label} · ${zone.label} · district je zničený`;
-  if (option?.available) return `${label} · ${zone.label} · volný startovní district`;
+  if (option?.available) {
+    const preview = option.startPreview;
+    return `${label} · ${zone.label} · volný startovní district${preview
+      ? ` · Clean $${Math.round(preview.cleanCashPerHour).toLocaleString("cs-CZ")}/h · Dirty $${Math.round(preview.dirtyCashPerHour).toLocaleString("cs-CZ")}/h · ${preview.populationSource} · Budovy: ${preview.buildingNames.join(", ")} · ${preview.difficulty} ${preview.basis}` : ""}`;
+  }
   return `${label} · ${zone.label} · není dostupný pro start`;
 };
 

@@ -381,11 +381,10 @@ describe("shared building presentation adapters", () => {
       }
     });
     expect(detail.viewModel.actions[0].rewardSummary).toContain("Clean");
-    expect(detail.viewModel.actions[0].rewardSummary).toContain("Dirty cash +$550");
-    expect(detail.viewModel.actions[0].rewardSummary).toContain("Čekání 30m 00s");
-    expect(detail.viewModel.actions[1].rewardSummary).toContain("Trvání 30m 00s");
-    expect(detail.viewModel.actions[1].rewardSummary).toContain("Čekání 45m 00s");
-    expect(detail.viewModel.actions[2].rewardSummary).toContain("Čekání 30m 00s");
+    expect(detail.viewModel.actions[0].rewardSummary).toContain("Dirty +$550");
+    expect(detail.viewModel.actions[0].cooldownMs).toBe(30 * 60_000);
+    expect(detail.viewModel.actions[1].rewardSummary).toBe("");
+    expect(detail.viewModel.actions[2].rewardSummary).toBe("");
     expect(detail.viewModel.actions.slice(1).every((action) => action.disabled)).toBe(true);
     expect(detail.viewModel.actions[1].disabledReason).toBe("Akce teď není dostupná.");
   });
@@ -437,7 +436,7 @@ describe("shared building presentation adapters", () => {
     expect(execution.confirmation).toMatchObject({
       buildingLabel: "Burza",
       districtLabel: "District 79",
-      costSummary: "$5250 clean cash",
+      costSummary: "Pevný poplatek: $2500 clean cash · Celkem: $5250 clean cash",
       inputSummary: "Kategorie marketu: electronics · Investice: $2750 clean cash",
       rewardSummary: "Market tlak +1",
       disabledReason: "",
@@ -445,7 +444,7 @@ describe("shared building presentation adapters", () => {
     });
   });
 
-  it("keeps authoritative input requirements internal and applies server-compatible defaults", () => {
+  it("exposes authoritative input choices and applies server-compatible defaults", () => {
     const requiredInputs = [
       {
         id: "targetCategory",
@@ -476,7 +475,7 @@ describe("shared building presentation adapters", () => {
       (candidate) => candidate.actionId === "speculative_buy"
     );
 
-    expect(action.requiresInput).toEqual([]);
+    expect(action.requiresInput).toEqual(requiredInputs);
     expect(action.serverAction.requiredInputs).toEqual(requiredInputs);
 
     const execution = createServerBuildingActionExecutionPresentation({
@@ -679,7 +678,7 @@ describe("shared building presentation adapters", () => {
     expect(detail.viewModel.actions[2].rewardSummary).toContain("Heat -20");
   });
 
-  it("keeps the canonical mechanics preview for actions whose server summary only exposes a technical cost", () => {
+  it("uses effective server costs and effects even when a legacy school profile differs", () => {
     const detail = createServerBuildingDetail({
       baseName: "Škola",
       buildingTypeId: "school",
@@ -696,9 +695,9 @@ describe("shared building presentation adapters", () => {
     });
     const action = detail.viewModel.actions.find((entry) => entry.actionId === "evening_course");
 
-    expect(action.buttonCostLabel).toBe("");
-    expect(action.rewardSummary).toContain("bytové bloky +60% nábor členů");
-    expect(action.rewardSummary).not.toContain("Server:");
+    expect(action.buttonCostLabel).toBe("$1200 clean cash");
+    expect(action.costSummary).toBe("$1200 clean cash");
+    expect(action.rewardSummary).toBe("Server: nábor +75 % na 20 minut");
   });
 
   it.each([
@@ -716,7 +715,7 @@ describe("shared building presentation adapters", () => {
     ["Letiště", "airport", "express_import", "Heat +6"],
     ["Letiště", "airport", "evacuation_corridor", "Šance úniku +18%"],
     ["Přístav", "port", "port_container_cut", "Metal Parts x3"]
-  ])("keeps canonical %s mechanics for %s", (baseName, buildingTypeId, actionId, expectedSummary) => {
+  ])("uses the authoritative %s action projection for %s", (baseName, buildingTypeId, actionId, _legacySummary) => {
     const detail = createServerBuildingDetail({
       baseName,
       buildingTypeId,
@@ -730,11 +729,12 @@ describe("shared building presentation adapters", () => {
     });
     const action = detail.viewModel.actions.find((entry) => entry.actionId === actionId);
 
-    expect(action.rewardSummary).toContain(expectedSummary);
-    expect(action.rewardSummary).not.toContain("Server technical preview");
+    expect(action.rewardSummary).toBe("Server technical preview");
+    expect(action.buttonCostLabel).toBe("$9999 clean cash");
+    expect(action.actionId).toBe(actionId);
   });
 
-  it("keeps canonical laundering mechanics visible instead of replacing them with a dynamic cash preview", () => {
+  it("shows the exact current laundering debit, payout and server effects", () => {
     const detail = createServerBuildingDetail({
       baseName: "Herna",
       buildingTypeId: "arcade",
@@ -753,14 +753,14 @@ describe("shared building presentation adapters", () => {
     });
     const action = detail.viewModel.actions.find((entry) => entry.actionId === "back_cashdesk");
 
-    expect(action.buttonCostLabel).toBe("");
-    expect(action.rewardSummary).toContain("Vypere 13% dirty cash, max $3800 · fee 15%");
+    expect(action.buttonCostLabel).toBe("$3800 dirty cash");
+    expect(action.rewardSummary).toContain("Clean +$3230");
     expect(action.rewardSummary).toContain("Vliv +1");
     expect(action.rewardSummary).toContain("Heat +3");
-    expect(action.rewardSummary).toContain("Čekání 16m 00s");
+    expect(action.cooldownLabel).toContain("Čekání 16m 00s");
   });
 
-  it("keeps the canonical street-dealer sale explanation instead of a no-output placeholder", () => {
+  it("does not invent a street-dealer payout missing from the server projection", () => {
     const detail = createServerBuildingDetail({
       baseName: "Pouliční dealeři",
       buildingTypeId: "street_dealers",
@@ -773,8 +773,7 @@ describe("shared building presentation adapters", () => {
     });
     const action = detail.viewModel.actions.find((entry) => entry.actionId === "start_drug_sale");
 
-    expect(action.rewardSummary).toContain("Okamžitě prodá jednu z 3 povolených laboratorních látek");
-    expect(action.rewardSummary).not.toBe("Bez výstupu");
+    expect(action.rewardSummary).toBe("Bez výstupu");
   });
 
   it("uses precise authoritative population buffers for apartment and convenience cards", () => {

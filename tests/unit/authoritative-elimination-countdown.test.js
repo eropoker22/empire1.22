@@ -59,13 +59,13 @@ describe("authoritative elimination countdown", () => {
     expect(countdown.deadlineMs).toBe(GENERATED_AT_MS + 3_600_000);
   });
 
-  it("uses the quiet-hours resume tick and exposes stopped/evaluating states", () => {
+  it("keeps the purge deadline separate from quiet-hours resume and exposes stopped/evaluating states", () => {
     expect(resolveAuthoritativeEliminationCountdown(slice({
       elimination: { isQuietHoursNow: true, quietHoursResumeTick: 220 }
     }), GENERATED_AT_MS)).toMatchObject({
       state: "quiet_hours",
-      remainingMs: 1_200_000,
-      deadlineTick: 220,
+      remainingMs: 3_600_000,
+      deadlineTick: 460,
       isQuietHours: true
     });
     expect(resolveAuthoritativeEliminationCountdown(slice({

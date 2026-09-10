@@ -1,7 +1,695 @@
 // GENERATED FILE. Run `npm run generate:browser-config`; do not edit balance values here.
-// Sources: free-mode-pharmacy-config.ts, free-mode-drug-lab-config.ts, free-mode-factory-config.ts, free-mode-armory-config.ts, free-mode-player-boost-config.ts, free-mode-city-event-config.ts, free-mode-city-hall-config.ts, free-mode-warehouse-config.ts, free-mode-attack-weapons-config.ts, free-mode-street-dealers-config.ts, free-mode-smuggling-tunnel-config.ts, free-mode-convenience-store-config.ts, free-mode-strip-club-config.ts, free-mode-vip-lounge-config.ts, day-night-action-rules.ts, market-config.ts.
+// Sources: free-mode-building-actions.ts, free-mode-pharmacy-config.ts, free-mode-drug-lab-config.ts, free-mode-factory-config.ts, free-mode-armory-config.ts, free-mode-player-boost-config.ts, free-mode-city-event-config.ts, free-mode-city-hall-config.ts, free-mode-warehouse-config.ts, free-mode-attack-weapons-config.ts, free-mode-street-dealers-config.ts, free-mode-smuggling-tunnel-config.ts, free-mode-convenience-store-config.ts, free-mode-strip-club-config.ts, free-mode-vip-lounge-config.ts, day-night-action-rules.ts, market-config.ts.
 export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
+  "buildingActions": {
+    "official_cover": {
+      "actionId": "official_cover",
+      "buildingType": "city_hall",
+      "label": "Úřední krytí",
+      "description": "Na 8 minut sníží heat gain, police control chance a rumor chance ve všech vlastněných districtech.",
+      "durationMs": 480000,
+      "cooldownMs": 1200000,
+      "inputCost": {
+        "cash": 1500
+      },
+      "outputGain": {},
+      "heatGain": 2,
+      "influenceChange": -25,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Úřední krytí je aktivní. Všechny vlastněné districty mají dočasně slabší heat a policejní tlak."
+    },
+    "city_contract": {
+      "actionId": "city_contract",
+      "buildingType": "city_hall",
+      "label": "Městská zakázka",
+      "description": "Převede politický vliv na clean cash podle počtu legálních budov hráče.",
+      "durationMs": 0,
+      "cooldownMs": 1080000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 3,
+      "influenceChange": -20,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Městská zakázka připsala clean cash podle legální infrastruktury."
+    },
+    "emergency_decree": {
+      "actionId": "emergency_decree",
+      "buildingType": "city_hall",
+      "label": "Nouzová vyhláška",
+      "description": "Na 6 minut spustí městský režim: Noční hlídky, Zastavené kontroly nebo Stavební uzávěru.",
+      "durationMs": 360000,
+      "cooldownMs": 1680000,
+      "inputCost": {
+        "cash": 2500
+      },
+      "outputGain": {},
+      "heatGain": 8,
+      "influenceChange": -40,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Magistrát vydal nouzovou vyhlášku. Město se na chvíli mění."
+    },
+    "express_import": {
+      "actionId": "express_import",
+      "buildingType": "airport",
+      "label": "Expresní dovoz",
+      "description": "Okamžitě doručí importní zásilku vybrané kategorie do SKLADU. Pokud se zásilka nevejde, command se odmítne bez platby.",
+      "durationMs": 0,
+      "cooldownMs": 1080000,
+      "inputCost": {
+        "cash": 2000
+      },
+      "outputGain": {},
+      "heatGain": 6,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Expresní dovoz byl objednán. Zásilka dorazí po krátkém runway okně."
+    },
+    "black_charter": {
+      "actionId": "black_charter",
+      "buildingType": "airport",
+      "label": "Černý charter",
+      "description": "Na 8 minut otevře speciální Black Market nabídku se slevou a celním rizikem při nákupu.",
+      "durationMs": 480000,
+      "cooldownMs": 1440000,
+      "inputCost": {
+        "dirty-cash": 2500
+      },
+      "outputGain": {},
+      "heatGain": 9,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Černý charter otevřel dočasnou Black Market nabídku."
+    },
+    "evacuation_corridor": {
+      "actionId": "evacuation_corridor",
+      "buildingType": "airport",
+      "label": "Evakuační koridor",
+      "description": "Na 7 minut zlepší únik, sníží ztráty při neúspěchu a zrychlí návratové logistické časy.",
+      "durationMs": 420000,
+      "cooldownMs": 1560000,
+      "inputCost": {
+        "cash": 1800
+      },
+      "outputGain": {},
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Evakuační koridor je aktivní. Únik a logistika mají dočasný boost."
+    },
+    "port_container_cut": {
+      "actionId": "port_container_cut",
+      "buildingType": "port",
+      "label": "Proříznout kontejner",
+      "description": "Vybere z kontejnerů užitečné zásoby a dirty cash přes přístavní trasu.",
+      "durationMs": 0,
+      "cooldownMs": 840000,
+      "inputCost": {},
+      "outputGain": {
+        "dirty-cash": 160,
+        "metal-parts": 3
+      },
+      "heatGain": 6,
+      "influenceChange": 1,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Přístav rozebral kontejnerovou trasu a vytáhl dirty cash i metal parts."
+    },
+    "parliament_policy_window": {
+      "actionId": "parliament_policy_window",
+      "buildingType": "parliament",
+      "label": "Politické okno",
+      "description": "Otevře krátké politické okno pro zisk vlivu a clean cash.",
+      "durationMs": 0,
+      "cooldownMs": 1080000,
+      "inputCost": {},
+      "outputGain": {
+        "cash": 160
+      },
+      "heatGain": 5,
+      "influenceChange": 5,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Parlament otevřel politické okno a přidal vliv i clean cash."
+    },
+    "speculative_buy": {
+      "actionId": "speculative_buy",
+      "buildingType": "stock_exchange",
+      "label": "Spekulativní nákup",
+      "description": "Investuje clean cash do vybrané market kategorie. Výsledek může být zisk, neutrální pohyb nebo ztráta.",
+      "durationMs": 0,
+      "cooldownMs": 960000,
+      "inputCost": {
+        "cash": 750
+      },
+      "outputGain": {},
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Burza provedla spekulativní nákup a zvýšila financial inspection risk."
+    },
+    "market_pressure": {
+      "actionId": "market_pressure",
+      "buildingType": "stock_exchange",
+      "label": "Tržní tlak",
+      "description": "Na 10 minut server-wide pumpne nebo dumpne ceny vybrané market kategorie.",
+      "durationMs": 600000,
+      "cooldownMs": 1320000,
+      "inputCost": {
+        "cash": 3000
+      },
+      "outputGain": {},
+      "heatGain": 8,
+      "influenceChange": -15,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Downtown burza rozkolísala ceny ve vybrané kategorii."
+    },
+    "insider_window": {
+      "actionId": "insider_window",
+      "buildingType": "stock_exchange",
+      "label": "Vnitřní tipy",
+      "description": "Na 6 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
+      "durationMs": 360000,
+      "cooldownMs": 1080000,
+      "inputCost": {
+        "cash": 1500
+      },
+      "outputGain": {},
+      "heatGain": 4,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vnitřní tipy jsou aktivní. Burza ukazuje hlubší trend hinty, ale zvedá financial inspection risk."
+    },
+    "liquidity_injection": {
+      "actionId": "liquidity_injection",
+      "buildingType": "central_bank",
+      "label": "Likviditní injekce",
+      "description": "Okamžitě přidá clean cash podle velikosti čisté ekonomiky hráče a zvýší Financial Oversight risk.",
+      "durationMs": 0,
+      "cooldownMs": 1200000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 4,
+      "influenceChange": -20,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Centrální banka provedla likviditní injekci podle čisté ekonomiky hráče."
+    },
+    "frozen_accounts": {
+      "actionId": "frozen_accounts",
+      "buildingType": "central_bank",
+      "label": "Zmrazené účty",
+      "description": "Na 8 minut zvýší ochranu clean cash, sníží pokuty a finanční ztráty, ale zhorší market fee.",
+      "durationMs": 480000,
+      "cooldownMs": 1440000,
+      "inputCost": {
+        "cash": 2000
+      },
+      "outputGain": {},
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Zmrazené účty chrání rezervy, ale zhoršují poplatkovou stopu na marketu."
+    },
+    "currency_intervention": {
+      "actionId": "currency_intervention",
+      "buildingType": "central_bank",
+      "label": "Kurzovní intervence",
+      "description": "Na 8 minut stabilizuje vybranou market kategorii a tlumí účinek Tržního tlaku z Burzy.",
+      "durationMs": 480000,
+      "cooldownMs": 1680000,
+      "inputCost": {
+        "cash": 3000
+      },
+      "outputGain": {},
+      "heatGain": 7,
+      "influenceChange": -25,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Centrální banka spustila kurzovní intervenci ve vybrané kategorii."
+    },
+    "backroom_pressure": {
+      "actionId": "backroom_pressure",
+      "buildingType": "lobby_club",
+      "label": "Zákulisní tlak",
+      "description": "Na 8 minut posílí influence produkci, sníží cenu influence akcí a přidá politický tlak.",
+      "durationMs": 480000,
+      "cooldownMs": 1200000,
+      "inputCost": {
+        "cash": 1200
+      },
+      "outputGain": {},
+      "heatGain": 3,
+      "influenceChange": -25,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Zákulisní tlak je aktivní. Influence síť tlačí na rozhodnutí v celém městě."
+    },
+    "quiet_negotiation": {
+      "actionId": "quiet_negotiation",
+      "buildingType": "lobby_club",
+      "label": "Tiché vyjednávání",
+      "description": "Okamžitě zkrátí jeden politický/společenský cooldown, sníží rizika a zlevní další influence akci.",
+      "durationMs": 0,
+      "cooldownMs": 1440000,
+      "inputCost": {
+        "cash": 1500
+      },
+      "outputGain": {},
+      "heatGain": 2,
+      "influenceChange": -15,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Tiché vyjednávání proběhlo mimo záznam. Rizika klesla a další influence akce bude levnější."
+    },
+    "media_screen": {
+      "actionId": "media_screen",
+      "buildingType": "lobby_club",
+      "label": "Mediální clona",
+      "description": "Na 8 minut brání negativním drbům, snižuje jejich pravdivost a zlepšuje veřejný obraz.",
+      "durationMs": 480000,
+      "cooldownMs": 1560000,
+      "inputCost": {
+        "cash": 2000
+      },
+      "outputGain": {},
+      "heatGain": 4,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Mediální clona překresluje veřejný obraz a tlumí negativní drby."
+    },
+    "open_channel": {
+      "actionId": "open_channel",
+      "buildingType": "smuggling_tunnel",
+      "label": "Otevřít kanál",
+      "description": "Na 15 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
+      "durationMs": 900000,
+      "cooldownMs": 1800000,
+      "inputCost": {
+        "cash": 1800
+      },
+      "outputGain": {},
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Otevřený kanál krátkodobě zvedne tok špinavých peněz v tunelech. Pouliční dealeři prodávají výhodněji, ale roste riziko pouličního incidentu."
+    },
+    "extract_losses": {
+      "actionId": "extract_losses",
+      "buildingType": "recycling_center",
+      "label": "Vytěžit ztráty",
+      "description": "Vrátí část neexpirovaných itemových ztrát ze salvage poolu. Nevrací populaci ani členy gangu.",
+      "durationMs": 0,
+      "cooldownMs": 960000,
+      "inputCost": {
+        "cash": 900
+      },
+      "outputGain": {},
+      "heatGain": 2,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Recyklační centrum vytěžilo část ztracených itemů ze šrotu."
+    },
+    "stabilization_protocol": {
+      "actionId": "stabilization_protocol",
+      "buildingType": "clinic",
+      "label": "Stabilizační protokol",
+      "description": "Za clean cash vrátí část neexpirovaných ztrát z recovery poolu do gangu a skladu.",
+      "durationMs": 0,
+      "cooldownMs": 1080000,
+      "inputCost": {
+        "cash": 1200
+      },
+      "outputGain": {},
+      "heatGain": 1,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Stabilizační protokol obnoví část nedávných ztrát. Recovery neprobíhá automaticky."
+    },
+    "collect_population": {
+      "actionId": "collect_population",
+      "buildingType": "apartment_block",
+      "label": "Vybrat obyvatele",
+      "description": "Přesune lokálně uložené obyvatele z bytového bloku do globální populace hráče.",
+      "durationMs": 0,
+      "cooldownMs": 0,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vybere obyvatele z lokálního zásobníku bytového bloku."
+    },
+    "collect_convenience_store_population": {
+      "actionId": "collect_convenience_store_population",
+      "buildingType": "convenience_store",
+      "label": "Vybrat obyvatele",
+      "description": "Přesune lokálně uložené obyvatele z Večerky do globální populace hráče.",
+      "durationMs": 0,
+      "cooldownMs": 0,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vybere obyvatele z lokálního zásobníku Večerky."
+    },
+    "collect_school_population": {
+      "actionId": "collect_school_population",
+      "buildingType": "school",
+      "label": "Vybrat obyvatele",
+      "description": "Přesune celé obyvatele uložené ve Škole do globální populace hráče.",
+      "durationMs": 0,
+      "cooldownMs": 0,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vybere celé obyvatele z lokálního zásobníku Školy."
+    },
+    "evening_course": {
+      "actionId": "evening_course",
+      "buildingType": "school",
+      "label": "Večerní kurz",
+      "description": "Na 20 minut zrychlí nábor členů v bytových blocích. Nestackuje se.",
+      "durationMs": 1200000,
+      "cooldownMs": 2100000,
+      "inputCost": {
+        "cash": 1000
+      },
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Večerní kurz dočasně zvedne nábor členů v bytových blocích."
+    },
+    "night_machines": {
+      "actionId": "night_machines",
+      "buildingType": "arcade",
+      "label": "Noční automaty",
+      "description": "Na 7 minut zvýší produkci Herny, vliv, heat a audit risk.",
+      "durationMs": 420000,
+      "cooldownMs": 960000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "effectModifiers": {
+        "cleanIncomeMultiplier": 1.35,
+        "dirtyIncomeMultiplier": 1.65,
+        "influenceMultiplier": 1.15,
+        "heatMultiplier": 1.45
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Aktivuje Noční automaty. Boost se sám se sebou nestackuje."
+    },
+    "backup_grid_switch": {
+      "actionId": "backup_grid_switch",
+      "buildingType": "power_station",
+      "label": "Přepnutí na záložní síť",
+      "description": "Dočasně zvýší infrastructure bonus a posílí kamery, alarm, Továrny a Zbrojovky.",
+      "durationMs": 1500000,
+      "cooldownMs": 3600000,
+      "inputCost": {
+        "cash": 3500
+      },
+      "outputGain": {},
+      "heatGain": 3,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Záložní síť aktivní. Infrastruktura a obranné systémy jsou dočasně posílené."
+    },
+    "power_station_feed_production": {
+      "actionId": "power_station_feed_production",
+      "buildingType": "power_station",
+      "label": "Prodat přebytek",
+      "description": "Okamžitě přidá menší clean a dirty výnos z přesměrované výroby.",
+      "durationMs": 0,
+      "cooldownMs": 3600000,
+      "inputCost": {},
+      "outputGain": {
+        "cash": 2000,
+        "dirty-cash": 500
+      },
+      "heatGain": 10,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Napájení výroby přidalo 2000 clean cash a 500 dirty cash. Heat +10."
+    },
+    "power_station_reduce_heat": {
+      "actionId": "power_station_reduce_heat",
+      "buildingType": "power_station",
+      "label": "Snížit heat",
+      "description": "Serverově sníží heat districtu o 20 bodů.",
+      "durationMs": 0,
+      "cooldownMs": 3600000,
+      "inputCost": {
+        "cash": 10000
+      },
+      "outputGain": {},
+      "heatGain": -20,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Energetická stanice stabilizovala provoz a snížila heat districtu o 20."
+    },
+    "start_drug_sale": {
+      "actionId": "start_drug_sale",
+      "buildingType": "street_dealers",
+      "label": "Prodat zásobu",
+      "description": "Prodá látku z Drug Labu přes jeden ze tří pevných slotů Pouličních dealerů. Minimum je 10 ks a současně může běžet jen jeden prodej.",
+      "durationMs": 0,
+      "cooldownMs": 0,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Pouliční dealeři spustili prodej přes vybraný slot."
+    },
+    "restaurant_collect_revenue": {
+      "actionId": "restaurant_collect_revenue",
+      "buildingType": "restaurant",
+      "label": "Vybrat tržby",
+      "description": "Vybere lokální tržby restaurace jako clean a dirty cash.",
+      "durationMs": 0,
+      "cooldownMs": 1800000,
+      "inputCost": {},
+      "outputGain": {
+        "cash": 869,
+        "dirty-cash": 550
+      },
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Restaurace vybrala lokální tržby: 869 clean cash a 550 dirty cash."
+    },
+    "restaurant_cover_meetings": {
+      "actionId": "restaurant_cover_meetings",
+      "buildingType": "restaurant",
+      "label": "Krýt schůzky",
+      "description": "Na 30 minut zvedne lokální income restaurace a přidá vliv.",
+      "durationMs": 1800000,
+      "cooldownMs": 2700000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 4,
+      "influenceChange": 8,
+      "effectModifiers": {
+        "cleanIncomeMultiplier": 1.18,
+        "dirtyIncomeMultiplier": 1.18
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Restaurace kryje schůzky. Income restaurace je dočasně posílený."
+    },
+    "restaurant_local_network": {
+      "actionId": "restaurant_local_network",
+      "buildingType": "restaurant",
+      "label": "Posílit lokální síť",
+      "description": "Na 30 minut posílí lokální vliv restaurace.",
+      "durationMs": 1800000,
+      "cooldownMs": 1800000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 8,
+      "influenceChange": 4,
+      "effectModifiers": {
+        "influenceMultiplier": 1.12
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Restaurace posílila lokální síť a vliv v districtu."
+    },
+    "back_cashdesk": {
+      "actionId": "back_cashdesk",
+      "buildingType": "arcade",
+      "label": "Zadní pokladna",
+      "description": "Instantně vypere část aktuálního dirty cash přes zadní pokladnu Herny.",
+      "durationMs": 0,
+      "cooldownMs": 960000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 3,
+      "influenceChange": 1,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vypere část dirty cash, přidá clean cash po poplatku a zvýší audit risk."
+    },
+    "good_rate": {
+      "actionId": "good_rate",
+      "buildingType": "exchange",
+      "label": "Výhodný kurz",
+      "description": "Instantně vypere menší část aktuálního dirty cash přes síť směnáren.",
+      "durationMs": 0,
+      "cooldownMs": 1080000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 12,
+      "influenceChange": 3,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vypere část dirty cash, přidá clean cash po poplatku a zvýší audit risk."
+    },
+    "quiet_backroom": {
+      "actionId": "quiet_backroom",
+      "buildingType": "casino",
+      "label": "Tichá herna",
+      "description": "Instantně vypere část aktuálního dirty cash přes tiché zázemí kasina.",
+      "durationMs": 0,
+      "cooldownMs": 840000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 7,
+      "influenceChange": 3,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vypere část dirty cash, přidá clean cash po poplatku a zvýší audit risk."
+    },
+    "vip_night": {
+      "actionId": "vip_night",
+      "buildingType": "casino",
+      "label": "VIP noc",
+      "description": "Na 10 minut výrazně zvýší casino income, vliv, heat a audit risk.",
+      "durationMs": 600000,
+      "cooldownMs": 1560000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "effectModifiers": {
+        "cleanIncomeMultiplier": 1.7,
+        "dirtyIncomeMultiplier": 1.55,
+        "influenceMultiplier": 1.25,
+        "heatMultiplier": 1.6
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Aktivuje VIP noc. Boost se sám se sebou nestackuje."
+    },
+    "bribed_inspector": {
+      "actionId": "bribed_inspector",
+      "buildingType": "casino",
+      "label": "Podplacený inspektor",
+      "description": "Zaplatí inspektora. Úspěch sníží heat a audit risk, selhání zvýší policejní tlak.",
+      "durationMs": 1800000,
+      "cooldownMs": 4500000,
+      "inputCost": {
+        "cash": 6500
+      },
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Heat control akce s rizikem selhání."
+    },
+    "strip_club_collect_cash": {
+      "actionId": "strip_club_collect_cash",
+      "buildingType": "strip_club",
+      "label": "Vybrat cash",
+      "description": "Okamžitě vybere noční dirty cash ze Strip Clubu.",
+      "durationMs": 0,
+      "cooldownMs": 600000,
+      "inputCost": {},
+      "outputGain": {
+        "dirty-cash": 360
+      },
+      "heatGain": 3,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Strip Club vybral 360 dirty cash. Heat +3."
+    },
+    "vip_lounge": {
+      "actionId": "vip_lounge",
+      "buildingType": "strip_club",
+      "label": "Hostit VIP klienty",
+      "description": "Na 30 minut zvýší produkci Strip Clubu, vliv, heat a šanci na drb.",
+      "durationMs": 1800000,
+      "cooldownMs": 3600000,
+      "inputCost": {
+        "cash": 800
+      },
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "effectModifiers": {
+        "cleanIncomeMultiplier": 1.45,
+        "dirtyIncomeMultiplier": 1.35,
+        "influenceMultiplier": 1.55,
+        "heatMultiplier": 1.5
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "VIP klienti jsou aktivní. Boost se sám se sebou nestackuje."
+    },
+    "private_party": {
+      "actionId": "private_party",
+      "buildingType": "strip_club",
+      "label": "Soukromá party",
+      "description": "Přidá vliv, dočasně zvýší jeho tvorbu a může přinést extra drb nebo skandál.",
+      "durationMs": 600000,
+      "cooldownMs": 1800000,
+      "inputCost": {
+        "cash": 1500
+      },
+      "outputGain": {},
+      "heatGain": 6,
+      "influenceChange": 8,
+      "effectModifiers": {
+        "influenceMultiplier": 1.7
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Soukromá party proběhla. Výsledek může obsahovat kontakt, extra drb nebo skandál."
+    }
+  },
   "generatedFrom": [
+    "free-mode-building-actions.ts",
     "free-mode-pharmacy-config.ts",
     "free-mode-drug-lab-config.ts",
     "free-mode-factory-config.ts",
@@ -7411,6 +8099,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
 });
 
 export const PHARMACY_RECIPES = BROWSER_GAMEPLAY_CONFIG.pharmacyRecipes;
+export const BUILDING_ACTION_CONFIG = BROWSER_GAMEPLAY_CONFIG.buildingActions;
 export const DRUGLAB_RECIPES = BROWSER_GAMEPLAY_CONFIG.drugLabRecipes;
 export const ARMORY_RECIPES = BROWSER_GAMEPLAY_CONFIG.armoryRecipes;
 export const PLAYER_BOOST_CONFIG = BROWSER_GAMEPLAY_CONFIG.playerBoosts;

@@ -738,7 +738,6 @@ const createServerBuildingActionPresentation = ({
       ? projectedRewardSummary
       : serverDeltaSummary || projectedRewardSummary;
   const actionId = String(entry?.actionId || demoAction?.actionId || "");
-  const usesCanonicalMechanicsPreview = Boolean(demoAction);
   const effectiveCooldownMs = Math.max(
     0,
     Number(entry?.effectiveCooldownMs || entry?.cooldownMs || 0)
@@ -754,29 +753,27 @@ const createServerBuildingActionPresentation = ({
     index,
     actionId,
     buildingTypeId: String(buildingTypeId || ""),
-    title: String(demoAction?.title || entry?.label || entry?.actionId || "Akce"),
-    buttonCostLabel: usesCanonicalMechanicsPreview
-      ? String(demoAction?.buttonCostLabel || "")
-      : actionCostRecord
+    title: String(entry?.label || demoAction?.title || entry?.actionId || "Akce"),
+    description: String(entry?.description || disabledReason || ""),
+    durationMs: Number(entry?.durationMs || 0),
+    riskSummary: Array.isArray(entry?.riskSummary) ? entry.riskSummary.join(" · ") : String(entry?.riskSummary || ""),
+    costSummary,
+    inputSummary: projectedInputSummary,
+    cooldownMs: effectiveCooldownMs,
+    effectiveCooldownMs,
+    baseCooldownMs: Number(entry?.cooldownMs || 0),
+    buttonCostLabel: actionCostRecord
       ? costSummary || (projectedInputSummary === "Zdarma" ? "" : projectedInputSummary)
       : projectedInputSummary === "Zdarma"
         ? ""
         : projectedInputSummary || String(demoAction?.buttonCostLabel || ""),
-    rewardSummary: String(
-      usesCanonicalMechanicsPreview
-        ? demoAction?.rewardSummary || serverRewardSummary || ""
-        : serverRewardSummary || demoAction?.rewardSummary || ""
-    ),
+    rewardSummary: [serverRewardSummary, Number(entry?.durationMs || 0) > 0 ? `Efekt ${formatDistrictBuildingCooldown(entry.durationMs)}` : ""].filter(Boolean).join(" · "),
     cooldownLabel,
     cooldownRemainingMs,
     disabled: !entry || entry?.disabled === true || entry?.enabled === false || Boolean(disabledReason),
     disabledReason,
     phaseLockLabel: String(demoAction?.phaseLockLabel || (entry?.phaseBlockedReason ? entry?.phaseBadgeLabel : "") || ""),
-    requiresInput: usesCanonicalMechanicsPreview
-      ? Array.isArray(demoAction?.requiresInput)
-        ? demoAction.requiresInput.slice()
-        : []
-      : Array.isArray(entry?.requiresInput)
+    requiresInput: Array.isArray(entry?.requiresInput)
         ? entry.requiresInput.slice()
         : Array.isArray(demoAction?.requiresInput)
           ? demoAction.requiresInput.slice()
@@ -952,7 +949,8 @@ export const createServerBuildingActionExecutionPresentation = ({
       buildingLabel: String(context?.displayName || context?.buildingName || "Budova"),
       districtLabel: formatServerDistrictLabel(context),
       description: String(action?.serverAction?.description || ""),
-      costSummary,
+      costSummary: action?.serverAction?.costPreview?.variableInputCosts?.length
+        ? `Pevný poplatek: ${formatActionCostSummary(action.serverAction.costPreview.fixedInputCost || {}, 0)} · Celkem: ${costSummary}` : costSummary,
       rewardSummary: String(action?.rewardSummary || "Výsledek akce"),
       inputSummary: inputSummary || String(action?.inputSummary || "").trim()
         || requiredInputs.map((input) => input?.label).filter(Boolean).join(" · "),

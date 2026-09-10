@@ -59,7 +59,7 @@ describe("city status bar runtime", () => {
       dayPhaseLabel: "čeká se",
       gamePhaseLabel: "SAFE",
       productionLabel: "Očista",
-      statusLabel: "20/20"
+      statusLabel: "—"
     });
     expect(viewModel.gamePhaseLabel).not.toBe("DEV-ONLY");
     expect(phaseState).toEqual({
@@ -116,7 +116,7 @@ describe("city status bar runtime", () => {
     expect(buildCityStatusViewModel({ cityMinutes: 22 * 60 + 37 }, {
       nowMs: Date.parse(generatedAt),
       gameplaySlice: {
-        server: { currentTick: 100, generatedAt },
+        server: { currentTick: 100, generatedAt, maxPlayersPerServer: 20 },
         mode: { tickRateMs: 10_000 },
         elimination: {
           enabled: true,
@@ -157,10 +157,10 @@ describe("city status bar runtime", () => {
       }
     })).toMatchObject({
       dayPhaseTitle: "Finále",
-      dayPhaseLabel: "7h 42m zbývá",
+      dayPhaseLabel: "— zbývá",
       gamePhaseLabel: "#4",
       statusTitle: "Top 3",
-      statusLabel: "+37k",
+      statusLabel: "—",
       cityStatusMode: "final"
     });
   });

@@ -176,6 +176,18 @@ function collectText(element) {
 }
 
 describe("Empire onboarding flow", () => {
+  it("uses persisted server results for hosted action steps and ignores local success events", () => {
+    const gameplaySlice = { onboarding: { completedActionStepIds: [] } };
+    let progress = updateOnboardingProgress({ gameplaySlice, progress: { currentStepId: "spy" } }, { type: "spy:started", detail: { targetDistrictId: "district:91" } });
+    expect(progress.currentStepId).toBe("spy");
+    gameplaySlice.onboarding.completedActionStepIds = ["spy"];
+    progress = updateOnboardingProgress({ gameplaySlice, progress }, { type: "runtime:refresh" });
+    expect(progress.currentStepId).toBe("attack-order");
+    gameplaySlice.onboarding.completedActionStepIds.push("attack-order");
+    progress = updateOnboardingProgress({ gameplaySlice, progress: JSON.parse(JSON.stringify(progress)) });
+    expect(progress.currentStepId).toBe("done");
+    expect(updateOnboardingProgress({ gameplaySlice, progress: { completed: true, skipped: true, currentStepId: "skipped" } }).skipped).toBe(true);
+  });
   it("step registry contains every mandatory onboarding chapter", () => {
     expect(ONBOARDING_STEPS.map((step) => step.id)).toEqual([...ONBOARDING_REQUIRED_STEP_IDS]);
     expect(ONBOARDING_STEPS.map((step) => step.id)).toEqual([
@@ -196,11 +208,11 @@ describe("Empire onboarding flow", () => {
     const originalStepCopy = [
       { id: "welcome", title: "Vítej v Empire streets", body: "Tento krátký návod ti ukáže první kroky a základní mechaniky hry a vysvětlí o co ve hře jde. Pokud jsi ve hře nový nebo si chceš zopakovat základy tak klikni prosím na Začít.", cta: "Začít" },
       { id: "your-district", title: "Horní lišta", body: "Nahoře můžeš najít svůj profil kde uvidíš vše důležité, taky čisté peníze, špinavé peníze, svůj Vliv a při kliknutí na něj kolik máš dostupných špehů a taky SKLAD kde najdeš přehled o surovinách a zbraních které máš k dispozici.", cta: "Další" },
-      { id: "building-action", title: "Panel tvého gangu", body: "Tady vidíš tvoji populaci, ta je palivem pro obsazování districtů, pro útok, pro obranu. Hledanost neboli Heat, tento ukazatel ti dává informaci jak moc blízko jsi průseru, policie tady funguje jako predátor každou hodinu u někoho vyvolá razii, číslo je klikatelné a roste díky tvojemu špinavému biznisu a chování ve hře.", cta: "Rozumím" },
+      { id: "building-action", title: "Panel tvého gangu", body: "Populaci potřebuješ pro obsazování, útok i obranu; Heat ovlivňuje policejní kontroly, jejichž termíny určuje server. Kliknutím na Heat otevřeš skutečné možnosti snížení, jejich cenu a čekání.", cta: "Rozumím" },
       { id: "heat-police", title: "Zdroje", body: "Eventy, budovy, bazar a speciální budovy drží tvůj gang při životě. Hra má přes 30 typů budov a 5 různých typů districtů. V každém districtu je okolo 2-3 budov. Produkuj biznis, recykluj, vydělávej, vyráběj, prodávej a plň různé úkoly! Ale pozor nic není zadarmo. Budovy lze upgradovat, třeba je vybírat a některé mají taky speciální akce. Každá akce má reakci.", cta: "Rozumím" },
-      { id: "spy", title: "Pošli špehy", body: "Sousední districty můžeš špehovat, vykrádat, po úspěšném špehování obsazovat a na nepřátelské districty můžeš útočit, případně je zcela zničit. Dávej pozor i tady policie není slepá! Klikni na District 2, vyšli špeha a potvrď misi.", cta: "Rozumím" },
-      { id: "attack-order", title: "Vlož past", body: "V každém districtu máš různé typy budov, když jich máš víc tak se navzájem posilňují. Taky můžeš dát do svého districtu obranu ve formě svých lidí a obranných zbraní nebo past. Jednu tam vyzkoušej vložit, pokud zautočí hráč na district ve kterém máš past příjde o celý útok a možnost na nějakou dobu útočit!", cta: "Rozumím" },
-      { id: "done", title: "Eliminace", body: "Každé 4h reálného času (dva dny a dvě noci ve hře) probíhá eliminace tzv. Očista - Tvůj vliv, počet obyvatel, materiálů, districtů nebo například jak bohatý jsi počítá Empire score a nejslabší vypadává. Dokud hráčů není posledních 8 pak příjde final lockdown který trvá 12h a Empire score rozhodne o vítězi! Už je to na tobě jakou cestu zvolíš či sám nebo v Alianci, či čistě nebo cestou padoucha. Můžeš taky používat bounty nebo boosty které najdeš nad mapou. Základy znáš, hodně štěstí!", cta: "Pokračovat" }
+      { id: "spy", title: "Pošli špehy", body: "Špionáž získává informace; plný průzkum může otevřít další akce, částečný nemusí stačit. Loupež bere neutrální kořist, heist je samostatná operace, útok míří proti vlastníkovi území. Vyber dostupného souseda a vyšli špeha; oprávnění a náklady potvrzuje server.", cta: "Rozumím" },
+      { id: "attack-order", title: "Vlož past", body: "Vlastní území můžeš posílit lidmi, výzbrojí a pastí. Obrana váže skutečné zásoby. Vyber svoje území a prohlédni dostupnou obranu; přesný účinek pasti a výsledek útoku určuje server.", cta: "Rozumím" },
+      { id: "done", title: "Eliminace", body: "Karta Očisty ukazuje skutečný termín dalšího vyřazení, noční klid a podmínky Final Lockdownu. Ohrožená skupina neznamená několik současných obětí. Pořadí se mění podle serverového skóre; ve finále se přidávají bonusy a postih za HEAT.", cta: "Pokračovat" }
     ];
     expect(ONBOARDING_STEPS
       .filter((step) => originalStepCopy.some((expected) => expected.id === step.id))
@@ -310,9 +322,7 @@ describe("Empire onboarding flow", () => {
     expect(spyStep?.targetSelector).toContain("[data-map-viewport]");
     expect(spyStep?.targetSelector).not.toMatch(/district-action-id="spy"|spy-confirm/iu);
     expect(spyStep?.mapViewMode).toBe("zoom-out");
-    expect(spyStep?.mapDistrictHighlights).toEqual([
-      { districtId: 2, tone: "pulse", label: "District 2" }
-    ]);
+    expect(spyStep?.mapDistrictHighlights).toEqual([]);
     expect(spyStep?.scrollFocusSelector).toContain("[data-map-viewport]");
     expect(spyStep?.focusBackdrop).toBe(true);
     expect(spyStep?.focusBackdropHoleSelector).toBe("[data-map-viewport]");
@@ -324,9 +334,7 @@ describe("Empire onboarding flow", () => {
     expect(attackOrderStep?.targetSelector).toContain("[data-map-viewport]");
     expect(attackOrderStep?.targetSelector).not.toMatch(/district-action-id="attack"|attack-confirm/iu);
     expect(attackOrderStep?.mapViewMode).toBe("zoom-out");
-    expect(attackOrderStep?.mapDistrictHighlights).toEqual([
-      { districtId: 1, tone: "pulse", label: "District 1" }
-    ]);
+    expect(attackOrderStep?.mapDistrictHighlights).toEqual([]);
     expect(attackOrderStep?.scrollFocusSelector).toContain("[data-map-viewport]");
     expect(attackOrderStep?.focusBackdrop).toBe(true);
     expect(attackOrderStep?.focusBackdropHoleSelector).toBe("[data-map-viewport]");
@@ -344,8 +352,8 @@ describe("Empire onboarding flow", () => {
     ]));
     expect(doneStep?.bodyHighlights).toEqual(expect.arrayContaining([
       expect.objectContaining({ text: "bounty", tone: "red" }),
-      expect.objectContaining({ text: "Očista", tone: "red" }),
-      expect.objectContaining({ text: "Empire score", tone: "gold" })
+      expect.objectContaining({ text: "Očisty", tone: "red" }),
+      expect.objectContaining({ text: "Final Lockdownu", tone: "gold" })
     ]));
   });
 
@@ -420,7 +428,7 @@ describe("Empire onboarding flow", () => {
       const isMapOnboardingStep = step.id === "spy" || step.id === "attack-order";
       const hasFocusCutout = Boolean(step.focusBackdropHoleSelector);
 
-      expect(renderOnboardingPanel({ currentStepId: step.id }, {}, { mount, root, readModel: {} })).toBe(true);
+      expect(renderOnboardingPanel({ currentStepId: step.id }, {}, { mount, root, readModel: { firstOwnedDistrictId: "1", suggestedNeighborDistrictId: "2" } })).toBe(true);
       expect(mapNavigation.resetZoom).toHaveBeenCalledTimes(isMapOnboardingStep ? 1 : 0);
 
       const text = collectText(mount);
@@ -592,7 +600,7 @@ describe("Empire onboarding flow", () => {
       mapCanvas.getBoundingClientRect = () => item.canvasRect;
       root.append(mount);
 
-      expect(renderOnboardingPanel({ currentStepId: "spy" }, {}, { mount, root, readModel: {} })).toBe(true);
+      expect(renderOnboardingPanel({ currentStepId: "spy" }, {}, { mount, root, readModel: { suggestedNeighborDistrictId: "2" } })).toBe(true);
 
       const layer = document.querySelector("[data-onboarding-map-district-highlight-layer]");
       expect(layer, item.name).toBeTruthy();
@@ -617,7 +625,7 @@ describe("Empire onboarding flow", () => {
       expect(document.querySelector("[data-onboarding-map-district-id=\"1\"]")).toBeNull();
       expect(districtTwo?.getAttribute("points")).toBe("372,286 466,290 470,370 376,374");
 
-      expect(renderOnboardingPanel({ currentStepId: "attack-order" }, {}, { mount, root, readModel: {} })).toBe(true);
+      expect(renderOnboardingPanel({ currentStepId: "attack-order" }, {}, { mount, root, readModel: { firstOwnedDistrictId: "1" } })).toBe(true);
       const attackDistrictOne = document.querySelector("[data-onboarding-map-district-id=\"1\"]");
       const attackDistrictTwo = document.querySelector("[data-onboarding-map-district-id=\"2\"]");
       expect(document.documentElement.dataset.onboardingScroll).toBe("locked");
@@ -1210,7 +1218,7 @@ describe("Empire onboarding flow", () => {
       progress
     }, {
       type: "spy:started",
-      detail: { targetDistrictId: 3, mission: { returnAt: "2026-05-15T00:45:00.000Z" } }
+      detail: { targetDistrictId: null, mission: { returnAt: "2026-05-15T00:45:00.000Z" } }
     });
 
     expect(progress.currentStepId).toBe("spy");
@@ -1242,7 +1250,7 @@ describe("Empire onboarding flow", () => {
       progress
     }, {
       type: "trap:moved",
-      detail: { targetDistrictId: 2, sourceDistrictId: 1 }
+      detail: { targetDistrictId: null, sourceDistrictId: 1 }
     });
 
     expect(progress.currentStepId).toBe("attack-order");
@@ -1295,7 +1303,7 @@ describe("Empire onboarding flow", () => {
     });
 
     expect(readModel.eliminationAvailable).toBe(true);
-    expect(readModel.elimination.nextEliminationLabel).toBe("za 42m");
+    expect(readModel.elimination.nextEliminationLabel).toBe("čeká na aktuální serverový stav");
     expect(readModel.elimination.dangerZoneLabel).toBe("1 hráčů v danger zone");
     expect(readModel.elimination.maxPlayersPerServer).toBe(20);
     expect(ONBOARDING_STEPS.some((step) => step.id === "elimination-danger")).toBe(false);
@@ -1319,9 +1327,9 @@ describe("Empire onboarding flow", () => {
 
     expect(readModel.finalLockdown).toMatchObject({
       active: true,
-      remainingLabel: "7h 42m zbývá",
+      remainingLabel: "— aktivního času",
       rankLabel: "#4",
-      top3Gap: "+37k"
+      top3Gap: "-"
     });
   });
 

@@ -806,6 +806,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const upgradeCostElement = popup.querySelector(selectors.upgradeCost);
     const effectsElement = popup.querySelector(selectors.effects);
     const collectButton = popup.querySelector(selectors.collect);
+    let collectPending = false;
     const upgradeButton = popup.querySelector(selectors.upgrade);
     const infoTextElement = popup.querySelector(selectors.infoText);
     const infoEffectsElement = popup.querySelector(selectors.infoEffects);
@@ -928,11 +929,13 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       }
 
       if (isButtonElement(collectButton, ButtonCtor)) {
-        const collectLabel = "Výroba se spustí hned a dokončí po uvedeném čase.";
-        setElementPropertyIfChanged(collectButton, "hidden", true);
-        setElementStylePropertyIfChanged(collectButton, "display", "none");
-        setElementPropertyIfChanged(collectButton, "disabled", true);
-        setElementPropertyIfChanged(collectButton, "textContent", "+");
+        const canCollect = serverProduction ? getServerLines(serverProduction).some((line) => line.canCollect === true) : !serverLoading && readyCount > 0;
+        const collectLabel = canCollect ? "Převzít hotovou výrobu" : serverLoading ? "Načítám stav budovy…"
+          : serverProduction?.collectDisabledReason || getServerLines(serverProduction).find((line) => Number(line.producedAmount || 0) > 0)?.collectDisabledReason || "Zatím není nic hotového k převzetí.";
+        setElementPropertyIfChanged(collectButton, "hidden", false);
+        setElementStylePropertyIfChanged(collectButton, "display", "");
+        setElementPropertyIfChanged(collectButton, "disabled", collectPending || !canCollect);
+        setElementPropertyIfChanged(collectButton, "textContent", collectPending ? "Přebírám…" : "Převzít");
         setElementPropertyIfChanged(collectButton, "title", collectLabel);
         setElementAttributeIfChanged(collectButton, "aria-label", collectLabel);
       }
@@ -983,6 +986,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
 
     if (isButtonElement(collectButton, ButtonCtor)) {
       collectButton.addEventListener("click", async () => {
+        if (collectPending) return;
         const serverPharmacy = buildingName === "pharmacy" && shouldUseServerProduction()
           ? deps.getServerPharmacyReadModel?.()
           : null;
@@ -1004,7 +1008,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
             : serverDrugLab
               ? reportServerDrugLabResult
               : reportServerPharmacyResult;
-          for (const line of getServerLines(serverProduction).filter((item) => item.canCollect)) {
+          const readyLines = getServerLines(serverProduction).filter((item) => item.canCollect);
+          if (!readyLines.length) return;
+          collectPending = true;
+          collectButton.disabled = true;
+          try {
+          for (const line of readyLines) {
             const response = await submit?.({
               type: "collect-production",
               payload: {
@@ -1013,8 +1022,8 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
                 resourceKey: line.resourceKey
               }
             });
-            if (response?.errors?.length) {
-              report(root, response, line.label);
+            if (!response?.accepted || response?.errors?.length) {
+              report(root, response?.errors?.length ? response : { accepted: false, errors: [{ message: "Převzetí nebylo potvrzeno. Obnov stav a zkus to znovu." }] }, line.label);
               renderDashboard();
               return;
             }
@@ -1034,7 +1043,12 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
               ? "Do skladu se vešla pouze část produkce. Zbytek zůstal v " + (serverArmory ? "Zbrojovce." : serverDrugLab ? "Labu." : "Lékárně.")
               : "Hotová produkce byla přesunuta do skladu."
           );
-          renderDashboard();
+          } catch {
+            deps.setBuildingActionFeedback?.(root, "warning", "Výroba", "Převzetí se nepodařilo potvrdit. Hotová výroba zůstává na serveru.");
+          } finally {
+            collectPending = false;
+            renderDashboard();
+          }
           return;
         }
         if (!isLegacyLocalProductionEnabled()) {

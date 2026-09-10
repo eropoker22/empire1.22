@@ -1004,7 +1004,9 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
   const normalized = normalizeOnboardingProgress(progress);
   const readModel = options.readModel || {};
   const root = options.root || mount.parentNode || ownerDocument?.body || null;
-  const step = normalized.currentStep || ONBOARDING_STEPS[0];
+  const baseStep = normalized.currentStep || ONBOARDING_STEPS[0];
+  const districtId = baseStep.id === "spy" ? readModel.suggestedNeighborDistrictId : baseStep.id === "attack-order" ? readModel.firstOwnedDistrictId : null;
+  const step = districtId ? { ...baseStep, mapDistrictHighlights: [{ districtId: Number(districtId), tone: "pulse", label: baseStep.id === "spy" ? "Sousední území" : "Tvoje území" }] } : baseStep;
   const state = resolveOnboardingStepState(step, readModel, root);
   const isDefeated = state.status === "defeated";
   const stepNumber = Math.min(normalized.currentIndex + 1, normalized.totalCount);

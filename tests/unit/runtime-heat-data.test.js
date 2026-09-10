@@ -21,9 +21,9 @@ describe("local demo police raid protection", () => {
       clean: [GANG_HEAT_CLEAN_COST, GANG_HEAT_CLEAN_REDUCTION],
       influence: [GANG_HEAT_INFLUENCE_COST, GANG_HEAT_INFLUENCE_REDUCTION]
     }).toEqual({
-      dirty: [2_500, 5],
-      clean: [10_000, 10],
-      influence: [50, 15]
+      dirty: [2_500, 15],
+      clean: [5_000, 25],
+      influence: [20, 25]
     });
   });
 

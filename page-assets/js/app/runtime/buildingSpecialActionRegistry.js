@@ -10,6 +10,7 @@ import {
   formatDistrictBuildingMoney
 } from "./formatters.js";
 import { formatServerBuildingActionDefaultInputSummary } from "./buildingSpecialActionServerDefaults.js";
+import { BUILDING_ACTION_CONFIG } from "../../../../packages/game-config/src/legacy-page/gameplay-config.generated.js";
 
 export function normalizeBuildingSpecialActionKey(value) {
   return String(value || "")
@@ -63,6 +64,7 @@ const SERVER_ACTIONS = new Map([
   ["vecerka::vybrat obyvatele", ["collect_convenience_store_population", "convenience_store"]],
   ["energeticka stanice::stabilizovat sit", ["backup_grid_switch", "power_station"]],
   ["energeticka stanice::napajet vyrobu", ["power_station_feed_production", "power_station"]],
+  ["energeticka stanice::prodat prebytek", ["power_station_feed_production", "power_station"]],
   ["energeticka stanice::snizit heat", ["power_station_reduce_heat", "power_station"]],
   ["energeticka stanice::snizit vypadky", ["power_station_reduce_heat", "power_station"]],
   ["pasovaci tunel::otevrit kanal", ["open_channel", "smuggling_tunnel"]],
@@ -98,6 +100,8 @@ const PROFILE_MARKERS_REQUIRING_SERVER = Object.freeze([
 ]);
 
 function getServerBuildingSpecialActionEntry(buildingName, actionLabel) {
+  const canonical = BUILDING_ACTION_CONFIG[actionLabel];
+  if (canonical) return [canonical.actionId, canonical.buildingType];
   const buildingKey = normalizeBuildingSpecialActionKey(buildingName);
   const actionKey = normalizeBuildingSpecialActionKey(actionLabel);
   return SERVER_ACTIONS.get(`${buildingKey}::${actionKey}`) || null;
@@ -255,12 +259,14 @@ export function resolveBuildingSpecialActionDefinition({
   buildingName = "",
   actionLabel = "",
   actionIndex = 0,
-  actionProfile = null
+  actionProfile = null,
+  actionId: explicitActionId = null
 } = {}) {
   const profile = actionProfile || {};
-  const actionId = resolveBuildingSpecialActionActionId(buildingName, actionLabel, actionIndex);
-  const buildingTypeId = getBuildingSpecialActionBuildingTypeId(buildingName, actionLabel);
-  const hasServerConfig = hasServerBuildingSpecialActionHandler(buildingName, actionLabel);
+  const identity = explicitActionId || actionProfile?.actionId || actionLabel;
+  const actionId = resolveBuildingSpecialActionActionId(buildingName, identity, actionIndex);
+  const buildingTypeId = getBuildingSpecialActionBuildingTypeId(buildingName, identity);
+  const hasServerConfig = hasServerBuildingSpecialActionHandler(buildingName, identity);
   const implemented = hasServerConfig;
   const handlerId = hasServerConfig ? "server-run-building-action" : "";
   const cooldownMs = Object.prototype.hasOwnProperty.call(profile, "cooldownMs")

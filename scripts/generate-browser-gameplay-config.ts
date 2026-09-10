@@ -6,6 +6,7 @@ import { freeModeFactoryConfig } from "../packages/game-config/src/modes/free/fr
 import { freeModePharmacyConfig } from "../packages/game-config/src/modes/free/free-mode-pharmacy-config";
 import { freeModePlayerBoostConfig } from "../packages/game-config/src/modes/free/free-mode-player-boost-config";
 import { freeModeCityEventConfig } from "../packages/game-config/src/modes/free/free-mode-city-event-config";
+import { freeModeBuildingActions } from "../packages/game-config/src/modes/free/free-mode-building-actions";
 import {
   FREE_MODE_COOLDOWN_MULTIPLIER,
   FREE_MODE_TICK_RATE_MS
@@ -113,7 +114,9 @@ const smugglingTunnelBrowserConfig = {
 };
 
 const generated = {
+  buildingActions: freeModeBuildingActions,
   generatedFrom: [
+    "free-mode-building-actions.ts",
     "free-mode-pharmacy-config.ts",
     "free-mode-drug-lab-config.ts",
     "free-mode-factory-config.ts",
@@ -219,6 +222,7 @@ const serialized = [
   `export const BROWSER_GAMEPLAY_CONFIG = Object.freeze(${JSON.stringify(generated, null, 2)});`,
   "",
   "export const PHARMACY_RECIPES = BROWSER_GAMEPLAY_CONFIG.pharmacyRecipes;",
+  "export const BUILDING_ACTION_CONFIG = BROWSER_GAMEPLAY_CONFIG.buildingActions;",
   "export const DRUGLAB_RECIPES = BROWSER_GAMEPLAY_CONFIG.drugLabRecipes;",
   "export const ARMORY_RECIPES = BROWSER_GAMEPLAY_CONFIG.armoryRecipes;",
   "export const PLAYER_BOOST_CONFIG = BROWSER_GAMEPLAY_CONFIG.playerBoosts;",

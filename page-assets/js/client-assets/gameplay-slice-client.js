@@ -1091,6 +1091,18 @@ var EmpireGameplaySliceClient = (function(exports) {
     projectRenderState: projectClientControllerState,
     onStateRecompute
   });
+  const observationKey = /* @__PURE__ */ Symbol.for("empire.authoritativeSnapshotClock");
+  const observations = globalThis[observationKey] ??= /* @__PURE__ */ new WeakMap();
+  const monotonicNow = () => globalThis.performance?.now?.() ?? 0;
+  function observeAuthoritativeSnapshot(slice, connection = null, receivedAt = monotonicNow()) {
+    if (!slice || typeof slice !== "object") return;
+    const key = slice.server || slice;
+    const previous = observations.get(key);
+    observations.set(key, {
+      receivedAt: previous?.receivedAt ?? receivedAt,
+      unavailable: connection ? connection.status !== "ready" || connection.staleData === true : previous?.unavailable ?? false
+    });
+  }
   const createPlaceDefenseCommand = (input) => {
     const district = input.slice.district;
     if (!district || !district.placeDefense) {
@@ -1821,6 +1833,7 @@ var EmpireGameplaySliceClient = (function(exports) {
       const requestForEndpoint = shouldStripConsumedJoinTicket ? omitJoinTicket(requestWithTokens) : requestWithTokens;
       const endpointRoute = resolveEndpointRoute(route, requestForEndpoint);
       const endpoint = `${endpointBase}/${endpointRoute}`;
+      const requestedAt = performance.now();
       const response = await fetchJson(endpoint, {
         method: "POST",
         headers: {
@@ -1833,6 +1846,7 @@ var EmpireGameplaySliceClient = (function(exports) {
         throw new Error(`Gameplay slice request failed: POST ${endpoint} returned HTTP ${response.status}.`);
       }
       const payload = await response.json();
+      observeAuthoritativeSnapshot(payload.readModel ?? null, null, (requestedAt + performance.now()) / 2);
       persistGameplaySliceTokens(requestForEndpoint, payload, storage);
       if (endpointRoute === "join" && payload.accepted && requestJoinTicket) {
         consumedJoinTicket = requestJoinTicket;
@@ -2495,6 +2509,7 @@ var EmpireGameplaySliceClient = (function(exports) {
     };
     const publish = (state, reason = "controller-update") => {
       const gameplaySlice = client.getGameplaySlice();
+      observeAuthoritativeSnapshot(gameplaySlice, state.connection);
       if (!gameplaySlice && state.connection.status === "error") {
         hideUnavailableGameplaySlice(state);
         return;
@@ -2562,6 +2577,10 @@ var EmpireGameplaySliceClient = (function(exports) {
       hideUnavailableGameplaySlice(state);
     });
     let destroyed = false;
+    const handleRefreshRequest = () => {
+      if (!destroyed) void poller.refreshOnce();
+    };
+    options.root.ownerDocument.addEventListener("empire:gameplay-refresh-request", handleRefreshRequest);
     let unregisterMountedPage = () => {
     };
     const handlePageHide = () => {
@@ -2584,6 +2603,7 @@ var EmpireGameplaySliceClient = (function(exports) {
         if (destroyed) return;
         destroyed = true;
         poller.destroy();
+        options.root.ownerDocument.removeEventListener("empire:gameplay-refresh-request", handleRefreshRequest);
         unregisterMountedPage();
         mountedGameplaySlicePagesByRoot.delete(options.root);
         window.removeEventListener("pagehide", handlePageHide);

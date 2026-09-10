@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { advanceHostedProductionClock } from "./advanceHostedProductionClock.js";
 import {
   expectHostedUiParityClean,
   registerAndEnterHostedUiParityGame,
@@ -501,6 +502,9 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
     timing
   });
 
+  timing.controlledClock = await advanceHostedProductionClock({ serverInstanceId: expectedServerInstanceId, firstDueTick, buildingId,
+    playerId: await page.evaluate(() => window.EmpireGameplaySliceClient.getCurrentReadModel().player.playerId) });
+
   await waitForRenderedProductionState(page, {
     buildingId,
     expectedStateVersion: afterStart.stateVersion,
@@ -569,6 +573,50 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
   expect(persisted.line?.remainingTicks).toBeGreaterThan(0);
   expect(persisted.line?.producedAmount).toBe(afterFirstDue.line?.producedAmount);
 
+  // The ordinary building header must finish the authoritative cycle.
+  const collectButton = opened.shell.locator(".building-detail-title__action-btn--collect");
+  await expect(collectButton).toBeVisible();
+  await expect(collectButton).toBeEnabled();
+  const collected = await submitAndReadResponse(page, collectButton);
+  expect(collected.request?.command?.type).toBe("collect-production");
+  expect(collected.body?.accepted).toBe(true);
+  const afterCollect = toProductionSnapshot(collected.body?.readModel, surfaceName, buildingId, recipeId);
+  assertProductionIdentity(afterCollect, identity);
+  const received = Number(persisted.line.producedAmount) - Number(afterCollect.line.producedAmount);
+  expect(received).toBeGreaterThan(0);
+  const collectionBalanceEvidence = assertBalanceTransition(persisted, afterCollect, { [resourceKey]: received }, label + " collect to player storage");
+  expect(afterCollect.storageItem.currentAmount).toBe(afterCollect.resourceBalances[resourceKey]);
+  await attachScreenshot(testInfo, surfaceName + "-collected-desktop", page);
+  let followupEvidence = null;
+  if (surfaceName !== "armory") {
+    const nextDue = afterCollect.currentTick + Number(afterCollect.line.remainingTicks);
+    await advanceHostedProductionClock({ serverInstanceId: expectedServerInstanceId, firstDueTick: nextDue, buildingId,
+      playerId: collected.body.readModel.player.playerId });
+    await waitForRenderedProductionState(page, { buildingId, expectedStateVersion: afterCollect.stateVersion, recipeId, surfaceName,
+      message: label + " second queued unit completes on server", timeoutMs: firstOutputTimeoutMs,
+      predicate: s => s.line?.queuedAmount === 0 && s.line.producedAmount === 1 });
+    const secondCollection = await submitAndReadResponse(page, collectButton);
+    expect(secondCollection.body.accepted).toBe(true);
+    expect(secondCollection.request.command.type).toBe("collect-production");
+    const destination = surfaceName === "factory" ? { buildingTypeId: "armory", surfaceName: "armory", recipeId: "baseball-bat" }
+      : { buildingTypeId: "drug_lab", surfaceName: "drugLab", recipeId: surfaceName === "pharmacy" ? "neon-dust" : "ghost-serum" };
+    await closeSurface(page, surfaceName);
+    const followup = await openExactProductionBuilding(page, { ...destination, districtId });
+    const beforeFollowup = await readProductionSnapshot(page, destination.surfaceName, followup.buildingId, destination.recipeId);
+    expect(beforeFollowup.resourceBalances[resourceKey]).toBe(2);
+    expect(beforeFollowup.line.materialInputCosts[resourceKey]).toBe(2);
+    const followupControls = await findProductionControls(followup.shell, destination.recipeId);
+    expect(followupControls).toBeTruthy();
+    const submitted = await submitAndReadResponse(page, followupControls.start);
+    expect(submitted.request.command.type).toBe("craft-item"); expect(submitted.body.accepted).toBe(true);
+    const afterFollowup = toProductionSnapshot(submitted.body.readModel, destination.surfaceName, followup.buildingId, destination.recipeId);
+    expect(afterFollowup.line.queuedAmount).toBe(1);
+    const balance = assertBalanceTransition(beforeFollowup, afterFollowup, { [resourceKey]: -2 }, label + " output consumed by next recipe");
+    followupEvidence = { secondCollection: summarizeCommand(secondCollection.request), command: summarizeCommand(submitted.request), balance };
+    await closeSurface(page, destination.surfaceName);
+    opened = await openExactProductionBuilding(page, { buildingTypeId, districtId, surfaceName });
+  }
+
   const resourceKeys = Array.from(new Set([
     "cash",
     resourceKey,
@@ -581,20 +629,24 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
     identity,
     unitProductionCosts: unitCosts,
     commands: {
-      produce: summarizeCommand(started.request)
+      produce: summarizeCommand(started.request),
+      collect: summarizeCommand(collected.request)
     },
     balanceEvidence: {
       reservationAtStart: reservationBalanceEvidence,
       outputUnchangedAtStart: outputUnchangedAtStartEvidence,
       uncollectedOutputAfterDue: deferredOutputBalanceEvidence,
-      reloadAfterFirstDue: reloadBalanceEvidence
+      reloadAfterFirstDue: reloadBalanceEvidence,
+      collectedToMainStorage: collectionBalanceEvidence
     },
     timing,
+    followupEvidence,
     snapshots: {
       initial: summarizeSnapshot(initial, resourceKeys),
       afterStart: summarizeSnapshot(afterStart, resourceKeys),
       afterFirstDue: summarizeSnapshot(afterFirstDue, resourceKeys),
-      afterReload: summarizeSnapshot(persisted, resourceKeys)
+      afterReload: summarizeSnapshot(persisted, resourceKeys),
+      afterCollect: summarizeSnapshot(afterCollect, resourceKeys)
     },
     persistence: {
       queueObservedAfterStart: true,
@@ -602,7 +654,7 @@ export async function exerciseHostedProductionLifecycleThroughVisibleUi({
       queuePersistedAcrossReload: true,
       timedOutputPersistedAfterReload: true,
       playerOutputRequiresCollect: true,
-      collectCommandSubmitted: false
+      collectCommandSubmitted: true
     }
   };
   await testInfo.attach(evidenceAttachmentName, {
@@ -634,6 +686,9 @@ export function defineHostedProductionParityTest({
     test(`uses the shared ${label} modal and completes production through visible UI`, async ({
       page
     }, testInfo) => {
+      await page.addLocatorHandler(page.locator("#police-action-result-modal:visible"), async () => {
+        await page.locator("#police-action-result-modal-close").click();
+      });
       await page.setViewportSize(desktopViewport);
       const entry = await registerAndEnterHostedUiParityGame(page, {
         serverInstanceId,
@@ -670,7 +725,7 @@ export function defineHostedProductionParityTest({
       expect(entry.diagnostics.submitRequests
         .map((request) => request?.command?.type)
         .filter((type) => type === "craft-item" || type === "collect-production"))
-        .toEqual(["craft-item"]);
+        .toEqual(surfaceName === "armory" ? ["craft-item", "collect-production"] : ["craft-item", "collect-production", "collect-production", "craft-item"]);
     });
   });
 }

@@ -1553,7 +1553,7 @@ export function createBuildingDetailMechanicRows({
     mechanicRows.push(
       createMechanic("Infrastruktura", infrastructureBonusPct > 0 ? `Pasivně posiluje rychlost výroby, kliniky a vybrané cash budovy o +${formatCompactNumber(infrastructureBonusPct)} %.` : "Další stanice odemkne reálný bonus infrastruktury."),
       createMechanic("Záložní síť", `Za ${formatDistrictBuildingMoney(POWER_STATION_CONFIG.backupGridSwitch.cleanCost)} clean dočasně posílí infrastrukturu a obranu.`),
-      createMechanic("Napájet výrobu", "Okamžitě přidá $2000 clean a $500 dirty. Heat +10."),
+      createMechanic("Prodat přebytek", "Prodá přebytek za clean a dirty cash a zvýší HEAT. Aktuální výnos ukazuje akce."),
       createMechanic("Snížit heat", `Za ${formatDistrictBuildingMoney(POWER_STATION_CONFIG.reduceHeat.cleanCost)} clean okamžitě stáhne heat districtu o ${POWER_STATION_CONFIG.reduceHeat.heatReduction}.`)
     );
   } else if (mechanics.mechanicsType === "recycling-center" || buildingKey === "recyklacni centrum") {

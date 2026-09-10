@@ -1,6 +1,7 @@
 import {
   formatEliminationRemainingMs,
-  resolveAuthoritativeEliminationCountdown
+  resolveAuthoritativeEliminationCountdown,
+  resolveAuthoritativeMatchCountdowns
 } from "./authoritativeEliminationCountdown.js";
 import { bindSharedCountdown } from "../ui/sharedCountdownTicker.js";
 
@@ -56,14 +57,8 @@ function resolveFinalTop3Label(finalLockdown = {}) {
     return "drž pozici";
   }
 
-  const leaderboard = Array.isArray(finalLockdown.leaderboardTop3) ? finalLockdown.leaderboardTop3 : [];
-  const thresholdScore = Number(leaderboard[Math.min(topRankCount, leaderboard.length) - 1]?.score);
-  const currentScore = Number(finalLockdown.currentPlayerFinalScore);
-  if (!Number.isFinite(thresholdScore) || !Number.isFinite(currentScore)) {
-    return "-";
-  }
-
-  return formatScoreDelta(Math.max(0, thresholdScore - currentScore + 1));
+  return finalLockdown.scoreGapToTop3 != null && Number.isFinite(Number(finalLockdown.scoreGapToTop3))
+    ? formatScoreDelta(finalLockdown.scoreGapToTop3) : "—";
 }
 
 function resolveCityStatusPlayerView(options = {}) {
@@ -74,7 +69,7 @@ function resolveCityStatusPlayerView(options = {}) {
     playerView,
     elimination: normalizeObject(playerView.elimination || gameplaySlice.elimination),
     finalLockdown: normalizeObject(playerView.finalLockdown),
-    maxPlayersPerServer: Number(options.maxPlayersPerServer || gameplaySlice.server?.maxPlayersPerServer || DEFAULT_MAX_PLAYERS_PER_SERVER)
+    maxPlayersPerServer: Number(options.maxPlayersPerServer || gameplaySlice.server?.maxPlayersPerServer || 0)
   };
 }
 
@@ -87,7 +82,7 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
   const finalActive = Boolean(finalLockdown.enabled && (finalLockdown.active || finalLockdown.status === "active"));
   const authoritativeCountdown = resolveAuthoritativeEliminationCountdown(
     playerOptions.gameplaySlice,
-    playerOptions.nowMs ?? Date.now()
+    playerOptions.nowMs
   );
 
   if (finalActive) {
@@ -97,9 +92,9 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
       mode: "final",
       secondaryLabel: "Finále",
       secondaryMobileLabel: "Fin",
-      secondaryValue: finalLockdown.pausedByQuietHours
-        ? formatQuietHoursResume(finalLockdown)
-        : `${formatTickDuration(finalLockdown.remainingActiveTicks)} zbývá`,
+      secondaryValue: finalLockdown.result ? "ukončeno" : finalLockdown.pausedByQuietHours
+        ? `pauza · ${formatEliminationRemainingMs(resolveAuthoritativeMatchCountdowns(playerOptions.gameplaySlice, playerOptions.nowMs).finalActiveMs, { compact: true })}`
+        : `${formatEliminationRemainingMs(resolveAuthoritativeMatchCountdowns(playerOptions.gameplaySlice, playerOptions.nowMs).finalActiveMs, { compact: true })} zbývá`,
       statusLabel: "Rank",
       statusMobileLabel: "Rank",
       statusValue: Number.isFinite(rank) && rank > 0 && rank <= topRankCount ? `Top ${topRankCount}` : (Number.isFinite(rank) && rank > 0 ? `#${rank}` : "-"),
@@ -113,11 +108,11 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
   }
 
   const eliminationsStopped = Boolean(elimination.eliminationsStopped);
-  const statusValue = eliminationsStopped ? "Top 8" : normalizeStatusLabel(elimination.currentPlayerStatus);
+  const statusValue = elimination.playerStatus && elimination.playerStatus !== "active" ? "DIVÁK" : eliminationsStopped ? "ČEKÁ" : normalizeStatusLabel(elimination.currentPlayerStatus);
   const activePlayers = Number(elimination.activePlayersRemaining);
-  const playersValue = Number.isFinite(activePlayers) && activePlayers > 0
-    ? `${activePlayers}/${Math.max(1, Math.floor(maxPlayersPerServer || DEFAULT_MAX_PLAYERS_PER_SERVER))}`
-    : `${DEFAULT_MAX_PLAYERS_PER_SERVER}/${DEFAULT_MAX_PLAYERS_PER_SERVER}`;
+  const playersValue = elimination.activePlayersRemaining != null && Number.isFinite(activePlayers) && activePlayers >= 0
+    ? maxPlayersPerServer > 0 ? `${activePlayers}/${Math.floor(maxPlayersPerServer)}` : `${activePlayers}`
+    : "—";
   const secondaryValue = eliminationsStopped
     ? "zastaveno"
     : authoritativeCountdown.state === "quiet_hours"
@@ -126,9 +121,8 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
         ? `za ${formatEliminationRemainingMs(authoritativeCountdown.remainingMs, { compact: true })}`
         : authoritativeCountdown.state === "evaluating"
           ? "vyhodnocuje se"
-          : elimination.isQuietHoursNow
-            ? formatQuietHoursResume(elimination)
-            : "čeká se";
+          : authoritativeCountdown.state === "paused" ? "server pozastaven"
+            : authoritativeCountdown.state === "stale" ? "čekám na data" : authoritativeCountdown.state === "ended" ? "ukončeno" : "čeká se";
 
   return {
     mode: "br",

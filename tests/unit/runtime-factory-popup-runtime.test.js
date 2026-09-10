@@ -248,8 +248,8 @@ describe("factory popup runtime", () => {
     await open.dispatch("click");
 
     expect(collect.disabled).toBe(true);
-    expect(collect.hidden).toBe(true);
-    expect(collect.style.display).toBe("none");
+    expect(collect.hidden).toBe(false);
+    expect(collect.style.display).toBe("");
     expect(collect.title).toBe(ownershipReason);
     expect(collect.setAttribute).toHaveBeenCalledWith("aria-label", ownershipReason);
     await collect.dispatch("click");

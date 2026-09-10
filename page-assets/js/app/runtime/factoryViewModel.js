@@ -531,7 +531,8 @@ export function buildServerFactoryDashboardViewModel({
     collectableAmount,
     collectButton: {
       ...dashboard.collectButton,
-      visible: false,
+      visible: true,
+      text: "Převzít",
       disabled: !canCollect,
       title: canCollect
         ? `Vybrat hotové do skladu${collectableAmount > 0 ? ` (${collectableAmount})` : ""}`

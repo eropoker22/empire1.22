@@ -48,16 +48,16 @@ describe("current gameplay cleanup guard", () => {
     }
 
     expect(Object.fromEntries(Object.entries(config.balance.armory.recipes).map(([id, recipe]) => [id, recipe.queueCap]))).toEqual({
-      "baseball-bat": 11,
-      pistol: 8,
-      grenade: 7,
-      smg: 6,
-      bazooka: 5,
-      vest: 8,
-      barricades: 9,
-      cameras: 7,
-      "defense-tower": 5,
-      alarm: 7
+      "baseball-bat": 63,
+      pistol: 27,
+      grenade: 27,
+      smg: 11,
+      bazooka: 11,
+      vest: 27,
+      barricades: 63,
+      cameras: 27,
+      "defense-tower": 11,
+      alarm: 27
     });
   });
 

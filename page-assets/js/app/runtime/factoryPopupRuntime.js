@@ -89,6 +89,7 @@ export function createFactoryPopupRuntime(deps = {}) {
     const effectsLabelElement = root?.querySelector?.(selectors.effectsLabel);
     const upgradeButton = root?.querySelector?.(selectors.upgrade);
     const collectButton = root?.querySelector?.(selectors.collect);
+    let collectPending = false;
 
     if (
       !openButton || !popup || closeElements.length === 0 || !slotList || !multiplierElement
@@ -199,8 +200,8 @@ export function createFactoryPopupRuntime(deps = {}) {
           || "Hotová výroba čeká na vyzvednutí po doběhnutí serverového času.";
         dashboardViewModel.collectButton = {
           ...(dashboardViewModel.collectButton || {}),
-          visible: false,
-          disabled: true,
+          visible: true,
+          disabled: collectPending || dashboardViewModel.collectButton?.disabled !== false,
           title: collectTitle
         };
         deps.renderFactoryDashboardPanel?.({
@@ -491,7 +492,8 @@ export function createFactoryPopupRuntime(deps = {}) {
       });
     }
 
-    collectButton.addEventListener("click", () => {
+    collectButton.addEventListener("click", async () => {
+      if (collectPending) return;
       const serverFactory = getAuthoritativeFactory();
       if (serverFactory) {
         const canCollect = typeof serverFactory.canCollect === "boolean"
@@ -507,13 +509,16 @@ export function createFactoryPopupRuntime(deps = {}) {
           renderFactoryDashboard();
           return;
         }
-        deps.submitServerFactoryCommand?.({
+        collectPending = true;
+        collectButton.disabled = true;
+        try {
+        const response = await deps.submitServerFactoryCommand?.({
           type: "collect-production",
           payload: { districtId: serverFactory.districtId, buildingId: serverFactory.buildingId }
-        }).then((response) => {
-          const error = response?.errors?.[0];
+        });
+          const error = response?.errors?.[0] || (!response?.accepted ? { message: "Převzetí nebylo potvrzeno. Obnov stav a zkus to znovu." } : null);
           const updated = deps.getServerFactoryReadModel?.();
-          const partial = updated?.productionLines?.some((line) => line.canCollect);
+          const partial = updated?.productionLines?.some((line) => Number(line.producedAmount || 0) > 0);
           deps.setBuildingActionFeedback?.(
             root,
             error ? "warning" : partial ? "warning" : "success",
@@ -522,8 +527,12 @@ export function createFactoryPopupRuntime(deps = {}) {
               ? "Do skladu se vešla pouze část produkce. Zbytek zůstal v Továrně."
               : "Hotová produkce byla přesunuta do skladu.")
           );
+        } catch {
+          deps.setBuildingActionFeedback?.(root, "warning", "Továrna", "Převzetí se nepodařilo potvrdit. Hotová výroba zůstává na serveru.");
+        } finally {
+          collectPending = false;
           renderFactoryDashboard();
-        });
+        }
         return;
       }
       if (!isLegacyLocalProductionEnabled()) {

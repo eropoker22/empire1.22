@@ -401,7 +401,7 @@ describe("building detail view-model builder", () => {
     expect(mechanics.map((row) => row.label)).toEqual([
       "Infrastruktura",
       "Záložní síť",
-      "Napájet výrobu",
+      "Prodat přebytek",
       "Snížit heat"
     ]);
   });
@@ -413,11 +413,11 @@ describe("building detail view-model builder", () => {
     expect(powerStationActions.every((action) => action.cooldownMs === 60 * 60 * 1000)).toBe(true);
     expect(powerStationActions[0].cleanCost).toBe(3500);
     expect(powerStationActions[0].durationMs).toBe(25 * 60 * 1000);
-    expect(powerStationActions[1].durationMs).toBeUndefined();
+    expect(powerStationActions[1].durationMs).toBe(0);
     expect(powerStationActions[1].clean).toBe(2000);
     expect(powerStationActions[1].dirty).toBe(500);
     expect(powerStationActions[1].heat).toBe(10);
-    expect(powerStationActions[2].durationMs).toBeUndefined();
+    expect(powerStationActions[2].durationMs).toBe(0);
     expect(powerStationActions[2].cleanCost).toBe(10_000);
     expect(powerStationActions[2].heat).toBe(-20);
   });
@@ -2505,7 +2505,7 @@ describe("building detail view-model builder", () => {
 
     expect(rows[0]).toMatchObject({
       actionId: "quiet_backroom",
-      rewardSummary: "Vypere 24% dirty cash, max $22500 · fee 7% · Vliv +3 · Heat +7 · Trvání 10m 00s · Čekání 14m 00s",
+      rewardSummary: "Vypere 24% dirty cash, max $22500 · fee 7% · Vliv +3 · Heat +7 · Čekání 14m 00s",
       riskSummary: "Heat +7 · Audit +6%",
       cooldownLabel: "Čekání 14m 00s"
     });

@@ -2,6 +2,7 @@ import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
 import { GAMEPLAY_EXECUTION_MODES, getGameplayExecutionMode } from "./runtime/gameplayExecutionMode.js";
 import {
   resolveAuthoritativeEliminationCountdown,
+  resolveAuthoritativeMatchCountdowns,
   resolveEliminationWarningMilestone
 } from "./runtime/authoritativeEliminationCountdown.js";
 
@@ -105,7 +106,7 @@ const acknowledge = (storage, serverInstanceId, id) => {
   }
 };
 
-export function shouldOpenFirstPurgeCard(gameplaySlice = {}, nowMs = Date.now()) {
+export function shouldOpenFirstPurgeCard(gameplaySlice = {}, nowMs) {
   const elimination = gameplaySlice.elimination || gameplaySlice.player?.elimination;
   if (!elimination?.enabled || elimination.eliminationsStopped) return false;
   const nextTick = Number(elimination.nextEliminationTick);
@@ -115,23 +116,13 @@ export function shouldOpenFirstPurgeCard(gameplaySlice = {}, nowMs = Date.now())
   return resolveEliminationWarningMilestone(null, countdown.remainingMs) !== null;
 }
 
-const resolveFirstPurgeDeadlineMs = (gameplaySlice = {}, nowMs = Date.now()) => {
+const resolveFirstPurgeDeadlineMs = (gameplaySlice = {}, nowMs) => {
   return resolveAuthoritativeEliminationCountdown(gameplaySlice, nowMs).deadlineMs;
 };
 
-const resolveFinalLockdownDeadlineMs = (gameplaySlice = {}, nowMs = Date.now()) => {
-  const finalLockdown = gameplaySlice.player?.finalLockdown;
-  const tickRateMs = Number(gameplaySlice.mode?.tickRateMs);
-  const currentTick = Number(gameplaySlice.server?.currentTick);
-  const endsAtTick = Number(finalLockdown?.endsAtEstimatedTick);
-  if (Number.isFinite(tickRateMs) && tickRateMs > 0 && Number.isFinite(currentTick) && Number.isFinite(endsAtTick)) {
-    const generatedAtMs = Date.parse(String(gameplaySlice.server?.generatedAt || ""));
-    return (Number.isFinite(generatedAtMs) ? generatedAtMs : nowMs) + (Math.max(0, endsAtTick - currentTick) * tickRateMs);
-  }
-  const remainingActiveTicks = Number(finalLockdown?.remainingActiveTicks);
-  if (!Number.isFinite(tickRateMs) || tickRateMs <= 0 || !Number.isFinite(remainingActiveTicks) || remainingActiveTicks < 0) return null;
-  const generatedAtMs = Date.parse(String(gameplaySlice.server?.generatedAt || ""));
-  return (Number.isFinite(generatedAtMs) ? generatedAtMs : nowMs) + (remainingActiveTicks * tickRateMs);
+const resolveFinalLockdownDeadlineMs = (gameplaySlice = {}, nowMs) => {
+  const remaining = resolveAuthoritativeMatchCountdowns(gameplaySlice, nowMs).finalActiveMs;
+  return remaining === null ? null : Date.parse(gameplaySlice.server.generatedAt) + remaining;
 };
 
 const formatCountdown = (remainingMs) => {
@@ -246,8 +237,9 @@ export function bindServerMilestoneCards(documentRef = document, options = {}) {
     if (!activeId || countdownDeadlineMs === null || !countdownStatKey) return;
     const value = elements.stats.querySelector(`[data-server-milestone-stat="${countdownStatKey}"] strong`);
     if (!value) return;
-    const remainingMs = Math.max(0, countdownDeadlineMs - Date.now());
-    value.textContent = formatCountdown(remainingMs);
+    const clocks = resolveAuthoritativeMatchCountdowns(latestGameplaySlice);
+    const remainingMs = countdownStatKey === "final-lockdown-countdown" ? clocks.finalActiveMs : clocks.elimination.remainingMs;
+    value.textContent = remainingMs === null ? "Čekám na aktuální data" : formatCountdown(remainingMs);
     if (remainingMs === 0) stopCountdown();
   };
 

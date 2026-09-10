@@ -128,7 +128,7 @@ describe("page onboarding smoke", () => {
     expect(page("game.html")).toContain('aria-label="Otevřít AI operátora očisty"');
     expect(page("game.html")).toContain('title="AI operátor očisty"');
     expect(page("game.html")).toContain('data-elimination-ai-panel-close');
-    expect(page("game.html")).not.toContain('data-elimination-ai-panel-status');
+    expect(page("game.html")).toContain('role="status" data-elimination-ai-panel-status');
     expect(page("game.html")).toContain('data-elimination-countdown-warning');
     expect(page("game.html")).toContain('data-elimination-countdown-warning-close');
     expect(page("game.html")).toContain('data-elimination-countdown-warning-time');

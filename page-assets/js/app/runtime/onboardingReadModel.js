@@ -1,6 +1,7 @@
 import { getOnboardingTargetSelector as getRegistryTargetSelector } from "./onboardingStepRegistry.js";
+import { resolveAuthoritativeMatchCountdowns, formatEliminationRemainingMs } from "./authoritativeEliminationCountdown.js";
 
-const WIN_CONDITION_TEXT = "Přežít do Final Lockdownu a mít nejsilnější impérium. Území, budovy, zdroje i heat rozhodují skóre.";
+const WIN_CONDITION_TEXT = "Přežij očistu a bojuj o individuální vítězství podle finálního skóre. Finále přidává bonusy a postih za HEAT. Termíny a podmínky tohoto serveru najdeš v kartě Očisty.";
 
 function safeObject(value) {
   return value && typeof value === "object" ? value : {};
@@ -168,13 +169,6 @@ function hasActionButton(context, actionIds = []) {
   return actionIds.some((actionId) => Boolean(root.querySelector(`[data-district-action-id="${actionId}"]:not(:disabled)`)));
 }
 
-function formatTicksShort(ticks) {
-  const totalMinutes = Math.max(0, Math.ceil(Number(ticks || 0)));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours > 0 ? (minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`) : `${totalMinutes}m`;
-}
-
 function formatScoreGap(value) {
   const safeValue = Math.max(0, Math.ceil(Number(value || 0)));
   if (safeValue >= 1000000) return `+${Math.round(safeValue / 100000) / 10}M`;
@@ -187,13 +181,11 @@ function resolveFinalLockdown(context = {}) {
   const active = Boolean(finalLockdown.enabled && (finalLockdown.active || finalLockdown.status === "active"));
   const topRankCount = Math.max(1, Math.floor(Number(finalLockdown.topRankCount || 3)));
   const currentRank = Number(finalLockdown.currentPlayerRank);
-  const leaderboardTop3 = asArray(finalLockdown.leaderboardTop3);
-  const thresholdScore = Number(leaderboardTop3[Math.min(topRankCount, leaderboardTop3.length) - 1]?.score);
   const currentScore = Number(finalLockdown.currentPlayerFinalScore);
   const top3Gap = Number.isFinite(currentRank) && currentRank > 0 && currentRank <= topRankCount
     ? "drž pozici"
-    : Number.isFinite(thresholdScore) && Number.isFinite(currentScore)
-      ? formatScoreGap(Math.max(0, thresholdScore - currentScore + 1))
+    : finalLockdown.scoreGapToTop3 != null && Number.isFinite(Number(finalLockdown.scoreGapToTop3))
+      ? formatScoreGap(finalLockdown.scoreGapToTop3)
       : "-";
 
   return {
@@ -201,9 +193,7 @@ function resolveFinalLockdown(context = {}) {
     active,
     status: finalLockdown.status || (active ? "active" : "inactive"),
     pausedByQuietHours: Boolean(finalLockdown.pausedByQuietHours),
-    remainingLabel: finalLockdown.pausedByQuietHours
-      ? "pauza do 06:00"
-      : `${formatTicksShort(finalLockdown.remainingActiveTicks)} zbývá`,
+    remainingLabel: finalLockdown.active ? `${formatEliminationRemainingMs(resolveAuthoritativeMatchCountdowns(context.gameplaySlice).finalActiveMs)} aktivního času${finalLockdown.pausedByQuietHours ? " · noční pauza" : ""}` : "Finále zatím nezačalo",
     currentPlayerRank: Number.isFinite(currentRank) && currentRank > 0 ? currentRank : null,
     rankLabel: Number.isFinite(currentRank) && currentRank > 0 && currentRank <= topRankCount
       ? `Top ${topRankCount}`
@@ -226,14 +216,10 @@ function resolveElimination(context = {}) {
     || "safe"
   ).trim() || "safe";
 
-  const ticksUntilNext = Number(elimination.ticksUntilNextElimination);
+  const countdown = resolveAuthoritativeMatchCountdowns(context.gameplaySlice).elimination;
   const nextEliminationLabel = elimination.eliminationsStopped
-    ? "Eliminace skončily. Posledních 8 hráčů bojuje o město."
-    : elimination.isQuietHoursNow
-      ? "Eliminace jsou pozastavené do 06:00."
-      : Number.isFinite(ticksUntilNext) && ticksUntilNext >= 0
-        ? `za ${formatTicksShort(ticksUntilNext)}`
-        : "čeká na serverový timer";
+    ? "Běžná očista je zastavena. Podmínky finále najdeš v kartě Očisty."
+    : countdown.remainingMs !== null ? `za ${formatEliminationRemainingMs(countdown.remainingMs)}` : "čeká na aktuální serverový stav";
   const dangerZoneCount = asArray(elimination.dangerZone).length;
   const dangerZoneLabel = dangerZoneCount > 0
     ? `${dangerZoneCount} hráčů v danger zone`
@@ -244,7 +230,7 @@ function resolveElimination(context = {}) {
     currentPlayerStatus,
     nextEliminationLabel,
     dangerZoneLabel,
-    activePlayersRemaining: Number(elimination.activePlayersRemaining || 0) || null,
+    activePlayersRemaining: elimination.activePlayersRemaining == null ? null : Number(elimination.activePlayersRemaining),
     maxPlayersPerServer: Number(context.maxPlayersPerServer || context.gameplaySlice?.server?.maxPlayersPerServer || 20) || 20,
     eliminationsStopped: Boolean(elimination.eliminationsStopped),
     isQuietHoursNow: Boolean(elimination.isQuietHoursNow),

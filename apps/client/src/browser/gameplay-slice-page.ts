@@ -1,4 +1,5 @@
 import { createControllerClientApp } from "../app/create-controller-client-app";
+import { observeAuthoritativeSnapshot } from "../../../../packages/shared-types/src/views/authoritative-snapshot-clock.js";
 import {
   createControllerSurfaceActionRouter,
   resolveClientSurfaceAction
@@ -133,6 +134,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
 
   const publish = (state: ClientRenderState, reason = "controller-update"): void => {
     const gameplaySlice = client.getGameplaySlice();
+    observeAuthoritativeSnapshot(gameplaySlice, state.connection);
     if (!gameplaySlice && state.connection.status === "error") {
       hideUnavailableGameplaySlice(state);
       return;
@@ -209,6 +211,8 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
     });
 
   let destroyed = false;
+  const handleRefreshRequest = (): void => { if (!destroyed) void poller.refreshOnce(); };
+  options.root.ownerDocument.addEventListener("empire:gameplay-refresh-request", handleRefreshRequest);
   let unregisterMountedPage: () => void = () => {};
   const handlePageHide = (): void => {
     mountedPage.destroy();
@@ -230,6 +234,7 @@ export const mountGameplaySlicePage = (options: GameplaySlicePageMountOptions): 
       if (destroyed) return;
       destroyed = true;
       poller.destroy();
+      options.root.ownerDocument.removeEventListener("empire:gameplay-refresh-request", handleRefreshRequest);
       unregisterMountedPage();
       mountedGameplaySlicePagesByRoot.delete(options.root);
       window.removeEventListener("pagehide", handlePageHide);

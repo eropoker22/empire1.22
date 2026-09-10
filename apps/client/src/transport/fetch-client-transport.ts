@@ -4,6 +4,7 @@ import type {
   SubmitGameplayCommandRequest
 } from "@empire/shared-types";
 import type { ClientTransport } from "./client-transport";
+import { observeAuthoritativeSnapshot } from "../../../../packages/shared-types/src/views/authoritative-snapshot-clock.js";
 
 export interface FetchClientTransportOptions {
   endpointBase: string;
@@ -42,6 +43,7 @@ export const createFetchClientTransport = (
       : requestWithTokens;
     const endpointRoute = resolveEndpointRoute(route, requestForEndpoint);
     const endpoint = `${endpointBase}/${endpointRoute}`;
+    const requestedAt = performance.now();
     const response = await fetchJson(endpoint, {
       method: "POST",
       headers: {
@@ -56,6 +58,8 @@ export const createFetchClientTransport = (
     }
 
     const payload = await response.json() as GameplaySliceResponse;
+    // Midpoint estimate uses the measured monotonic round trip, never device wall time.
+    observeAuthoritativeSnapshot(payload.readModel ?? null, null, (requestedAt + performance.now()) / 2);
     persistGameplaySliceTokens(requestForEndpoint, payload, storage);
     if (endpointRoute === "join" && payload.accepted && requestJoinTicket) {
       consumedJoinTicket = requestJoinTicket;

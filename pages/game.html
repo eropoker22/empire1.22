@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="../page-assets/css/styles-login-about.css?v=20260808-login-info-mobile">
     <link rel="stylesheet" href="../page-assets/css/styles-game-about.css?v=20260807-dialog-sizing">
     <link rel="stylesheet" href="../page-assets/css/styles-mobile-refinements.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-match-overview.css">
   </head>
   <body class="game-body game-body--booting">
     <section class="game-authority-gate modal lifecycle-modal lifecycle-modal--authority" data-game-authority-gate data-server-lifecycle-surface="authority" role="status" aria-live="polite" aria-hidden="false">
@@ -350,6 +351,7 @@
             </button>
           </div>
           <p class="game-lobby-modal__rule">Opuštění serveru je dostupné pouze během první hodiny od jeho prvního spuštění.</p>
+          <p class="game-lobby-modal__rule">Odchod ukončí tento pokus: přijdeš o území, zásoby, výrobní fronty, vlastní nabídky v bazaru i vložené bounty. Vklady se nepřenesou do nového startu. Bounty na tebe se zruší a aktivním zadavatelům se vrátí odměna. Alianci opustíš; vedení převezme zbývající člen. Vrátit se lze jen při otevřené registraci.</p>
           <p class="game-lobby-modal__error" data-game-lobby-error role="alert"></p>
         </section>
       </div>
@@ -2170,6 +2172,8 @@
       <div class="elimination-ai-panel__backdrop modal__backdrop lifecycle-modal__backdrop" data-elimination-ai-panel-close></div>
       <section class="elimination-ai-panel__card modal__content lifecycle-modal__card" role="dialog" aria-modal="true" aria-label="Očista" tabindex="-1">
         <header class="elimination-ai-panel__header modal__header lifecycle-modal__header">
+          <h2>Očista a finále</h2>
+          <span class="sr-only" role="status" data-elimination-ai-panel-status></span>
           <button type="button" class="button modal__close lifecycle-modal__close elimination-ai-panel__close" data-elimination-ai-panel-close aria-label="Zavřít očistu">×</button>
         </header>
         <div class="elimination-ai-panel__body modal__body lifecycle-modal__body" data-elimination-ai-panel-body></div>

@@ -1,3 +1,4 @@
+import { readAuthoritativeSnapshotClock } from "../../../../packages/shared-types/src/views/authoritative-snapshot-clock.js";
 export const ELIMINATION_WARNING_MILESTONES_MS = Object.freeze([
   (7 * 60 + 59) * 60_000,
   4 * 60 * 60_000,
@@ -11,9 +12,11 @@ const finiteNumber = (value) => {
   return Number.isFinite(Number(value)) ? Number(value) : null;
 };
 
-export function resolveAuthoritativeEliminationCountdown(gameplaySlice = null, nowMs = Date.now()) {
+export function resolveAuthoritativeEliminationCountdown(gameplaySlice = null, nowMs) {
   const source = gameplaySlice?.elimination || gameplaySlice?.player?.elimination || null;
   if (!source || typeof source !== "object") return unavailable("loading");
+  const clock = readAuthoritativeSnapshotClock(gameplaySlice, nowMs);
+  if (clock.state !== "running") return unavailable(clock.state);
   if (source.enabled !== true) return unavailable(source.enabled === false ? "disabled" : "loading");
   if (source.eliminationsStopped === true) return unavailable("stopped", { stopped: true });
 
@@ -21,7 +24,7 @@ export function resolveAuthoritativeEliminationCountdown(gameplaySlice = null, n
   const currentTick = finiteNumber(gameplaySlice?.server?.currentTick);
   const generatedAtMs = Date.parse(String(gameplaySlice?.server?.generatedAt || ""));
   const isQuietHours = source.isQuietHoursNow === true;
-  const deadlineTick = finiteNumber(isQuietHours ? source.quietHoursResumeTick : source.nextEliminationTick);
+  const deadlineTick = finiteNumber(source.nextEliminationTick);
   const fallbackRemainingTicks = finiteNumber(source.ticksUntilNextElimination);
   const remainingTicks = deadlineTick !== null && currentTick !== null
     ? Math.max(0, deadlineTick - currentTick)
@@ -31,11 +34,10 @@ export function resolveAuthoritativeEliminationCountdown(gameplaySlice = null, n
     return unavailable("loading", { isQuietHours, deadlineTick });
   }
 
-  const safeNowMs = finiteNumber(nowMs) ?? generatedAtMs;
   const remainingAtSnapshotMs = remainingTicks * tickRateMs;
-  const elapsedSinceSnapshotMs = Math.max(0, safeNowMs - generatedAtMs);
+  const elapsedSinceSnapshotMs = clock.elapsedMs;
   const remainingMs = Math.max(0, Math.ceil(remainingAtSnapshotMs - elapsedSinceSnapshotMs));
-  const deadlineMs = generatedAtMs + remainingAtSnapshotMs;
+  const deadlineMs = (clock.serverNowMs ?? generatedAtMs) + remainingMs;
   const serverInstanceId = String(gameplaySlice?.server?.serverInstanceId || "server");
 
   return {
@@ -52,6 +54,27 @@ export function resolveAuthoritativeEliminationCountdown(gameplaySlice = null, n
     stopped: false,
     countdownKey: `${serverInstanceId}:${isQuietHours ? "quiet" : "purge"}:${deadlineTick ?? remainingTicks}`
   };
+}
+
+export function resolveAuthoritativeMatchCountdowns(gameplaySlice, nowMs) {
+  const clock = readAuthoritativeSnapshotClock(gameplaySlice, nowMs);
+  const elimination = gameplaySlice?.elimination || gameplaySlice?.player?.elimination;
+  const final = gameplaySlice?.player?.finalLockdown;
+  const rate = finiteNumber(gameplaySlice?.mode?.tickRateMs);
+  const tick = finiteNumber(gameplaySlice?.server?.currentTick);
+  const until = (deadline) => rate > 0 && tick !== null && finiteNumber(deadline) !== null && clock.state === "running"
+    ? Math.max(0, (deadline - tick) * rate - clock.elapsedMs) : null;
+  const quiet = elimination?.quietHoursWindow;
+  const remaining = finiteNumber(final?.remainingActiveTicks);
+  const activeElapsedMs = final?.pauseDuringQuietHours && !quiet?.active && quiet?.startTick != null && rate > 0 && tick !== null
+    ? Math.min(clock.elapsedMs, Math.max(0, (quiet.startTick - tick) * rate)) : clock.elapsedMs;
+  const finalActiveMs = final?.active && remaining !== null && rate > 0 && ["running", "paused"].includes(clock.state)
+    ? Math.max(0, remaining * rate - (final.pausedByQuietHours || clock.state !== "running" ? 0 : activeElapsedMs)) : null;
+  return { clockState: clock.state, elimination: resolveAuthoritativeEliminationCountdown(gameplaySlice, nowMs), finalActiveMs,
+    quietRemainingMs: until(quiet?.active ? quiet.endTick : quiet?.startTick),
+    earliestStartMs: until(final?.startConditions?.earliestStartTick),
+    latestStartMs: until(final?.startConditions?.latestStartTick),
+    untilTick: until };
 }
 
 export function formatEliminationRemainingMs(remainingMs, options = {}) {

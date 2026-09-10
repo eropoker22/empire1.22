@@ -69,7 +69,7 @@ function getDetailDistrictId(detail = {}, ...keys) {
   const safeDetail = safeObject(detail);
   for (const key of keys) {
     const value = key.split(".").reduce((current, part) => safeObject(current)[part], safeDetail);
-    const districtId = Number(value);
+    const districtId = Number(String(value ?? "").replace(/^district:/u, ""));
     if (Number.isFinite(districtId) && districtId > 0) {
       return districtId;
     }
@@ -78,11 +78,11 @@ function getDetailDistrictId(detail = {}, ...keys) {
 }
 
 function isConfirmedSpyOnboardingTarget(detail = {}) {
-  return getDetailDistrictId(detail, "targetDistrictId", "mission.targetDistrictId", "districtId") === 2;
+  return getDetailDistrictId(detail, "targetDistrictId", "mission.targetDistrictId", "districtId") !== null;
 }
 
 function isConfirmedTrapOnboardingTarget(detail = {}) {
-  return getDetailDistrictId(detail, "targetDistrictId", "districtId") === 1;
+  return getDetailDistrictId(detail, "targetDistrictId", "districtId") !== null;
 }
 
 export function resolveOnboardingStorageKey(context = {}) {
@@ -240,7 +240,11 @@ export function updateOnboardingProgress(context = {}, eventOrState = {}) {
 
   const observed = new Set(progress.observedStepIds);
   for (const stepId of getObservedStepIdsForEvent(eventType, detail)) {
+    if (safeContext.gameplaySlice && ["spy", "attack-order"].includes(stepId)) continue;
     observed.add(stepId);
+  }
+  for (const stepId of safeContext.gameplaySlice?.onboarding?.completedActionStepIds || []) {
+    if (["spy", "attack-order"].includes(stepId)) observed.add(stepId);
   }
 
   return applyObservedProgress({
@@ -318,6 +322,7 @@ export function createOnboardingBridge(deps = {}) {
       storageKey = nextKey;
       progress = normalizeOnboardingProgress(readStoredProgress(storage, storageKey));
     }
+    if (getContext().gameplaySlice) progress = updateOnboardingProgress(getContext());
     return readModel;
   };
 
@@ -386,6 +391,9 @@ export function createOnboardingBridge(deps = {}) {
   };
 
   const next = (stepId = "") => {
+    const requestedStep = stepId || progress.currentStepId;
+    if (getContext().gameplaySlice && ["spy", "attack-order"].includes(requestedStep)
+      && !getContext().gameplaySlice.onboarding?.completedActionStepIds?.includes(requestedStep)) return progress;
     const wasCompleted = normalizeOnboardingProgress(progress).completed;
     progress = markPanelStepDone(stepId || progress.currentStepId, progress);
     persist();

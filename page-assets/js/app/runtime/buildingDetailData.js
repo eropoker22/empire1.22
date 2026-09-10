@@ -5,6 +5,7 @@ import {
 } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 
 export { SMUGGLING_TUNNEL_CONFIG };
+import { BUILDING_ACTION_CONFIG } from "../../../../packages/game-config/src/legacy-page/gameplay-config.generated.js";
 
 const POWER_STATION_REDUCE_HEAT_CLEAN_COST = 10_000;
 
@@ -179,7 +180,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
   "energeticka stanice": Object.freeze({
     role: "Infrastruktura",
     info: "Energetická stanice podporuje průmyslovou výrobu a drží provoz districtu stabilní.",
-    actions: Object.freeze(["Stabilizovat síť", "Napájet výrobu", "Snížit heat"])
+    actions: Object.freeze(["Stabilizovat síť", "Prodat přebytek", "Snížit heat"])
   }),
   "recyklacni centrum": Object.freeze({
     role: "Vytěžení ztrát",
@@ -214,7 +215,7 @@ export const DISTRICT_BUILDING_DETAIL_PROFILES = Object.freeze({
 });
 
 
-export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
+const LEGACY_SPECIAL_ACTION_PROFILES = Object.freeze({
   "bytovy blok": Object.freeze([
     Object.freeze({ apartmentCollectPopulation: true, cooldownMs: 0, summary: "Přesune lokálně uložené obyvatele do globální populace gangu." })
   ]),
@@ -324,7 +325,7 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   skladiste: Object.freeze([]),
   "energeticka stanice": Object.freeze([
     Object.freeze({ cleanCost: 3500, durationMs: 25 * 60 * 1000, cooldownMs: 60 * 60 * 1000, heat: 3, serverEffectSummary: "Infrastruktura +12% · kamery +20% · alarm +20% · výroba +10%", summary: "Záložní síť dočasně posílí infrastrukturu, obranu a průmyslovou výrobu." }),
-    Object.freeze({ clean: 2000, dirty: 500, heat: 10, cooldownMs: 60 * 60 * 1000, summary: "Napájení okamžitě přidá clean a dirty výnos z výroby." }),
+    Object.freeze({ clean: 2000, dirty: 500, heat: 10, cooldownMs: 60 * 60 * 1000, summary: "Prodej přebytku přidá clean a dirty výnos a zvýší HEAT." }),
     Object.freeze({ cleanCost: POWER_STATION_REDUCE_HEAT_CLEAN_COST, cooldownMs: 60 * 60 * 1000, heat: -20, summary: "Serverově sníží heat districtu." })
   ]),
   "recyklacni centrum": Object.freeze([
@@ -337,6 +338,38 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze({
   zbrojovka: Object.freeze([])
 });
 
+
+// Stable identities bind the legacy card shell to the generated server catalog.
+export const BUILDING_SPECIAL_ACTION_IDS = Object.freeze({
+  "bytovy blok": ["collect_population"], skola: ["evening_course"],
+  restaurace: ["restaurant_collect_revenue", "restaurant_cover_meetings", "restaurant_local_network"],
+  klinika: ["stabilization_protocol"], herna: ["night_machines", "back_cashdesk"], smenarna: ["good_rate"],
+  kasino: ["quiet_backroom", "vip_night", "bribed_inspector"],
+  burza: ["speculative_buy", "market_pressure", "insider_window"],
+  "centralni banka": ["liquidity_injection", "frozen_accounts", "currency_intervention"],
+  magistrat: ["official_cover", "city_contract", "emergency_decree"],
+  "lobby klub": ["backroom_pressure", "quiet_negotiation", "media_screen"],
+  "lobby club": ["backroom_pressure", "quiet_negotiation", "media_screen"],
+  letiste: ["express_import", "black_charter", "evacuation_corridor"],
+  pristav: ["port_container_cut"], parlament: ["parliament_policy_window"],
+  "strip club": ["strip_club_collect_cash", "vip_lounge", "private_party"],
+  "energeticka stanice": ["backup_grid_switch", "power_station_feed_production", "power_station_reduce_heat"],
+  "recyklacni centrum": ["extract_losses"], "pasovaci tunel": ["open_channel"],
+  "poulicni dealeri": ["start_drug_sale"], vecerka: ["collect_convenience_store_population"]
+});
+export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze(Object.fromEntries(
+  Object.entries(LEGACY_SPECIAL_ACTION_PROFILES).map(([building, profiles]) => [building, Object.freeze(profiles.map((profile, index) => {
+    const actionId = BUILDING_SPECIAL_ACTION_IDS[building]?.[index];
+    const action = BUILDING_ACTION_CONFIG[actionId];
+    if (!action) return profile;
+    const shared = { actionId, cooldownMs: action.cooldownMs ?? 0, durationMs: action.durationMs ?? 0 };
+    const values = { clean: action.outputGain?.cash ?? 0, dirty: action.outputGain?.["dirty-cash"] ?? 0,
+      cleanCost: action.inputCost?.cash ?? 0, dirtyCost: action.inputCost?.["dirty-cash"] ?? 0,
+      heat: action.heatGain ?? 0, influence: action.influenceChange ?? 0, influenceCost: Math.max(0, -(action.influenceChange ?? 0)) };
+    for (const [key, value] of Object.entries(values)) if (key in profile) shared[key] = value;
+    return Object.freeze({ ...profile, ...shared });
+  }))])
+));
 
 export const DISTRICT_BUILDING_DETAIL_DEFAULT_ACCRUAL_MS = 60 * 60 * 1000;
 export const DISTRICT_BUILDING_DETAIL_COLLECT_CAP_MS = 4 * 60 * 60 * 1000;

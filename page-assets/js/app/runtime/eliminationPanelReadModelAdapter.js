@@ -17,7 +17,7 @@ const SCORE_LABELS = Object.freeze({
   totalScore: "Celkem"
 });
 
-const asFiniteNumber = (value) => Number.isFinite(Number(value)) ? Number(value) : null;
+const asFiniteNumber = (value) => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 
 const formatMetric = (value) => {
   const numeric = asFiniteNumber(value);
@@ -97,13 +97,11 @@ export function createEliminationPanelViewModel(readModel, modeConfig = {}) {
     status,
     title: "OČISTA",
     unitLabel: readModel.isQuietHoursNow ? "TICHÉ HODINY" : "SERVEROVÁ OČISTA",
-    countdownLabel: readModel.isQuietHoursNow ? "Obnoví se za" : "Očista za",
+    countdownLabel: "Další očista za",
     countdownValue: asFiniteNumber(modeConfig.countdownRemainingMs) !== null
       ? formatCountdown(modeConfig.countdownRemainingMs, 1)
       : formatCountdown(
-        readModel.isQuietHoursNow && asFiniteNumber(readModel.quietHoursResumeTick) !== null
-          ? Number(readModel.quietHoursResumeTick) - Number(modeConfig.currentTick || 0)
-          : readModel.ticksUntilNextElimination,
+        readModel.ticksUntilNextElimination,
         modeConfig.tickRateMs
       ),
     subtitle: readModel.eliminationsStopped
@@ -130,8 +128,7 @@ export function createEliminationPanelViewModel(readModel, modeConfig = {}) {
     })) : [],
     actions: readModel.eliminationsStopped ? [] : [
       { label: "Získej district", subtitle: "posil území", type: "cyan" },
-      { label: "Rozjeď výrobu", subtitle: "zvedni zásoby", type: "green" },
-      { label: "Sniž Heat", subtitle: "omez postih", type: "pink" }
+      { label: "Rozjeď výrobu", subtitle: "zvedni zásoby", type: "green" }
     ],
     scoreTitle: "Rozpis score",
     scoreBreakdown,

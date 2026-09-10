@@ -3,8 +3,10 @@ import {
   createFinalLockdownPanelViewModel
 } from "./eliminationPanelReadModelAdapter.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+import { createMatchOverviewViewModel } from "./eliminationMatchOverview.js";
 import {
   resolveAuthoritativeEliminationCountdown,
+  resolveAuthoritativeMatchCountdowns,
   resolveEliminationWarningMilestone
 } from "./authoritativeEliminationCountdown.js";
 
@@ -143,19 +145,9 @@ function getAuthoritativeCountdownRemainingMs(deps, timerApi, mode = "eliminatio
     : gameplaySlice.player?.elimination || gameplaySlice.elimination;
   if (!source || source.enabled !== true) return null;
   if (normalizedMode !== "final_lockdown" && normalizedMode !== "final") {
-    return resolveAuthoritativeEliminationCountdown(gameplaySlice, getSafeNow(timerApi)).remainingMs;
+    return resolveAuthoritativeEliminationCountdown(gameplaySlice, typeof timerApi?.now === "function" ? getSafeNow(timerApi) : undefined).remainingMs;
   }
-  const tickRateMs = getFiniteNumber(gameplaySlice.mode?.tickRateMs);
-  const currentTick = getFiniteNumber(gameplaySlice.server?.currentTick) || 0;
-  const remainingTicks = normalizedMode === "final_lockdown" || normalizedMode === "final"
-    ? getFiniteNumber(source.remainingActiveTicks)
-    : source.isQuietHoursNow && getFiniteNumber(source.quietHoursResumeTick) !== null
-      ? Math.max(0, Number(source.quietHoursResumeTick) - currentTick)
-      : getFiniteNumber(source.ticksUntilNextElimination);
-  if (tickRateMs === null || tickRateMs <= 0 || remainingTicks === null) return null;
-  const generatedAtMs = Date.parse(String(gameplaySlice.server?.generatedAt || ""));
-  const elapsedMs = Number.isFinite(generatedAtMs) ? Math.max(0, getSafeNow(timerApi) - generatedAtMs) : 0;
-  return Math.max(0, Math.ceil(remainingTicks * tickRateMs - elapsedMs));
+  return resolveAuthoritativeMatchCountdowns(gameplaySlice, typeof timerApi?.now === "function" ? getSafeNow(timerApi) : undefined).finalActiveMs;
 }
 
 function getSharedMockCountdownRemainingMs(timerApi, initialRemainingMs, resetRemainingMs = DEMO_ELIMINATION_RESET_COUNTDOWN_MS) {
@@ -208,6 +200,7 @@ function renderResultBody(body, gangName) {
 }
 
 function getFiniteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 }
@@ -276,6 +269,11 @@ function isPanelViewModel(value) {
 function normalizePanelViewModel(viewModel = {}, fallbackMode = "elimination") {
   const normalizedMode = normalizeMode(viewModel.mode || fallbackMode);
   return {
+    phaseLabel: viewModel.phaseLabel || "",
+    calendarLabel: viewModel.calendarLabel || "",
+    personalStatus: viewModel.personalStatus || "",
+    scheduleSections: asArray(viewModel.scheduleSections),
+    rules: asArray(viewModel.rules),
     mode: normalizedMode,
     status: viewModel.status || (normalizedMode === "final_lockdown" ? "final" : "paused"),
     title: viewModel.title || (normalizedMode === "final_lockdown" ? "FINAL LOCKDOWN" : "OČISTA / PURGE OKNO"),
@@ -314,7 +312,7 @@ function resolvePanelViewModel(input = {}, fallbackMode = "elimination") {
 }
 
 function resolveReadModelPanelViewModel(playerView = null, mode = "elimination", gameplaySlice = null, countdownRemainingMs = null) {
-  const normalizedMode = normalizeMode(mode);
+  const normalizedMode = playerView?.finalLockdown?.active || playerView?.finalLockdown?.result ? "final_lockdown" : normalizeMode(mode);
   const source = normalizedMode === "final_lockdown" || normalizedMode === "final"
     ? playerView?.finalLockdown
     : playerView?.elimination;
@@ -324,9 +322,10 @@ function resolveReadModelPanelViewModel(playerView = null, mode = "elimination",
     serverCapacity: gameplaySlice?.server?.maxPlayersPerServer,
     countdownRemainingMs
   };
-  return normalizedMode === "final_lockdown" || normalizedMode === "final"
+  const base = normalizedMode === "final_lockdown" || normalizedMode === "final"
     ? { ...createFinalLockdownPanelViewModel(source, modeConfig), eliminatedPlayers: asArray(playerView?.elimination?.eliminatedPlayers) }
     : createEliminationPanelViewModel(source, modeConfig);
+  return createMatchOverviewViewModel(gameplaySlice, base);
 }
 
 function createSection(title, content, modifier = "") {
@@ -343,9 +342,11 @@ function renderHero(viewModel) {
   return `
     <div class="elimination-ai-panel__hero">
       <div class="elimination-ai-panel__hero-main">
+        ${viewModel.phaseLabel ? `<span class="elimination-ai-panel__phase">${escapeHtml(viewModel.phaseLabel)}</span>` : ""}
         <span class="elimination-ai-panel__countdown-label">${escapeHtml(viewModel.countdownLabel)}</span>
         <strong class="elimination-ai-panel__countdown" aria-label="${escapeHtml(viewModel.countdownValue)}">${renderCountdownValue(viewModel.countdownValue)}</strong>
         <span class="elimination-ai-panel__subtitle">${escapeHtml(viewModel.subtitle)}</span>
+        ${viewModel.calendarLabel ? `<span class="elimination-ai-panel__calendar">${escapeHtml(viewModel.calendarLabel)}</span>` : ""}
       </div>
     </div>
   `;
@@ -367,7 +368,7 @@ function renderMetrics(metrics = []) {
 }
 
 function renderLeaderboard(entries = []) {
-  const safeEntries = asArray(entries).slice(0, 3);
+  const safeEntries = asArray(entries);
   if (!safeEntries.length) {
     return `<p class="elimination-ai-panel__empty">Data se načítají</p>`;
   }
@@ -392,7 +393,7 @@ function progressStyle(progress) {
 }
 
 function renderScoreBreakdown(viewModel) {
-  const rows = asArray(viewModel.scoreBreakdown);
+  const rows = asArray(viewModel.scoreBreakdown).filter((row) => viewModel.mode === "final_lockdown" || !isHeatPanelItem(row));
   if (!rows.length) {
     return `<p class="elimination-ai-panel__empty">Data se načítají</p>`;
   }
@@ -534,12 +535,17 @@ export function renderEliminationResultPopupBody(result = {}) {
 function renderPanelContent(viewModel) {
   return [
     renderHero(viewModel),
+    `<div class="elimination-ai-panel__schedule">${asArray(viewModel.scheduleSections).map((section) => `<section class="elimination-ai-panel__schedule-block" data-match-clock="${escapeHtml(section.key)}"><h3>${escapeHtml(section.title)}</h3><strong>${escapeHtml(section.value)}</strong><p>${escapeHtml(section.detail)}</p>${section.note ? `<p class="elimination-ai-panel__schedule-note">${escapeHtml(section.note)}</p>` : ""}</section>`).join("")}</div>`,
+    viewModel.personalStatus ? `<p class="elimination-ai-panel__personal">${escapeHtml(viewModel.personalStatus)}</p>` : "",
     renderMetrics(viewModel.metrics),
     createSection(viewModel.leaderboardTitle, renderLeaderboard(viewModel.leaderboard), "leaderboard"),
+    viewModel.rules?.length ? `<details class="elimination-ai-panel__rules" data-match-details="rules"><summary data-panel-focus="rules">Jak funguje Očista a finále</summary>${viewModel.rules.map((rule) => `<p>${escapeHtml(rule)}</p>`).join("")}</details>` : "",
+    '<details class="elimination-ai-panel__rules" data-match-details="history"><summary data-panel-focus="history">Historie a rozpis skóre</summary>',
     createSection("Vyřazeni očistou", viewModel.eliminatedPlayers.length
       ? `<div class="elimination-ai-panel__history">${viewModel.eliminatedPlayers.map((entry) => `<div class="elimination-ai-panel__history-row"><strong>${escapeHtml(entry.playerName)}</strong><span>${entry.finalPlacement ? `#${escapeHtml(entry.finalPlacement)}` : "Vyřazen"}</span></div>`).join("")}</div>`
       : '<p class="elimination-ai-panel__empty">Očista zatím nikoho nevyřadila.</p>', "history"),
-    createSection(viewModel.scoreTitle, renderScoreBreakdown(viewModel), "score")
+    createSection(viewModel.scoreTitle, renderScoreBreakdown(viewModel), "score"),
+    '</details>'
   ].join("");
 }
 
@@ -572,7 +578,8 @@ function setHeader(panel, input = {}) {
   const statusValue = normalizeStatus(viewModel.status);
   const status = panel.querySelector?.(PURGE_PANEL_STATUS_SELECTOR);
   if (status) {
-    status.textContent = getStatusText(statusValue);
+    const label = viewModel.phaseLabel || getStatusText(statusValue);
+    if (status.textContent !== label) status.textContent = label;
     status.dataset.state = statusValue;
   }
   return statusValue;
@@ -647,6 +654,15 @@ export function bindEliminationPurgePanel(root, deps = {}) {
   };
 
   const getInput = () => createInput(getCountdownRemainingMs());
+  let lastRefreshAt = -Infinity;
+  const refreshedBoundaries = new Set();
+  const requestFreshState = () => {
+    const now = globalThis.performance?.now?.() ?? 0;
+    if (deps.allowDemoFixtures || now - lastRefreshAt < 3000) return;
+    lastRefreshAt = now;
+    if (deps.requestRefresh) deps.requestRefresh();
+    else { const Event = documentRef?.defaultView?.CustomEvent; if (Event) documentRef.dispatchEvent(new Event("empire:gameplay-refresh-request")); }
+  };
 
   const captureScrollState = () => ({
     body: Math.max(0, Number(body?.scrollTop || 0)),
@@ -666,12 +682,29 @@ export function bindEliminationPurgePanel(root, deps = {}) {
   const render = () => {
     if (!body) return false;
     const scrollState = captureScrollState();
+    const openDetails = Array.from(body.querySelectorAll?.("details[open]") || []).map((element) => element.dataset.matchDetails);
+    const focusedKey = documentRef?.activeElement?.dataset?.panelFocus;
     const input = getInput();
+    const slice = deps.getGameplaySlice?.();
+    if (slice) {
+      const clocks = resolveAuthoritativeMatchCountdowns(slice);
+      const elimination = slice.elimination || slice.player?.elimination;
+      const final = slice.player?.finalLockdown;
+      const boundaries = [[clocks.elimination.remainingMs, `purge:${elimination?.nextEliminationTick}`],
+        [clocks.quietRemainingMs, `quiet:${elimination?.quietHoursWindow?.startTick}:${elimination?.quietHoursWindow?.endTick}`],
+        [clocks.finalActiveMs, `final:${final?.startedAtTick}`]];
+      if (clocks.clockState === "running") for (const [remaining,key] of boundaries) {
+        const scoped = `${slice.server?.serverInstanceId}:${key}`;
+        if (remaining === 0 && !refreshedBoundaries.has(scoped)) { refreshedBoundaries.add(scoped); requestFreshState(); }
+      }
+    }
     const statusClass = setHeader(panel, input);
     panel.dataset.aiState = statusClass;
     card?.classList?.remove?.("is-safe", "is-danger", "is-critical", "is-defeated", "is-final", "is-paused", "is-pauza");
     card?.classList?.add?.(`is-${statusClass}`);
     body.innerHTML = renderEliminationPurgePanelBody(input);
+    for (const key of openDetails) { const element = body.querySelector(`[data-match-details="${key}"]`); if (element) element.open = true; }
+    if (focusedKey) focusWithoutScroll(body.querySelector(`[data-panel-focus="${focusedKey}"]`));
     restoreScrollState(scrollState);
     return true;
   };
@@ -698,6 +731,7 @@ export function bindEliminationPurgePanel(root, deps = {}) {
     documentRef?.body?.classList?.add?.("elimination-ai-panel-open");
     documentRef?.addEventListener?.("keydown", handleKeydown);
     startLiveCountdown();
+    requestFreshState();
     focusWithoutScroll(card);
   };
 
@@ -719,6 +753,13 @@ export function bindEliminationPurgePanel(root, deps = {}) {
   };
 
   function handleKeydown(event) {
+    if (event.key === "Tab") {
+      const focusable = Array.from(card?.querySelectorAll?.('button:not([disabled]), a[href], summary, [tabindex="0"]') || []).filter((element) => element.getClientRects().length);
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (first && (event.shiftKey ? documentRef.activeElement === first || documentRef.activeElement === card : documentRef.activeElement === last || documentRef.activeElement === card)) {
+        event.preventDefault(); focusWithoutScroll(event.shiftKey ? last : first);
+      }
+    }
     if (event.key === "Escape") {
       event.preventDefault?.();
       close();
@@ -742,12 +783,14 @@ export function bindEliminationPurgePanel(root, deps = {}) {
   const handleGameplaySliceRendered = () => {
     if (!panel.hidden) render();
   };
+  const handleVisibility = () => { if (!documentRef.hidden && !panel.hidden) { requestFreshState(); render(); } };
 
   root.addEventListener?.("click", handleClick);
   if (!panelIsInsideRoot) {
     panel.addEventListener?.("click", handleClick);
   }
   documentRef?.addEventListener?.("empire:gameplay-slice-rendered", handleGameplaySliceRendered);
+  documentRef?.addEventListener?.("visibilitychange", handleVisibility);
   return {
     close,
     open,
@@ -760,6 +803,7 @@ export function bindEliminationPurgePanel(root, deps = {}) {
       }
       documentRef?.removeEventListener?.("keydown", handleKeydown);
       documentRef?.removeEventListener?.("empire:gameplay-slice-rendered", handleGameplaySliceRendered);
+      documentRef?.removeEventListener?.("visibilitychange", handleVisibility);
       stopLiveCountdown();
     }
   };

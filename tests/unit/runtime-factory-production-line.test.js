@@ -39,10 +39,10 @@ describe("local-demo Factory production lines", () => {
       techCore: 8 * 60_000,
       combatModule: 15 * 60_000
     });
-    expect(FACTORY_SLOT_STORAGE_CAPS).toEqual({ metalParts: 10, techCore: 5, combatModule: 2 });
+    expect(FACTORY_SLOT_STORAGE_CAPS).toEqual({ metalParts: 60, techCore: 24, combatModule: 8 });
     expect(Object.fromEntries(
       Object.entries(FACTORY_CONFIG.recipes).map(([recipeId, recipe]) => [recipeId, recipe.queueCap])
-    )).toEqual({ "metal-parts": 13, "tech-core": 8, "combat-module": 5 });
+    )).toEqual({ "metal-parts": 63, "tech-core": 27, "combat-module": 11 });
   });
 
   it("does not produce anything when no paid unit is queued", () => {
@@ -68,11 +68,11 @@ describe("local-demo Factory production lines", () => {
   it("pauses at the canonical local cap and preserves the paid queue", () => {
     const startedAt = 3_000;
     const result = syncFactoryProduction(createFactoryState(startedAt, {
-      metalParts: { isProducing: true, queuedAmount: 4, producedAmount: 9 }
+      metalParts: { isProducing: true, queuedAmount: 4, producedAmount: 59 }
     }), startedAt + 60 * 60_000);
     const line = result.state.slots.find((slot) => slot.resourceKey === "metalParts");
 
-    expect(line).toMatchObject({ producedAmount: 10, slotCap: 10, queuedAmount: 3, queueCap: 13, isProducing: false });
+    expect(line).toMatchObject({ producedAmount: 60, slotCap: 60, queuedAmount: 3, queueCap: 63, isProducing: false });
   });
 
   it("uses the Factory network only for speed and never scales either cap", () => {
@@ -83,16 +83,16 @@ describe("local-demo Factory production lines", () => {
     const line = result.state.slots.find((slot) => slot.resourceKey === "metalParts");
 
     expect(result.productionMultiplier).toBe(1.1);
-    expect(line).toMatchObject({ producedAmount: 1, queuedAmount: 1, slotCap: 10, queueCap: 13 });
+    expect(line).toMatchObject({ producedAmount: 1, queuedAmount: 1, slotCap: 60, queueCap: 63 });
   });
 
   it("preserves a migrated queue above the new cap while blocking silent truncation", () => {
     const startedAt = 5_000;
     const result = syncFactoryProduction(createFactoryState(startedAt, {
-      techCore: { isProducing: true, queuedAmount: 14 }
+      techCore: { isProducing: true, queuedAmount: 30 }
     }), startedAt);
     const line = result.state.slots.find((slot) => slot.resourceKey === "techCore");
 
-    expect(line).toMatchObject({ queuedAmount: 14, queueCap: 8, producedAmount: 0 });
+    expect(line).toMatchObject({ queuedAmount: 30, queueCap: 27, producedAmount: 0 });
   });
 });
