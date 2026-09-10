@@ -30,26 +30,72 @@ export const createPostgresAtomicCommandTransaction = (
 ): AtomicCommandTransactionBoundary => ({
   run: (instanceId, callback, options) =>
     database.transaction(async (client) => {
+      const startedAt = performance.now();
+      let queryCount = 0;
+      let queryTimeMs = 0;
+      const measuredClient: PostgresQueryable = {
+        query: async (sql, params) => {
+          queryCount += 1;
+          const queryStartedAt = performance.now();
+          try {
+            return await client.query(sql, params);
+          } finally {
+            queryTimeMs += Math.max(0, performance.now() - queryStartedAt);
+          }
+        }
+      };
+      const transactionClient = options?.diagnosticsKind ? measuredClient : client;
+      try {
       if (options?.runtimeLeaseFence) {
-        await assertCurrentPostgresRuntimeLease(client, instanceId, options.runtimeLeaseFence, true);
+        await assertCurrentPostgresRuntimeLease(transactionClient, instanceId, options.runtimeLeaseFence, true);
       } else if (options?.hostedStatusFence === "running-if-present") {
-        await assertHostedRuntimeRunning(client, instanceId);
+        await assertHostedRuntimeRunning(transactionClient, instanceId);
       }
-      await lockPostgresServerInstanceRow(client, instanceId);
+      await lockPostgresServerInstanceRow(transactionClient, instanceId);
       const result = await callback({
-        commandLogRepository: createPostgresCommandLogRepository(client),
-        commandReservationRepository: createPostgresCommandReservationRepositoryForTransaction(client),
-        commandResultRepository: createPostgresCommandResultRepository(client),
-        eventLogRepository: createPostgresEventLogRepository(client),
-        outboxRepository: createPostgresRuntimeOutboxRepository(client),
-        snapshotRepository: createPostgresSnapshotRepositoryForTransaction(client, snapshotMetrics)
+        commandLogRepository: createPostgresCommandLogRepository(transactionClient),
+        commandReservationRepository: createPostgresCommandReservationRepositoryForTransaction(transactionClient),
+        commandResultRepository: createPostgresCommandResultRepository(transactionClient),
+        eventLogRepository: createPostgresEventLogRepository(transactionClient),
+        outboxRepository: createPostgresRuntimeOutboxRepository(transactionClient),
+        snapshotRepository: createPostgresSnapshotRepositoryForTransaction(transactionClient, snapshotMetrics)
       });
       if (options?.runtimeLeaseFence) {
-        await assertPostgresRuntimeLeaseOwner(client, instanceId, options.runtimeLeaseFence);
+        await assertPostgresRuntimeLeaseOwner(transactionClient, instanceId, options.runtimeLeaseFence);
       }
       return result;
+      } finally {
+        if (options?.diagnosticsKind) {
+          recordTransactionDiagnostics(
+            snapshotMetrics,
+            options.diagnosticsKind,
+            queryCount + 2,
+            Math.max(queryTimeMs, performance.now() - startedAt)
+          );
+        }
+      }
     })
 });
+
+const recordTransactionDiagnostics = (
+  metrics: SnapshotPersistenceMetrics,
+  kind: "tick" | "command",
+  roundTrips: number,
+  databaseTimeMs: number
+): void => {
+  if (kind === "tick") {
+    metrics.tickTransactions += 1;
+    metrics.totalTickDbRoundTrips += roundTrips;
+    metrics.averageTickDbRoundTrips = metrics.totalTickDbRoundTrips / metrics.tickTransactions;
+    metrics.maxTickDbRoundTrips = Math.max(metrics.maxTickDbRoundTrips, roundTrips);
+    metrics.totalDatabaseTimePerTickMs += databaseTimeMs;
+    metrics.databaseTimePerTickMs = metrics.totalDatabaseTimePerTickMs / metrics.tickTransactions;
+    return;
+  }
+  metrics.commandTransactions += 1;
+  metrics.totalCommandDbRoundTrips += roundTrips;
+  metrics.queriesPerCommandSubmit = metrics.totalCommandDbRoundTrips / metrics.commandTransactions;
+};
 
 const assertHostedRuntimeRunning = async (
   client: PostgresQueryable,

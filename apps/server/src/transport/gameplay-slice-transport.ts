@@ -18,7 +18,7 @@ import type { GameplaySessionTokenCodec } from "./gameplay-session-token-codec";
 import type { GameplaySessionService } from "../auth";
 import { lookupGameplayCommandResult } from "./gameplay-command-result-lookup";
 import { createGameplaySliceResponseMetadata } from "./gameplay-slice-response-metadata";
-
+import { createUnchangedGameplaySliceResponse } from "./gameplay-slice-unchanged-response";
 export interface GameplaySliceTransportOptions {
   sessionTokenCodec?: GameplaySessionTokenCodec | null;
   gameplaySessionService?: GameplaySessionService | null;
@@ -53,8 +53,11 @@ export const createGameplaySliceTransport = (
       if (!runtime) {
         return createNotFoundResponse("Slice runtime or projection was not found.");
       }
+      const unchanged = createUnchangedGameplaySliceResponse(runtime, sessionResult.session.playerId, request);
+      if (unchanged) return unchanged;
       return {
         accepted: true,
+        changed: true,
         readModel: createGameplaySliceProjection(runtime, sessionResult.session.playerId, request.districtId),
         errors: [],
         metadata: createGameplaySliceResponseMetadata(runtime)

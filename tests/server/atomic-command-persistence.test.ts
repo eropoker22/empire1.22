@@ -25,7 +25,10 @@ describe("atomic command persistence", () => {
     const rootBefore = fixture.runtime.state.root.version;
     fixture.runtime.atomicCommandTransaction = {
       run: async (_instanceId, _callback, options) => {
-        expect(options).toEqual({ hostedStatusFence: "running-if-present" });
+        expect(options).toMatchObject({
+          hostedStatusFence: "running-if-present",
+          diagnosticsKind: "command"
+        });
         throw new HostedRuntimeStatusFenceRejectedError(fixture.instanceId);
       }
     };

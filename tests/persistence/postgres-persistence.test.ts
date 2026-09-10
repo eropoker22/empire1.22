@@ -189,6 +189,11 @@ describe("postgres persistence repositories", () => {
         rootVersion: 4
       }
     });
+    expect(await repository.loadRecoveryMetadata(runtime.record.id)).toMatchObject({
+      snapshotId: first.snapshotId,
+      rootVersion: 4,
+      tick: 1
+    });
 
     runtime.state.root.version = 5;
     runtime.state.root.tick = 2;
@@ -539,6 +544,8 @@ class FakePostgresDatabase implements PostgresDatabase {
       const incoming: LatestSnapshotRow = {
         snapshotId: String(params[3]),
         rootVersion: Number(params[4]),
+        tick: Number(params[5]),
+        createdAt: String(params[7]),
         payload: parsePayload(params[6])
       };
       const current = this.latestSnapshots.get(serverInstanceId);
@@ -547,6 +554,17 @@ class FakePostgresDatabase implements PostgresDatabase {
         return result([{ snapshot_id: incoming.snapshotId, root_version: incoming.rootVersion }]);
       }
       return result([]);
+    }
+
+    if (compactSql.startsWith("SELECT snapshot_id, root_version, tick, created_at, updated_at FROM empire_snapshot_latest")) {
+      const current = this.latestSnapshots.get(String(params[0]));
+      return result(current ? [{
+        snapshot_id: current.snapshotId,
+        root_version: current.rootVersion,
+        tick: current.tick,
+        created_at: current.createdAt,
+        updated_at: current.createdAt
+      }] : []);
     }
 
     if (compactSql.startsWith("SELECT snapshot_id, root_version, payload FROM empire_snapshot_latest")) {
@@ -641,6 +659,8 @@ interface CommandReservationStoredRow extends QueryResultRow {
 interface LatestSnapshotRow {
   snapshotId: string;
   rootVersion: number;
+  tick: number;
+  createdAt: string;
   payload: unknown;
 }
 

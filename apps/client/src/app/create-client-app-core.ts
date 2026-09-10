@@ -61,7 +61,7 @@ export const createClientAppCore = ({
       }
 
       try {
-        const response = await transport.load(request);
+        const response = await transport.load(withKnownGameplaySliceState(request));
         return responseCommitter.commitResponse(response, request.districtId, undefined, operationSequence);
       } catch (error) {
         return responseCommitter.commitTransportFailure(
@@ -102,7 +102,7 @@ export const createClientAppCore = ({
       recomputeRenderState("ui-select-district-pending");
 
       try {
-        const response = await transport.load(request);
+        const response = await transport.load(withKnownGameplaySliceState(request));
         return responseCommitter.commitResponse(response, districtId, undefined, operationSequence);
       } catch (error) {
         return responseCommitter.commitTransportFailure(
@@ -179,6 +179,18 @@ export const createClientAppCore = ({
     getRenderState: () => renderState,
     getGameplaySlice: () => store.getReadModel().gameplaySlice
   });
+
+  function withKnownGameplaySliceState<TRequest extends object>(request: TRequest): TRequest {
+    const current = store.getReadModel().gameplaySlice;
+    const focusDistrictId = current?.district?.districtId ?? current?.server.selectedDistrictId ?? null;
+    return current && focusDistrictId
+      ? {
+          ...request,
+          knownStateVersion: current.server.stateVersion,
+          knownFocusDistrictId: focusDistrictId
+        }
+      : request;
+  }
 };
 
 const createTransportFailureMessage = (fallback: string, error: unknown): string => {

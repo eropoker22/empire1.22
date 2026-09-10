@@ -9,7 +9,15 @@ import { assertSnapshotIntegrity } from "../services/snapshot-integrity-validato
 import { isTerminalSnapshot } from "../services/snapshot-retention-classification";
 import {
   createSnapshotPersistenceMetrics,
+  createSnapshotRecoveryMetadata,
   emptySnapshotCheckpointCounts,
+  readSnapshotInstanceIoMetrics,
+  recordCheckpointWrite,
+  recordFullSnapshotRead,
+  recordFullSnapshotWrite,
+  recordMetadataOnlyRead,
+  serializedJsonBytes,
+  snapshotFieldBytes,
   type SnapshotCheckpointCounts,
   type SnapshotRepository
 } from "./snapshot-repository";
@@ -35,6 +43,7 @@ export const createInMemorySnapshotRepository = (): SnapshotRepository => {
       recoveryHeads.set(snapshot.instanceId, structuredClone(snapshot));
       metrics.recoveryHeadUpdates += 1;
       recordSerializationMetrics(metrics, snapshot, startedAt);
+      recordFullSnapshotWrite(metrics, snapshot.instanceId, metrics.lastSerializedSnapshotSizeBytes);
       return latest ? "updated" as const : "created" as const;
     } catch (error) {
       metrics.recoveryHeadUpdateFailures += 1;
@@ -57,6 +66,7 @@ export const createInMemorySnapshotRepository = (): SnapshotRepository => {
       }
       checkpoints.set(checkpoint.checkpointId, structuredClone(checkpoint));
       recordCheckpointMetric(metrics, checkpoint);
+      recordCheckpointWrite(metrics, checkpoint.instanceId);
       return "created" as const;
     } catch (error) {
       metrics.checkpointSaveFailures += 1;
@@ -66,7 +76,15 @@ export const createInMemorySnapshotRepository = (): SnapshotRepository => {
 
   const loadRecoveryHead = async (instanceId: ServerInstanceId) => {
     const snapshot = recoveryHeads.get(instanceId);
-    return snapshot ? structuredClone(snapshot) : null;
+    if (!snapshot) return null;
+    recordFullSnapshotRead(metrics, instanceId, serializedJsonBytes(snapshot));
+    return structuredClone(snapshot);
+  };
+
+  const loadRecoveryMetadata = async (instanceId: ServerInstanceId) => {
+    const snapshot = recoveryHeads.get(instanceId);
+    recordMetadataOnlyRead(metrics, instanceId, snapshot ? 160 : 8);
+    return snapshot ? createSnapshotRecoveryMetadata(snapshot) : null;
   };
 
   const loadLatestCheckpoint = async (instanceId: ServerInstanceId) => {
@@ -79,6 +97,7 @@ export const createInMemorySnapshotRepository = (): SnapshotRepository => {
     saveRecoveryHead,
     saveCheckpoint,
     loadRecoveryHead,
+    loadRecoveryMetadata,
     loadLatestCheckpoint,
     loadForRecovery: async (instanceId) => {
       const head = await loadRecoveryHead(instanceId);
@@ -114,6 +133,7 @@ export const createInMemorySnapshotRepository = (): SnapshotRepository => {
     countCheckpoints: async (instanceId) =>
       countCheckpoints(checkpointsByInstanceId.get(instanceId)?.values() ?? []),
     getMetrics: () => ({ ...metrics }),
+    getInstanceIoMetrics: (instanceId) => readSnapshotInstanceIoMetrics(metrics, instanceId),
     save: async (snapshot) => { await saveRecoveryHead(snapshot); },
     loadLatest: loadRecoveryHead
   };
@@ -209,4 +229,5 @@ const recordSerializationMetrics = (
   const serialized = JSON.stringify(snapshot);
   metrics.lastSnapshotSerializationDurationMs = Math.max(0, performance.now() - startedAt);
   metrics.lastSerializedSnapshotSizeBytes = new TextEncoder().encode(serialized).byteLength;
+  metrics.lastSnapshotFieldBytes = snapshotFieldBytes(snapshot);
 };

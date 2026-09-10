@@ -18,3 +18,4 @@ export * from "./in-memory-outbox-repository";
 export * from "./in-memory-snapshot-repository";
 export * from "./outbox-repository";
 export * from "./snapshot-repository";
+export * from "./snapshot-io-diagnostics";

@@ -339,7 +339,7 @@ function isLegacyPoliceRaidEntry(entry) {
 export function restoreBuildingActionEntries(entries, now = Date.now(), limit = 30) {
   if (!Array.isArray(entries)) return [];
 
-  return entries
+  const restoredEntries = entries
     .filter((entry) => entry && typeof entry === "object")
     .filter((entry) => !isLegacyPoliceRaidEntry(entry))
     .filter((entry) => {
@@ -356,8 +356,35 @@ export function restoreBuildingActionEntries(entries, now = Date.now(), limit = 
         timeLabel: String(entry.timeLabel || formatBuildingActionTimestamp(timestampMs)),
         ...(Number.isFinite(Number(entry.expiresAt)) ? { expiresAt: Number(entry.expiresAt) } : {})
       };
-    })
-    .slice(0, Math.max(1, Number(limit) || 30));
+    });
+  const seenIds = new Set();
+  const recentFingerprints = new Map();
+  const deduplicatedEntries = [];
+  const duplicateWindowMs = 5_000;
+
+  for (const entry of restoredEntries) {
+    const entryId = String(entry.id || "").trim();
+    if (entryId && seenIds.has(entryId)) {
+      continue;
+    }
+
+    const fingerprint = createBuildingActionFingerprint(entry);
+    const duplicateTimestamps = recentFingerprints.get(fingerprint) || [];
+    const isRecentDuplicate = duplicateTimestamps.some(
+      (timestampMs) => Math.abs(timestampMs - entry.timestampMs) <= duplicateWindowMs
+    );
+    if (isRecentDuplicate) {
+      continue;
+    }
+
+    if (entryId) {
+      seenIds.add(entryId);
+    }
+    recentFingerprints.set(fingerprint, [...duplicateTimestamps, entry.timestampMs]);
+    deduplicatedEntries.push(entry);
+  }
+
+  return deduplicatedEntries.slice(0, Math.max(1, Number(limit) || 30));
 }
 
 const TRASH_ICON_SVG = `

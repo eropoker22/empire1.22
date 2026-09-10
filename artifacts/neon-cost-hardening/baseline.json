@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "evidence": {
+    "snapshotSize": "staging worker health metric",
+    "callFrequency": "static call graph plus 5000ms worker loop and 10000ms tick cadence",
+    "stagingBuildSha": "7adc9182beacf0a39d8e5fff7715cd22b3852bb2"
+  },
+  "snapshotSizeBytes": 395035,
+  "workerLoopIntervalMs": 5000,
+  "tickRateMs": 10000,
+  "workerLoopsPerHour": 720,
+  "ticksPerHour": 360,
+  "fullSnapshotReadsPerHour": 2160,
+  "fullSnapshotReadsPer100Ticks": 600,
+  "fullSnapshotBytesPer100Ticks": 237021000,
+  "estimatedDatabaseGbPerDay": 20.4786144,
+  "pathBreakdownPerHour": {
+    "workerEnsureRuntime": 720,
+    "workerTickHydration": 360,
+    "snapshotWriteComparison": 360,
+    "workerHeartbeatSnapshotLookup": 720
+  },
+  "twentyPlayerPolling": {
+    "pollsPerMinute": 120,
+    "fullSnapshotReadsPerMinute": 120,
+    "estimatedBytesPerMinute": 47404200
+  }
+}

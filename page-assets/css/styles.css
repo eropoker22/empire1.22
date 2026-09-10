@@ -8070,7 +8070,7 @@ html body.game-body button:is(
   pointer-events: none !important;
 }
 
-/* Final mobile overlay isolation: background shortcuts never bleed through active cards. */
+/* Keep production shortcuts visible behind mobile cards without letting them intercept taps. */
 html body.game-body #bounty-modal:not(.hidden):not([hidden]),
 html body.game-body #boost-modal:not(.hidden):not([hidden]) {
   z-index: 24000 !important;
@@ -8099,8 +8099,8 @@ html body.game-body :is(
 
 @media (max-width: 720px), (hover: none), (pointer: coarse), (any-hover: none), (any-pointer: coarse) {
   html body.game-body.game-modal-scroll-locked #building-shortcut-grid {
-    visibility: hidden !important;
-    opacity: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     pointer-events: none !important;
   }
 

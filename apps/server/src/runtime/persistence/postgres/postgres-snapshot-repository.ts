@@ -6,21 +6,25 @@ import {
 } from "../services/snapshot-integrity-validator";
 import {
   createSnapshotPersistenceMetrics,
+  readSnapshotInstanceIoMetrics,
+  recordCheckpointWrite,
+  recordMetadataOnlyRead,
   type SnapshotRepository,
   type SnapshotWriteResult
 } from "../repositories";
-import { classifySnapshotWrite } from "../repositories/snapshot-write-guard";
 import type { PostgresDatabase, PostgresQueryable } from "./postgres-client";
+import {
+  createPostgresRecoveryHeadWriter,
+  loadTrackedRecoveryHead
+} from "./postgres-recovery-head-writer";
+import { loadRecoveryMetadataFrom } from "./postgres-snapshot-metadata";
 import { cleanupPostgresCheckpoints } from "./postgres-snapshot-maintenance";
 import {
   assertRejectedCheckpointIsIdempotent,
-  assertRejectedRecoveryHeadIsIdempotent,
   createCheckpointHistoryId,
-  createRecoveryHeadId,
   ensureSnapshotInstanceRow,
   loadCheckpointCandidates,
   loadLatestValidCheckpoint,
-  loadRecoveryHeadFrom,
   recordCheckpointMetric,
   type PostgresSnapshotRepositoryOptions,
   withOptionalTransaction
@@ -48,75 +52,7 @@ const createPostgresSnapshotRepositoryForQueryable = (
 ): SnapshotRepository => {
   const metrics = options.metrics ?? createSnapshotPersistenceMetrics();
 
-  const saveRecoveryHead = async (snapshot: InstanceSnapshotDto): Promise<SnapshotWriteResult> => {
-    const serializationStartedAt = performance.now();
-    let serialized = "";
-    try {
-      assertSnapshotIntegrity(snapshot, snapshot.instanceId);
-      serialized = JSON.stringify(snapshot);
-      metrics.lastSnapshotSerializationDurationMs = Math.max(0, performance.now() - serializationStartedAt);
-      metrics.lastSerializedSnapshotSizeBytes = new TextEncoder().encode(serialized).byteLength;
-      if (metrics.lastSerializedSnapshotSizeBytes > 5 * 1024 * 1024) {
-        console.warn("[snapshot-persistence] recovery-head serialized size exceeded 5 MiB");
-      }
-      const databaseStartedAt = performance.now();
-      const result = await withOptionalTransaction(database, options, async (client) => {
-        await ensureSnapshotInstanceRow(client, snapshot);
-        const current = await loadRecoveryHeadFrom(client, snapshot.instanceId, true);
-        const decision = classifySnapshotWrite(current, snapshot);
-        if (decision === "idempotent") {
-          await syncHostedSnapshotPointer(client, snapshot.instanceId);
-          return decision;
-        }
-        const upsert = await client.query(
-          `
-            INSERT INTO empire_snapshot_latest (
-              id, server_instance_id, schema_version, snapshot_id,
-              root_version, tick, payload, created_at, updated_at
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::timestamptz, now())
-            ON CONFLICT (server_instance_id) DO UPDATE
-            SET schema_version = EXCLUDED.schema_version,
-                snapshot_id = EXCLUDED.snapshot_id,
-                root_version = EXCLUDED.root_version,
-                tick = EXCLUDED.tick,
-                payload = EXCLUDED.payload,
-                created_at = EXCLUDED.created_at,
-                updated_at = now()
-            WHERE empire_snapshot_latest.root_version < EXCLUDED.root_version
-            RETURNING snapshot_id
-          `,
-          [
-            createRecoveryHeadId(snapshot.instanceId),
-            snapshot.instanceId,
-            snapshot.version.schemaVersion,
-            snapshot.snapshotId,
-            snapshot.integrity.rootVersion,
-            snapshot.tick,
-            serialized,
-            snapshot.createdAt
-          ]
-        );
-        if ((upsert.rowCount ?? upsert.rows.length) !== 1) {
-          await assertRejectedRecoveryHeadIsIdempotent(client, snapshot);
-          await syncHostedSnapshotPointer(client, snapshot.instanceId);
-          return "idempotent";
-        }
-        await syncHostedSnapshotPointer(client, snapshot.instanceId);
-        return current ? "updated" : "created";
-      });
-      metrics.lastDatabaseSaveDurationMs = Math.max(0, performance.now() - databaseStartedAt);
-      if (result !== "idempotent") metrics.recoveryHeadUpdates += 1;
-      return result;
-    } catch (error) {
-      metrics.recoveryHeadUpdateFailures += 1;
-      if (String((error as Error)?.message ?? "").includes("stale rootVersion")) {
-        metrics.rootVersionDowngradeAttempts += 1;
-        console.warn("[snapshot-persistence] recovery-head downgrade attempt rejected");
-      }
-      throw error;
-    }
-  };
+  const saveRecoveryHead = createPostgresRecoveryHeadWriter(database, options, metrics);
 
   const saveCheckpoint = async (checkpoint: SnapshotCheckpointRecord): Promise<SnapshotWriteResult> => {
     try {
@@ -156,7 +92,10 @@ const createPostgresSnapshotRepositoryForQueryable = (
         return "idempotent";
       });
       metrics.lastDatabaseSaveDurationMs = Math.max(0, performance.now() - databaseStartedAt);
-      if (result === "created") recordCheckpointMetric(metrics, checkpoint.kind);
+      if (result === "created") {
+        recordCheckpointMetric(metrics, checkpoint.kind);
+        recordCheckpointWrite(metrics, checkpoint.instanceId);
+      }
       return result;
     } catch (error) {
       metrics.checkpointSaveFailures += 1;
@@ -165,7 +104,16 @@ const createPostgresSnapshotRepositoryForQueryable = (
   };
 
   const loadRecoveryHead = (instanceId: ServerInstanceId) =>
-    loadRecoveryHeadFrom(database, instanceId, false);
+    loadTrackedRecoveryHead(database, instanceId, false, metrics);
+
+  const loadRecoveryMetadata = async (
+    instanceId: ServerInstanceId,
+    metadataOptions: { forUpdate?: boolean } = {}
+  ) => {
+    const metadata = await loadRecoveryMetadataFrom(database, instanceId, metadataOptions.forUpdate === true);
+    recordMetadataOnlyRead(metrics, instanceId, metadata ? 160 : 8);
+    return metadata;
+  };
 
   const loadLatestCheckpoint = async (instanceId: ServerInstanceId) =>
     (await loadCheckpointCandidates(database, instanceId, 1))[0] ?? null;
@@ -174,6 +122,7 @@ const createPostgresSnapshotRepositoryForQueryable = (
     saveRecoveryHead,
     saveCheckpoint,
     loadRecoveryHead,
+    loadRecoveryMetadata,
     loadLatestCheckpoint,
     loadForRecovery: async (instanceId) => {
       const head = await loadRecoveryHead(instanceId);
@@ -230,24 +179,8 @@ const createPostgresSnapshotRepositoryForQueryable = (
       };
     },
     getMetrics: () => ({ ...metrics }),
+    getInstanceIoMetrics: (instanceId) => readSnapshotInstanceIoMetrics(metrics, instanceId),
     save: async (snapshot) => { await saveRecoveryHead(snapshot); },
     loadLatest: loadRecoveryHead
   };
-};
-
-const syncHostedSnapshotPointer = async (
-  client: PostgresQueryable,
-  serverInstanceId: ServerInstanceId
-): Promise<void> => {
-  await client.query(
-    `UPDATE empire_hosted_server_instances hosted
-     SET current_snapshot_id=head.snapshot_id
-     FROM empire_snapshot_latest head
-     WHERE hosted.server_instance_id=$1
-       AND head.server_instance_id=hosted.server_instance_id
-       AND hosted.provisioning_state='ready'
-       AND hosted.status IN ('lobby','running')
-       AND hosted.current_snapshot_id IS DISTINCT FROM head.snapshot_id`,
-    [serverInstanceId]
-  );
 };

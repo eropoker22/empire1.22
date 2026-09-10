@@ -187,7 +187,7 @@ export const createGameplaySliceFunctionHandler = (
       };
       const sessionError = await rejectInvalidGameplayRequestSession(sessionHandlers!, request.sessionToken, request.serverInstanceId);
       if (sessionError) return sessionError;
-      const hostedRuntimeError = await hostedRuntimeGuard.prepare(request.serverInstanceId);
+      const hostedRuntimeError = await hostedRuntimeGuard.prepareLoad(request);
       if (hostedRuntimeError) return hostedRuntimeError;
       const snapshotTokenError = hostedAuthorityRequired ? null : await validateSnapshotTokenForInstance(
         snapshotTokenCodec!,

@@ -118,7 +118,7 @@ const dispatchAtomicInstanceCommandUnlocked = async (
       committed = await runtime.atomicCommandTransaction.run(
         runtime.record.id,
         (txRepositories) => dispatchAtomicInstanceCommandInBoundary(runtime, command, options, crash, txRepositories, performanceTracker),
-        { hostedStatusFence: "running-if-present" }
+        { hostedStatusFence: "running-if-present", diagnosticsKind: "command" }
       );
     } catch (error) {
       if (error instanceof HostedRuntimeStatusFenceRejectedError) {
@@ -143,8 +143,18 @@ const dispatchAtomicInstanceCommandInBoundary = async (
   repositories: AtomicCommandTransactionRepositories,
   performanceTracker: RuntimeCommandPerformanceTracker | null
 ): Promise<BoundaryDispatchResult> => {
-  const latestSnapshot = await repositories.snapshotRepository.loadRecoveryHead(runtime.record.id);
-  if (latestSnapshot && latestSnapshot.integrity.rootVersion > runtime.state.root.version) {
+  const metadata = await repositories.snapshotRepository.loadRecoveryMetadata(
+    runtime.record.id,
+    { forUpdate: true }
+  );
+  const persistedStateIsNewer = Boolean(metadata) && (
+    metadata!.rootVersion > runtime.state.root.version
+    || (metadata!.rootVersion === runtime.state.root.version && metadata!.tick > runtime.state.root.tick)
+  );
+  const latestSnapshot = persistedStateIsNewer
+    ? await repositories.snapshotRepository.loadRecoveryHead(runtime.record.id)
+    : null;
+  if (latestSnapshot) {
     restoreRuntimeFromSnapshot(runtime, latestSnapshot);
   }
   const reservedAt = runtime.clock.nowIso();

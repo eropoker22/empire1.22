@@ -4,8 +4,31 @@ import type {
   SnapshotCheckpointRecord
 } from "../dto";
 import type { SnapshotRetentionPolicy } from "../services/retention-policy";
+import {
+  readSnapshotInstanceIoMetrics,
+  type SnapshotInstanceIoMetrics
+} from "./snapshot-io-diagnostics";
+
+export {
+  readSnapshotInstanceIoMetrics,
+  recordCheckpointWrite,
+  recordFullSnapshotRead,
+  recordFullSnapshotWrite,
+  recordMetadataOnlyRead,
+  serializedJsonBytes,
+  snapshotFieldBytes,
+  type SnapshotInstanceIoMetrics
+} from "./snapshot-io-diagnostics";
 
 export type SnapshotWriteResult = "created" | "updated" | "idempotent";
+
+export interface SnapshotRecoveryMetadata {
+  snapshotId: string;
+  rootVersion: number;
+  tick: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface SnapshotRecoveryResult {
   snapshot: InstanceSnapshotDto | null;
@@ -28,6 +51,24 @@ export interface SnapshotCheckpointCounts {
 }
 
 export interface SnapshotPersistenceMetrics {
+  fullSnapshotReads: number;
+  fullSnapshotReadBytes: number;
+  fullSnapshotWrites: number;
+  fullSnapshotWriteBytes: number;
+  metadataOnlyReads: number;
+  metadataOnlyReadBytesEstimate: number;
+  recoveryHeadLoads: number;
+  recoveryHeadSaves: number;
+  checkpointWrites: number;
+  tickTransactions: number;
+  totalTickDbRoundTrips: number;
+  averageTickDbRoundTrips: number;
+  maxTickDbRoundTrips: number;
+  totalDatabaseTimePerTickMs: number;
+  databaseTimePerTickMs: number;
+  commandTransactions: number;
+  totalCommandDbRoundTrips: number;
+  queriesPerCommandSubmit: number;
   recoveryHeadUpdates: number;
   recoveryHeadUpdateFailures: number;
   periodicCheckpointsCreated: number;
@@ -46,6 +87,7 @@ export interface SnapshotPersistenceMetrics {
   lastSerializedSnapshotSizeBytes: number;
   lastSnapshotSerializationDurationMs: number;
   lastDatabaseSaveDurationMs: number;
+  lastSnapshotFieldBytes: Record<string, number>;
 }
 
 /**
@@ -57,11 +99,16 @@ export interface SnapshotRepository {
   saveRecoveryHead(snapshot: InstanceSnapshotDto): Promise<SnapshotWriteResult>;
   saveCheckpoint(checkpoint: SnapshotCheckpointRecord): Promise<SnapshotWriteResult>;
   loadRecoveryHead(instanceId: ServerInstanceId): Promise<InstanceSnapshotDto | null>;
+  loadRecoveryMetadata(
+    instanceId: ServerInstanceId,
+    options?: { forUpdate?: boolean }
+  ): Promise<SnapshotRecoveryMetadata | null>;
   loadLatestCheckpoint(instanceId: ServerInstanceId): Promise<SnapshotCheckpointRecord | null>;
   loadForRecovery(instanceId: ServerInstanceId): Promise<SnapshotRecoveryResult>;
   cleanupCheckpoints(policy: SnapshotRetentionPolicy, nowIso: string): Promise<SnapshotCleanupResult>;
   countCheckpoints(instanceId: ServerInstanceId): Promise<SnapshotCheckpointCounts>;
   getMetrics(): Readonly<SnapshotPersistenceMetrics>;
+  getInstanceIoMetrics(instanceId: ServerInstanceId): Readonly<SnapshotInstanceIoMetrics>;
   /** @deprecated Use saveRecoveryHead or saveCheckpoint to make write intent explicit. */
   save(snapshot: InstanceSnapshotDto): Promise<void>;
   /** @deprecated Use loadRecoveryHead or loadForRecovery to make recovery intent explicit. */
@@ -69,6 +116,24 @@ export interface SnapshotRepository {
 }
 
 export const createSnapshotPersistenceMetrics = (): SnapshotPersistenceMetrics => ({
+  fullSnapshotReads: 0,
+  fullSnapshotReadBytes: 0,
+  fullSnapshotWrites: 0,
+  fullSnapshotWriteBytes: 0,
+  metadataOnlyReads: 0,
+  metadataOnlyReadBytesEstimate: 0,
+  recoveryHeadLoads: 0,
+  recoveryHeadSaves: 0,
+  checkpointWrites: 0,
+  tickTransactions: 0,
+  totalTickDbRoundTrips: 0,
+  averageTickDbRoundTrips: 0,
+  maxTickDbRoundTrips: 0,
+  totalDatabaseTimePerTickMs: 0,
+  databaseTimePerTickMs: 0,
+  commandTransactions: 0,
+  totalCommandDbRoundTrips: 0,
+  queriesPerCommandSubmit: 0,
   recoveryHeadUpdates: 0,
   recoveryHeadUpdateFailures: 0,
   periodicCheckpointsCreated: 0,
@@ -86,7 +151,19 @@ export const createSnapshotPersistenceMetrics = (): SnapshotPersistenceMetrics =
   rootVersionDowngradeAttempts: 0,
   lastSerializedSnapshotSizeBytes: 0,
   lastSnapshotSerializationDurationMs: 0,
-  lastDatabaseSaveDurationMs: 0
+  lastDatabaseSaveDurationMs: 0,
+  lastSnapshotFieldBytes: {}
+});
+
+export const createSnapshotRecoveryMetadata = (
+  snapshot: InstanceSnapshotDto,
+  updatedAt = snapshot.createdAt
+): SnapshotRecoveryMetadata => ({
+  snapshotId: snapshot.snapshotId,
+  rootVersion: snapshot.integrity.rootVersion,
+  tick: snapshot.tick,
+  createdAt: snapshot.createdAt,
+  updatedAt
 });
 
 export const emptySnapshotCheckpointCounts = (): SnapshotCheckpointCounts => ({
@@ -102,6 +179,7 @@ export const createNullSnapshotRepository = (): SnapshotRepository => {
     saveRecoveryHead: async (_snapshot) => "idempotent",
     saveCheckpoint: async (_checkpoint) => "idempotent",
     loadRecoveryHead: async (_instanceId) => null,
+    loadRecoveryMetadata: async (_instanceId, _options) => null,
     loadLatestCheckpoint: async (_instanceId) => null,
     loadForRecovery: async (_instanceId) => ({
       snapshot: null,
@@ -116,6 +194,7 @@ export const createNullSnapshotRepository = (): SnapshotRepository => {
     }),
     countCheckpoints: async (_instanceId) => emptySnapshotCheckpointCounts(),
     getMetrics: () => metrics,
+    getInstanceIoMetrics: (instanceId) => readSnapshotInstanceIoMetrics(metrics, instanceId),
     save: async (_snapshot) => undefined,
     loadLatest: async (_instanceId) => null
   };

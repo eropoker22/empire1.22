@@ -184,7 +184,7 @@ const createOverview = (
       running: instances.filter((entry) => entry.status === "running").length,
       lobby: instances.filter((entry) => entry.status === "lobby").length,
       paused: instances.filter((entry) => entry.status === "paused").length,
-      players: instances.reduce((sum, entry) => sum + entry.playerCount, 0)
+      players: runtimeInstances.reduce((sum, entry) => sum + entry.playerCount, 0)
     }
   };
 };
