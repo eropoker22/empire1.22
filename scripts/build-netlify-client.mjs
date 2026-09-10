@@ -19,7 +19,8 @@ const staticPageFiles = [
   "pages/game.html",
   "pages/privacy.html",
   "pages/closed-alpha-terms.html",
-  "packages/shared-types/src/views/authoritative-gameplay-slice.js"
+  "packages/shared-types/src/views/authoritative-gameplay-slice.js",
+  "packages/shared-types/src/views/authoritative-snapshot-clock.js"
 ];
 const requiredPublishFiles = [
   ".htaccess",
@@ -31,6 +32,7 @@ const requiredPublishFiles = [
   "page-assets/js/app/auth-flow.js",
   "page-assets/js/app/model/authority-state.js",
   "packages/shared-types/src/views/authoritative-gameplay-slice.js",
+  "packages/shared-types/src/views/authoritative-snapshot-clock.js",
   "packages/game-config/src/public/public-server-registry.js",
   "packages/game-config/src/legacy-page/combat-config.js",
   "packages/game-config/src/legacy-page/economy-config.js",
