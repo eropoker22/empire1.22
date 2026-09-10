@@ -5,6 +5,13 @@ import {
 } from "../../page-assets/js/app/runtime/eliminationPanelReadModelAdapter.js";
 
 describe("authoritative elimination panel adapters", () => {
+  it("does not invent a rank when an older or incomplete projection omits it", () => {
+    for (const create of [createEliminationPanelViewModel, createFinalLockdownPanelViewModel]) {
+      const view = create({ enabled: true });
+      expect(view.metrics.find(metric => metric.key === "rank").value).toBe("—");
+      expect(JSON.stringify(view)).not.toMatch(/undefined|NaN/);
+    }
+  });
   it("renders an honest unavailable state without demo values", () => {
     const view = createEliminationPanelViewModel(null);
 

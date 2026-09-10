@@ -203,6 +203,28 @@ function createResultPopupFixture() {
 }
 
 describe("elimination purge panel runtime", () => {
+  it("bounds boundary refreshes and releases timers/listeners across repeated opening", () => {
+    const fixture = createPanelFixture();
+    let now = 1000;
+    const mono = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const requestRefresh = vi.fn();
+    const timerApi = { setInterval: vi.fn(() => 7), clearInterval: vi.fn() };
+    const slice = { server: { status: "running", serverInstanceId: "refresh", currentTick: 10, generatedAt: "2026-09-10T10:00:00Z" },
+      mode: { tickRateMs: 1000 }, player: {}, elimination: { enabled: true, nextEliminationTick: 11, playerStatus: "active" } };
+    const panel = bindEliminationAiPanel(fixture.root, { getGameplaySlice: () => slice, requestRefresh, timerApi });
+    try {
+      for (let i = 0; i < 10; i++) { panel.open(); panel.close(); }
+      expect(timerApi.setInterval).toHaveBeenCalledTimes(10);
+      expect(timerApi.clearInterval).toHaveBeenCalledTimes(10);
+      expect(requestRefresh).toHaveBeenCalledTimes(1);
+      panel.open(); now += 4000; panel.render();
+      for (let i = 0; i < 10; i++) { now += 1000; panel.render(); }
+      expect(requestRefresh).toHaveBeenCalledTimes(2);
+      panel.destroy();
+      expect(timerApi.clearInterval).toHaveBeenCalledTimes(11);
+      expect(fixture.root.ownerDocument.removeEventListener).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
+    } finally { mono.mockRestore(); }
+  });
   it("renders the production mock elimination briefing", () => {
     const html = renderEliminationAiPanel(createMockEliminationAiPanelViewModel());
 

@@ -31,4 +31,3 @@ export const estimateFinalLockdownEndTick = (
   }
   return remaining <= 0 ? tick : null;
 };
-

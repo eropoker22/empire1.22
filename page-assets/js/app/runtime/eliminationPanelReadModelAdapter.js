@@ -111,7 +111,7 @@ export function createEliminationPanelViewModel(readModel, modeConfig = {}) {
         : "Pořadí vychází ze skutečného stavu serveru.",
     metrics: [
       { key: "score", label: "Score", value: formatMetric(readModel.currentPlayerScore), icon: "◇" },
-      { key: "rank", label: "Odspodu", value: readModel.currentPlayerRankFromBottom === null ? "—" : `#${readModel.currentPlayerRankFromBottom}`, icon: "#" },
+      { key: "rank", label: "Odspodu", value: asFiniteNumber(readModel.currentPlayerRankFromBottom) === null ? "—" : `#${readModel.currentPlayerRankFromBottom}`, icon: "#" },
       { key: "players", label: "Aktivní hráči", value: formatMetric(activePlayers), icon: "◎" },
       { key: "districts", label: "Distrikty", value: formatMetric(currentDanger?.controlledDistricts), icon: "▣" }
     ],
@@ -172,7 +172,7 @@ export function createFinalLockdownPanelViewModel(readModel, modeConfig = {}) {
       : (readModel.startRuleDescription || "Final Lockdown začne podle tempa tohoto serveru."),
     metrics: [
       { key: "score", label: "Final score", value: formatMetric(readModel.currentPlayerFinalScore), icon: "◇" },
-      { key: "rank", label: "Rank", value: readModel.currentPlayerRank === null ? "—" : `#${readModel.currentPlayerRank}`, icon: "#" },
+      { key: "rank", label: "Rank", value: asFiniteNumber(readModel.currentPlayerRank) === null ? "—" : `#${readModel.currentPlayerRank}`, icon: "#" },
       { key: "top3", label: "Do Top 3", value: formatMetric(readModel.scoreGapToTop3), icon: "△" },
       { key: "districts", label: "Distrikty", value: formatMetric(readModel.currentPlayer?.controlledDistricts), icon: "▣" }
     ],

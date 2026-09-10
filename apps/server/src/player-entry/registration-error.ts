@@ -10,4 +10,3 @@ export const registrationError = (code: HostedServerRegistrationReasonCode | nul
   }
   return entryError("SERVER_REGISTRATION_CLOSED", "Registrační okno tohoto serveru už skončilo.");
 };
-

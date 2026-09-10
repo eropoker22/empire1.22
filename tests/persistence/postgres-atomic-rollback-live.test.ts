@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { createServerApp } from "../../apps/server/src/app";
 import { ensureGameplaySliceSessionResult } from "../../apps/server/src/bootstrap";
-import { sharedCitySpawnDistrictIds } from
+import { sharedCitySpawnDistrictIds, enabledSharedCitySpawnDistrictIds } from
   "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
 import { createInstanceSnapshot } from "../../apps/server/src/runtime";
 import type { AtomicCommandCrashPoint } from
@@ -16,6 +16,8 @@ import {
 import { createSelectSpawnDistrictCommandFixture } from "../fixtures/command-fixtures";
 import { createIsolatedPostgresTestSchema } from "./helpers/isolated-postgres-test-schema";
 import { resolveLivePostgresSmokeConfig } from "./helpers/postgres-prod-like-smoke-helpers";
+import type { BuyPlayerMarketListingCommand, CreatePlayerMarketListingCommand } from "@empire/shared-types";
+import type { ServerMarketState } from "../../packages/game-core/src/rules/market/market-types";
 
 const live = resolveLivePostgresSmokeConfig();
 const run = live.run ? it : it.skip;
@@ -29,6 +31,57 @@ const commandCrashPoints: AtomicCommandCrashPoint[] = [
 ];
 
 describe("PostgreSQL atomic rollback live", () => {
+  run("serializes two independent buyers of one listing and replays without a second payment", async () => {
+    const isolated = await createIsolatedPostgresTestSchema(live.databaseUrl!, "market_two_buyers");
+    const persistence = createPostgresRuntimePersistenceRepositories({ databaseUrl: isolated.databaseUrl, database: isolated.database });
+    const server = createServerApp({ persistence });
+    const secondServer = createServerApp({ persistence });
+    try {
+      const fixture = await createRuntimeFixture(server, "market-race");
+      expect((await server.instanceManager.dispatchCommand(fixture.instanceId, fixture.command))?.errors).toEqual([]);
+      const sellerId = fixture.command.playerId;
+      const buyers = ["buyer:a", "buyer:b"];
+      for (const [index, playerId] of buyers.entries()) {
+        const districtId = enabledSharedCitySpawnDistrictIds.filter(id => id !== fixture.command.payload.districtId)[index];
+        expect((await ensureGameplaySliceSessionResult(server.instanceManager, { serverInstanceId: fixture.instanceId, playerId, districtId })).accepted).toBe(true);
+        expect((await server.instanceManager.dispatchCommand(fixture.instanceId, createSelectSpawnDistrictCommandFixture({
+          id: `spawn:${playerId}`, serverInstanceId: fixture.instanceId, playerId, payload: { districtId }
+        })))?.errors).toEqual([]);
+      }
+      // Initial fixture inventory only. All listing reservations, purchases and replays use the real dispatcher.
+      const sellerResource = fixture.runtime.state.resourceStatesById[fixture.runtime.state.playersById[sellerId].resourceStateId];
+      sellerResource.balances.chemicals = 10;
+      fixture.runtime.state.root.version += 1;
+      await persistence.snapshotRepository.saveRecoveryHead(createInstanceSnapshot(fixture.runtime));
+      const ids = [sellerId, ...buyers];
+      const totals = (state: typeof fixture.runtime.state) => ids.reduce((sum, id) => {
+        const balances = state.resourceStatesById[state.playersById[id].resourceStateId].balances;
+        return { cash: sum.cash + (balances.cash ?? 0), chemicals: sum.chemicals + (balances.chemicals ?? 0) };
+      }, { cash: 0, chemicals: 0 });
+      const before = totals(fixture.runtime.state);
+      const listing: CreatePlayerMarketListingCommand = { ...fixture.command, id: "market:create", type: "create-player-market-listing",
+        payload: { resourceId: "chemicals", amount: 5, unitPrice: 10, paymentType: "cleanCash" } };
+      expect((await server.instanceManager.dispatchCommand(fixture.instanceId, listing))?.errors).toEqual([]);
+      const listingId = (fixture.runtime.state.market as unknown as ServerMarketState).playerListings[0].id;
+      secondServer.instanceManager.createInstance(fixture.instanceId, "free");
+      await secondServer.instanceManager.restoreInstance(fixture.instanceId);
+      const commands: BuyPlayerMarketListingCommand[] = buyers.map(playerId => ({ ...fixture.command,
+        id: `market:buy:${playerId}`, playerId, type: "buy-player-market-listing", payload: { listingId } }));
+      const purchases = await Promise.all([
+        server.instanceManager.dispatchCommand(fixture.instanceId, commands[0]),
+        secondServer.instanceManager.dispatchCommand(fixture.instanceId, commands[1])
+      ]);
+      expect(purchases.filter(result => result?.errors.length === 0)).toHaveLength(1);
+      const settled = (await persistence.snapshotRepository.loadRecoveryHead(fixture.instanceId))!;
+      expect(totals(settled.state)).toEqual(before);
+      expect(settled.state.market!.playerListings).toHaveLength(0);
+      expect(settled.state.resourceStatesById[sellerResource.id].balances.cash).toBe(sellerResource.balances.cash + 50);
+      const winner = purchases.findIndex(result => result?.errors.length === 0);
+      const replay = await secondServer.instanceManager.dispatchCommand(fixture.instanceId, commands[winner]);
+      expect(replay?.commandResult).toEqual(purchases[winner]?.commandResult);
+      expect(await persistence.snapshotRepository.loadRecoveryHead(fixture.instanceId)).toEqual(settled);
+    } finally { await persistence.close(); await isolated.close(); }
+  }, 90_000);
   run("rolls back every pre-commit command crash point and preserves exactly-once replay", async () => {
     const isolated = await createIsolatedPostgresTestSchema(live.databaseUrl!, "atomic_command_rollback");
     const persistence = createPostgresRuntimePersistenceRepositories({

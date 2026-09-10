@@ -37,4 +37,3 @@ export const validateAllianceChatRate = (
     .reduce((latest, message) => Math.max(latest, Date.parse(message.createdAt) || 0), 0);
   return !Number.isFinite(now) || now - lastMessageAt >= ALLIANCE_CHAT_RATE_LIMIT_MS;
 };
-

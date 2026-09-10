@@ -26,9 +26,10 @@ test("separates purge, quiet hours and active final time using server projection
   await expect(hero).toContainText("Další očista za");
   await expect(hero).toContainText(/7h 59min|8h 00min/);
   await expect(page.locator('[data-match-clock="quiet"]')).toContainText(/1h (19|20)min/);
-  for (const kind of ["ordinary", "final-active", "final-paused", "paused", "stale", "lobby", "disabled", "defeated"]) {
+  for (const kind of ["ordinary", "final-active", "final-paused", "paused", "stale", "lobby", "disabled", "defeated", "ended"]) {
     await page.evaluate(slice => { window.__matchSlice = slice; window.__matchPanel.render(); }, snapshot(kind));
     await expect(hero).not.toContainText(/NaN|undefined/);
+    if (kind === "ended") { await expect(hero).toContainText("Konečný výsledek"); await expect(page.locator("[data-match-clock]")).toHaveCount(0); }
     if (kind === "final-paused") {
       await expect(hero).toContainText("2h 15min 00s");
       const before = await hero.textContent(); await page.waitForTimeout(1100); expect(await hero.textContent()).toBe(before);
@@ -39,6 +40,21 @@ test("separates purge, quiet hours and active final time using server projection
   for (let i = 0; i < 5; i++) { await page.keyboard.press("Escape"); await page.evaluate(() => window.__matchPanel.open()); }
   await page.keyboard.press("Tab"); expect(await page.locator('[data-elimination-ai-panel]').evaluate(el => el.contains(document.activeElement))).toBe(true);
   await page.evaluate(() => window.__matchPanel.destroy());
+});
+
+test("two tabs and a changed device clock retain the same paused server phase after reopening", async ({ page }) => {
+  const other = await page.context().newPage();
+  try {
+    await other.addInitScript(() => { Date.now = () => 9000000000000; });
+    for (const tab of [page, other]) {
+      await mount(tab, "final-paused");
+      await tab.getByRole("button", { name: "Zavřít očistu" }).click();
+      await tab.evaluate(() => window.__matchPanel.open());
+      await expect(tab.locator(".elimination-ai-panel__hero")).toContainText("2h 15min 00s");
+    }
+    await page.waitForTimeout(1100);
+    for (const tab of [page, other]) await expect(tab.locator(".elimination-ai-panel__hero")).toContainText("2h 15min 00s");
+  } finally { await other.close(); }
 });
 
 test("fits phone, tablet, desktop and landscape without losing close or main time", async ({ page }, info) => {

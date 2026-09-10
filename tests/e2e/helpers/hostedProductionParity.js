@@ -686,14 +686,16 @@ export function defineHostedProductionParityTest({
     test(`uses the shared ${label} modal and completes production through visible UI`, async ({
       page
     }, testInfo) => {
-      await page.addLocatorHandler(page.locator("#police-action-result-modal:visible"), async () => {
-        await page.locator("#police-action-result-modal-close").click();
-      });
       await page.setViewportSize(desktopViewport);
       const entry = await registerAndEnterHostedUiParityGame(page, {
         serverInstanceId,
         spawnDistrictIds,
         identityPrefix
+      });
+      const policeClose = page.locator("#police-action-result-modal-close:visible");
+      await page.addLocatorHandler(policeClose, async () => {
+        try { await policeClose.click({ timeout: 2000 }); }
+        catch (error) { if (await policeClose.isVisible()) throw error; }
       });
       const result = await exerciseHostedProductionLifecycleThroughVisibleUi({
         baseTestTimeoutMs: 360_000,
@@ -712,6 +714,16 @@ export function defineHostedProductionParityTest({
 
       await page.setViewportSize(mobileViewport);
       await assertMobileSurfaceFits(page, result.shell);
+      const collectHeader = result.shell.locator(".building-detail-title__action-btn--collect");
+      const upgradeHeader = result.shell.locator(".building-detail-title__action-btn--upgrade");
+      expect(await collectHeader.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      const collectBounds = await collectHeader.boundingBox();
+      const upgradeBounds = await upgradeHeader.boundingBox();
+      expect(collectBounds.x + collectBounds.width).toBeLessThanOrEqual(upgradeBounds.x + 1);
+      expect(await collectHeader.evaluate(el => {
+        const box = el.getBoundingClientRect();
+        return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+      })).toBe(true);
       await captureParitySurface(page, {
         mode: "server-authoritative",
         phase: "after",
