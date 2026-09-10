@@ -57,7 +57,7 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.headerLevelLabel).toBe("Lv 2");
     expect(viewModel.multiplierLabel).toBe("+25%");
     expect(viewModel.upgradeCostLabel).toBe("100$");
-    expect(viewModel.resources).toEqual({ metalParts: "2/10", techCore: "0/5", combatModule: "5/2" });
+    expect(viewModel.resources).toEqual({ metalParts: "2/60", techCore: "0/24", combatModule: "5/8" });
     expect(viewModel.collectButton.disabled).toBe(false);
     expect(viewModel.slots[0]).toMatchObject({
       title: "Metal line",
@@ -71,7 +71,7 @@ describe("factory dashboard view model and panel", () => {
     expect(viewModel.slots[1].primaryLine).toBe("$2500 clean · 4× Metal Parts · 2× Tech Core");
     expect(viewModel.slots[1].priceLabel).toBe("$2500 clean · 4× Metal Parts · 2× Tech Core");
     expect(viewModel.slots[1].secondaryLine).toBe("15 min / kus");
-    expect(viewModel.slots[1].slotStorageCap).toBe(5);
+    expect(viewModel.slots[1].slotStorageCap).toBe(11);
   });
 
   it("keeps factory output caps separate from queue caps", () => {
@@ -95,12 +95,12 @@ describe("factory dashboard view model and panel", () => {
       getFactoryUpgradeCost: () => 100
     });
 
-    expect(viewModel.resources.metalParts).toBe("12/10");
+    expect(viewModel.resources.metalParts).toBe("12/60");
     expect(viewModel.ownedCountLabel).toBe("3");
     expect(viewModel.slots[0]).toMatchObject({
-      slotStorageCap: 13,
-      slotOutputCap: 10,
-      queueCap: 13,
+      slotStorageCap: 63,
+      slotOutputCap: 60,
+      queueCap: 63,
       queuedAmount: 5
     });
   });

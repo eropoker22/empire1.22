@@ -770,6 +770,17 @@ var EmpireGameplaySliceClient = (function(exports) {
       commitResponse: (response, selectedDistrictId, commandId, operationSequence) => {
         if (!canCommit(operationSequence)) return options.getRenderState();
         const currentSlice = options.store.getReadModel().gameplaySlice;
+        if (response.accepted && response.changed === false && !response.readModel && currentSlice) {
+          const currentRenderState = options.getRenderState();
+          options.store.setGameplaySliceMetadata(response.metadata ?? {
+            serverTick: currentSlice.server.currentTick,
+            stateVersion: currentSlice.server.stateVersion
+          });
+          options.store.setErrors(response.errors);
+          options.store.setConnectionState({ status: "ready", lastErrorMessage: null, staleData: false });
+          markCommitted(operationSequence);
+          return currentRenderState.connection.status === "ready" && currentRenderState.connection.lastErrorMessage === null && currentRenderState.connection.staleData === false ? currentRenderState : options.recomputeRenderState("server-slice-unchanged");
+        }
         const mergedSlice = response.readModel ? mergeAuthoritativeGameplaySlice(currentSlice, response.readModel, {
           allowScopeChange: !commandId
         }) : null;
@@ -957,7 +968,7 @@ var EmpireGameplaySliceClient = (function(exports) {
           });
         }
         try {
-          const response = await transport.load(request);
+          const response = await transport.load(withKnownGameplaySliceState(request));
           return responseCommitter.commitResponse(response, request.districtId, void 0, operationSequence);
         } catch (error) {
           return responseCommitter.commitTransportFailure(
@@ -995,7 +1006,7 @@ var EmpireGameplaySliceClient = (function(exports) {
         });
         recomputeRenderState("ui-select-district-pending");
         try {
-          const response = await transport.load(request);
+          const response = await transport.load(withKnownGameplaySliceState(request));
           return responseCommitter.commitResponse(response, districtId, void 0, operationSequence);
         } catch (error) {
           return responseCommitter.commitTransportFailure(
@@ -1058,6 +1069,15 @@ var EmpireGameplaySliceClient = (function(exports) {
       getRenderState: () => renderState,
       getGameplaySlice: () => store.getReadModel().gameplaySlice
     });
+    function withKnownGameplaySliceState(request) {
+      const current = store.getReadModel().gameplaySlice;
+      const focusDistrictId = current?.district?.districtId ?? current?.server.selectedDistrictId ?? null;
+      return current && focusDistrictId ? {
+        ...request,
+        knownStateVersion: current.server.stateVersion,
+        knownFocusDistrictId: focusDistrictId
+      } : request;
+    }
   };
   const createTransportFailureMessage = (fallback, error) => {
     const detail = error instanceof Error ? error.message.trim() : "";

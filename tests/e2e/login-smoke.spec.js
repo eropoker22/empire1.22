@@ -25,7 +25,7 @@ test.describe("login smoke", () => {
         data: {
           registrationEnabled: true,
           mode: "open",
-          passwordMinimumLength: 12,
+          passwordMinimumLength: 8,
           minimumAgeYears: 16,
           termsAcceptanceRequired: true,
           termsVersion: "closed-alpha-internal-v1"
@@ -54,6 +54,9 @@ test.describe("login smoke", () => {
     await page.locator("[data-login-registration-open]").click();
     await expect(page.getByTestId("register-form")).toBeVisible();
     await expect(page.locator("#register-terms")).toBeEnabled();
+    await expect(page.locator("#register-password")).toHaveAttribute("placeholder", "Alespoň 8 znaků");
+    await expect(page.locator("#register-password")).toHaveAttribute("minlength", "8");
+    await expect(page.locator("#register-password-confirmation")).toHaveAttribute("minlength", "8");
     await expect(page.getByTestId("login-form")).toBeVisible();
     await expect(page.getByRole("dialog", { name: "ZALOŽIT GANG" })).toBeVisible();
     await page.keyboard.press("Escape");

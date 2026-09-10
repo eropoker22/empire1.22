@@ -279,7 +279,7 @@
       action({ actionId: "media_screen", label: "Mediální clona", description: "Na 8 minut tlumí negativní drby, snižuje jejich pravdivost a zlepšuje civilní rumor truth.", effectSummary: "Cena 2000 clean, negativní drby -35 %, police warning +6 %, heat +4", cooldownMs: 26 * minute, durationMs: 8 * minute, heatGain: 4, inputCost: out("cash", 2e3) })
     ]),
     building("stock_exchange", "Burza", "downtown", "Ultra vzácná / ekonomika / kontrola marketu / finanční síla", "Burza je jediná na mapě. Neprodává zboží. Ovládá ceny, poplatky a rytmus celé ekonomiky. Skleněná věž v Downtownu, kde se války nevedou noži, ale grafy.", perMinuteStat(220, 0, 0.18 * 60 * 24, 0.45 * 60 * 24, 1), [
-      action({ actionId: "speculative_buy", label: "Spekulativní nákup", description: "Investuje výchozí částku do materiálového marketu. Výsledek může být zisk, neutrální pohyb nebo ztráta.", effectSummary: "Cena 2500 clean + investice, heat +5, financial inspection risk +6 %", cooldownMs: 16 * minute, heatGain: 5, inputCost: out("cash", 2500) }),
+      action({ actionId: "speculative_buy", label: "Spekulativní nákup", description: "Investuje výchozí částku do materiálového marketu. Výsledek může být zisk, neutrální pohyb nebo ztráta.", effectSummary: "Cena 750 clean + investice, heat +5, financial inspection risk +6 %", cooldownMs: 16 * minute, heatGain: 5, inputCost: out("cash", 750) }),
       action({ actionId: "market_pressure", label: "Tržní tlak", description: "Na 10 minut zvýší ceny materiálového marketu.", effectSummary: "Cena 3000 clean + 15 influence, heat +8, market efekt", cooldownMs: 22 * minute, durationMs: 10 * minute, heatGain: 8, inputCost: out("cash", 3e3), influenceChange: -15 }),
       action({ actionId: "insider_window", label: "Vnitřní tipy", description: "Na 6 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.", effectSummary: "Cena 1500 clean, heat +4, 3 trend hinty, market poplatek -8 %", cooldownMs: 18 * minute, durationMs: 6 * minute, heatGain: 4, inputCost: out("cash", 1500) })
     ]),
@@ -309,7 +309,7 @@
     building("casino", "Kasino", "commercial", "Laundering / high-risk", "Vzácná high-value neonová pračka peněz. Dává extrémní cashflow, dirty cash a vliv, ale rychle zvedá heat a audit risk.", perMinuteStat(4500 / 60, 2500 / 60, 150, 110, 4), [
       action({ actionId: "quiet_backroom", label: "Tichá herna", description: "Instantně vypere 24 % aktuálního dirty cash hráče až do limitu kasina.", effectSummary: "-dirty cash, +clean cash po 9 % poplatku, +heat, +vliv, +audit risk", cooldownMs: 14 * minute, heatGain: 7, influenceChange: 3 }),
       action({ actionId: "vip_night", label: "VIP noc", description: "Dočasně zvýší casino income, vliv, heat a audit risk. Nestackuje se sama se sebou.", effectSummary: "+clean income, +dirty income, +vliv, +heat, +audit risk na 10 minut", cooldownMs: 26 * minute, durationMs: 10 * minute, effectModifiers: { cleanIncomeMultiplier: 1.7, dirtyIncomeMultiplier: 1.55, influenceMultiplier: 1.25, heatMultiplier: 1.6 } }),
-      action({ actionId: "bribed_inspector", label: "Podplacený inspektor", description: "Zaplatí inspektora. Úspěch sníží heat a audit risk, selhání zvýší tlak.", effectSummary: "Cena 15000 clean cash, šance selhání 14 %, heat -15 při úspěchu, audit control", cooldownMs: 105 * minute, durationMs: 12 * minute, inputCost: out("cash", 15e3) })
+      action({ actionId: "bribed_inspector", label: "Podplacený inspektor", description: "Zaplatí inspektora. Úspěch sníží heat a audit risk, selhání zvýší tlak.", effectSummary: "Cena 6500 clean cash, šance selhání 14 %, heat -15 při úspěchu, audit control", cooldownMs: 75 * minute, durationMs: 30 * minute, inputCost: out("cash", 6500) })
     ]),
     building("car_dealer", "Autosalon", "commercial", "Ekonomika / mobilita / logistika / kratší cooldowny", "Autosalon generuje peníze a zlepšuje mobilitu gangu. Lesklé kapoty vpředu, falešné smlouvy vzadu a klíče od aut, která nikdy neuvidí papíry. Autosalon není jen showroom. Je to úniková trasa na kolech.", stat(2145, 650, 60, 24, 1), []),
     building("fitness_club", "Fitness Club", "commercial", "Ekonomika / bojová podpora / fyzický trénink", "Fitness Club generuje čistý příjem a posiluje fyzickou sílu útoku i obrany. Nezískáš víc lidí. Získáš tvrdší lidi. Rezavé činky, rozbité zrcadlo a trenér, který nepočítá opakování, ale přežití.", perMinuteStat(72, 0, 0.04 * 60 * 24, 0, 1), []),
@@ -342,7 +342,7 @@
     building("warehouse", "Skladiště", "industrial", "Economy / storage / logistics", "Skladiště zvyšuje maximum každé položky v globálním SKLADU. První aktivní Skladiště přidá 50 %, další menší síťový bonus a z levelů platí jen nejvyšší aktivní level.", stat(2700, 0, 86.4, 0, 4), []),
     building("power_station", "Energetická stanice", "industrial", "Infrastruktura / podpora / obrana", "Energetická stanice nezavádí nový zdroj. Zvedá výkon města, drží infrastrukturu při životě a posiluje bezpečnostní systémy. Když svítí stanice, město dýchá rychleji. Kamery vidí ostřeji. Alarmy řvou dřív.", perMinuteStat(2780 / 60, 780 / 60, 115.2, 0, 1), [
       action({ actionId: "backup_grid_switch", label: "Stabilizovat síť", description: "Na 25 minut zvýší bonus infrastruktury, posílí kamery a alarmy a přidá výkon Továrnám a Zbrojovkám. Nestackuje se sama se sebou.", effectSummary: "Cena 3500 clean cash, +12 % infrastruktura, +20 % kamery, +20 % alarm, heat +3 na 25 minut", cooldownMs: 60 * minute, durationMs: 25 * minute, inputCost: out("cash", 3500), heatGain: 3 }),
-      action({ actionId: "power_station_feed_production", label: "Napájet výrobu", description: "Okamžitě přidá menší clean a dirty výnos z přesměrované výroby.", effectSummary: "+2000 clean cash, +500 dirty cash, heat +10", cooldownMs: 60 * minute, outputGain: resources({ cash: 2e3, "dirty-cash": 500 }), heatGain: 10 }),
+      action({ actionId: "power_station_feed_production", label: "Prodat přebytek", description: "Okamžitě zpeněží přebytek energie. Rychlost výrobních linek nemění.", effectSummary: "+2000 clean cash, +500 dirty cash, heat +10", cooldownMs: 60 * minute, outputGain: resources({ cash: 2e3, "dirty-cash": 500 }), heatGain: 10 }),
       action({ actionId: "power_station_reduce_heat", label: "Snížit heat", description: "Za 10000 clean cash serverově sníží heat districtu.", effectSummary: "Cena 10000 clean cash, heat -20, cooldown 60 minut", cooldownMs: 60 * minute, inputCost: out("cash", 1e4), heatGain: -20 })
     ]),
     building("recycling_center", "Recyklační centrum", "industrial", "Podpora / vytěžení ztrát / návrat itemů", "Recyklační centrum nevrací lidi. Vrací železo, zbraně, moduly a všechno, co se dá po boji ještě vytáhnout ze šrotu. Když bitva skončí, někdo počítá mrtvé. Recyklační centrum počítá, co se dá znovu použít.", perMinuteStat(40, 0, 0.08 * 60 * 24, 0, 1), [
@@ -1495,7 +1495,7 @@
     speculativeBuy: {
       actionId: "speculative_buy",
       cooldownMinutes: 16,
-      costCleanCash: 2500,
+      costCleanCash: 750,
       maxInvestmentCleanCash: 1e4,
       heatGain: 5,
       targetCategories: ["materials", "drugsAndBoosts", "weapons", "defenseItems", "rareComponents"],
@@ -2106,7 +2106,7 @@
     influencePerMinute: 0.05,
     heatPerMinute: 0,
     populationPerMinute: 0.55,
-    baseStudentCapacity: 20,
+    baseStudentCapacity: 60,
     noDirtyCash: true,
     noLaundering: true,
     noAuditRisk: true,
@@ -2335,7 +2335,7 @@
     power_station_feed_production: {
       actionId: "power_station_feed_production",
       buildingType: "power_station",
-      label: "Napájet výrobu",
+      label: "Prodat přebytek",
       description: "Okamžitě přidá menší clean a dirty výnos z přesměrované výroby.",
       durationMs: 0,
       cooldownMs: 60 * 60 * 1e3,
@@ -2471,9 +2471,9 @@
     },
     bribedInspector: {
       actionId: "bribed_inspector",
-      cooldownMinutes: 105,
-      cleanCashCost: 15e3,
-      protectionMinutes: 12,
+      cooldownMinutes: 75,
+      cleanCashCost: 6500,
+      protectionMinutes: 30,
       failureChancePct: 14,
       successHeatReduction: 15,
       successAuditRiskReductionPct: 35,
@@ -2842,7 +2842,7 @@
     noLaundering: true,
     noAuditRisk: true,
     populationPerMinute: 50 / 60,
-    basePopulationCapacity: 50,
+    basePopulationCapacity: 100,
     collectPopulation: {
       actionId: "collect_convenience_store_population",
       cooldownMinutes: 0,
@@ -3162,8 +3162,8 @@
         cleanCashCostPerUnit: 500,
         inputCosts: { chemicals: 2 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(5),
-        localOutputCap: 10,
-        queueCap: 13
+        localOutputCap: 60,
+        queueCap: 63
       },
       "pulse-shot": {
         label: "Pulse Shot",
@@ -3175,8 +3175,8 @@
         cleanCashCostPerUnit: 800,
         inputCosts: { chemicals: 2, biomass: 1 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(8),
-        localOutputCap: 6,
-        queueCap: 9
+        localOutputCap: 24,
+        queueCap: 27
       },
       "velvet-smoke": {
         label: "Velvet Smoke",
@@ -3188,8 +3188,8 @@
         cleanCashCostPerUnit: 900,
         inputCosts: { chemicals: 1, biomass: 2 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(15),
-        localOutputCap: 5,
-        queueCap: 8
+        localOutputCap: 24,
+        queueCap: 27
       },
       "ghost-serum": {
         label: "Ghost Serum",
@@ -3201,8 +3201,8 @@
         cleanCashCostPerUnit: 2500,
         inputCosts: { "neon-dust": 2, "pulse-shot": 1 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(20),
-        localOutputCap: 2,
-        queueCap: 5
+        localOutputCap: 8,
+        queueCap: 11
       },
       "overdrive-x": {
         label: "Overdrive X",
@@ -3214,8 +3214,8 @@
         cleanCashCostPerUnit: 4500,
         inputCosts: { "pulse-shot": 1, "velvet-smoke": 2 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(30),
-        localOutputCap: 1,
-        queueCap: 4
+        localOutputCap: 8,
+        queueCap: 11
       }
     }
   };
@@ -3576,7 +3576,7 @@
     countOnMap: 29,
     category: ["population"],
     populationPerMinute: 2,
-    baseCapacity: 50,
+    baseCapacity: 180,
     cleanCashPerMinute: 0,
     dirtyCashPerMinute: 0,
     influencePerMinute: 0,
@@ -3614,8 +3614,8 @@
         cleanCashCostPerUnit: 360,
         inputCosts: {},
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(2),
-        localOutputCap: 12,
-        queueCap: 15
+        localOutputCap: 60,
+        queueCap: 63
       },
       biomass: {
         label: "Biomass",
@@ -3624,8 +3624,8 @@
         cleanCashCostPerUnit: 420,
         inputCosts: {},
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(4),
-        localOutputCap: 8,
-        queueCap: 11
+        localOutputCap: 60,
+        queueCap: 63
       },
       "stim-pack": {
         label: "Stim Pack",
@@ -3634,8 +3634,8 @@
         cleanCashCostPerUnit: 800,
         inputCosts: {},
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(10),
-        localOutputCap: 4,
-        queueCap: 7
+        localOutputCap: 24,
+        queueCap: 27
       }
     }
   };
@@ -3665,8 +3665,8 @@
         cleanCashCostPerUnit: 300,
         inputCosts: {},
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(4),
-        localOutputCap: 10,
-        queueCap: 13
+        localOutputCap: 60,
+        queueCap: 63
       },
       "tech-core": {
         label: "Tech Core",
@@ -3675,8 +3675,8 @@
         cleanCashCostPerUnit: 900,
         inputCosts: { "metal-parts": 4 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(8),
-        localOutputCap: 5,
-        queueCap: 8
+        localOutputCap: 24,
+        queueCap: 27
       },
       "combat-module": {
         label: "Bojový modul",
@@ -3685,8 +3685,8 @@
         cleanCashCostPerUnit: 2500,
         inputCosts: { "metal-parts": 4, "tech-core": 2 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(15),
-        localOutputCap: 2,
-        queueCap: 5
+        localOutputCap: 8,
+        queueCap: 11
       }
     }
   };
@@ -3711,8 +3711,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "metal-parts": 2 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(3),
-        localOutputCap: 8,
-        queueCap: 11
+        localOutputCap: 60,
+        queueCap: 63
       },
       pistol: {
         category: "attack",
@@ -3722,8 +3722,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "metal-parts": 3, "tech-core": 1 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(5),
-        localOutputCap: 5,
-        queueCap: 8
+        localOutputCap: 24,
+        queueCap: 27
       },
       grenade: {
         category: "attack",
@@ -3733,8 +3733,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "metal-parts": 2, "tech-core": 1 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(6),
-        localOutputCap: 4,
-        queueCap: 7
+        localOutputCap: 24,
+        queueCap: 27
       },
       smg: {
         category: "attack",
@@ -3744,8 +3744,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "metal-parts": 2, "combat-module": 1 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(8),
-        localOutputCap: 3,
-        queueCap: 6
+        localOutputCap: 8,
+        queueCap: 11
       },
       bazooka: {
         category: "attack",
@@ -3755,8 +3755,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "metal-parts": 3, "combat-module": 2 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(14),
-        localOutputCap: 2,
-        queueCap: 5
+        localOutputCap: 8,
+        queueCap: 11
       },
       vest: {
         category: "defense",
@@ -3766,8 +3766,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "metal-parts": 3, "tech-core": 1 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(5),
-        localOutputCap: 5,
-        queueCap: 8
+        localOutputCap: 24,
+        queueCap: 27
       },
       barricades: {
         category: "defense",
@@ -3777,8 +3777,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "metal-parts": 4 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(5),
-        localOutputCap: 6,
-        queueCap: 9
+        localOutputCap: 60,
+        queueCap: 63
       },
       cameras: {
         category: "defense",
@@ -3788,8 +3788,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "metal-parts": 2, "tech-core": 2 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(6),
-        localOutputCap: 4,
-        queueCap: 7
+        localOutputCap: 24,
+        queueCap: 27
       },
       "defense-tower": {
         category: "defense",
@@ -3799,8 +3799,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "tech-core": 3, "combat-module": 2 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(15),
-        localOutputCap: 2,
-        queueCap: 5
+        localOutputCap: 8,
+        queueCap: 11
       },
       alarm: {
         category: "defense",
@@ -3810,8 +3810,8 @@
         cleanCashCostPerUnit: 0,
         inputCosts: { "metal-parts": 2, "tech-core": 1 },
         durationTicksPerUnit: baseCooldownTicksForFinalMinutes(5),
-        localOutputCap: 4,
-        queueCap: 7
+        localOutputCap: 24,
+        queueCap: 27
       }
     }
   };
@@ -3854,12 +3854,11 @@
       category: "intel",
       description: "Prožeň špiony neviditelnou sítí a vytáhni z districtu víc informací.",
       shortEffect: "Špionáž −35 % času · rozšířený intel",
-      cleanCashCost: 5e3,
+      cleanCashCost: 1200,
       inputCosts: {
-        "ghost-serum": 2,
-        "pulse-shot": 2
+        "ghost-serum": 1
       },
-      activeDurationTicks: ticksFromMinutes(12),
+      activeDurationTicks: ticksFromMinutes(20),
       cooldownTicks: ticksFromMinutes(35),
       consumptionMode: "timed",
       effect: {
@@ -3876,12 +3875,12 @@
       category: "production",
       description: "Přetěž výrobní síť a vytlač z každé linky vyšší tempo.",
       shortEffect: "Všechny výrobní linky +25 % rychlosti",
-      cleanCashCost: 7500,
+      cleanCashCost: 1500,
       inputCosts: {
-        "overdrive-x": 2,
-        "combat-module": 2
+        "pulse-shot": 2,
+        "tech-core": 1
       },
-      activeDurationTicks: ticksFromMinutes(12),
+      activeDurationTicks: ticksFromMinutes(30),
       cooldownTicks: ticksFromMinutes(45),
       consumptionMode: "timed",
       effect: {
@@ -3896,13 +3895,12 @@
       category: "combat",
       description: "Propoj výzbroj, obranu a intel do jediné taktické sítě.",
       shortEffect: "+12 % k příštímu útoku nebo obraně",
-      cleanCashCost: 1e4,
+      cleanCashCost: 2500,
       inputCosts: {
-        "ghost-serum": 2,
-        "overdrive-x": 1,
-        "combat-module": 3
+        "ghost-serum": 1,
+        "tech-core": 2
       },
-      activeDurationTicks: ticksFromMinutes(20),
+      activeDurationTicks: ticksFromMinutes(40),
       cooldownTicks: ticksFromMinutes(60),
       consumptionMode: "next-valid-pvp-combat",
       effect: {
@@ -4056,6 +4054,19 @@
   };
   const FREE_MODE_RAID_DURATION_TICKS = ticksFromMinutes(60);
   const freeModePoliceConfig = {
+    heatReduction: {
+      globalCooldownTicks: ticksFromMinutes(10),
+      auditWindowTicks: ticksFromMinutes(30),
+      auditRiskPerRecentActionPct: 5,
+      maxAuditRiskPct: 50,
+      auditHeatGain: 5,
+      auditFinePct: 25,
+      methods: {
+        dirty: { cost: 2500, heatReduction: 15, cooldownTicks: ticksFromMinutes(20), baseAuditRiskPct: 20 },
+        clean: { cost: 5e3, heatReduction: 25, cooldownTicks: ticksFromMinutes(30), baseAuditRiskPct: 5 },
+        influence: { cost: 20, heatReduction: 25, cooldownTicks: ticksFromMinutes(45), baseAuditRiskPct: 0 }
+      }
+    },
     districtHeatPerHourByZone: {
       park: 3,
       commercial: 1,
@@ -4065,6 +4076,7 @@
     },
     spyActionHeatGain: 2,
     districtHeatWeight: 0.9,
+    districtPressureCap: 75,
     highPressureRaidThreshold: 115,
     extremePressureRaidThreshold: 180,
     districtTargetHeatThreshold: 70,
@@ -4097,6 +4109,27 @@
     protectedResources: ["cash", "population"],
     autoResolveExpiredPendingRaids: true
   };
+  const recipes = {
+    ...freeModePharmacyConfig.recipes,
+    ...freeModeDrugLabConfig.recipes,
+    ...freeModeFactoryConfig.recipes,
+    ...freeModeArmoryConfig.recipes
+  };
+  const values = {};
+  const visiting = /* @__PURE__ */ new Set();
+  const valueOf = (id2) => {
+    if (values[id2] !== void 0) return values[id2];
+    if (visiting.has(id2)) throw new Error(`Circular production recipe: ${id2}`);
+    const recipe = recipes[id2];
+    if (!recipe) throw new Error(`Missing production recipe: ${id2}`);
+    visiting.add(id2);
+    const value = (recipe.cleanCashCostPerUnit + Object.entries(recipe.inputCosts ?? {}).reduce((sum, [input, amount]) => sum + Number(amount) * valueOf(input), 0)) / recipe.outputAmount;
+    visiting.delete(id2);
+    values[id2] = value;
+    return value;
+  };
+  Object.keys(recipes).forEach(valueOf);
+  const freeModeResourceScoreValues = Object.freeze(values);
   const PLAYER_BOOST_IDS = [
     "ghost-network",
     "industrial-overdrive",
@@ -4403,10 +4436,10 @@
       id: "soukroma-armada",
       name: "Soukromá armáda",
       tagline: "Když diplomacie selže, přijde faktura.",
-      description: "Soukromá armáda nehraje na pouliční chaos. Nasazuje vycvičené jednotky, taktiku a přesilu. Je silnější v útoku, lépe brání districty a při obsazování ztrácí méně vybavení. Profesionální násilí je ale drahé a viditelné.",
+      description: "Soukromá armáda nehraje na pouliční chaos. Nasazuje vycvičené jednotky, taktiku a přesilu. Je silnější v útoku, lépe brání districty a v boji ztrácí méně vybavení. Profesionální násilí je ale viditelné a oslabuje čistý příjem.",
       playstyleSummary: "Combat / defense / occupation / territory control / expensive operations",
       strengths: ["síla útoku", "síla obrany", "nižší bojové ztráty", "obsazování", "kontrola území"],
-      weaknesses: ["vyšší náklady na údržbu a boj", "vyšší heat z agresivních akcí", "slabší čistý příjem"],
+      weaknesses: ["vyšší heat z agresivních akcí", "slabší čistý příjem"],
       passiveModifiers: {
         attackPowerMultiplier: 1.12,
         defensePowerMultiplier: 1.12,
@@ -4420,11 +4453,11 @@
         "+12 % síla útoku",
         "+12 % síla obrany",
         "-10 % ztráty vybavení v boji",
-        "+10 % síla při obsazování",
         "+8 % heat z útoků a obsazování",
         "-8 % čistý příjem"
       ],
       plannedPassiveEffectSummary: [
+        "+10 % síla při obsazování",
         "+12 % náklady na údržbu a boj"
       ],
       specialAction: {
@@ -4561,16 +4594,23 @@
           activeBuildingCount: 500,
           cleanCash: 0.1,
           dirtyCash: 0.05,
-          resources: 0.2,
+          resources: 0.1,
+          includeCommittedAssets: true,
+          buildingCapital: 0.05,
           population: 2,
           recentActivityBonus: 250,
           recentActivityWindowTicks: ticksFromHours(1),
-          resourceScoreValues: {}
+          resourceScoreValues: freeModeResourceScoreValues
         }
       },
       finalLockdown: {
         enabled: true,
         triggerActivePlayers: 8,
+        competitiveWindow: {
+          minimumStartingPlayers: 16,
+          earliestStartTick: ticksFromHours(60),
+          latestStartTick: ticksFromHours(78)
+        },
         activeDurationTicks: ticksFromHours(12),
         pauseDuringQuietHours: true,
         scoreMode: "final_empire_score",
@@ -4760,8 +4800,8 @@
         catastropheChance: 0.02
       },
       startingResources: {
-        cash: 1500,
-        "dirty-cash": 300,
+        cash: 6e3,
+        "dirty-cash": 3e3,
         chemicals: 10,
         biomass: 6,
         "metal-parts": 8,
@@ -5393,7 +5433,8 @@
     "ghost-serum",
     "pulse-shot",
     "overdrive-x",
-    "combat-module"
+    "combat-module",
+    "tech-core"
   ]);
   const validatePlayerBoostConfig = (config) => {
     const ids = Object.keys(config).sort();
@@ -5450,7 +5491,7 @@
     "defense-tower"
   ];
   const collectRecipes = (config) => {
-    const recipes = /* @__PURE__ */ new Map();
+    const recipes2 = /* @__PURE__ */ new Map();
     const sources = [
       config.balance.pharmacy,
       config.balance.drugLab,
@@ -5461,17 +5502,17 @@
       if (!source || !("recipes" in source)) continue;
       for (const value of Object.values(source.recipes)) {
         const recipe = value;
-        recipes.set(recipe.outputResourceKey, recipe);
+        recipes2.set(recipe.outputResourceKey, recipe);
       }
     }
-    return recipes;
+    return recipes2;
   };
   const createReplacementValueResolver = (config) => {
-    const recipes = collectRecipes(config);
+    const recipes2 = collectRecipes(config);
     const cache = /* @__PURE__ */ new Map();
     const resolve = (resourceKey, stack) => {
       if (cache.has(resourceKey)) return cache.get(resourceKey);
-      const recipe = recipes.get(resourceKey);
+      const recipe = recipes2.get(resourceKey);
       if (!recipe) return null;
       if (stack.has(resourceKey)) {
         throw new Error(`Production replacement value contains a cycle at '${resourceKey}'.`);
@@ -5750,6 +5791,10 @@
     }
     const finalLockdown = config.balance.finalLockdown;
     if (finalLockdown?.enabled) {
+      const window2 = finalLockdown.competitiveWindow;
+      if (window2 && (!Number.isInteger(window2.minimumStartingPlayers) || window2.minimumStartingPlayers < 2 || !Number.isInteger(window2.earliestStartTick) || window2.earliestStartTick < 0 || !Number.isInteger(window2.latestStartTick) || window2.latestStartTick < window2.earliestStartTick)) {
+        throw new Error("Final Lockdown requires a valid competitive start window.");
+      }
       for (const [key, value] of [
         ["triggerActivePlayers", finalLockdown.triggerActivePlayers],
         ["activeDurationTicks", finalLockdown.activeDurationTicks],
@@ -5891,10 +5936,10 @@
     )
   );
   const FREE_HOSTED_STARTING_PLAYER_STATE = Object.freeze({
-    cleanCash: 1500,
-    dirtyCash: 300,
-    population: 0,
-    influence: 0,
+    cleanCash: 6e3,
+    dirtyCash: 3e3,
+    population: 150,
+    influence: 15,
     spySlots: 2,
     materials: Object.freeze({
       chemicals: 10,
@@ -6067,7 +6112,7 @@
     if (!review) return;
     const data = new FormData(form);
     const serverTemplate = data.get("serverTemplate") === "full" ? "Plnohodnotný server" : "Flexibilní server";
-    const values = [
+    const values2 = [
       ["Název", data.get("displayName")],
       ["Mode", data.get("mode")],
       ["Region", data.get("region")],
@@ -6088,7 +6133,7 @@
       ]),
       ["Mapa", `8 / ${data.get("commercial")} / ${data.get("residential")} / ${data.get("industrial")} / ${data.get("park")}`]
     ];
-    review.innerHTML = values.map(([label, value]) => `<span><small>${escapeHtml$1(label)}</small><strong>${escapeHtml$1(value ?? "-")}</strong></span>`).join("");
+    review.innerHTML = values2.map(([label, value]) => `<span><small>${escapeHtml$1(label)}</small><strong>${escapeHtml$1(value ?? "-")}</strong></span>`).join("");
   };
   const escapeHtml$1 = (value) => String(value).replace(
     /[&<>"']/gu,
@@ -6543,6 +6588,8 @@
     }
   };
   const actionPresentation = (action2) => ACTION_PRESENTATIONS[action2];
+  const LIFECYCLE_OBSERVATION_ATTEMPTS = 20;
+  const LIFECYCLE_OBSERVATION_DELAY_MS = 750;
   const createAdminLifecycleActionController = (options) => {
     let submitting = false;
     const bind = () => {
@@ -6634,6 +6681,9 @@
         options.onAccepted(instanceId, action2, result);
         dialog.closest("[data-admin-lifecycle-backdrop]")?.remove();
         await options.refresh();
+        const observation = await observeLifecycleResult(options, instanceId, action2, hosted.version);
+        options.onObserved(instanceId, action2, observation);
+        options.render();
       } catch (error) {
         if (message) message.textContent = error instanceof Error ? error.message : "Akci nebylo možné zařadit.";
         button2.disabled = false;
@@ -6645,6 +6695,33 @@
     };
     return { bind };
   };
+  const observeLifecycleResult = async (options, instanceId, action2, expectedVersion) => {
+    for (let attempt = 0; attempt < LIFECYCLE_OBSERVATION_ATTEMPTS; attempt += 1) {
+      const server2 = options.controlPlane()?.servers.find((entry) => entry.serverInstanceId === instanceId) ?? null;
+      if (action2 === "delete" && (!server2 || server2.status === "archived")) {
+        return { state: "completed", serverStatus: server2?.status ?? "archived", errorCode: null };
+      }
+      if (server2 && server2.version !== expectedVersion) {
+        if (server2.lastErrorCode) {
+          return { state: "failed", serverStatus: server2.status, errorCode: server2.lastErrorCode };
+        }
+        if (server2.status === lifecycleTargetStatus(action2)) {
+          return { state: "completed", serverStatus: server2.status, errorCode: null };
+        }
+      }
+      await delay(LIFECYCLE_OBSERVATION_DELAY_MS);
+      await options.refresh();
+    }
+    const server = options.controlPlane()?.servers.find((entry) => entry.serverInstanceId === instanceId) ?? null;
+    return { state: "pending", serverStatus: server?.status ?? null, errorCode: server?.lastErrorCode ?? null };
+  };
+  const lifecycleTargetStatus = (action2) => {
+    if (action2 === "start" || action2 === "resume" || action2 === "restart") return "running";
+    if (action2 === "pause") return "paused";
+    if (action2 === "stop") return "stopped";
+    return null;
+  };
+  const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
   const trapFocus$1 = (event) => {
     const dialog = event.currentTarget;
     const focusable = [...dialog.querySelectorAll(
@@ -6875,6 +6952,27 @@
           title: action2 === "delete" ? "Server archivován" : "Lifecycle požadavek přijat",
           message: `${adminActionLabel(action2)} · ${result.status} · ${result.actionRequestId}`
         });
+      },
+      onObserved: (_instanceId, action2, result) => {
+        if (result.state === "completed") {
+          options.setNotice({
+            tone: "success",
+            title: "Lifecycle změna dokončena",
+            message: `${adminActionLabel(action2)} · ${result.serverStatus ?? "dokončeno"}`
+          });
+        } else if (result.state === "failed") {
+          options.setNotice({
+            tone: "danger",
+            title: "Lifecycle akce selhala",
+            message: `${adminActionLabel(action2)} · ${result.errorCode ?? "neznámá chyba"}`
+          });
+        } else {
+          options.setNotice({
+            tone: "warning",
+            title: "Lifecycle požadavek se stále zpracovává",
+            message: `${adminActionLabel(action2)} · aktuální stav ${result.serverStatus ?? "neznámý"}. Stav se dál automaticky obnovuje.`
+          });
+        }
       }
     });
     const creation = createAdminCreateController({
@@ -7132,9 +7230,9 @@
         return { entries: context.auditEntries, error: error instanceof Error ? error.message : "Audit trail není dostupný." };
       }
     };
-    const schedule = (delay) => {
+    const schedule = (delay2) => {
       clearSchedule();
-      if (options.context().mounted) timer = setTimeout(() => void refresh(), delay);
+      if (options.context().mounted) timer = setTimeout(() => void refresh(), delay2);
     };
     const clearSchedule = () => {
       if (timer) clearTimeout(timer);
@@ -7547,9 +7645,9 @@
     if (localDevelopment && !frontend) {
       return `<p class="admin-copy">Lokální frontend běží na loopbacku; API a worker build parity je potvrzena serverem.</p>`;
     }
-    const values = [frontend, api ?? null, worker ?? null];
-    if (values.some((value) => !value)) return `<p class="admin-notice">Kompatibilitu buildů nelze potvrdit, protože alespoň jedno SHA chybí.</p>`;
-    return new Set(values).size === 1 ? `<p class="admin-copy">Frontend, API a worker běží ze stejného buildu.</p>` : `<p class="admin-notice">POZOR: Frontend, API a worker neběží ze stejného SHA.</p>`;
+    const values2 = [frontend, api ?? null, worker ?? null];
+    if (values2.some((value) => !value)) return `<p class="admin-notice">Kompatibilitu buildů nelze potvrdit, protože alespoň jedno SHA chybí.</p>`;
+    return new Set(values2).size === 1 ? `<p class="admin-copy">Frontend, API a worker běží ze stejného buildu.</p>` : `<p class="admin-notice">POZOR: Frontend, API a worker neběží ze stejného SHA.</p>`;
   };
   const renderLifecycle = (server, session) => `
   <div class="admin-lifecycle">
@@ -8012,16 +8110,16 @@
   <button class="admin-button admin-button--ghost admin-button--compact" type="button" data-admin-filter-reset>Reset</button>
   <span class="admin-server-filter-count">Zobrazeno <strong data-admin-server-visible-count>${instances.length}</strong> / ${instances.length}</span>
 </div>`;
-  const filterSelect = (key, label, selected, values) => `
+  const filterSelect = (key, label, selected, values2) => `
   <label><span>${escapeHtml(label)}</span><select data-admin-server-filter="${attribute(key)}">
-    <option value="all">Vše</option>${values.map((value) => `<option value="${attribute(value)}"${value === selected ? " selected" : ""}>${escapeHtml(statusLabel(value))}</option>`).join("")}
+    <option value="all">Vše</option>${values2.map((value) => `<option value="${attribute(value)}"${value === selected ? " selected" : ""}>${escapeHtml(statusLabel(value))}</option>`).join("")}
   </select></label>`;
   const INACTIVE_SERVER_STATUSES = /* @__PURE__ */ new Set(["stopped", "failed", "crashed", "archived"]);
   const serverVisibility = (status) => INACTIVE_SERVER_STATUSES.has(status.toLowerCase()) ? "inactive" : "active";
   const serverScopeTab = (value, label, count, selected) => `<button class="admin-server-scope-tab${value === selected ? " is-active" : ""}" type="button"
   role="tab" aria-selected="${value === selected}" data-admin-server-scope="${value}">
   ${escapeHtml(label)} <strong>${count}</strong></button>`;
-  const unique = (values) => [...new Set(values)].sort((left, right) => left.localeCompare(right));
+  const unique = (values2) => [...new Set(values2)].sort((left, right) => left.localeCompare(right));
   const shortId = (value) => value.length > 24 ? `${value.slice(0, 12)}…${value.slice(-8)}` : value;
   const renderLogin = (message = "Přihlaste se do admin konzole.") => `
   <section class="admin-login" aria-labelledby="admin-login-title">

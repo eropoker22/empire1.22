@@ -39,4 +39,3 @@ export const MATERIAL_RARITY_MAX: Record<typeof NEUTRAL_ROBBERY_MATERIAL_KEYS[nu
   "tech-core": 3,
   "combat-module": 2
 };
-

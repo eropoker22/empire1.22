@@ -335,16 +335,16 @@ describe("production building popup runtime", () => {
     expect(Object.fromEntries(
       Object.entries(ARMORY_RECIPES).map(([recipeId, recipe]) => [recipeId, recipe.queueCap])
     )).toEqual({
-      "baseball-bat": 11,
-      pistol: 8,
-      grenade: 7,
-      smg: 6,
-      bazooka: 5,
-      vest: 8,
-      barricades: 9,
-      cameras: 7,
-      "defense-tower": 5,
-      alarm: 7
+      "baseball-bat": 63,
+      pistol: 27,
+      grenade: 27,
+      smg: 11,
+      bazooka: 11,
+      vest: 27,
+      barricades: 63,
+      cameras: 27,
+      "defense-tower": 11,
+      alarm: 27
     });
   });
 
@@ -790,16 +790,16 @@ describe("production building popup runtime", () => {
     runtime.renderProductionPanel(root, "druglab", DRUGLAB_RECIPES);
 
     expect(renderedCards.filter((card) => card.buildingName === "pharmacy")).toEqual(expect.arrayContaining([
-      expect.objectContaining({ recipeId: "chemicals", outputCap: 12, queueCap: 15 }),
-      expect.objectContaining({ recipeId: "biomass", outputCap: 8, queueCap: 11 }),
-      expect.objectContaining({ recipeId: "stim-pack", outputCap: 4, queueCap: 7 })
+      expect.objectContaining({ recipeId: "chemicals", outputCap: 60, queueCap: 63 }),
+      expect.objectContaining({ recipeId: "biomass", outputCap: 60, queueCap: 63 }),
+      expect.objectContaining({ recipeId: "stim-pack", outputCap: 24, queueCap: 27 })
     ]));
     expect(renderedCards.filter((card) => card.buildingName === "druglab")).toEqual(expect.arrayContaining([
-      expect.objectContaining({ recipeId: "neon-dust", outputCap: 10, queueCap: 13 }),
-      expect.objectContaining({ recipeId: "pulse-shot", outputCap: 6, queueCap: 9 }),
-      expect.objectContaining({ recipeId: "velvet-smoke", outputCap: 5, queueCap: 8 }),
-      expect.objectContaining({ recipeId: "ghost-serum", outputCap: 2, queueCap: 5 }),
-      expect.objectContaining({ recipeId: "overdrive-x", outputCap: 1, queueCap: 4 })
+      expect.objectContaining({ recipeId: "neon-dust", outputCap: 60, queueCap: 63 }),
+      expect.objectContaining({ recipeId: "pulse-shot", outputCap: 24, queueCap: 27 }),
+      expect.objectContaining({ recipeId: "velvet-smoke", outputCap: 24, queueCap: 27 }),
+      expect.objectContaining({ recipeId: "ghost-serum", outputCap: 8, queueCap: 11 }),
+      expect.objectContaining({ recipeId: "overdrive-x", outputCap: 8, queueCap: 11 })
     ]));
   });
 

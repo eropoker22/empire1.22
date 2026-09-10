@@ -63,5 +63,3 @@ export async function openLocalGame(page) {
     await expect(milestone).toBeHidden();
   }
 }
-
-
