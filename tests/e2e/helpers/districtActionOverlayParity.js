@@ -639,7 +639,8 @@ async function clickDistrictFromVisibleMap(page, districtId, authority) {
   ).toBe(true);
   await page.mouse.click(point.x, point.y);
   const popup = page.locator("[data-district-popup]:visible").last();
-  await expect(popup).toBeVisible();
+  // Hosted selection awaits the same server round trip checked just below.
+  await expect(popup).toBeVisible({ timeout: authority === "hosted" ? 30_000 : 5_000 });
   await expect(popup).toHaveAttribute("data-district-id", String(numericDistrictId));
   if (authority === "hosted") {
     const canonicalDistrictId = `district:${numericDistrictId}`;
