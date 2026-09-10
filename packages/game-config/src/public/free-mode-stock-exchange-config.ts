@@ -29,7 +29,7 @@ export const freeModeStockExchangeConfig: StockExchangeBalanceConfig = {
   speculativeBuy: {
     actionId: "speculative_buy",
     cooldownMinutes: 16,
-    costCleanCash: 2500,
+    costCleanCash: 750,
     maxInvestmentCleanCash: 10000,
     heatGain: 5,
     targetCategories: ["materials", "drugsAndBoosts", "weapons", "defenseItems", "rareComponents"],

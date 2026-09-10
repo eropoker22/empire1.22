@@ -272,3 +272,19 @@ export function clearNotifications(options = {}) {
 
   return notifications.length;
 }
+
+export function showUpgradeSuccess(buildingLabel, options = {}) {
+  const ownerDocument = options.document || getDocument(options.root);
+  let container = ownerDocument?.querySelector?.("[data-upgrade-notification-root]");
+  if (!container && ownerDocument?.body) {
+    container = ownerDocument.createElement("div");
+    container.className = "game-upgrade-toast-root";
+    container.setAttribute("data-upgrade-notification-root", "");
+    appendElement(ownerDocument.body, container);
+  }
+  const toast = showToast(`${buildingLabel || "Budova"} · Upgrade proběhl`, "success", {
+    durationMs: 3200, ...options, ...(container ? { container } : {})
+  });
+  toast?.classList?.add("runtime-notification--upgrade");
+  return toast;
+}

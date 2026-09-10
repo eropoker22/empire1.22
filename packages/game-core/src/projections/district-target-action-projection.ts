@@ -125,7 +125,8 @@ export const createOpenedDistrictTargetActions = (
           input.playerId,
           sourceDistrictId,
           input.conflictConfig,
-          input.issuedAt
+          input.issuedAt,
+          input.config ? { config: input.config } : undefined
         )
       ),
       robTargets: [],

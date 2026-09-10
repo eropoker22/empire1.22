@@ -1,3 +1,4 @@
+import { retimeProductionSupport } from "../rules/production/productionSpeedModifiers";
 import type { ActiveEffect, ResourceState, RunBuildingActionCommand } from "@empire/shared-types";
 import type { BuildingActionBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
@@ -379,7 +380,7 @@ export const handleUseBuildingAction = (
   const actionResourceDelta = createResourceDelta(resolvedAction.inputCost, resolvedAction.outputGain);
 
   return {
-    nextState: {
+    nextState: retimeProductionSupport(state, {
       ...state,
       playersById: {
         ...state.playersById,
@@ -415,7 +416,7 @@ export const handleUseBuildingAction = (
         notificationIds: [...state.root.notificationIds, notification.id],
         version: state.root.version + 1
       }
-    },
+    }, context),
     events: [
       createEvent(CORE_EVENT_TYPES.buildingActionResolved, {
         playerId: player.id,

@@ -15,7 +15,7 @@ const PARAMETERS = Object.freeze({
   maxMemory: 64 * 1024 * 1024
 });
 
-export const ACCOUNT_PASSWORD_MINIMUM_LENGTH = 12;
+export const ACCOUNT_PASSWORD_MINIMUM_LENGTH = 8;
 
 export const hashAccountPassword = async (password: string): Promise<AccountPasswordRecord> => {
   assertPassword(password);

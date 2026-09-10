@@ -210,7 +210,7 @@ describe("conflict command flow", () => {
   });
 
   it.each(["failed", "critical_failed"] as const)(
-    "%s spy intel does not unlock neutral district occupation and blocks a spy slot",
+    "%s spy intel does not unlock occupation; only capture delays the returning spy",
     (outcome) => {
       const spy = findSpyOutcome(outcome);
 
@@ -224,14 +224,15 @@ describe("conflict command flow", () => {
         targetDistrictId: "district:2",
         occupyUnlocked: false
       });
-      expect(report?.payload.blockedUntilTick).toBeGreaterThan(blockedSpy.nextState.root.tick);
-      expect(blockedSpy.nextState.playerSpyOperationStatesByPlayerId?.["player:1"]?.slots[0]?.availableAtTick)
-        .toBeGreaterThan(blockedSpy.nextState.root.tick);
-      expect(Number(report?.payload.blockedUntilTick) - blockedSpy.nextState.root.tick).toBe(
-        outcome === "critical_failed"
-          ? context.config.balance.conflict.spyCaptureCooldownTicks
-          : context.config.balance.conflict.spySlotCooldownTicks
-      );
+      const availableAtTick = blockedSpy.nextState.playerSpyOperationStatesByPlayerId?.["player:1"]?.slots[0]?.availableAtTick;
+      if (outcome === "critical_failed") {
+        expect(report?.payload.blockedUntilTick).toBeGreaterThan(blockedSpy.nextState.root.tick);
+        expect(context.config.balance.conflict.spyCaptureCooldownTicks).toBeTypeOf("number");
+        expect(availableAtTick).toBe(blockedSpy.nextState.root.tick + context.config.balance.conflict.spyCaptureCooldownTicks!);
+      } else {
+        expect(report?.payload.blockedUntilTick).toBeNull();
+        expect(availableAtTick).toBe(blockedSpy.nextState.root.tick);
+      }
       expect(blockedSpy.nextState.policeStatesById["police:1"]?.heat).toBe(2);
 
       const occupied = applyCommand(blockedSpy.nextState, createOccupyDistrictCommandFixture({

@@ -42,3 +42,9 @@ Refresh or reconnect calls `load` with the gameplay session. It must return the 
 ## Logout
 
 Logout revokes the gameplay session. It does not remove the player registration or mutate gameplay state.
+
+## Leaving and registering again
+
+An explicit early leave releases the player's territory and membership after the worker finishes cleanup and revokes the old gameplay sessions. While registration is open, the same account can reserve an available district and complete a new membership on that server. Previous membership attempts remain available for audit and idempotent retries; the server-scoped account/player identity remains stable. Defeated and completed memberships cannot use this path.
+
+Each server accepts at most four active players per faction. Finalizing setup reserves a faction seat under the server's database lock, so concurrent confirmations cannot take a fifth seat. The faction page displays the authoritative occupancy and disables full factions. Leaving releases the seat after cleanup completes.

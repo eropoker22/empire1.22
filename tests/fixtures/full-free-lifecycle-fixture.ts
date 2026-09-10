@@ -27,6 +27,7 @@ export const acceleratedLifecycleConfig = {
     finalLockdown: {
       ...canonicalFreeConfig.balance.finalLockdown!,
       triggerActivePlayers: 8,
+      competitiveWindow: { minimumStartingPlayers: 16, earliestStartTick: 15, latestStartTick: 30 },
       activeDurationTicks: 3,
       pauseDuringQuietHours: false
     }

@@ -36,9 +36,9 @@ export const freeModeCasinoConfig: CasinoBalanceConfig = {
   },
   bribedInspector: {
     actionId: "bribed_inspector",
-    cooldownMinutes: 105,
-    cleanCashCost: 15000,
-    protectionMinutes: 12,
+    cooldownMinutes: 75,
+    cleanCashCost: 6500,
+    protectionMinutes: 30,
     failureChancePct: 14,
     successHeatReduction: 15,
     successAuditRiskReductionPct: 35,

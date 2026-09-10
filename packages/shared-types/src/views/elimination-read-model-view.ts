@@ -39,12 +39,14 @@ export interface EliminationReadModel {
   quietHoursResumeTick: number | null;
   deferredFromTick: number | null;
   eliminatedPlayerIds: PlayerId[];
+  eliminatedPlayers?: Array<{ playerId: PlayerId; playerName: string; eliminatedAtTick: number; finalPlacement: number | null }>;
   activePlayersRemaining: number;
   dangerZone: EliminationDangerZoneEntry[];
   currentPlayerStatus: EliminationRiskStatus;
   currentPlayerScore: number | null;
   currentPlayerRankFromBottom: number | null;
   currentPlayerScoreBreakdown: Record<string, number> | null;
+  currentPlayerScoreContributions?: Record<string, number> | null;
   playerStatus: PlayerStatus | null;
   currentPlayerDefeat?: {
     reason: EliminationDefeatReason;

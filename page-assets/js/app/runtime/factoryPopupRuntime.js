@@ -1,3 +1,4 @@
+import { showUpgradeSuccess } from "../ui/notifications.js";
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
 import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
@@ -233,6 +234,7 @@ export function createFactoryPopupRuntime(deps = {}) {
               }
             });
             const error = response?.errors?.[0];
+          if (response?.accepted && !error) showUpgradeSuccess("Továrna", { root });
             deps.setBuildingActionFeedback?.(root, error ? "warning" : "success", "Továrna", error?.message || "Výroba byla spuštěna; výstup vznikne po doběhnutí serverového času.");
             renderFactoryDashboard();
             return response;
@@ -656,6 +658,7 @@ export function createFactoryPopupRuntime(deps = {}) {
         updatedAt: Date.now()
       });
       deps.setBuildingActionFeedback?.(root, "success", "Továrna", `Továrna byla upgradovaná na level ${nextLevel}.`);
+      showUpgradeSuccess("Továrna", { root });
       renderFactoryDashboard();
     });
 

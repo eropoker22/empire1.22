@@ -125,7 +125,8 @@ export const createPopulationProductionState = (
     ? applyConvenienceStorePopulationProduction(
         schoolState,
         context.config.balance.convenienceStore,
-        context.config.tickRateMs
+        context.config.tickRateMs,
+        context
       )
     : schoolState;
 };

@@ -1,4 +1,5 @@
 import type { CorePlayerCommand } from "../commands";
+import { handleReducePoliceHeat } from "../handlers/reducePoliceHeat";
 import type { CoreError } from "../errors";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
@@ -105,6 +106,8 @@ export const routeCommand = (
   }
 
   switch (command.type) {
+    case "reduce-police-heat":
+      return handleReducePoliceHeat(state, command, context);
     case "acknowledge-pending-raid":
       return handleAcknowledgePendingRaid(state, command, context);
     case "activate-player-boost":

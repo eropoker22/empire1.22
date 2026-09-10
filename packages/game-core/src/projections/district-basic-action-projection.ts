@@ -1,5 +1,7 @@
 import type { CoreGameState } from "../entities/game-state";
 import type { ConflictBalanceConfig } from "../contracts";
+import type { GameCoreContext } from "../engine/context";
+import { getDayNightModifiers } from "../rules/day-night/dayNightPhase";
 import {
   DEFENSE_WEAPON_IDS,
   type HeistDistrictCommand
@@ -25,7 +27,8 @@ export const createDistrictHeistTargetViews = (
   playerId: string,
   sourceDistrictId: string,
   conflictConfig?: ConflictBalanceConfig,
-  issuedAt = new Date().toISOString()
+  issuedAt = new Date().toISOString(),
+  context?: GameCoreContext
 ) => {
   const source = state.districtsById[sourceDistrictId];
   if (!source) return [];
@@ -84,7 +87,8 @@ export const createDistrictHeistTargetViews = (
               defenseLoadout: target.defenseLoadout,
               style: config,
               populationSent: minMembers,
-              config: heistConfig
+              config: heistConfig,
+              phaseModifiers: getDayNightModifiers(state, context)
             })
           : {
               successChance: config?.baseSuccessChance ?? 0,

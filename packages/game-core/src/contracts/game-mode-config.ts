@@ -154,6 +154,10 @@ export interface DayNightBalanceConfig {
 }
 
 export interface EliminationScoreWeightsConfig {
+  /** Include physically owned stock outside the wallet, without valuing asking prices. */
+  includeCommittedAssets?: boolean;
+  /** Score per clean-cash unit invested in still-owned building upgrades. */
+  buildingCapital?: number;
   controlledDistricts: number;
   districtInfluence: number;
   cleanCash: number;
@@ -190,6 +194,7 @@ export interface EliminationBalanceConfig {
 export interface FinalLockdownBalanceConfig {
   enabled: boolean;
   triggerActivePlayers: number;
+  competitiveWindow?: { minimumStartingPlayers: number; earliestStartTick: number; latestStartTick: number };
   activeDurationTicks: number;
   pauseDuringQuietHours: boolean;
   scoreMode: "final_empire_score";

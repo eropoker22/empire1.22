@@ -17,8 +17,8 @@ export const freeModePharmacyConfig: PharmacyBalanceConfig = {
       cleanCashCostPerUnit: 360,
       inputCosts: {},
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(2),
-      localOutputCap: 12,
-      queueCap: 15
+      localOutputCap: 60,
+      queueCap: 63
     },
     biomass: {
       label: "Biomass",
@@ -27,8 +27,8 @@ export const freeModePharmacyConfig: PharmacyBalanceConfig = {
       cleanCashCostPerUnit: 420,
       inputCosts: {},
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(4),
-      localOutputCap: 8,
-      queueCap: 11
+      localOutputCap: 60,
+      queueCap: 63
     },
     "stim-pack": {
       label: "Stim Pack",
@@ -37,8 +37,8 @@ export const freeModePharmacyConfig: PharmacyBalanceConfig = {
       cleanCashCostPerUnit: 800,
       inputCosts: {},
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(10),
-      localOutputCap: 4,
-      queueCap: 7
+      localOutputCap: 24,
+      queueCap: 27
     }
   }
 };

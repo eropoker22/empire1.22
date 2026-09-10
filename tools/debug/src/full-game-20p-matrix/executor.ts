@@ -189,16 +189,7 @@ const recordAcceptedOutcome = (
 ): void => {
   const outcomes = metrics.outcomesByPlayer[playerId] ??= {};
   const add = (key: string, amount = 1) => { outcomes[key] = (outcomes[key] ?? 0) + amount; };
-  if (type === "attack-district" && targetDistrictId) {
-    const ownerAfter = state.districtsById[targetDistrictId]?.ownerPlayerId ?? null;
-    add(ownerAfter === playerId ? "attacksWon" : "attacksLost");
-    if (ownerAfter === playerId && targetOwnerBefore !== playerId) add("districtsCaptured");
-  }
-  if (type === "spy-district") {
-    const report = state.notificationsById[`notification:${commandId}:spy-report`];
-    const result = String(report?.payload?.result ?? "unknown");
-    add(result === "success" ? "spySuccesses" : "spyFailures");
-  }
+  // Timed spy/attack outcomes are counted only from worker resolution events.
   if (type === "buy-player-market-listing") add("marketTrades");
 };
 

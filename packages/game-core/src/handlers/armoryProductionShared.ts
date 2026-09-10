@@ -1,3 +1,5 @@
+import { resolveProductionSupportMultiplier } from "../rules/production/productionSpeedModifiers";
+import { getFactionPassiveModifiers, resolveFactionProductionMultiplier } from "../rules/factions/factionRules";
 import type { Building, BuildingProductionLine, ResourceState } from "@empire/shared-types";
 import type { ArmoryBalanceConfig, ArmoryRecipeBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
@@ -63,6 +65,8 @@ export const resolveArmoryDurationTicks = (
       / resolveArmoryNetworkSpeedMultiplier(resolveActiveArmoryCount(state, building.ownerPlayerId ?? ""), armory)
       / resolveProductionBuildingLevelMultiplier(building, context)
       / getPlayerProductionBoostMultiplier(state, building.ownerPlayerId, state.root.tick)
+      / resolveFactionProductionMultiplier(recipe.outputResourceKey ?? "", building.buildingTypeId, getFactionPassiveModifiers(state, building.ownerPlayerId, context))
+      / resolveProductionSupportMultiplier(state, building, building.ownerPlayerId, context)
   )), state, building, context);
 };
 

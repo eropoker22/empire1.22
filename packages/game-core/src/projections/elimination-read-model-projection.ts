@@ -1,6 +1,7 @@
 import type { EliminationReadModel, PlayerId } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
+import { createScoreContributionView } from "./score-contribution-view";
 import { compareEliminationScores, createPlayerEliminationScore } from "../rules/elimination/eliminationScore";
 import {
   isTickInEliminationQuietHours,
@@ -62,6 +63,7 @@ export const createEliminationReadModel = (
       : quietHoursResumeTick,
     deferredFromTick: state.eliminationState?.deferredFromTick ?? null,
     eliminatedPlayerIds: state.eliminationState?.eliminatedPlayerIds ?? [],
+    eliminatedPlayers: createEliminatedPlayers(state),
     activePlayersRemaining: activePlayerIds.length,
     dangerZone: scores.slice(0, dangerZoneSize).map((score, index) => ({
       playerId: score.playerId,
@@ -76,6 +78,7 @@ export const createEliminationReadModel = (
     currentPlayerScore: currentScore ? Math.round(currentScore.score * 100) / 100 : null,
     currentPlayerRankFromBottom: currentPlayerIndex >= 0 ? currentPlayerIndex + 1 : null,
     currentPlayerScoreBreakdown: currentScore ? createEliminationScoreBreakdown(currentScore) : null,
+    currentPlayerScoreContributions: currentScore ? createScoreContributionView(createEliminationScoreBreakdown(currentScore), context) : null,
     playerStatus: player?.status ?? null,
     currentPlayerDefeat: createCurrentPlayerDefeat(player),
     lastElimination: createLastElimination(state)
@@ -116,6 +119,7 @@ const createDisabledReadModel = (
   quietHoursResumeTick: null,
   deferredFromTick: state.eliminationState?.deferredFromTick ?? null,
   eliminatedPlayerIds: state.eliminationState?.eliminatedPlayerIds ?? [],
+  eliminatedPlayers: createEliminatedPlayers(state),
   activePlayersRemaining,
   dangerZone: [],
   currentPlayerStatus: state.playersById[playerId]?.status === "defeated" ? "defeated" : "safe",
@@ -157,6 +161,9 @@ const createEliminationScoreBreakdown = (score: ReturnType<typeof createPlayerEl
   cleanCash: Math.round(score.cleanCash * 100) / 100,
   dirtyCash: Math.round(score.dirtyCash * 100) / 100,
   resources: Math.round(score.totalResourceValue * 100) / 100,
+  reservedCleanCash: Math.round((score.reservedCleanCash ?? 0) * 100) / 100,
+  buildingCapitalValue: Math.round((score.buildingCapitalValue ?? 0) * 100) / 100,
+  buildingCapitalScore: Math.round((score.buildingCapitalScore ?? 0) * 100) / 100,
   population: Math.round(score.population * 100) / 100,
   recentActivityBonus: Math.round(score.recentActivityBonus * 100) / 100,
   totalScore: Math.round(score.score * 100) / 100
@@ -205,3 +212,14 @@ const createLastElimination = (state: CoreGameState): EliminationReadModel["last
     finalPlacement: Number(player?.metadata?.finalPlacement ?? 0)
   };
 };
+
+const createEliminatedPlayers = (state: CoreGameState) =>
+  [...(state.eliminationState?.eliminatedPlayerIds ?? [])].reverse().map((playerId) => {
+    const player = state.playersById[playerId];
+    return {
+      playerId,
+      playerName: player?.name ?? playerId,
+      eliminatedAtTick: Math.max(0, Number(player?.metadata?.eliminatedAtTick ?? 0)),
+      finalPlacement: Number(player?.metadata?.finalPlacement) || null
+    };
+  });

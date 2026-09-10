@@ -25,6 +25,20 @@ describe("account registration request", () => {
     });
   });
 
+  it.each(["12345678", "a much longer password"])("accepts passwords with at least eight characters: %s", (password) => {
+    expect(validateAccountRegistrationRequest({
+      username: "AlphaBoss", gangName: "Alpha Gang", dateOfBirth: "1990-04-12",
+      password, passwordConfirmation: password, termsAccepted: true, termsVersion: TERMS_VERSION
+    }, TERMS_VERSION).password).toBe(password);
+  });
+
+  it("rejects seven-character passwords", () => {
+    expect(captureCode(() => validateAccountRegistrationRequest({
+      username: "AlphaBoss", gangName: "Alpha Gang", dateOfBirth: "1990-04-12",
+      password: "1234567", passwordConfirmation: "1234567", termsAccepted: true, termsVersion: TERMS_VERSION
+    }, TERMS_VERSION))).toBe("ACCOUNT_PASSWORD_TOO_SHORT");
+  });
+
   it("rejects missing and unknown fields", () => {
     expect(captureCode(() => validateAccountRegistrationRequest({}, TERMS_VERSION)))
       .toBe("ACCOUNT_REGISTRATION_PAYLOAD_INVALID");

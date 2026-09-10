@@ -1,4 +1,5 @@
 import * as crypto from "node:crypto";
+import { clearDepartedPlayerState } from "@empire/game-core";
 import { FREE_HOSTED_SERVER_TEMPLATE_POLICIES, resolveModeConfig } from "@empire/game-config";
 import type { AdminAuditEntryView } from "@empire/shared-types";
 import type { ServerApp } from "../../app/server-app";
@@ -133,5 +134,6 @@ export const applyHostedEarlyLeaveCleanup = (
     };
   }
   runtime.state.root.version += 1;
+  runtime.state = clearDepartedPlayerState(runtime.state, playerId);
   return true;
 };

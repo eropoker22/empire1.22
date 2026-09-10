@@ -1,3 +1,5 @@
+import { resolveProductionSupportMultiplier } from "../rules/production/productionSpeedModifiers";
+import { getFactionPassiveModifiers, resolveFactionProductionMultiplier } from "../rules/factions/factionRules";
 import type { Building, BuildingProductionLine, ResourceState } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
@@ -8,6 +10,7 @@ import { getPlayerProductionBoostMultiplier } from "../rules/player-boosts";
 
 export interface MultiLineProductionRecipe {
   durationTicksPerUnit: number;
+  outputResourceKey?: string;
 }
 
 export const MINIMUM_PRODUCTION_QUEUE_RESERVE = 3;
@@ -65,6 +68,8 @@ export const resolveProductionLineDurationTicks = (
       context.config.balance.cooldownMultiplier
     ) / resolveProductionBuildingLevelMultiplier(building, context)
       / getPlayerProductionBoostMultiplier(state, playerId ?? "", state.root.tick)
+      / resolveFactionProductionMultiplier(recipe.outputResourceKey ?? "", building.buildingTypeId, getFactionPassiveModifiers(state, playerId, context))
+      / resolveProductionSupportMultiplier(state, building, playerId, context)
   )), state, building, context);
 };
 

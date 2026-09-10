@@ -1,3 +1,4 @@
+import { getPlayerSpyOperationState } from "../validation/validateSpy";
 import {
   ATTACK_WEAPON_IDS,
   DEFAULT_PLAYER_COLOR,
@@ -117,6 +118,9 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
         affectedPlayerIds: token.affectedPlayerIds,
         expiresAtTick: token.expiresAtTick
       })),
+    spySlots: getPlayerSpyOperationState(state, playerId).slots.map((slot) => ({
+      ...slot, available: slot.availableAtTick <= state.root.tick
+    })),
     economy,
     faction: createFactionReadModel(state, playerId, context),
     dayNight: context ? createDayNightReadModel(state, context) : null,

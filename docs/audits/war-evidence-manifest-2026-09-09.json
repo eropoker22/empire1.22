@@ -1,0 +1,65 @@
+{
+  "auditDate": "2026-09-09",
+  "baseCommit": "7adc9182beacf0a39d8e5fff7715cd22b3852bb2",
+  "modifiedWorkingTree": true,
+  "deploymentVerified": false,
+  "limitations": [
+    "Before/after is same seed with changed bot HEAT support, not a one-factor experiment",
+    "Full runs predate last casino, action randomness, score UI and simulator outcome fixes",
+    "Old attack/spy success fields and gross-income names are not valid outcome/gross-income evidence",
+    "No alliance setup or city reward claim coverage in full runs; separate tests cover these behaviors",
+    "Mobile tests use browser emulation and controlled data, not a physical iPhone"
+  ],
+  "files": [
+    {
+      "path": "docs/audits/war-match-before-2026-09-09.json",
+      "bytes": 237591,
+      "sha256": "af6c438a3642c8550d8533db92b315be4abfab3ffc796f1ea555318c5ab27386"
+    },
+    {
+      "path": "docs/audits/war-match-after-2026-09-09.json",
+      "bytes": 252845,
+      "sha256": "f4b6f79e301296f588fd77e555c48c76a8374c6b51da9698d3416616f57a0eee"
+    },
+    {
+      "path": "docs/audits/war-regression-tests-2026-09-09.json",
+      "bytes": 260341,
+      "sha256": "9770c165f090bacafe0b5f455c218405275e82870fc9d700c27f89590665ac54"
+    },
+    {
+      "path": "docs/audits/war-extraction-tests-2026-09-09.json",
+      "bytes": 71142,
+      "sha256": "824af276855b3abd48617ca51882b59be27a8cf0b296459d30a12e27567aafd3"
+    },
+    {
+      "path": "docs/audits/war-postgres-tests-2026-09-09.json",
+      "bytes": 2791,
+      "sha256": "f2e76fe3a6413ef114376c449e1056af497c062dfa98acb04d617be336d877f2"
+    },
+    {
+      "path": "docs/audits/war-balance-before-2026-09-09.json",
+      "bytes": 216223,
+      "sha256": "3c7fbdfad9a6117e964ffe4403fe12e2e632ecb75c2440d12d92a2b384a756a9"
+    },
+    {
+      "path": "docs/audits/war-balance-after-2026-09-09.json",
+      "bytes": 305055,
+      "sha256": "bd274977f0bf3c676b6d535e577cb0f1e3e27ce9190d0bb6111be28f37fb3049"
+    },
+    {
+      "path": "docs/audits/war-balance-config-2026-09-09.json",
+      "bytes": 471789,
+      "sha256": "40bc0511cd015afb1d7feb787f89992079c1d47126f32a8104b7c530a6591b75"
+    },
+    {
+      "path": ".tmp/war-balance-match.mjs",
+      "bytes": 2961384,
+      "sha256": "849bf055fd70118f25321aabd75b4e34914c9f6f5140b4eda1dc3afde34bce95"
+    },
+    {
+      "path": ".tmp/war-balance-match-after.mjs",
+      "bytes": 2963674,
+      "sha256": "dc265574b1fb88b01cc032f9c63e6e2b5896ae84a365336d1266cc117d316960"
+    }
+  ]
+}

@@ -90,6 +90,8 @@ describe("alliance lifecycle", () => {
 
     expect(created.errors).toEqual([]);
     expect(created.nextState.alliancesById[allianceId].tag).toBe("REAPER");
+    expect(created.nextState.districtsById["district:alliance-create:player:1"].influence).toBe(0);
+    expect(state.districtsById["district:alliance-create:player:1"].influence).toBe(40);
     expect(created.nextState.alliancesById[allianceId].emblemColor).toBe("#ff2f5f");
   });
 

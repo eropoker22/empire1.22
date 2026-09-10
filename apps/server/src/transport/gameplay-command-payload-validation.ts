@@ -1,3 +1,4 @@
+import { createMissingFieldError, createInvalidFieldError, getFieldPath, isRecord } from "./gameplay-payload-validation-primitives";
 import type { DomainError } from "@empire/shared-types";
 import { isAllianceCommandType, validateAllianceCommandPayload } from "./gameplay-alliance-payload-validation";
 import { validateAttackWeaponsPayload } from "./gameplay-attack-payload-validation";
@@ -39,6 +40,13 @@ export const validateGameCommandPayload = (
   }
 
   switch (type) {
+    case "reduce-police-heat":
+      rejectUnknownPayloadFields(errors, payload, ["method"]);
+      requireStringField(errors, "submit", payload, "method", "command.payload.method");
+      if (!["dirty", "clean", "influence"].includes(String(payload.method))) {
+        errors.push(createMissingFieldError("submit", "command.payload.method", "Neplatná metoda snížení heat."));
+      }
+      break;
     case "activate-player-boost":
       rejectUnknownPayloadFields(errors, payload, ["boostId"]);
       requireStringField(errors, "submit", payload, "boostId", "command.payload.boostId");
@@ -189,6 +197,7 @@ const validateBuildingPayload = (errors: DomainError[], payload: Record<string, 
   requireStringField(errors, "submit", payload, "buildingId", "command.payload.buildingId");
 };
 const hasPayloadSchema = (type: string): boolean =>
+  type === "reduce-police-heat" ||
   ["activate-player-boost", "start-city-event", "claim-city-event-reward", "claim-emergency-recovery", "send-city-chat-message", "attack-district", "acknowledge-pending-raid", "build-structure", "occupy-district", "spy-district", "place-trap", "relocate-trap", "select-spawn-district", "collect-production", "craft-item", "cancel-pharmacy-production", "cancel-drug-lab-production", "cancel-production-line", "run-building-action", "upgrade-building"].includes(type)
   || isBasicActionCommandType(type) || isAllianceCommandType(type) || isMarketCommandType(type) || isBountyCommandType(type);
 const validateRunBuildingActionOptionalPayload = (
@@ -292,42 +301,3 @@ const requireNonNegativeIntegerField = (
   if (typeof fieldValue === "number" && Number.isInteger(fieldValue) && fieldValue >= 0) return;
   errors.push(createInvalidFieldError(errorFieldPath, "Pole payloadu musí být nezáporné celé číslo."));
 };
-
-const createMissingFieldError = (
-  kind: GameplaySliceRequestKind,
-  fieldPath: string,
-  message = `V gameplay ${kind} requestu chybí povinné pole '${fieldPath}'.`
-): DomainError => ({
-  code: "transport.invalid_request",
-  message,
-  details: {
-    field: fieldPath
-  }
-});
-
-const createInvalidFieldError = (
-  fieldPath: string,
-  message: string
-): DomainError => ({
-  code: "transport.invalid_request",
-  message,
-  details: {
-    field: fieldPath
-  }
-});
-const getFieldPath = (
-  value: Record<string, unknown>,
-  fieldPath: string
-): unknown => {
-  const parts = fieldPath.split(".");
-  let current: unknown = value;
-  for (const part of parts) {
-    if (!isRecord(current)) {
-      return undefined;
-    }
-    current = current[part];
-  }
-  return current;
-};
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);

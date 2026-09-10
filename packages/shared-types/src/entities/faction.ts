@@ -1,5 +1,7 @@
 import type { AttackWeaponId, DefenseWeaponId } from "./weapon";
 
+export const MAX_PLAYERS_PER_FACTION = 4;
+
 export const PLAYER_FACTION_IDS = [
   "mafian",
   "kartel",

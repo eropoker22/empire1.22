@@ -37,6 +37,7 @@ export const createBountyReadModel = (
       .map((candidatePlayerId) => state.playersById[candidatePlayerId])
       .filter((candidate) => candidate !== undefined)
       .filter((candidate) => candidate.id !== playerId)
+      .filter((candidate) => candidate.status === "active")
       .map((candidate) => {
         const isAlly = Boolean(player?.allianceId && candidate.allianceId && player.allianceId === candidate.allianceId);
         const districts = state.root.districtIds
@@ -69,7 +70,8 @@ export const createBountyReadModel = (
           canTarget: disabledReason === null,
           disabledReason
         };
-      }),
+      })
+      .filter((candidate) => candidate.activeDistrictCount > 0),
     activeBounties: Object.values(state.bountiesById ?? {})
       .sort((left, right) => right.createdAtTick - left.createdAtTick)
       .slice(0, 50)

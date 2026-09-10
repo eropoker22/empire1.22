@@ -207,10 +207,10 @@ describe("core police system completion", () => {
     expect(pressure).toMatchObject({
       playerHeatPressure: 20,
       districtHeatPressure: 110,
-      aggregatePressure: 119,
+      aggregatePressure: 95,
       hottestDistrictId: "district:1",
       hottestDistrictHeat: 110,
-      riskTier: "high"
+      riskTier: "medium"
     });
   });
 
@@ -341,7 +341,7 @@ describe("core police system completion", () => {
     expect(triggerRaid(afterProcessedMorning, createContext()).events).toEqual([]);
   });
 
-  it("starts one visible medium raid at the first 08:00 boundary even when the city is still quiet", () => {
+  it("starts a harmless rotating inspection at 08:00 when the city is quiet", () => {
     const atFirstMorning = createCoreStateFixture();
     addPoliceState(atFirstMorning, 0);
     atFirstMorning.root.tick = 120;
@@ -352,10 +352,17 @@ describe("core police system completion", () => {
     expect(result.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
     expect(raid).toMatchObject({
       playerId: "player:1",
-      severity: "medium",
+      severity: "low",
+      kind: "inspection",
       createdAtTick: 120,
       reason: expect.stringContaining("scheduled-morning")
     });
+    expect(raid?.expiresAtTick).toBe(180);
+    expect(raid?.previewConsequences).toMatchObject({ seizedDirtyCash: 0, seizedResources: {}, lockedDistrictId: null, disruptedBuildingIds: [] });
+    expect(raid?.explanation).toContain("namátková kontrola");
+    const model = createPoliceReadModel(result.nextState, "player:1", createContext());
+    expect(model.riskTier).toBe("low");
+    expect(model.recommendedAction).toContain("Nic se nezabavuje");
   });
 
   it("forces another quiet-city raid at every later scheduled boundary", () => {
@@ -371,13 +378,13 @@ describe("core police system completion", () => {
 
     expect(result.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
     expect(result.nextState.policeStatesById["police:1"].pendingRaids?.[0]).toMatchObject({
-      severity: "medium",
+      severity: "low",
       createdAtTick: 1560,
       reason: expect.stringContaining("scheduled-morning")
     });
   });
 
-  it("starts one raid at all three scheduled boundaries with only two quiet active players", () => {
+  it("rotates quiet inspections and respects cooldown even when no resident is eligible", () => {
     const state = createCoreStateFixture();
     state.playersById = {};
     state.districtsById = {};
@@ -412,8 +419,8 @@ describe("core police system completion", () => {
       .filter((event) => event.type === "police-raid-triggered")
       .map((event) => readEventPlayerId(event.payload));
 
-    expect(midnight.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(1);
-    expect(triggeredPlayerIds).toEqual(["player:1", "player:2", "player:1"]);
+    expect(midnight.events.filter((event) => event.type === "police-raid-triggered")).toHaveLength(0);
+    expect(triggeredPlayerIds).toEqual(["player:1", "player:2"]);
   });
 
   it("catches a crossed boundary once and persists the processed window across restart", () => {
@@ -538,7 +545,7 @@ describe("core police system completion", () => {
 
     const triggered = triggerRaid(state, createContext());
     const raid = triggered.nextState.policeStatesById["police:1"].pendingRaids?.[0];
-    const resolved = resolvePendingRaid(triggered.nextState, "player:1", raid!.raidId, createContext());
+    const resolved = { ...triggered, result: triggered.events.find((event) => event.type === "police-raid-resolved")?.payload };
     const balances = resolved.nextState.resourceStatesById["resource:1"].balances;
 
     expect(resolved.result).toMatchObject({
@@ -550,7 +557,7 @@ describe("core police system completion", () => {
       lockedDistrictId: "district:1",
       disruptedBuildingIds: [building.id],
       buildingDisruptionUntilTick: 360 + FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme,
-      heatReducedBy: 55
+      heatReducedBy: 0
     });
     expect(balances).toMatchObject({
       cash: 1000,
@@ -731,7 +738,7 @@ describe("core police system completion", () => {
 
     const triggered = triggerRaid(state, createContext());
     const raid = triggered.nextState.policeStatesById["police:1"].pendingRaids?.[0];
-    const resolved = resolvePendingRaid(triggered.nextState, "player:1", raid!.raidId, createContext());
+    const resolved = { ...triggered, result: triggered.events.find((event) => event.type === "police-raid-resolved")?.payload };
     const balances = resolved.nextState.resourceStatesById["resource:1"].balances;
 
     expect(raid?.previewConsequences.courthouseMitigation).toMatchObject({
@@ -761,7 +768,7 @@ describe("core police system completion", () => {
       buildingDisruptionUntilTick: 360 + Math.ceil(
         FREE_POLICE_CONFIG.buildingDisruptionTicksBySeverity.extreme * 0.25
       ),
-      heatReducedBy: 55,
+      heatReducedBy: 0,
       courtMitigationPct: 75,
       courtBuildingsOwned: 2,
       courthouseMitigation: {
@@ -777,7 +784,7 @@ describe("core police system completion", () => {
     expect(resolved.nextState.districtsById["district:1"].lockdownUntilTick).toBe(
       360 + Math.ceil(FREE_POLICE_CONFIG.lockdownTicksBySeverity.extreme * 0.25)
     );
-    expect(resolved.events[0]?.payload).toMatchObject({
+    expect(resolved.events.find((event) => event.type === "police-raid-resolved")?.payload).toMatchObject({
       courtMitigationPct: 75,
       courtBuildingsOwned: 2,
       courthouseMitigation: {
@@ -800,11 +807,17 @@ describe("core police system completion", () => {
     const triggered = triggerRaid(state, createContext());
     const raid = triggered.nextState.policeStatesById["police:1"].pendingRaids?.[0];
     const acknowledged = acknowledgePendingRaid(triggered.nextState, "player:1", raid!.raidId);
-    const resolved = resolvePendingRaid(acknowledged.nextState, "player:1", raid!.raidId, createContext());
+    const beforeEnd = resolvePendingRaid(acknowledged.nextState, "player:1", raid!.raidId, createContext());
+    expect(beforeEnd.nextState).toBe(acknowledged.nextState);
+    const restored = JSON.parse(JSON.stringify(acknowledged.nextState));
+    restored.root.tick = raid!.expiresAtTick;
+    const resolved = resolvePendingRaid(restored, "player:1", raid!.raidId, createContext());
 
     expect(acknowledged.nextState.policeStatesById["police:1"].pendingRaids?.[0].status).toBe("acknowledged");
     expect(resolved.nextState.policeStatesById["police:1"].pendingRaids?.[0].status).toBe("resolved");
-    expect(resolved.result?.seizedDirtyCash).toBe(12);
+    expect(raid?.previewConsequences.seizedDirtyCash).toBe(12);
+    expect(resolved.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(88);
+    expect(resolved.events).toEqual([]);
   });
 
   it("does not lower heat when an unacknowledged raid auto-resolves while the player is away", () => {
@@ -832,11 +845,12 @@ describe("core police system completion", () => {
     const resolved = expirePendingRaids(expiredInput, context);
 
     expect(raid?.status).toBe("pending");
-    expect(raid?.previewConsequences.heatReducedBy).toBe(30);
+    expect(raid?.previewConsequences.heatReducedBy).toBe(0);
+    expect(raid?.heatReductionOnAcknowledge).toBe(30);
     expect(resolved.nextState.policeStatesById["police:1"].pendingRaids?.[0].status).toBe("resolved");
     expect(resolved.nextState.policeStatesById["police:1"].heat).toBe(150);
     expect(resolved.nextState.resourceStatesById["resource:1"].balances["dirty-cash"]).toBeLessThan(100);
-    expect(resolved.events).toContainEqual(expect.objectContaining({
+    expect(triggered.events).toContainEqual(expect.objectContaining({
       type: "police-raid-resolved",
       payload: expect.objectContaining({ heatReducedBy: 0 })
     }));
@@ -863,10 +877,9 @@ describe("core police system completion", () => {
 
     expect(resolved.nextState.policeStatesById["police:1"].pendingRaids?.[0].status).toBe("resolved");
     expect(resolved.nextState.policeStatesById["police:1"].heat).toBe(120);
-    expect(resolved.events).toContainEqual(expect.objectContaining({
-      type: "police-raid-resolved",
-      payload: expect.objectContaining({ heatReducedBy: 30 })
-    }));
+    expect(acknowledged.nextState.policeStatesById["police:1"].heat).toBe(120);
+    expect(acknowledgePendingRaid(acknowledged.nextState, "player:1", raid!.raidId).nextState).toBe(acknowledged.nextState);
+    expect(resolved.events).toEqual([]);
   });
 
   it("can expire pending raids without consequences when configured", () => {
@@ -913,7 +926,7 @@ describe("core police system completion", () => {
         severity: "high"
       },
       lastPoliceEvent: {
-        type: "police-raid-pending"
+        type: "police-raid-resolved"
       }
     });
   });

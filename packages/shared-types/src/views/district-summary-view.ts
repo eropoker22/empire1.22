@@ -18,6 +18,7 @@ export interface DistrictSummaryView {
   ownerColor: PlayerColorHex | null;
   isOwnedByPlayer: boolean;
   intelKnown: boolean;
+  occupyIntelValid?: boolean;
   status: DistrictStatus;
   adjacentDistrictIds: DistrictId[];
   heat: number;

@@ -55,6 +55,12 @@ describe("authoritative elimination panel adapters", () => {
     ]));
   });
 
+  it("keeps all server-projected purge victims for the history panel", () => {
+    const eliminatedPlayers = [{ playerId: "player:2", playerName: "Rival", finalPlacement: 10, eliminatedAtTick: 60 }];
+    const view = createEliminationPanelViewModel({ enabled: true, eliminatedPlayers, dangerZone: [] });
+    expect(view.eliminatedPlayers).toEqual(eliminatedPlayers);
+  });
+
   it("maps Final Lockdown Top 3 and gaps without synthesizing missing values", () => {
     const view = createFinalLockdownPanelViewModel({
       enabled: true,

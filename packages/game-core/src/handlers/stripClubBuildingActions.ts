@@ -151,16 +151,16 @@ export const resolveStripClubAction = (input: {
 
   if (input.action.actionId === config.privateParty.actionId) {
     metadata.privatePartyExpiresAtTick = input.state.root.tick + minutesToTicks(config.privateParty.durationMinutes, input.tickRateMs);
-    const extraRumor = deterministicRollPct(`${input.commandId}:extra-rumor:${input.state.root.tick}`) < config.privateParty.extraRumorChancePct
+    const extraRumor = deterministicRollPct(`${input.state.serverInstance.worldSeed}:${input.building.id}:extra-rumor:${input.state.root.tick}`) < config.privateParty.extraRumorChancePct
       ? generateStripClubRumor({
           state: input.state,
           playerId: input.building.ownerPlayerId ?? "",
           buildingId: input.building.id,
           config,
-          seed: `${input.commandId}:party-rumor:${input.state.root.tick}`
+          seed: `${input.state.serverInstance.worldSeed}:${input.building.id}:party-rumor:${input.state.root.tick}`
         })
       : null;
-    const scandal = deterministicRollPct(`${input.commandId}:scandal:${input.state.root.tick}`) < config.privateParty.scandalChancePct;
+    const scandal = deterministicRollPct(`${input.state.serverInstance.worldSeed}:${input.building.id}:scandal:${input.state.root.tick}`) < config.privateParty.scandalChancePct;
 
     if (extraRumor) {
       metadata.rumorEvents.push(extraRumor);
@@ -171,7 +171,7 @@ export const resolveStripClubAction = (input: {
         playerId: input.building.ownerPlayerId ?? "",
         buildingId: input.building.id,
         config,
-        seed: `${input.commandId}:scandal-rumor:${input.state.root.tick}`,
+        seed: `${input.state.serverInstance.worldSeed}:${input.building.id}:scandal-rumor:${input.state.root.tick}`,
         forcedType: "relationships",
         forcedFalse: false
       });

@@ -1,3 +1,4 @@
+import { createPoliceRaidResultPayload, createServerPoliceRaidNews } from "./runtime/policeRaidPresentation.js";
 import { resolveDistrictActions } from "./legacy/district-action-policy.js";
 import {
   ATTACK_COOLDOWN_MS,
@@ -735,6 +736,7 @@ import {
   showInfo,
   renderNotificationList,
   showSuccess,
+  showUpgradeSuccess,
   showToast,
   showWarning
 } from "./ui/notifications.js";
@@ -2185,7 +2187,8 @@ function getResolvedSpyState() {
       .find((entry) => Array.isArray(entry?.slots)) || null;
     const currentTick = Math.max(0, Number(latestGameplaySliceReadModel?.server?.currentTick ?? 0));
     const tickRateMs = Math.max(1, Number(latestGameplaySliceReadModel?.mode?.tickRateMs || FREE_GAMEPLAY_TICK_MS));
-    const slots = Array.isArray(target?.slots) ? target.slots : [];
+    const slots = latestGameplaySliceReadModel?.player?.spySlots
+      ?? (Array.isArray(target?.slots) ? target.slots : []);
     const activeSlots = slots.filter(
       (slot) => slot?.lastMissionId && Number(slot?.availableAtTick ?? 0) > currentTick
     );
@@ -2677,6 +2680,15 @@ function normalizePoliceActionMarker(districtId, marker) {
 }
 
 function getResolvedDistrictPoliceActions() {
+  if (hasServerAuthoritativeGameplayProjection()) {
+    const raid = latestGameplaySliceReadModel?.player?.police?.activeRaid;
+    const districtId = Number(resolveLegacyDistrictId(raid?.districtId));
+    if (!districtId || raid?.status !== "active" || Number(raid.expiresAt) <= Date.now()) return {};
+    return { [districtId]: {
+      districtId, source: "server", operationType: "police_raid", raidSpecialtyKey: "monitoring",
+      startedAt: raid.startedAt, expiresAt: raid.expiresAt, seed: districtId, impact: null
+    } };
+  }
   const worldState = getResolvedWorldState();
   const entries = Object.entries(worldState.districtPoliceActionById || {});
   if (entries.length === 0) {
@@ -4797,6 +4809,7 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
       })
     : null;
   const visibleEntries = dedupeStreetNewsCooldownEntries([
+    ...createServerPoliceRaidNews(latestGameplaySliceReadModel?.player?.police, { tick: latestGameplaySliceReadModel?.server?.currentTick, tickRateMs: latestGameplaySliceReadModel?.mode?.tickRateMs, formatDuration: formatDurationLabel }).map((entry) => createBuildingActionEntry(entry)),
     ...cooldownEntries,
     ...(rumorInboxEntry ? [rumorInboxEntry] : []),
     ...standardEntries
@@ -9646,6 +9659,7 @@ async function upgradeDistrictBuildingDetail(root, shell) {
       `Server potvrdil upgrade na level ${mechanics.nextLevel}.`,
       `Cena ${mechanics.upgradeCostLabel}`
     );
+    showUpgradeSuccess(context.buildingName, { root });
     refreshDistrictBuildingDetailPopup(root, shell);
     return;
   }
@@ -9706,6 +9720,7 @@ async function upgradeDistrictBuildingDetail(root, shell) {
     `Budova je teď na levelu ${mechanics.nextLevel}.`,
     `Cena ${mechanics.upgradeCostLabel}`
   );
+  showUpgradeSuccess(context.buildingName, { root });
   refreshDistrictBuildingDetailPopup(root, shell);
 }
 
@@ -11840,6 +11855,10 @@ function bindDistrictCanvas(root) {
           ...(interactionState.revealedDistrictIds || []),
           ...(worldState.ownedDistrictIds || [])
         ]);
+    interactionState.occupiableSpyDistrictIds = serverDistricts
+      ? new Set(serverDistricts.filter((district) => district?.occupyIntelValid === true)
+        .map((district) => Number(resolveLegacyDistrictId(district.districtId))).filter(Boolean))
+      : new Set(getResolvedSpyIntel().occupiableDistrictIds || []);
     interactionState.destroyedDistrictIds = serverDistricts
       ? new Set(serverDistricts
         .filter((district) => district?.status === "destroyed")
@@ -13793,7 +13812,9 @@ function bindDistrictCanvas(root) {
 
     const currentPlayerOwnedDistrictIds = getCurrentPlayerOwnedDistrictIds(interactionState);
     const isOwnedDistrict = currentPlayerOwnedDistrictIds.has(Number(district.id));
-    const policeRaidPayload = isOwnedDistrict
+    const policeRaidPayload = activePoliceAction.source === "server" && latestGameplaySliceReadModel?.player?.police?.pendingRaid
+      ? createPoliceRaidResultPayload(latestGameplaySliceReadModel.player.police.pendingRaid, formatDurationLabel)
+      : isOwnedDistrict
       ? createOwnedDistrictPoliceRaidAlertPayload(district, activePoliceAction)
       : createDistrictPoliceRaidWarningPayload(district, activePoliceAction);
 
@@ -13805,6 +13826,7 @@ function bindDistrictCanvas(root) {
   };
 
   const appendStoredOwnedPoliceRaidAlert = () => {
+    if (getCurrentGameplayExecutionMode() === GAMEPLAY_EXECUTION_MODES.serverAuthoritative) return false;
     if (!root || root.dataset.ownedPoliceRaidAlertOpened === "true") {
       return false;
     }
@@ -15923,6 +15945,7 @@ const {
   cleanActionCost: GANG_HEAT_CLEAN_COST,
   dirtyActionCost: GANG_HEAT_DIRTY_COST,
   influenceActionCost: GANG_HEAT_INFLUENCE_COST,
+  onServerAction: method => submitServerDistrictActionCommand({ type: "reduce-police-heat", payload: { method } }),
   formatGangHeatProtectionLabel,
   gangHeatTiers: GANG_HEAT_TIERS,
   getServerPlayerView,
@@ -16790,37 +16813,9 @@ function bindPoliceHeatFeedback(root) {
         return null;
       }
     })(),
-    onNewPendingRaid: (raid, policeViewModel) => {
-      const preview = raid?.previewConsequences || policeViewModel?.previewConsequences || {};
-      const severity = String(raid?.severity || "high").toUpperCase();
-      const targetDistrictId = String(raid?.targetDistrictId || "").trim();
-      const getRemainingMs = () => {
-        const expiresAtMs = Number(raid?.expiresAtMs);
-        return Number.isFinite(expiresAtMs)
-          ? Math.max(0, expiresAtMs - Date.now())
-          : Math.max(0, Number(raid?.remainingMs || 0));
-      };
-      queueOrOpenResultModal(root, "police", {
-        title: "POLICEJNÍ RAZIE SE BLÍŽÍ",
-        badge: `${severity} RAID`,
-        summary: targetDistrictId
-          ? `Policie připravuje zásah v districtu ${targetDistrictId}.`
-          : "Policie připravuje zásah proti tvému gangu.",
-        tone: "is-owned-district-raid-alert",
-        raidId: raid?.raidId,
-        targetDistrictId: targetDistrictId || null,
-        previewConsequences: preview,
-        getRows: () => [
-          { label: "Závažnost", value: severity },
-          { label: "Zásah za", value: formatDurationLabel(getRemainingMs()), nowrap: true },
-          { label: "Cíl", value: targetDistrictId || "Gang" },
-          { label: "Policejní tlak", value: Math.max(0, Number(raid?.sourcePressure || policeViewModel?.raidPressure || 0)) },
-          { label: "Dirty cash v ohrožení", value: Math.max(0, Number(preview?.seizedDirtyCash || 0)) },
-          { label: "Heat po zásahu", value: `-${Math.max(0, Number(preview?.heatReducedBy || 0))}` }
-        ],
-        refreshMs: 1_000,
-        syncToBuildingAction: true
-      });
+    onNewPendingRaid: (raid) => {
+      renderBuildingActionFeed(root);
+      queueOrOpenResultModal(root, "police", createPoliceRaidResultPayload(raid, formatDurationLabel));
     }
   });
   policeHeatBridgesByRoot.set(root, bridge);

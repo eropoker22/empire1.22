@@ -1,6 +1,7 @@
 import { isModalScrollLocked } from "./ui/modalScrollLock.js";
 
 const MOBILE_MEDIA = "(max-width: 720px)";
+const MOBILE_VISIBLE_VIEWPORT_MEDIA = "(max-width: 720px), (max-width: 900px) and (pointer: coarse)";
 const MOBILE_TOPBAR_GAP = 4;
 const MOBILE_OVERLAY_SELECTOR = [
   ".modal",
@@ -44,8 +45,45 @@ const MOBILE_CLOSE_CONTROL_SELECTOR = [
 
 function initMobileViewportLock(windowObj = window, documentObj = document) {
   const media = windowObj.matchMedia(MOBILE_MEDIA);
+  const visibleViewportMedia = windowObj.matchMedia(MOBILE_VISIBLE_VIEWPORT_MEDIA);
   const root = documentObj.documentElement;
   let lastWidth = windowObj.innerWidth;
+  let visibleViewportSettledTimer = null;
+  const applyVisibleViewport = () => {
+    if (!visibleViewportMedia.matches) {
+      root.style.removeProperty("--mobile-visible-vh");
+      root.style.removeProperty("--mobile-visible-top");
+      return;
+    }
+    const viewport = windowObj.visualViewport;
+    const layoutHeight = Number(windowObj.innerHeight) || Number(viewport?.height);
+    const top = Math.max(0, Number(viewport?.offsetTop) || 0);
+    // WebKit can report the previous visual height during a layout resize.
+    // A stale larger value must never place a card below the visible screen.
+    const height = Math.min(Number(viewport?.height) || layoutHeight, Math.max(1, layoutHeight - top));
+    root.style.setProperty("--mobile-visible-vh", `${Math.round(height)}px`);
+    root.style.setProperty("--mobile-visible-top", `${Math.round(top)}px`);
+  };
+  const refreshVisibleViewport = () => {
+    applyVisibleViewport();
+    if (visibleViewportSettledTimer !== null) windowObj.clearTimeout(visibleViewportSettledTimer);
+    // Safari updates layout and visual viewport in separate stages. Re-read
+    // after the resize settles even when no second visualViewport event fires.
+    visibleViewportSettledTimer = windowObj.setTimeout(() => {
+      visibleViewportSettledTimer = null;
+      applyVisibleViewport();
+    }, 100);
+  };
+  applyVisibleViewport();
+  windowObj.addEventListener("resize", refreshVisibleViewport);
+  windowObj.addEventListener("pageshow", refreshVisibleViewport);
+  windowObj.visualViewport?.addEventListener?.("resize", refreshVisibleViewport);
+  windowObj.visualViewport?.addEventListener?.("scroll", refreshVisibleViewport);
+  if (typeof visibleViewportMedia.addEventListener === "function") {
+    visibleViewportMedia.addEventListener("change", applyVisibleViewport);
+  } else {
+    visibleViewportMedia.addListener?.(applyVisibleViewport);
+  }
 
   const apply = () => {
     if (!media.matches) {
@@ -64,7 +102,10 @@ function initMobileViewportLock(windowObj = window, documentObj = document) {
 
   apply();
   windowObj.addEventListener("orientationchange", () => {
-    windowObj.setTimeout(apply, 140);
+    windowObj.setTimeout(() => {
+      apply();
+      applyVisibleViewport();
+    }, 140);
   });
   windowObj.addEventListener("resize", () => {
     if (!media.matches) {
@@ -371,7 +412,7 @@ function initMobileOverlayScrollLock(windowObj = window, documentObj = document)
 }
 
 function initMobileCloseTapAssist(windowObj = window, documentObj = document) {
-  const media = windowObj.matchMedia(MOBILE_MEDIA);
+  const media = windowObj.matchMedia(MOBILE_VISIBLE_VIEWPORT_MEDIA);
   let activeControl = null;
   let closeGuardTimer = null;
   let dispatchingAssistedClick = false;

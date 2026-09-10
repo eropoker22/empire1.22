@@ -1,3 +1,5 @@
+import { resolveProductionSupportMultiplier } from "../rules/production/productionSpeedModifiers";
+import { getFactionPassiveModifiers, resolveFactionProductionMultiplier } from "../rules/factions/factionRules";
 import type { Building, BuildingProductionLine, ResourceState } from "@empire/shared-types";
 import type { FactoryBalanceConfig, FactoryRecipeBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
@@ -93,6 +95,8 @@ export const resolveFactoryDurationTicks = (
   return applyDistrictStabilizationToProductionDuration(Math.max(1, Math.ceil(
     baseDuration / networkMultiplier / resolveProductionBuildingLevelMultiplier(building, context)
       / getPlayerProductionBoostMultiplier(state, resolveFactoryOwnerPlayerId(state, building), state.root.tick)
+      / resolveFactionProductionMultiplier(recipe.outputResourceKey ?? "", building.buildingTypeId, getFactionPassiveModifiers(state, resolveFactoryOwnerPlayerId(state, building), context))
+      / resolveProductionSupportMultiplier(state, building, resolveFactoryOwnerPlayerId(state, building), context)
   )), state, building, context);
 };
 

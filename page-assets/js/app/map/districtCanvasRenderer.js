@@ -528,7 +528,7 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
     const isSelected = renderSelectionLayer && district.id === selectedDistrictId;
     const isOwned = effectiveOwnedDistrictIds.has(district.id);
     const isOwnedByCurrentPlayer = currentPlayerOwnedDistrictIds.has(district.id);
-    const isRevealedBySpy = interactionState.revealedDistrictIds?.has?.(district.id) === true
+    const isRevealedBySpy = interactionState.occupiableSpyDistrictIds?.has?.(district.id) === true
       && !isOwnedByCurrentPlayer;
     const isDestroyed = interactionState.destroyedDistrictIds?.has?.(district.id) === true;
     const isDowntownDistrict = String(district.districtType || "").trim().toLowerCase() === "downtown";

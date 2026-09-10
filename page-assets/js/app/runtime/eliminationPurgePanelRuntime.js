@@ -286,6 +286,7 @@ function normalizePanelViewModel(viewModel = {}, fallbackMode = "elimination") {
     metrics: asArray(viewModel.metrics),
     leaderboardTitle: viewModel.leaderboardTitle || (normalizedMode === "final_lockdown" ? "Top 3" : "Poslední 3 hráči"),
     leaderboard: asArray(viewModel.leaderboard),
+    eliminatedPlayers: asArray(viewModel.eliminatedPlayers),
     actions: asArray(viewModel.actions),
     scoreTitle: viewModel.scoreTitle || "Rozpis score",
     scoreBreakdown: asArray(viewModel.scoreBreakdown),
@@ -324,7 +325,7 @@ function resolveReadModelPanelViewModel(playerView = null, mode = "elimination",
     countdownRemainingMs
   };
   return normalizedMode === "final_lockdown" || normalizedMode === "final"
-    ? createFinalLockdownPanelViewModel(source, modeConfig)
+    ? { ...createFinalLockdownPanelViewModel(source, modeConfig), eliminatedPlayers: asArray(playerView?.elimination?.eliminatedPlayers) }
     : createEliminationPanelViewModel(source, modeConfig);
 }
 
@@ -391,7 +392,7 @@ function progressStyle(progress) {
 }
 
 function renderScoreBreakdown(viewModel) {
-  const rows = asArray(viewModel.scoreBreakdown).filter((row) => !isHeatPanelItem(row)).slice(0, 5);
+  const rows = asArray(viewModel.scoreBreakdown);
   if (!rows.length) {
     return `<p class="elimination-ai-panel__empty">Data se načítají</p>`;
   }
@@ -535,6 +536,9 @@ function renderPanelContent(viewModel) {
     renderHero(viewModel),
     renderMetrics(viewModel.metrics),
     createSection(viewModel.leaderboardTitle, renderLeaderboard(viewModel.leaderboard), "leaderboard"),
+    createSection("Vyřazeni očistou", viewModel.eliminatedPlayers.length
+      ? `<div class="elimination-ai-panel__history">${viewModel.eliminatedPlayers.map((entry) => `<div class="elimination-ai-panel__history-row"><strong>${escapeHtml(entry.playerName)}</strong><span>${entry.finalPlacement ? `#${escapeHtml(entry.finalPlacement)}` : "Vyřazen"}</span></div>`).join("")}</div>`
+      : '<p class="elimination-ai-panel__empty">Očista zatím nikoho nevyřadila.</p>', "history"),
     createSection(viewModel.scoreTitle, renderScoreBreakdown(viewModel), "score")
   ].join("");
 }

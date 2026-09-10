@@ -1,3 +1,4 @@
+import { showUpgradeSuccess } from "../ui/notifications.js";
 import { createBuildingUpgradeConfirmationController } from "./buildingUpgradeConfirmation.js";
 import { FREE_GAMEPLAY_TICK_MS } from "../../../../packages/game-config/src/legacy-page/economy-config.js";
 import {
@@ -133,7 +134,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
     const durationAdjustmentLabel = baseDurationMs > 0
       && effectiveDurationMs > 0
       && Math.abs(baseDurationMs - effectiveDurationMs) >= 1
-      ? `Zrychlení: ${deps.formatDurationLabel?.(baseDurationMs) || `${baseDurationMs}ms`} → ${deps.formatDurationLabel?.(effectiveDurationMs) || `${effectiveDurationMs}ms`}`
+      ? `Čas ${effectiveDurationMs < baseDurationMs ? "−" : "+"}${Math.abs(Math.round((1 - effectiveDurationMs / baseDurationMs) * 100))}%`
       : "";
     const isProducing = !isInstant && (Number(line.activeAmount || 0) > 0 || line.status === "processing");
     const remainingMs = Math.max(0, Number(line.remainingMs || 0));
@@ -165,6 +166,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
       baseDurationMs,
       effectiveDurationMs,
       durationAdjustmentLabel,
+      factionSpeedMultiplier: line.factionSpeedMultiplier,
       slotState: {
         label: isInstant ? "Lokální demo · bez odpočtu" : serverProductionStatusLabels[line.status] || "Připraveno",
         isActive: !isInstant && line.status !== "ready"
@@ -1145,6 +1147,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
               buildingId: serverProduction.buildingId
             });
             const error = response?.errors?.[0];
+            if (response?.accepted && !error) showUpgradeSuccess(config?.label, { root });
             deps.setBuildingActionFeedback?.(
               root,
               response?.accepted && !error ? "success" : "warning",
@@ -1190,6 +1193,7 @@ export function createProductionBuildingPopupRuntime(deps = {}) {
           `${config?.label || "Budova"} byla upgradovaná na level ${nextLevel}.`,
           `${deps.getProductionBuildingEffectsLabel?.(buildingName, nextLevel)}`
         );
+        showUpgradeSuccess(config?.label, { root });
       });
     }
 

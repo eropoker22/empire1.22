@@ -149,6 +149,7 @@ export function createServerMapPresentationModel(gameplaySlice = null, options =
   const occupiedDistrictIds = new Set();
   const ownedDistrictIds = new Set();
   const revealedDistrictIds = new Set();
+  const occupiableSpyDistrictIds = new Set();
   const destroyedDistrictIds = new Set();
 
   for (const district of districts) {
@@ -169,6 +170,7 @@ export function createServerMapPresentationModel(gameplaySlice = null, options =
     if (district.isOwnedByPlayer || district.ownerPlayerId === currentPlayerId) {
       ownedDistrictIds.add(districtId);
     }
+    if (district.occupyIntelValid === true) occupiableSpyDistrictIds.add(districtId);
     if (district.intelKnown === true) {
       revealedDistrictIds.add(districtId);
     }
@@ -204,6 +206,7 @@ export function createServerMapPresentationModel(gameplaySlice = null, options =
     occupiedDistrictIds,
     ownedDistrictIds,
     revealedDistrictIds,
+    occupiableSpyDistrictIds,
     destroyedDistrictIds,
     effects: createEffectState(gameplaySlice, now, currentPlayerId)
   };

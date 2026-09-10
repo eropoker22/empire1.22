@@ -1,46 +1,12 @@
-import type { District, NeutralDistrictLootPool } from "@empire/shared-types";
+import type { District, FactionPassiveModifiers, NeutralDistrictLootPool } from "@empire/shared-types";
 import type { ConflictBalanceConfig } from "../../contracts";
 import { deterministicUnitInterval } from "../../utils/math";
+import { applyFactionRobberyDirtyCashLoot, applyFactionRobberyLoot } from "../factions/factionRules";
 
-export type NeutralRobberyOutcome = "success" | "partial" | "failed" | "exhausted";
-
-export interface NeutralRobberyResolution {
-  outcome: NeutralRobberyOutcome;
-  loot: Record<string, number>;
-  nextPool: NeutralDistrictLootPool;
-  playerHeat: number;
-  districtHeat: number;
-}
-
-export interface NeutralRobberyTimingConfig {
-  dayLengthTicks?: number;
-  nightLengthTicks?: number;
-}
-
-const DEFAULT_ZONE = "residential";
-export const NEUTRAL_ROBBERY_MIN_CASH_LOOT = 1_000;
-export const NEUTRAL_ROBBERY_MATERIAL_KEYS = [
-  "chemicals",
-  "biomass",
-  "metal-parts",
-  "stim-pack",
-  "tech-core",
-  "combat-module"
-] as const;
-export const NEUTRAL_ROBBERY_LOOT_KEYS = [
-  "cash",
-  "dirty-cash",
-  ...NEUTRAL_ROBBERY_MATERIAL_KEYS
-] as const;
-
-const MATERIAL_RARITY_MAX: Record<typeof NEUTRAL_ROBBERY_MATERIAL_KEYS[number], number> = {
-  chemicals: 5,
-  biomass: 5,
-  "metal-parts": 5,
-  "stim-pack": 4,
-  "tech-core": 3,
-  "combat-module": 2
-};
+import { DEFAULT_ZONE, MATERIAL_RARITY_MAX, NEUTRAL_ROBBERY_LOOT_KEYS, NEUTRAL_ROBBERY_MATERIAL_KEYS, NEUTRAL_ROBBERY_MIN_CASH_LOOT } from "./neutralRobberyTypes";
+import type { NeutralRobberyOutcome, NeutralRobberyResolution, NeutralRobberyTimingConfig } from "./neutralRobberyTypes";
+export { NEUTRAL_ROBBERY_LOOT_KEYS, NEUTRAL_ROBBERY_MATERIAL_KEYS, NEUTRAL_ROBBERY_MIN_CASH_LOOT } from "./neutralRobberyTypes";
+export type { NeutralRobberyOutcome, NeutralRobberyResolution, NeutralRobberyTimingConfig } from "./neutralRobberyTypes";
 
 export const seedNeutralDistrictLootPool = (
   worldSeed: string,
@@ -127,7 +93,8 @@ export const resolveNeutralRobbery = (
   worldSeed: string,
   commandId: string,
   districtId: string,
-  pool: NeutralDistrictLootPool
+  pool: NeutralDistrictLootPool,
+  factionModifiers: FactionPassiveModifiers = {}
 ): NeutralRobberyResolution => {
   if (!hasNeutralDistrictRobberyLoot(pool)) {
     return {
@@ -147,6 +114,12 @@ export const resolveNeutralRobbery = (
       ? "partial"
       : "failed";
   const loot = createNeutralRobberyLoot(seed, pool, outcome);
+  for (const key of NEUTRAL_ROBBERY_LOOT_KEYS) {
+    const available = key === "cash" ? pool.cash : key === "dirty-cash" ? pool.dirtyCash : Number(pool.resources[key] ?? 0);
+    const amount = applyFactionRobberyLoot(loot[key] ?? 0, factionModifiers);
+    loot[key] = Math.min(available, key === "dirty-cash"
+      ? applyFactionRobberyDirtyCashLoot(amount, factionModifiers) : amount);
+  }
   const nextPool = {
     ...pool,
     cash: pool.cash - loot.cash,

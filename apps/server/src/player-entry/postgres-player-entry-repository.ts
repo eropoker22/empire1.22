@@ -27,6 +27,7 @@ import {
   validPlayerUsername
 } from "./player-entry-policy";
 import { createLobbyServerSummary, loadHostedSpawnSelection } from "./postgres-player-entry-registration";
+import { loadFactionAvailability } from "./postgres-player-entry-factions";
 import { rotatePostgresMembershipJoinTicket } from "./postgres-player-entry-join-ticket";
 import { loadHostedMatchResultsForAccount, persistHostedMatchResult } from "./postgres-player-entry-results";
 import {
@@ -259,8 +260,8 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
         `${MEMBERSHIP_SELECT} WHERE membership.account_id=$1 AND membership.status=ANY($2::text[]) LIMIT 1`, [accountId, BLOCKING_STATUSES]
       );
       if (existing.rows[0]) throw entryError("ACTIVE_MEMBERSHIP_EXISTS", "Nejdřív musíš dokončit nebo opustit svůj současný server.");
-      const previous = await client.query("SELECT membership_id FROM empire_server_memberships WHERE account_id=$1 AND server_instance_id=$2", [accountId, request.serverInstanceId]);
-      if (!PLAYER_ENTRY_POLICY.allowRejoinAfterEarlyLeave && (previous.rowCount ?? 0) > 0) {
+      const previous = await client.query<{ status: string }>("SELECT status FROM empire_server_memberships WHERE account_id=$1 AND server_instance_id=$2", [accountId, request.serverInstanceId]);
+      if (previous.rows.some((row) => !PLAYER_ENTRY_POLICY.allowRejoinAfterEarlyLeave || row.status !== "left_early")) {
         throw entryError("SERVER_REJOIN_NOT_ALLOWED", "Na stejný server se po opuštění nelze znovu přihlásit.");
       }
       const selection = await loadHostedSpawnSelection(client, accountId, request.serverInstanceId, now, WORKER_FRESH_MS, hosted);
@@ -322,7 +323,14 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
     }
     const requestHash = hashEntryRequest(request);
     return database.transaction(async (client) => {
-      const result = await client.query<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE membership.membership_id=$1 FOR UPDATE`, [request.membershipId]);
+      // Lock in the same order as worker commits and spawn reservations.
+      const owner = await client.query<{ server_instance_id: string }>(
+        "SELECT server_instance_id FROM empire_server_memberships WHERE membership_id=$1 AND account_id=$2",
+        [request.membershipId, accountId]
+      );
+      if (!owner.rows[0]) throw entryError("MEMBERSHIP_NOT_FOUND", "Membership nebyl nalezen.");
+      await client.query("SELECT server_instance_id FROM empire_hosted_server_instances WHERE server_instance_id=$1 FOR UPDATE", [owner.rows[0].server_instance_id]);
+      const result = await client.query<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE membership.membership_id=$1 FOR UPDATE OF membership`, [request.membershipId]);
       const row = result.rows[0];
       if (!row || String(row.account_id) !== accountId) throw entryError("MEMBERSHIP_NOT_FOUND", "Membership nebyl nalezen.");
       if (row.setup_idempotency_key) {
@@ -332,6 +340,10 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
         return mapMembership(row);
       }
       if (row.status !== "setup_required") throw entryError("MEMBERSHIP_SETUP_NOT_ALLOWED", "Setup už nelze změnit.");
+      const factions = await loadFactionAvailability(client, String(row.server_instance_id));
+      if (!factions.find((faction) => faction.factionId === request.factionId)?.available) {
+        throw entryError("FACTION_FULL", "Server je už touto frakcí zaplněn. Vyber jinou frakci.");
+      }
       const at = now.toISOString();
       const jobId = `membership-job:${crypto.randomUUID()}`;
       await client.query(
@@ -354,7 +366,7 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
   },
 
   requestEarlyLeave: async (accountId: string, membershipId: string, now = new Date()) => database.transaction(async (client) => {
-    const result = await client.query<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE membership.membership_id=$1 FOR UPDATE`, [membershipId]);
+    const result = await client.query<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE membership.membership_id=$1 FOR UPDATE OF membership`, [membershipId]);
     const row = result.rows[0];
     if (!row || String(row.account_id) !== accountId) throw entryError("MEMBERSHIP_NOT_FOUND", "Membership nebyl nalezen.");
     const membership = mapMembership(row);
@@ -416,7 +428,10 @@ export const createPostgresPlayerEntryRepository = (database: PostgresDatabase) 
 
   getMembershipView: async (membershipId: string, now = new Date()) => {
     const result = await database.query<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE membership.membership_id=$1`, [membershipId]);
-    return result.rows[0] ? toMembershipView(mapMembership(result.rows[0]), now) : null;
+    if (!result.rows[0]) return null;
+    const membership = mapMembership(result.rows[0]);
+    return { ...toMembershipView(membership, now),
+      factionAvailability: await loadFactionAvailability(database, membership.serverInstanceId) };
   },
 
   getMatchResults: async (accountId: string, serverInstanceId: string) =>

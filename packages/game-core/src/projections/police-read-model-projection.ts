@@ -2,6 +2,7 @@ import type { PoliceReadModel as SharedPoliceReadModel } from "@empire/shared-ty
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import { resolveWantedLevel } from "../rules/police/wantedLevel";
+import { getHeatReductionOptions } from "../rules/police/heatReduction";
 import { calculatePlayerPolicePressure } from "../rules/police/policePressure";
 import { resolveCityHallNetworkCover, resolveCityHallPoliceMitigation } from "../rules/police/cityHallPoliceMitigation";
 import {
@@ -99,6 +100,7 @@ export const createPoliceReadModel = (
   const recentRaid = createRecentRaidInfo(policeFeed);
   const activeConsequences = createActiveConsequences(state, playerId);
   const raidPending = pendingRaid !== null;
+  const inspectionPending = pendingRaid?.kind === "inspection";
   const courthouseMitigation = pendingRaid?.previewConsequences.courthouseMitigation ?? null;
   const projectedSeverity = pressure.aggregatePressure >= pressure.extremePressureRaidThreshold ? "extreme" : "high";
   const cityHallNetworkCover = resolveCityHallNetworkCover({
@@ -143,13 +145,28 @@ export const createPoliceReadModel = (
     districtHeat,
     raidPressure: pressure.aggregatePressure
   });
-  const raidPressureExplanation = "Tlak raidu je celkový tlak policie: heat hráče plus vážený heat z vlastněných districtů. Heat districtů může přitáhnout raid i bez vysoké hledanosti.";
+  const districtPressureCap = context?.config.balance.police?.districtPressureCap;
+  const raidPressureExplanation = "Tlak policie tvoří hledanost hráče a vážený heat vlastněných čtvrtí."
+    + (Number.isFinite(districtPressureCap) ? ` Příspěvek čtvrtí je omezen na ${districtPressureCap} bodů; samotný pasivní provoz nestačí na ostrou razii.` : " Heat čtvrtí může přitáhnout razii i bez vysoké hledanosti.")
+    + " Heat se časem nesnižuje. Snižuj jej aktivními akcemi za vliv nebo peníze.";
   const selectedDistrictId = sanitizeDistrictId(options.selectedDistrictId);
   const selectedDistrict = selectedDistrictId ? state.districtsById[selectedDistrictId] ?? null : null;
   const protection = createProtectionView(mitigations);
+  const heatReductionActions = getHeatReductionOptions(state, playerId, context).map((option) => ({
+    ...option, cooldownMs: option.cooldownTicks * (context?.config.tickRateMs ?? 0)
+  }));
 
   return {
     playerId,
+    heatReductionActions,
+    auditRiskPct: Math.max(0, ...heatReductionActions.map((action) => action.auditRiskPct)),
+    heatJournal: (policeState?.heatReductionHistory ?? []).map((entry, index) => ({
+      id: `heat-reduction:${entry.tick}:${index}`,
+      type: entry.auditHeatGain > entry.heatReduced ? "rise" as const : "fall" as const,
+      amount: Math.abs(entry.heatReduced - entry.auditHeatGain),
+      reason: entry.message,
+      createdAt: entry.createdAt
+    })),
     policeStateId,
     heat: playerHeat,
     playerHeat,
@@ -157,7 +174,7 @@ export const createPoliceReadModel = (
     wantedLevel,
     wantedLevelLabel: `${wantedLevel} / 5`,
     wantedLabel: `${wantedLevel} / 5`,
-    riskTier: raidPending && pressure.riskTier === "low" ? "high" : pressure.riskTier,
+    riskTier: raidPending && !inspectionPending && pressure.riskTier === "low" ? "high" : pressure.riskTier,
     aggregatePressure: pressure.aggregatePressure,
     playerHeatPressure: pressure.playerHeatPressure,
     districtHeatPressure: pressure.districtHeatPressure,
@@ -169,18 +186,20 @@ export const createPoliceReadModel = (
     activeRaid: pendingRaid
       ? {
           id: pendingRaid.id,
-          type: "police-raid-pending",
+          type: pendingRaid.consequencesAppliedAtTick !== undefined ? "police-raid-active" : "police-raid-pending",
+          startedAt: projectedNowMs - Math.max(0, state.root.tick - pendingRaid.createdAtTick) * (context?.config.tickRateMs ?? 0),
+          expiresAt: pendingRaid.expiresAtMs,
           severity: pendingRaid.severity,
-          status: pendingRaid.status,
+          status: pendingRaid.consequencesAppliedAtTick !== undefined ? "active" : pendingRaid.status,
           districtId: pendingRaid.targetDistrictId,
           tick: pendingRaid.triggerTick,
-          message: pendingRaid.reason
+          message: pendingRaid.explanation ?? pendingRaid.reason
         }
       : null,
     recentRaid,
     activeConsequences,
     raidConsequenceStatus: raidPending
-      ? "pending"
+      ? pendingRaid?.consequencesAppliedAtTick !== undefined ? "active" : "pending"
       : activeConsequences.length > 0
         ? "active"
         : recentRaid
@@ -190,7 +209,9 @@ export const createPoliceReadModel = (
     policeFeed,
     mitigations,
     protection,
-    recommendedAction: getRecommendedAction({
+    recommendedAction: inspectionPending
+      ? "Probíhá namátková kontrola města. Nic se nezabavuje a výroba pokračuje. Kontrola skončí automaticky."
+      : getRecommendedAction({
       riskTier: pressure.riskTier,
       raidPending,
       wantedLevel,
@@ -212,7 +233,7 @@ export const createPoliceReadModel = (
     raidPressureExplanation,
     heatBreakdown,
     raidPending,
-    raidRisk: resolveRaidRisk(pressure.aggregatePressure, pressure.highPressureRaidThreshold, raidPending),
+    raidRisk: resolveRaidRisk(pressure.aggregatePressure, pressure.highPressureRaidThreshold, raidPending && !inspectionPending),
     heatSources
   };
 };

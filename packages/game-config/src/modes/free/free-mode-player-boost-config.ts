@@ -8,12 +8,11 @@ export const freeModePlayerBoostConfig: PlayerBoostBalanceConfig = {
     category: "intel",
     description: "Prožeň špiony neviditelnou sítí a vytáhni z districtu víc informací.",
     shortEffect: "Špionáž −35 % času · rozšířený intel",
-    cleanCashCost: 5_000,
+    cleanCashCost: 1_200,
     inputCosts: {
-      "ghost-serum": 2,
-      "pulse-shot": 2
+      "ghost-serum": 1
     },
-    activeDurationTicks: ticksFromMinutes(12),
+    activeDurationTicks: ticksFromMinutes(20),
     cooldownTicks: ticksFromMinutes(35),
     consumptionMode: "timed",
     effect: {
@@ -30,12 +29,12 @@ export const freeModePlayerBoostConfig: PlayerBoostBalanceConfig = {
     category: "production",
     description: "Přetěž výrobní síť a vytlač z každé linky vyšší tempo.",
     shortEffect: "Všechny výrobní linky +25 % rychlosti",
-    cleanCashCost: 7_500,
+    cleanCashCost: 1_500,
     inputCosts: {
-      "overdrive-x": 2,
-      "combat-module": 2
+      "pulse-shot": 2,
+      "tech-core": 1
     },
-    activeDurationTicks: ticksFromMinutes(12),
+    activeDurationTicks: ticksFromMinutes(30),
     cooldownTicks: ticksFromMinutes(45),
     consumptionMode: "timed",
     effect: {
@@ -50,13 +49,12 @@ export const freeModePlayerBoostConfig: PlayerBoostBalanceConfig = {
     category: "combat",
     description: "Propoj výzbroj, obranu a intel do jediné taktické sítě.",
     shortEffect: "+12 % k příštímu útoku nebo obraně",
-    cleanCashCost: 10_000,
+    cleanCashCost: 2_500,
     inputCosts: {
-      "ghost-serum": 2,
-      "overdrive-x": 1,
-      "combat-module": 3
+      "ghost-serum": 1,
+      "tech-core": 2
     },
-    activeDurationTicks: ticksFromMinutes(20),
+    activeDurationTicks: ticksFromMinutes(40),
     cooldownTicks: ticksFromMinutes(60),
     consumptionMode: "next-valid-pvp-combat",
     effect: {

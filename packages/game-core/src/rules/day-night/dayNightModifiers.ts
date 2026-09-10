@@ -7,7 +7,6 @@ import type {
 import type { GameCoreContext } from "../../engine/context";
 import type { CoreGameState } from "../../entities";
 import { getCurrentDayNightPhase, getDayNightModifiers } from "./dayNightPhase";
-
 type AnyRecord = Record<string, any>;
 
 const LEGAL_BUILDINGS = new Set([
@@ -60,21 +59,26 @@ export const applyDayNightProductionMultiplier = (input: {
   buildingTypeId: string;
   amountPerTick: number;
 }): number => {
-  const modifiers = getDayNightModifiers(input.state, input.context);
-  const passiveRule = resolveDayNightPassiveBuildingRule(input.state, input.context, input.buildingTypeId);
+  return floorAmount(input.amountPerTick * resolveDayNightProductionSpeedMultiplier(input.state, input.context, input.buildingTypeId));
+};
+
+/** Explicit building phase profiles replace the global production profile. */
+export const resolveDayNightProductionSpeedMultiplier = (
+  state: CoreGameState,
+  context: GameCoreContext,
+  buildingTypeId: string
+): number => {
+  const modifiers = getDayNightModifiers(state, context);
+  const passiveRule = resolveDayNightPassiveBuildingRule(state, context, buildingTypeId);
   const passiveProductionMultiplier = Number(passiveRule.modifiers.passiveProductionMultiplier);
   if (Number.isFinite(passiveProductionMultiplier)) {
-    return floorAmount(input.amountPerTick * safeMultiplier(passiveProductionMultiplier));
+    return safeMultiplier(passiveProductionMultiplier);
   }
-  const economyType = resolveBuildingEconomyType(input.buildingTypeId);
+  const economyType = resolveBuildingEconomyType(buildingTypeId);
   const typeMultiplier = economyType === "illegal"
     ? modifiers.illegalProductionSpeedMultiplier
     : modifiers.legalProductionSpeedMultiplier;
-  return floorAmount(
-    input.amountPerTick
-      * safeMultiplier(modifiers.productionSpeedMultiplier)
-      * safeMultiplier(typeMultiplier)
-  );
+  return safeMultiplier(modifiers.productionSpeedMultiplier) * safeMultiplier(typeMultiplier);
 };
 
 export interface DayNightPassiveBuildingPreview {

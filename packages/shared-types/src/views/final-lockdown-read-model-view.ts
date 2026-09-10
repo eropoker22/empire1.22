@@ -26,6 +26,8 @@ export interface FinalLockdownCurrentPlayerView {
 }
 
 export interface FinalLockdownReadModel {
+  currentPlayerScoreContributions?: Record<string, number> | null;
+  startRuleDescription?: string;
   enabled: boolean;
   status: FinalLockdownStatus;
   active: boolean;

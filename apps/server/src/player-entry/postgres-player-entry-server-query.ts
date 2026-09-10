@@ -75,7 +75,10 @@ export const getHostedOccupancy = async (
       (SELECT count(*) FROM (
         SELECT account_id AS identity FROM empire_server_memberships WHERE server_instance_id=$1 AND status=ANY($3::text[])
         UNION
-        SELECT account_id AS identity FROM empire_player_registrations WHERE server_instance_id=$1 AND status='active' AND account_id IS NOT NULL
+        SELECT registration.account_id AS identity FROM empire_player_registrations registration
+        WHERE registration.server_instance_id=$1 AND registration.status='active' AND registration.account_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM empire_server_memberships membership
+            WHERE membership.server_instance_id=registration.server_instance_id AND membership.account_id=registration.account_id)
       ) occupied) AS committed_players,
       (SELECT count(*) FROM empire_hosted_join_reservations
        WHERE server_instance_id=$1 AND status='reserved' AND expires_at > $2::timestamptz) AS reserved_slots`,
@@ -114,6 +117,8 @@ export const loadHostedServerPopulationStats = async (
        WHERE registration.server_instance_id=ANY($1::text[])
          AND registration.status='active'
          AND registration.account_id IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM empire_server_memberships membership
+           WHERE membership.server_instance_id=registration.server_instance_id AND membership.account_id=registration.account_id)
      ), committed AS (
        SELECT server_instance_id,count(*)::int AS committed_players
        FROM occupied_identities GROUP BY server_instance_id

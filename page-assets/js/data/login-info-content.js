@@ -1,115 +1,115 @@
 export const LOGIN_INFO_CONTENT = Object.freeze({
   news: null,
   help: Object.freeze({
-    eyebrow: "PRŮVODCE MĚSTEM",
-    intro: "Empire Streets je serverová strategická hra. Každá akce, od výroby po útok, se potvrzuje na serveru a výsledek se ukládá k tvému hráči.",
+    eyebrow: "PRVNÍ KROKY V ULICÍCH",
+    intro: "Založ gang, zajisti mu zázemí a rozšiřuj své území. Tady najdeš to nejdůležitější pro začátek.",
     sections: Object.freeze([
       Object.freeze({
-        title: "Rychlý start",
+        title: "01 / Vstup do města",
         items: Object.freeze([
-          "Přihlas se, vyber server s otevřenou registrací a založ gang.",
-          "Zvol si volný startovní district. Ten se stane základnou tvého impéria.",
-          "Nejdřív zajisti populaci, cash, výrobu a místo ve skladu. Potom rozšiřuj hranice."
+          "Vytvoř si účet a gang. V lobby vyber server s otevřenou registrací.",
+          "Vyber a potvrď volný startovní district — základnu svého impéria.",
+          "Zajisti lidi, příjem a místo ve skladu. Pak rozjeď výrobu a expanzi."
         ])
       }),
       Object.freeze({
-        title: "Akce na mapě",
+        title: "02 / Poznej své okolí",
         items: Object.freeze([
-          "Prázdný sousední district můžeš špehovat, vykrást a po úspěšném průzkumu obsadit.",
-          "Cizí sousední district můžeš špehovat, vykrást hráče nebo napadnout. Šedé tlačítko vždy ukazuje důvod blokace.",
-          "Časovače, ochrany, dostupní členové a cooldowny jsou společné pro všechny hráče a pokračují i po zavření stránky."
+          "Neutrální sousední district můžeš prozkoumat, vykrást a po úspěšném průzkumu obsadit.",
+          "Proti sousednímu gangu můžeš vyslat špiony, podniknout loupež nebo zaútočit. Dostupnost ukazují tlačítka akcí.",
+          "Časovače a ochrany běží dál i po zavření stránky. Plánuj dopředu."
         ])
       }),
       Object.freeze({
-        title: "Ekonomika, sklad a Heat",
+        title: "03 / Udrž gang v chodu",
         items: Object.freeze([
-          "Budovy vydělávají, vyrábějí materiály nebo otevírají speciální akce. Hotovou výrobu je potřeba vyzvednout.",
-          "Warehouse určuje, kolik zásob přijmeš. Když je příslušná skupina plná, další loot nebo výroba se do ní nevejde.",
-          "Kriminální akce zvyšují Heat. Vyšší tlak přitahuje policii, razie a dočasná omezení districtu."
+          "Budovy přinášejí příjem, výrobu a speciální akce. Hotové výrobky vyzvedni.",
+          "Hlídej Warehouse. Do plné skupiny zásob se další kořist ani výroba nevejde.",
+          "Zločin zvyšuje Heat. Vyšší tlak přitahuje policii a razie."
         ])
       }),
       Object.freeze({
-        title: "Když něco nefunguje",
+        title: "Něco se zaseklo?",
         items: Object.freeze([
-          "Obnov stránku a zkontroluj, zda jsi stále přihlášený ke správnému serveru.",
-          "Přečti důvod pod neaktivním tlačítkem; často jde o cooldown, chybějící zdrojový district, populaci nebo plný sklad.",
-          "Při hlášení chyby připoj čas, název serveru, district a přesný text chyby. Nikdy neposílej heslo ani session údaje."
+          "Obnov stránku a ověř, že jsi přihlášený ke správnému serveru.",
+          "U neaktivní akce zkontroluj důvod: čas do další akce, zdrojový district, lidi nebo kapacitu skladu.",
+          "K hlášení chyby přidej čas, server, district a text chyby. Heslo ani přihlašovací údaje neposílej."
         ])
       })
     ]),
-    note: "Pre-alpha se průběžně mění. Rozhodující je vždy aktuální stav a výsledek potvrzený serverem."
+    note: "Chceš znát konkrétní mechaniku? Najdeš ji v O hře. Pravidla pre-alpha se průběžně vyvíjejí."
   }),
   terms: Object.freeze({
-    eyebrow: "PRE-ALPHA PODMÍNKY",
-    intro: "Používáním Empire Streets potvrzuješ, že rozumíš testovacímu charakteru hry a souhlasíš s těmito pravidly pre-alpha provozu.",
+    eyebrow: "PRAVIDLA SPOLEČNÉ HRY",
+    intro: "Empire Streets je v pre-alpha. Hraním přijímáš testovací povahu hry a následující pravidla.",
     sections: Object.freeze([
       Object.freeze({
-        title: "1. Účast a účet",
+        title: "01 / Tvůj účet",
         paragraphs: Object.freeze([
-          "Pre-alpha je určena hráčům od 16 let. Uživatel odpovídá za správnost registračních údajů, ochranu svého hesla a veškerou aktivitu provedenou přes svůj účet.",
-          "Jeden účet nesmí být sdílen více osobami ani používán k obcházení limitů, trestů, ochranných mechanismů nebo pravidel serveru."
+          "Hrát můžeš od 16 let. Odpovídáš za správné registrační údaje, bezpečí hesla a aktivitu na svém účtu.",
+          "Účet nesdílej a nepoužívej ho k obcházení limitů, trestů, ochran ani pravidel serveru."
         ])
       }),
       Object.freeze({
-        title: "2. Testovací provoz",
+        title: "02 / Hra ve vývoji",
         paragraphs: Object.freeze([
-          "Hra je ve vývoji. Funkce, pravidla, ekonomika, obsah i dostupnost serverů se mohou měnit bez předchozího upozornění. Herní postup může být opraven, vrácen nebo smazán, pokud je to nutné pro bezpečnost a vývoj testu.",
-          "Pre-alpha neposkytuje záruku nepřetržité dostupnosti ani zachování konkrétního serveru, výsledku, žebříčku či virtuální položky. Virtuální měny a předměty nemají skutečnou peněžní hodnotu."
+          "Funkce, pravidla, ekonomika, obsah i dostupnost serverů se mohou měnit bez upozornění. Kvůli bezpečnosti a vývoji může dojít k opravě, vrácení nebo smazání postupu.",
+          "Nepřetržitý provoz ani zachování serverů, výsledků, žebříčků či předmětů nejsou zaručené. Herní měny a předměty nemají skutečnou peněžní hodnotu."
         ])
       }),
       Object.freeze({
-        title: "3. Férová hra a obsah",
+        title: "03 / Hraj fér",
         items: Object.freeze([
-          "Je zakázáno zneužívat chyby, automatizovat hraní bez povolení, útočit na infrastrukturu nebo obcházet serverová omezení.",
-          "Nevkládej nezákonný, výhrůžný, nenávistný nebo cizí osobní obsah a nevydávej se za jinou osobu.",
-          "Nalezenou chybu nahlas bezpečným způsobem. Nešíř postup, který může poškodit účty, data nebo průběh testu."
+          "Nezneužívej chyby, neautomatizuj hraní bez povolení, neútoč na infrastrukturu a neobcházej omezení serveru.",
+          "Nesdílej nezákonný, výhrůžný či nenávistný obsah ani cizí osobní údaje. Nevydávej se za někoho jiného.",
+          "Nalezenou chybu bezpečně nahlas. Nešiř návody, které mohou poškodit účty, data nebo test."
         ])
       }),
       Object.freeze({
-        title: "4. Moderace a ukončení účasti",
+        title: "04 / Moderace a odchod",
         paragraphs: Object.freeze([
-          "Provozovatel může skrýt obsah, omezit funkce, pozastavit účet nebo ukončit účast při porušení pravidel, ohrožení služby či ostatních hráčů. Hráč může kdykoli požádat o ukončení testovacího účtu.",
-          "Tyto podmínky se mohou s vývojem pre-alpha změnit. U podstatné změny bude při dalším vstupu vyžadováno přijetí nové verze."
+          "Při porušení pravidel nebo ohrožení hry či hráčů může provozovatel skrýt obsah, omezit funkce, pozastavit účet nebo ukončit účast. O ukončení svého testovacího účtu můžeš požádat kdykoli.",
+          "Podmínky se mohou během vývoje měnit. Podstatnou změnu budeš při dalším vstupu znovu přijímat."
         ])
       })
     ]),
-    note: "Toto jsou testovací podmínky pre-alpha, nikoli nabídka placené služby ani finální obchodní podmínky."
+    note: "Tyto podmínky platí pro testovací pre-alpha. Nejde o nabídku placené služby ani finální obchodní podmínky."
   }),
   privacy: Object.freeze({
-    eyebrow: "SOUKROMÍ A DATA",
-    intro: "Empire Streets používá jen údaje potřebné pro účet, bezpečný provoz a uložení multiplayerové hry. Data neprodáváme ani je nepoužíváme pro cílenou reklamu.",
+    eyebrow: "TVOJE SOUKROMÍ V ULICÍCH",
+    intro: "Údaje potřebujeme pro tvůj účet, uložení hry a bezpečný provoz. Neprodáváme je ani je nepoužíváme k cílené reklamě.",
     sections: Object.freeze([
       Object.freeze({
-        title: "Jaké údaje zpracováváme",
+        title: "Co ukládáme",
         items: Object.freeze([
-          "Účet: uživatelské jméno, jméno gangu, datum narození pro ověření hranice 16+ a bezpečně vytvořený otisk hesla; heslo se neukládá v čitelné podobě.",
-          "Provozní data: přihlášení, účtové a herní relace, členství na serveru, bezpečnostní a chybové záznamy a omezené síťové identifikátory pro ochranu proti zneužití.",
-          "Herní data: postup, districty, ekonomika, akce, zprávy, market, bounty, aliance, žebříček a výsledky serveru."
+          "Účet: přezdívku, jméno gangu, datum narození pro ověření 16+ a bezpečný otisk hesla. Samotné heslo neukládáme v čitelné podobě.",
+          "Provoz: přihlášení, účtové a herní relace, členství na serveru, bezpečnostní a chybové záznamy i omezené síťové identifikátory proti zneužití.",
+          "Hru: postup, districty, ekonomiku, akce, zprávy, market, bounty, aliance, žebříček a výsledky."
         ])
       }),
       Object.freeze({
-        title: "Proč údaje potřebujeme",
+        title: "Proč a kdo je vidí",
         paragraphs: Object.freeze([
-          "Údaje používáme k vytvoření a zabezpečení účtu, ověření věkové hranice, provozu multiplayeru, ukládání hry, řešení chyb a obraně proti podvodům či útokům.",
-          "Běžná herní data, například jméno gangu, vlastnictví districtů, aliance a výsledky, mohou být viditelná ostatním hráčům. Datum narození, heslo a session údaje veřejné nejsou."
+          "Díky údajům můžeme vést a chránit tvůj účet, ověřit věk, provozovat multiplayer, ukládat postup, opravovat chyby a řešit podvody či útoky.",
+          "Ostatní hráči mohou vidět jméno gangu, tvé districty, aliance a výsledky. Datum narození, heslo a údaje o přihlašovací relaci veřejné nejsou."
         ])
       }),
       Object.freeze({
-        title: "Uložení a předávání",
+        title: "Kde a jak dlouho",
         paragraphs: Object.freeze([
-          "Data jsou zpracovávána v hostovaných službách potřebných pro web, aplikační worker a databázi. Přístup je omezen na provozní potřebu a zabezpečené administrátorské role.",
-          "Testovací data uchováváme po dobu pre-alpha a nezbytnou dobu pro bezpečnost, obnovu a řešení incidentů. Nepotřebné účty a záznamy mohou být při resetu testu odstraněny."
+          "Data zpracovávají hostované služby pro web, běh hry a databázi. Přístup mají zabezpečené administrátorské role podle provozní potřeby.",
+          "Testovací data uchováváme po dobu pre-alpha a nezbytnou dobu pro bezpečnost, obnovu a řešení incidentů. Při resetu můžeme odstranit nepotřebné účty a záznamy."
         ])
       }),
       Object.freeze({
-        title: "Tvoje práva a bezpečí",
+        title: "Co máš pod kontrolou",
         items: Object.freeze([
-          "Můžeš požádat o přístup, opravu nebo odstranění testovacího účtu a souvisejících osobních údajů, pokud jejich další uchování nevyžaduje bezpečnostní či právní důvod.",
-          "Použij kontakt provozovatele uvedený v pozvánce nebo oficiálním oznámení testu.",
-          "Používej unikátní heslo a nikdy neposílej heslo, cookies, session tokeny ani přístupové údaje jiné osobě."
+          "Můžeš požádat o přístup k údajům, jejich opravu nebo odstranění účtu a osobních údajů, pokud uchování nevyžaduje bezpečnostní či právní důvod.",
+          "Napiš provozovateli na kontakt z pozvánky nebo oficiálního oznámení testu.",
+          "Používej unikátní heslo. Hesla, cookies, přihlašovací tokeny ani jiné přístupové údaje nikomu neposílej."
         ])
       })
     ]),
-    note: "Pre-alpha informační text bude před veřejným produkčním spuštěním doplněn o úplnou identifikaci správce, kontakt a přesné retenční lhůty."
+    note: "Před veřejným spuštěním doplníme úplnou identifikaci správce, kontakt a přesné lhůty uchování dat."
   })
 });

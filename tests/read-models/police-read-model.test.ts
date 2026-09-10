@@ -70,7 +70,7 @@ describe("police read model projection", () => {
       hottestDistrictHeat: 20,
       raidPressure: 117,
       raidThreshold: 100,
-      raidPressureExplanation: "Tlak raidu je celkový tlak policie: heat hráče plus vážený heat z vlastněných districtů. Heat districtů může přitáhnout raid i bez vysoké hledanosti.",
+      raidPressureExplanation: "Tlak policie tvoří hledanost hráče a vážený heat vlastněných čtvrtí. Heat čtvrtí může přitáhnout razii i bez vysoké hledanosti. Heat se časem nesnižuje. Snižuj jej aktivními akcemi za vliv nebo peníze.",
       selectedDistrictId: "district:1",
       selectedDistrictHeat: 20,
       raidPending: false,
@@ -303,10 +303,10 @@ describe("police read model projection", () => {
       expiresAtMs: expect.any(Number)
     });
     expect(model.activeRaid).toMatchObject({
-      type: "police-raid-pending",
-      status: "pending"
+      type: "police-raid-active",
+      status: "active"
     });
-    expect(model.raidConsequenceStatus).toBe("pending");
+    expect(model.raidConsequenceStatus).toBe("active");
     expect(model.pendingRaid?.previewConsequences.seizedDirtyCash).toBe(90);
     expect(model.wantedLevel).toBe(5);
   });

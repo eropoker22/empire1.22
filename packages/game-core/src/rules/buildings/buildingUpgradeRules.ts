@@ -1,4 +1,6 @@
-import type { Building, ResourceState } from "@empire/shared-types";
+import type { Building } from "@empire/shared-types";
+import { cleanCostRecord } from "./buildingUpgradeResources";
+export { hasEnoughResourcesForUpgrade } from "./buildingUpgradeResources";
 import type {
   BuildingUpgradeBalanceConfig,
   FixedBuildingBalanceConfig
@@ -14,7 +16,7 @@ export interface BuildingUpgradeCost {
   nextLevel: number;
   maxLevel: number;
   costs: Record<string, number>;
-  source: "casino" | "fixed-generic" | "production";
+  source: "casino" | "warehouse" | "fixed-generic" | "production";
 }
 
 export interface BuildingUpgradeEffectSummary {
@@ -32,6 +34,22 @@ export const resolveBuildingUpgradeCost = (
   if (level >= maxLevel) return null;
 
   const nextLevel = level + 1;
+  const warehouseUpgrade = building.buildingTypeId === "warehouse"
+    ? context.config.balance.warehouse?.upgrades?.[nextLevel as 1 | 2 | 3 | 4]
+    : undefined;
+  if (warehouseUpgrade) {
+    return {
+      level,
+      nextLevel,
+      maxLevel,
+      source: "warehouse",
+      costs: cleanCostRecord({
+        cash: warehouseUpgrade.cleanCashCost,
+        "metal-parts": warehouseUpgrade.metalPartsCost,
+        "tech-core": warehouseUpgrade.techCoreCost
+      })
+    };
+  }
   const casinoUpgrade = building.buildingTypeId === "casino"
     ? context.config.balance.casino?.upgrades.find((upgrade) => upgrade.level === nextLevel)
     : null;
@@ -122,6 +140,7 @@ export const resolveProductionUpgradeConfig = (
   return (buildingTypeId === "pharmacy" ? context.config.balance.pharmacy?.upgrade : undefined)
     ?? (buildingTypeId === "drug_lab" ? context.config.balance.drugLab?.upgrade : undefined)
     ?? (buildingTypeId === "factory" ? context.config.balance.factory?.upgrade : undefined)
+    ?? (buildingTypeId === "armory" ? context.config.balance.armory?.upgrade : undefined)
     ?? context.config.balance.productionBuildings?.[buildingTypeId]?.upgrade
     ?? context.config.balance.craftBuildings?.[buildingTypeId]?.upgrade
     ?? null;
@@ -221,20 +240,5 @@ export const describeBuildingUpgradeEffects = (
   }];
 };
 
-export const hasEnoughResourcesForUpgrade = (
-  resourceState: ResourceState | undefined,
-  costs: Record<string, number>
-): boolean =>
-  Object.entries(costs).every(([resourceKey, requiredAmount]) =>
-    Math.max(0, Number(resourceState?.balances?.[resourceKey] || 0)) >= Math.max(0, Number(requiredAmount || 0))
-  );
-
 const getBuildingLevel = (building: Pick<Building, "level">): number =>
   Math.max(1, Math.floor(Number(building.level || 1)));
-
-const cleanCostRecord = (costs: Record<string, number>): Record<string, number> =>
-  Object.fromEntries(
-    Object.entries(costs)
-      .map(([key, value]): [string, number] => [key, Math.max(0, Math.floor(Number(value || 0)))])
-      .filter(([, value]) => value > 0)
-  );

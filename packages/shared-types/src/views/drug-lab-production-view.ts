@@ -27,6 +27,7 @@ export interface DrugLabProductionLineView {
   inputAvailability: DrugLabMaterialInputView[];
   baseUnitDurationTicks: number;
   effectiveUnitDurationTicks: number;
+  factionSpeedMultiplier?: number;
   remainingTicks: number;
   remainingMs: number;
   status: DrugLabProductionStatus;

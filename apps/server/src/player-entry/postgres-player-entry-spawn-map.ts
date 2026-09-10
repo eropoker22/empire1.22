@@ -77,7 +77,8 @@ export const loadSpawnOwnerIdentities = async (
     `SELECT membership.player_id,account.display_name,account.gang_name,membership.gang_color
      FROM empire_server_memberships membership
      JOIN empire_accounts account ON account.account_id=membership.account_id
-     WHERE membership.server_instance_id=$1 AND membership.player_id=ANY($2::text[])`,
+     WHERE membership.server_instance_id=$1 AND membership.player_id=ANY($2::text[])
+     ORDER BY membership.joined_at ASC`,
     [serverInstanceId, playerIds]
   );
   return new Map(result.rows.map((row) => [String(row.player_id), {

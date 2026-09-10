@@ -686,37 +686,36 @@ function drawRobberyDistrictAnimation(context, district, marker, now = Date.now(
 }
 
 function drawTrapDistrictAnimation(context, district, animationProgress) {
+  const bounds = getPolygonBounds(district.polygon);
+  const size = Math.max(12, Math.min(bounds.width, bounds.height));
+  const progress = animationProgress % 1;
   context.save();
   drawDistrictPolygon(context, district.polygon);
   context.clip();
 
-  const pulse = 0.5 + Math.sin(animationProgress * Math.PI * 2) * 0.5;
+  const pulse = 0.5 + Math.sin(progress * Math.PI * 2) * 0.5;
   const smokeLayers = [
-    { offsetX: -24, offsetY: -12, radius: 26, phase: 0.08 },
-    { offsetX: 18, offsetY: -18, radius: 22, phase: 0.31 },
-    { offsetX: -8, offsetY: 16, radius: 28, phase: 0.57 },
-    { offsetX: 26, offsetY: 10, radius: 18, phase: 0.81 }
+    { offsetX: -.18, offsetY: -.1, radius: .46, phase: 0.08 },
+    { offsetX: .16, offsetY: -.16, radius: .4, phase: 0.31 },
+    { offsetX: -.08, offsetY: .15, radius: .48, phase: 0.57 },
+    { offsetX: .2, offsetY: .1, radius: .34, phase: 0.81 }
   ];
 
   for (const layer of smokeLayers) {
-    const drift = ((animationProgress + layer.phase) % 1) * 18;
+    const drift = ((progress + layer.phase) % 1) * size * .22;
+    const x = district.centerX + layer.offsetX * size + drift * .3;
+    const y = district.centerY + layer.offsetY * size - drift * .45;
+    const radius = size * (layer.radius + pulse * .08);
     const gradient = context.createRadialGradient(
-      district.centerX + layer.offsetX + drift * 0.3,
-      district.centerY + layer.offsetY - drift * 0.45,
-      4,
-      district.centerX + layer.offsetX + drift * 0.3,
-      district.centerY + layer.offsetY - drift * 0.45,
-      layer.radius + pulse * 6
+      x, y, 0, x, y, radius
     );
-    gradient.addColorStop(0, `rgba(160, 255, 96, ${0.18 + pulse * 0.12})`);
-    gradient.addColorStop(0.4, `rgba(96, 255, 162, ${0.12 + pulse * 0.08})`);
+    gradient.addColorStop(0, `rgba(160, 255, 96, ${0.34 + pulse * 0.22})`);
+    gradient.addColorStop(0.4, `rgba(96, 255, 162, ${0.2 + pulse * 0.14})`);
     gradient.addColorStop(1, "rgba(96, 255, 162, 0)");
     context.fillStyle = gradient;
     context.beginPath();
     context.arc(
-      district.centerX + layer.offsetX + drift * 0.3,
-      district.centerY + layer.offsetY - drift * 0.45,
-      layer.radius + pulse * 6,
+      x, y, radius,
       0,
       Math.PI * 2
     );
@@ -727,11 +726,26 @@ function drawTrapDistrictAnimation(context, district, animationProgress) {
 
   context.save();
   drawDistrictPolygon(context, district.polygon);
-  context.strokeStyle = `rgba(160, 255, 96, ${0.22 + pulse * 0.18})`;
-  context.lineWidth = 2;
+  context.strokeStyle = `rgba(160, 255, 96, ${0.6 + pulse * 0.3})`;
+  context.lineWidth = 2.4;
   context.shadowBlur = 18;
   context.shadowColor = "rgba(160, 255, 96, 0.45)";
   context.stroke();
+  context.restore();
+
+  // A persistent marker keeps the armed trap legible even at the dimmest smoke frame.
+  const markerRadius = clamp(size * .18, 6, 14);
+  context.save();
+  context.fillStyle = "rgba(6, 24, 12, .92)";
+  context.strokeStyle = "#bcff89";
+  context.lineWidth = 1.5;
+  context.shadowColor = "#9fff60";
+  context.shadowBlur = 7 + pulse * 7;
+  context.beginPath();
+  context.arc(district.centerX, district.centerY, markerRadius, 0, Math.PI * 2);
+  context.fill();
+  context.stroke();
+  drawReducedMapActivityIcon(context, "trap", district.centerX, district.centerY, markerRadius * 1.65, "#dcffbb");
   context.restore();
 }
 

@@ -35,7 +35,10 @@ export const calculatePlayerPolicePressure = (
     null
   );
   const aggregatePressure = Math.floor(
-    playerHeatPressure + districtHeatPressure * Math.max(0, Number(config.districtHeatWeight || 0))
+    playerHeatPressure + Math.min(
+      Number.isFinite(config.districtPressureCap) ? Math.max(0, Number(config.districtPressureCap)) : Infinity,
+      districtHeatPressure * Math.max(0, Number(config.districtHeatWeight || 0))
+    )
   );
 
   return {

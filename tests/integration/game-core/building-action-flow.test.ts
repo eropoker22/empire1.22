@@ -1262,14 +1262,14 @@ describe("run-building-action command flow", () => {
     const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
 
     expect(result.errors).toEqual([]);
-    expect(balances.cash).toBe(0);
+    expect(balances.cash).toBe(8500);
     expect(result.nextState.buildingsById[building.id].actionCooldowns.bribed_inspector).toBe(
-      cooldownTicksForMs(105 * 60 * 1000)
+      cooldownTicksForMs(75 * 60 * 1000)
     );
     expect(report).toMatchObject({
       casinoResult: {
         type: "heat_control",
-        costPaid: 15000
+        costPaid: 6500
       }
     });
   });
@@ -1681,7 +1681,7 @@ describe("run-building-action command flow", () => {
     const { state, building } = createStateWithFixedBuilding("apartment_block", {
       metadata: {
         apartmentBlock: {
-          storedPopulation: 49,
+          storedPopulation: 179,
           lastUpdatedTick: 0,
           lastCapacity: 50,
           wasFull: false
@@ -1705,8 +1705,8 @@ describe("run-building-action command flow", () => {
     expect(result.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
     expect(result.districtsById["district:1"].heat).toBe(0);
     expect(result.districtsById["district:1"].influence).toBe(0);
-    expect(metadata.storedPopulation).toBe(50);
-    expect(metadata.lastCapacity).toBe(50);
+    expect(metadata.storedPopulation).toBe(180);
+    expect(metadata.lastCapacity).toBe(180);
     expect(metadata.wasFull).toBe(true);
   });
 
@@ -1747,7 +1747,7 @@ describe("run-building-action command flow", () => {
     };
 
     expect(metadata.storedPopulation).toBeCloseTo(2.24);
-    expect(metadata.lastCapacity).toBeCloseTo(58);
+    expect(metadata.lastCapacity).toBeCloseTo(208);
     expect(result.resourceStatesById["resource:1"].balances.cash).toBeGreaterThan(0);
     expect(result.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
     expect(result.resourceStatesById["resource:1"].balances.influence).toBeUndefined();
@@ -1959,7 +1959,7 @@ describe("run-building-action command flow", () => {
       },
       metadata: {
         school: {
-          storedStudents: 18,
+          storedStudents: 58,
           lastUpdatedTick: 0,
           lastCapacity: 20,
           wasFull: false
@@ -1979,8 +1979,8 @@ describe("run-building-action command flow", () => {
     expect(result.resourceStatesById["resource:1"].balances["dirty-cash"]).toBe(0);
     expect(result.districtsById["district:1"].heat).toBe(0);
     expect(result.districtsById["district:1"].influence).toBeGreaterThan(0);
-    expect(metadata.storedStudents).toBe(20);
-    expect(metadata.lastCapacity).toBe(20);
+    expect(metadata.storedStudents).toBe(60);
+    expect(metadata.lastCapacity).toBe(60);
     expect(metadata.wasFull).toBe(true);
   });
 
@@ -3165,6 +3165,8 @@ describe("run-building-action command flow", () => {
       }
     });
 
+    const scandalContext = structuredClone(context);
+    scandalContext.config.balance.stripClub!.privateParty.scandalChancePct = 100;
     const result = applyCommand(
       state,
       createRunBuildingActionCommandFixture({
@@ -3175,7 +3177,7 @@ describe("run-building-action command flow", () => {
           actionId: "private_party"
         }
       }),
-      context
+      scandalContext
     );
     const report = createConflictReportViews(result.nextState, { playerId: "player:1", limit: 1 })[0];
 

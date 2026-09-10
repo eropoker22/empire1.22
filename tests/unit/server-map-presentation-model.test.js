@@ -64,6 +64,16 @@ describe("server map presentation model", () => {
     expect(model.rawDistrictIdById.get(2)).toBe("district:2");
   });
 
+  it("highlights only valid successful occupy intel and invalidates the map when it expires", () => {
+    const district = { districtId: "district:3", intelKnown: true, status: "neutral", ownerPlayerId: null };
+    const partial = createServerMapPresentationModel(createSlice({ districts: [district] }));
+    const success = createServerMapPresentationModel(createSlice({ districts: [{ ...district, occupyIntelValid: true }] }));
+    expect(partial.revealedDistrictIds).toEqual(new Set([3]));
+    expect(partial.occupiableSpyDistrictIds.size).toBe(0);
+    expect(success.occupiableSpyDistrictIds).toEqual(new Set([3]));
+    expect(partial.fingerprints.state).not.toBe(success.fingerprints.state);
+  });
+
   it("keeps cash outside map fingerprints", () => {
     const previous = createServerMapPresentationModel(createSlice());
     const next = createServerMapPresentationModel(createSlice({

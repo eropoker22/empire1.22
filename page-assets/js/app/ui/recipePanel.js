@@ -392,9 +392,10 @@ function getArmorySlotRole(recipeId = "", recipe = {}) {
     : "attack";
 }
 
-function appendServerDurationAdjustment(scopeElement, metric, label = "", buildingType = "") {
+function appendServerDurationAdjustment(scopeElement, metric, label = "", buildingType = "", factionSpeedMultiplier) {
   const copy = String(label || "").trim();
   if (!metric) return null;
+  metric.classList.add("production-time-metric");
   let note = null;
   if (copy) {
     note = createElement(scopeElement, "small", "faction-passive-inline faction-passive-inline--production");
@@ -409,6 +410,7 @@ function appendServerDurationAdjustment(scopeElement, metric, label = "", buildi
   if (factionNote) {
     factionNote.dataset.factionPassiveStatLabel = "Produkce";
     factionNote.dataset.factionPassiveBuildingType = String(buildingType || "");
+    if (Number.isFinite(factionSpeedMultiplier)) factionNote.dataset.factionProductionMultiplier = String(factionSpeedMultiplier);
     factionNote.hidden = true;
     metric.append(factionNote);
   }
@@ -637,7 +639,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titleLine, [icon, titleWrap]);
     appendChildren(head, [titleLine, state]);
     const timeMetric = createPharmacyMetricBlock(options.mount, "Čas", isInstant ? "Bez odpočtu · demo" : formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel));
-    appendServerDurationAdjustment(options.mount, timeMetric, viewModel.durationAdjustmentLabel, buildingName);
+    appendServerDurationAdjustment(options.mount, timeMetric, viewModel.durationAdjustmentLabel, buildingName, viewModel.factionSpeedMultiplier);
     const queueMetric = createPharmacyMetricBlock(options.mount, "Fronta", isInstant ? "Bez fronty" : formatQueuedOutput(job, recipe, { useQuantityAsOutput: true, outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }));
     const cleanCost = Math.max(0, Number(recipe.cleanMoneyCost || 0));
     const costMetric = createPharmacyMetricBlock(options.mount, "Cena", cleanCost ? `${formatMoney(cleanCost, options)} clean` : "-");
@@ -698,7 +700,7 @@ export function renderRecipeCard(viewModel = {}, callbacks = {}, options = {}) {
     appendChildren(titleWrap, [icon, titles]);
     appendChildren(head, [titleWrap, state]);
     const timeMetric = createMetricBlock(options.mount, { label: "Čas", value: isInstant ? "Bez odpočtu · demo" : formatRecipeSlotTime(job, effectiveDurationMs, 1, options, viewModel.durationBonusLabel) });
-    appendServerDurationAdjustment(options.mount, timeMetric, viewModel.durationAdjustmentLabel, buildingName);
+    appendServerDurationAdjustment(options.mount, timeMetric, viewModel.durationAdjustmentLabel, buildingName, viewModel.factionSpeedMultiplier);
     const queueMetric = createMetricBlock(options.mount, { label: "Fronta", value: isInstant ? "Bez fronty" : formatQueuedOutput(job, recipe, { outputCap: viewModel.outputCap, queueCap: viewModel.queueCap }), inline: true });
     appendChildren(metrics, [
       isInstant ? null : createMetricBlock(options.mount, {

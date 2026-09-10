@@ -13,7 +13,7 @@ export const freeModeConvenienceStoreConfig: ConvenienceStoreBalanceConfig = {
   noLaundering: true,
   noAuditRisk: true,
   populationPerMinute: 50 / 60,
-  basePopulationCapacity: 50,
+  basePopulationCapacity: 100,
   collectPopulation: {
     actionId: "collect_convenience_store_population",
     cooldownMinutes: 0,

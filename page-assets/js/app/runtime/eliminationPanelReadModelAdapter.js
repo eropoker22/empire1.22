@@ -4,11 +4,16 @@ const SCORE_LABELS = Object.freeze({
   activeBuildings: "Aktivní budovy",
   cleanCash: "Clean Cash",
   dirtyCash: "Dirty Cash",
-  resources: "Zásoby",
+  resources: "Hodnota zásob a výbavy",
+  reservedCleanCash: "Peníze ve výrobních frontách",
+  buildingCapitalValue: "Investice do budov",
+  buildingCapitalScore: "Body za investice",
   population: "Population",
   recentActivityBonus: "Nedávná aktivita",
   heatPenalty: "Heat postih",
   downtownDistricts: "Downtown",
+  downtownBonus: "Bonus za Downtown",
+  rareBuildingBonus: "Bonus za vzácné budovy",
   totalScore: "Celkem"
 });
 
@@ -72,6 +77,7 @@ export function createEliminationPanelViewModel(readModel, modeConfig = {}) {
   if (readModel.enabled !== true) {
     return {
       ...createUnavailableViewModel("elimination"),
+      eliminatedPlayers: Array.isArray(readModel.eliminatedPlayers) ? readModel.eliminatedPlayers : [],
       unitLabel: "CONTROL SERVER",
       countdownValue: "VYPNUTO",
       subtitle: "OČISTA NENÍ NA TOMTO SERVERU AKTIVNÍ",
@@ -85,7 +91,7 @@ export function createEliminationPanelViewModel(readModel, modeConfig = {}) {
   const status = readModel.currentPlayerStatus === "defeated"
     ? "critical"
     : readModel.isQuietHoursNow ? "paused" : readModel.currentPlayerStatus || "safe";
-  const scoreBreakdown = createScoreRows(readModel.currentPlayerScoreBreakdown);
+  const scoreBreakdown = createScoreRows(readModel.currentPlayerScoreContributions || readModel.currentPlayerScoreBreakdown);
   return {
     mode: "elimination",
     status,
@@ -111,6 +117,7 @@ export function createEliminationPanelViewModel(readModel, modeConfig = {}) {
       { key: "players", label: "Aktivní hráči", value: formatMetric(activePlayers), icon: "◎" },
       { key: "districts", label: "Distrikty", value: formatMetric(currentDanger?.controlledDistricts), icon: "▣" }
     ],
+    eliminatedPlayers: Array.isArray(readModel.eliminatedPlayers) ? readModel.eliminatedPlayers : [],
     leaderboardTitle: "Ohrožené gangy",
     leaderboard: Array.isArray(readModel.dangerZone) ? readModel.dangerZone.map((entry) => ({
       rank: `#${entry.rankFromBottom}`,
@@ -151,7 +158,7 @@ export function createFinalLockdownPanelViewModel(readModel, modeConfig = {}) {
       subtitle: "Final Lockdown na tomto serveru není aktivní."
     };
   }
-  const scoreBreakdown = createScoreRows(readModel.currentPlayerScoreBreakdown);
+  const scoreBreakdown = createScoreRows(readModel.currentPlayerScoreContributions || readModel.currentPlayerScoreBreakdown);
   return {
     mode: "final_lockdown",
     status: readModel.active ? (readModel.pausedByQuietHours ? "paused" : "final") : "safe",
@@ -165,7 +172,7 @@ export function createFinalLockdownPanelViewModel(readModel, modeConfig = {}) {
       : "ČEKÁ",
     subtitle: readModel.active
       ? "Rozhoduje skutečné serverové pořadí."
-      : "Final Lockdown začne podle tempa tohoto serveru.",
+      : (readModel.startRuleDescription || "Final Lockdown začne podle tempa tohoto serveru."),
     metrics: [
       { key: "score", label: "Final score", value: formatMetric(readModel.currentPlayerFinalScore), icon: "◇" },
       { key: "rank", label: "Rank", value: readModel.currentPlayerRank === null ? "—" : `#${readModel.currentPlayerRank}`, icon: "#" },

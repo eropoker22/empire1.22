@@ -8,12 +8,43 @@ import {
 import { ensureGameplaySliceMembershipInState } from "../../apps/server/src/bootstrap/gameplay-slice-session-membership";
 import { SHARED_CITY_TOTAL_DISTRICT_COUNT } from "../../apps/server/src/bootstrap/gameplay-slice-shared-city-seed";
 import { createRunBuildingActionCommandFixture } from "../fixtures/command-fixtures";
+import { syncRuntimeCapacityStatus, validateRuntimeJoinability } from "../../apps/server/src/runtime/instance-manager/server-instance-joinability";
+import { createServerInstanceRuntime } from "../../apps/server/src/runtime/instance-manager/instance-factory";
 
 const context = {
   config: resolveModeConfig("free")
 };
 
 describe("gameplay slice session membership", () => {
+  it("reopens runtime capacity after a player leaves a full server", () => {
+    const runtime = createServerInstanceRuntime("instance:released-capacity", "free");
+    runtime.lobby.maxPlayers = 1;
+    runtime.lobby.joinPolicy = "open";
+    runtime.state = ensureGameplaySliceMembershipInState(runtime.state, { serverInstanceId: runtime.record.id,
+      playerId: "player:left", factionId: "mafian", mode: "free" }).state;
+    syncRuntimeCapacityStatus(runtime);
+    expect(runtime.record.status).toBe("full");
+    runtime.state.playersById["player:left"] = { ...runtime.state.playersById["player:left"], status: "left" };
+    syncRuntimeCapacityStatus(runtime);
+    expect(runtime.record.status).toBe("lobby");
+    expect(validateRuntimeJoinability(runtime, "player:new")).toEqual([]);
+  });
+  it("caps each faction at four active players and releases a departed player's faction seat", () => {
+    const instanceId = "instance:faction-cap";
+    let state = createInitialState(instanceId, "free");
+    for (let index = 0; index < 4; index++) {
+      const joined = ensureGameplaySliceMembershipInState(state, { serverInstanceId: instanceId,
+        playerId: `player:cap${index}`, factionId: "mafian", mode: "free" });
+      expect(joined.accepted).toBe(true);
+      state = joined.state;
+    }
+    const request = { serverInstanceId: instanceId, playerId: "player:cap5", factionId: "mafian", mode: "free" as const };
+    expect(ensureGameplaySliceMembershipInState(state, request)).toMatchObject({ accepted: false,
+      errors: [{ code: "server.faction_cap_reached" }] });
+    expect(ensureGameplaySliceMembershipInState(state, { ...request, factionId: "hackeri" }).accepted).toBe(true);
+    state.playersById["player:cap0"] = { ...state.playersById["player:cap0"], status: "left" };
+    expect(ensureGameplaySliceMembershipInState(state, { ...request, playerId: "player:cap6" }).accepted).toBe(true);
+  });
   it("advances the snapshot version once for an idempotent player join", () => {
     const state = createInitialState("instance:membership-version", "free");
     const initialVersion = state.root.version;

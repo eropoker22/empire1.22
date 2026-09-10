@@ -27,8 +27,8 @@ export const resolveScheduledRaidCandidates = (
 
   const config = resolvePoliceConfig(context);
   const playersWithDistricts = activePlayers.filter((player) => Object.values(state.districtsById)
-    .some((district) => district.ownerPlayerId === player.id));
-  const candidatePlayers = playersWithDistricts.length > 0 ? playersWithDistricts : activePlayers;
+    .some((district) => district.ownerPlayerId === player.id && district.status !== "destroyed"));
+  const candidatePlayers = playersWithDistricts;
   const availableCandidates = candidatePlayers
     .map((player) => ({
       player,
@@ -39,11 +39,13 @@ export const resolveScheduledRaidCandidates = (
   const cooldownEligibleCandidates = availableCandidates.filter(({ policeState }) => (
     !policeState || !isRaidCooldownActive(policeState, currentTick, config.raidCooldownTicks)
   ));
-  const scheduledTargetId = (cooldownEligibleCandidates.length > 0
-    ? cooldownEligibleCandidates
-    : availableCandidates)
+  // Routine checks rotate among eligible residents; they never bypass a
+  // player's raid cooldown merely to fill a scheduled police slot.
+  const scheduledTargetId = cooldownEligibleCandidates
+    .filter(({ pressure }) => pressure.riskTier === "low" || pressure.riskTier === "medium")
     .sort((left, right) => (
-      left.pressure.aggregatePressure - right.pressure.aggregatePressure
+      Number(left.policeState?.lastRaidCreatedAtTick ?? -1) - Number(right.policeState?.lastRaidCreatedAtTick ?? -1)
+      || left.pressure.aggregatePressure - right.pressure.aggregatePressure
       || left.pressure.hottestDistrictHeat - right.pressure.hottestDistrictHeat
       || left.player.id.localeCompare(right.player.id)
     ))[0]?.player.id ?? null;

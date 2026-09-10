@@ -19,6 +19,83 @@ const live = resolveLivePostgresSmokeConfig();
 const run = live.run ? it : it.skip;
 
 describe("player entry postgres live", () => {
+  run("allows a fresh registration after leaving, revokes old sessions, and still closes rejoin at the deadline", async () => {
+    const fixture = await createFixture();
+    try {
+      const hosted = await fixture.createServer(1);
+      const account = await fixture.createAccount("rejoin");
+      const selection = await fixture.entry.getSpawnSelection(account.accountId, hosted.serverInstanceId);
+      const district = selection.districts.find((entry) => entry.available)!;
+      const firstKey = key("first-entry");
+      const firstRequest = request(selection, district.districtId);
+      const first = await fixture.entry.confirmSpawnDistrict(account.accountId, firstRequest, firstKey);
+      await fixture.entry.finalizeSetup(account.accountId, { membershipId: first.membershipId,
+        factionId: "mafian", avatarId: "mafian:1", gangColor: "#06b6d4" }, key("first-setup"));
+      await fixture.worker.runOnce();
+      const sessionService = fixture.server.gameplaySessionService;
+      const registration = await sessionService.getOrCreateRegistration({ accountId: account.accountId,
+        serverInstanceId: hosted.serverInstanceId, nowIso: new Date().toISOString() });
+      const oldSession = await sessionService.createSession({ registration, nowIso: new Date().toISOString(), ttlMs: 60_000 });
+      await fixture.entry.requestEarlyLeave(account.accountId, first.membershipId);
+      await fixture.worker.runOnce();
+      expect((await fixture.entry.getMembership(first.membershipId))?.status).toBe("left_early");
+      expect((await sessionService.validateSession({ sessionId: oldSession.sessionId, nowIso: new Date().toISOString() })).accepted).toBe(false);
+      const again = await fixture.entry.getSpawnSelection(account.accountId, hosted.serverInstanceId);
+      expect(again.capacity.committedPlayers).toBe(0);
+      expect(again.districts.find((entry) => entry.districtId === district.districtId)?.available).toBe(true);
+      const second = await fixture.entry.confirmSpawnDistrict(account.accountId, request(again, district.districtId), key("rejoin"));
+      expect(second.membershipId).not.toBe(first.membershipId);
+      expect(second.playerId).toBe(first.playerId);
+      await expect(fixture.entry.confirmSpawnDistrict(account.accountId, firstRequest, firstKey))
+        .resolves.toMatchObject({ membershipId: first.membershipId, status: "left_early" });
+      await fixture.entry.finalizeSetup(account.accountId, { membershipId: second.membershipId,
+        factionId: "hackeri", avatarId: "hackeri:1", gangColor: "#06b6d4" }, key("second-setup"));
+      await fixture.worker.runOnce();
+      await fixture.worker.runOnce();
+      const active = await fixture.entry.getMembership(second.membershipId);
+      expect(active?.status).toBe("active");
+      expect(fixture.server.instanceManager.getInstanceById(hosted.serverInstanceId)!.state.playersById[second.playerId])
+        .toMatchObject({ status: "active", factionId: "hackeri", homeDistrictId: district.districtId,
+          metadata: { membershipId: second.membershipId } });
+      const rejoinedState = fixture.server.instanceManager.getInstanceById(hosted.serverInstanceId)!.state;
+      expect(rejoinedState.districtsById[district.districtId].buildingIds.every((id) =>
+        rejoinedState.buildingsById[id].status === "active")).toBe(true);
+      expect(await fixture.eventCount(second.membershipId, "player-activated")).toBe(1);
+      await expect(sessionService.consumeJoinTicket({ ticketId: active!.joinTicketId!, accountId: account.accountId,
+        serverInstanceId: hosted.serverInstanceId, nowIso: new Date().toISOString() })).resolves.toMatchObject({ accepted: true });
+      await fixture.entry.requestEarlyLeave(account.accountId, second.membershipId);
+      await fixture.worker.runOnce();
+      await expect(fixture.entry.confirmSpawnDistrict(account.accountId, request(again, district.districtId), key("closed-rejoin"),
+        new Date(hosted.registrationClosesAt!))).rejects.toMatchObject({ entryCode: "SERVER_REGISTRATION_CLOSED" });
+    } finally { await fixture.close(); }
+  }, 90_000);
+
+  run("reserves only four faction seats under concurrent setup and frees a departed seat", async () => {
+    const fixture = await createFixture();
+    try {
+      const hosted = await fixture.createServer(8);
+      const accounts = await Promise.all(Array.from({ length: 5 }, (_, index) => fixture.createAccount(`cap${index}`)));
+      const selection = await fixture.entry.getSpawnSelection(accounts[0]!.accountId, hosted.serverInstanceId);
+      const districts = selection.districts.filter((entry) => entry.available);
+      const memberships = await Promise.all(accounts.map((account, index) => fixture.entry.confirmSpawnDistrict(
+        account.accountId, request(selection, districts[index]!.districtId), key(`cap-spawn${index}`))));
+      const setup = (index: number, factionId = "mafian") => fixture.entry.finalizeSetup(accounts[index]!.accountId,
+        { membershipId: memberships[index]!.membershipId, factionId, avatarId: `${factionId}:1`, gangColor: "#06b6d4" }, key(`cap-setup${index}`));
+      for (let index = 0; index < 3; index++) await setup(index);
+      const lastSeat = await Promise.allSettled([setup(3), setup(4)]);
+      expect(lastSeat.filter((entry) => entry.status === "fulfilled")).toHaveLength(1);
+      expect(lastSeat.find((entry) => entry.status === "rejected")).toMatchObject({ reason: { entryCode: "FACTION_FULL" } });
+      expect((await fixture.entry.getMembershipView(memberships[0]!.membershipId))?.factionAvailability)
+        .toContainEqual({ factionId: "mafian", players: 4, capacity: 4, available: false });
+      for (let index = 0; index < 4; index++) await fixture.worker.runOnce();
+      await fixture.entry.requestEarlyLeave(accounts[0]!.accountId, memberships[0]!.membershipId);
+      await fixture.worker.runOnce();
+      expect((await fixture.entry.getMembershipView(memberships[1]!.membershipId))?.factionAvailability)
+        .toContainEqual({ factionId: "mafian", players: 3, capacity: 4, available: true });
+      await setup(lastSeat[0]!.status === "rejected" ? 3 : 4);
+    } finally { await fixture.close(); }
+  }, 90_000);
+
   run("accepts the last millisecond, rejects closesAt, and replays after close", async () => {
     const fixture = await createFixture();
     try {

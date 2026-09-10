@@ -1,6 +1,7 @@
 import type { AttackDistrictCommand } from "./attack-district-command";
 import type { ActivatePlayerBoostCommand } from "./activate-player-boost-command";
 import type { AcknowledgePendingRaidCommand } from "./acknowledge-pending-raid-command";
+import type { ReducePoliceHeatCommand } from "./reduce-police-heat-command";
 import type { AllianceLifecycleCommand } from "./alliance-lifecycle-command";
 import type { BountyCommand } from "./bounty-command";
 import type { BuildStructureCommand } from "./build-structure-command";
@@ -32,6 +33,7 @@ import type { UpgradeBuildingCommand } from "./upgrade-building-command";
  */
 export type GameCommand =
   | AcknowledgePendingRaidCommand
+  | ReducePoliceHeatCommand
   | ActivatePlayerBoostCommand
   | AllianceLifecycleCommand
   | BountyCommand

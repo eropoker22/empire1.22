@@ -30,6 +30,7 @@ export interface FactoryProductionLineView {
   }>;
   baseUnitDurationTicks: number;
   effectiveUnitDurationTicks: number;
+  factionSpeedMultiplier?: number;
   effectiveSpeedMultiplier: number;
   unitsPerHour: number;
   remainingTicks: number;

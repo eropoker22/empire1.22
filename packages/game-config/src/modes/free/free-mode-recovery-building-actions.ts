@@ -150,7 +150,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
   power_station_feed_production: {
     actionId: "power_station_feed_production",
     buildingType: "power_station",
-    label: "Napájet výrobu",
+    label: "Prodat přebytek",
     description: "Okamžitě přidá menší clean a dirty výnos z přesměrované výroby.",
     durationMs: 0,
     cooldownMs: 60 * 60 * 1000,

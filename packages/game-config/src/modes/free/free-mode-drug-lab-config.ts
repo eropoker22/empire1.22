@@ -20,8 +20,8 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       cleanCashCostPerUnit: 500,
       inputCosts: { chemicals: 2 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(5),
-      localOutputCap: 10,
-      queueCap: 13
+      localOutputCap: 60,
+      queueCap: 63
     },
     "pulse-shot": {
       label: "Pulse Shot",
@@ -33,8 +33,8 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       cleanCashCostPerUnit: 800,
       inputCosts: { chemicals: 2, biomass: 1 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(8),
-      localOutputCap: 6,
-      queueCap: 9
+      localOutputCap: 24,
+      queueCap: 27
     },
     "velvet-smoke": {
       label: "Velvet Smoke",
@@ -46,8 +46,8 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       cleanCashCostPerUnit: 900,
       inputCosts: { chemicals: 1, biomass: 2 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(15),
-      localOutputCap: 5,
-      queueCap: 8
+      localOutputCap: 24,
+      queueCap: 27
     },
     "ghost-serum": {
       label: "Ghost Serum",
@@ -59,8 +59,8 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       cleanCashCostPerUnit: 2500,
       inputCosts: { "neon-dust": 2, "pulse-shot": 1 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(20),
-      localOutputCap: 2,
-      queueCap: 5
+      localOutputCap: 8,
+      queueCap: 11
     },
     "overdrive-x": {
       label: "Overdrive X",
@@ -72,8 +72,8 @@ export const freeModeDrugLabConfig: DrugLabBalanceConfig = {
       cleanCashCostPerUnit: 4500,
       inputCosts: { "pulse-shot": 1, "velvet-smoke": 2 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(30),
-      localOutputCap: 1,
-      queueCap: 4
+      localOutputCap: 8,
+      queueCap: 11
     }
   }
 };

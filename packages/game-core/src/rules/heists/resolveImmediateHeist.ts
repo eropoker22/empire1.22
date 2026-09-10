@@ -1,5 +1,7 @@
 import type { HeistDistrictCommand, HeistDistrictStyle } from "@empire/shared-types";
-import type { ConflictBalanceConfig } from "../../contracts";
+import type { ConflictBalanceConfig, DayNightModifiersConfig } from "../../contracts";
+import type { GameCoreContext } from "../../engine/context";
+import { getDayNightModifiers } from "../day-night/dayNightPhase";
 import type { CoreGameState } from "../../entities";
 import { deterministicUnitInterval } from "../../utils/math";
 
@@ -30,6 +32,7 @@ export const calculateImmediateHeistChances = (input: {
   style: NonNullable<ConflictBalanceConfig["heist"]>["styles"][HeistDistrictStyle];
   populationSent: number;
   config: NonNullable<ConflictBalanceConfig["heist"]>;
+  phaseModifiers?: DayNightModifiersConfig;
 }): { successChance: number; detectionChance: number; cameraBonus: number } => {
   const memberProgress = (input.populationSent - input.style.minMembers)
     / Math.max(1, input.style.maxMembers - input.style.minMembers);
@@ -40,7 +43,8 @@ export const calculateImmediateHeistChances = (input: {
   const successChance = clamp(
     input.style.baseSuccessChance
       + Math.min(0.15, Math.max(0, memberProgress) * 0.15)
-      - Math.min(0.30, resistance / 300),
+      - Math.min(0.30, resistance / 300)
+      + Number(input.phaseModifiers?.heistSuccessChanceModifierPct ?? 0) / 100,
     0.10,
     0.95
   );
@@ -53,7 +57,8 @@ export const calculateImmediateHeistChances = (input: {
     Number(input.defenseLoadout.alarm ?? 0) * input.config.security.alarmDetectionChancePerUnit
   );
   const detectionChance = clamp(
-    input.style.baseDetectionChance + Math.max(0, memberProgress) * 0.18 + cameraBonus + alarmBonus,
+    input.style.baseDetectionChance + Math.max(0, memberProgress) * 0.18 + cameraBonus + alarmBonus
+      + Number(input.phaseModifiers?.heistDetectionChanceModifierPct ?? 0) / 100,
     0.02,
     0.95
   );
@@ -64,7 +69,8 @@ export const resolveImmediateHeist = (
   state: CoreGameState,
   command: HeistDistrictCommand,
   sourceDistrictId: string,
-  config: NonNullable<ConflictBalanceConfig["heist"]>
+  config: NonNullable<ConflictBalanceConfig["heist"]>,
+  context?: GameCoreContext
 ): ImmediateHeistResolution => {
   const source = state.districtsById[sourceDistrictId];
   const target = state.districtsById[command.payload.targetDistrictId];
@@ -74,7 +80,8 @@ export const resolveImmediateHeist = (
     defenseLoadout: target.defenseLoadout,
     style,
     populationSent,
-    config
+    config,
+    phaseModifiers: getDayNightModifiers(state, context)
   });
   const seed = [
     state.serverInstance.worldSeed,

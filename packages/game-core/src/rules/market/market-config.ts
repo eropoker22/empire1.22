@@ -65,12 +65,13 @@ export const marketConfig = Object.freeze({
   id: "server_market",
   freeModeEconomyBaseline: Object.freeze({
     expectedPlayers: 20,
-    baselineCleanCashPerPlayer: 2500,
-    baselineDirtyCashPerPlayer: 1500,
-    baselineTotalMoney: 80000,
-    inflationNeutralPoint: 80000,
-    inflationSoftCap: 140000,
-    inflationHardCap: 220000
+    baselineCleanCashPerPlayer: 6000,
+    baselineDirtyCashPerPlayer: 3000,
+    // 20 * (6000 clean + 0.7 * 3000 dirty), matching getServerTotalMoney.
+    baselineTotalMoney: 162000,
+    inflationNeutralPoint: 162000,
+    inflationSoftCap: 283500,
+    inflationHardCap: 445500
   }),
   warModeEconomyBaseline: Object.freeze({
     expectedPlayers: 50,

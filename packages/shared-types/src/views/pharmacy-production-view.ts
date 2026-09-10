@@ -16,6 +16,7 @@ export interface PharmacyProductionLineView {
   unitCleanCashCost: number;
   baseUnitDurationTicks: number;
   effectiveUnitDurationTicks: number;
+  factionSpeedMultiplier?: number;
   remainingTicks: number;
   remainingMs: number;
   status: PharmacyProductionStatus;

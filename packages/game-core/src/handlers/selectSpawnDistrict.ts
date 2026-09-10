@@ -28,6 +28,7 @@ export const createFreshSpawnBuildingMetadata = (
   tick: number
 ): CoreGameState["buildingsById"][string]["metadata"] => {
   const metadata = { ...(building.metadata ?? {}) };
+  delete metadata.releasedByEarlyLeavePlayerId;
   if (building.buildingTypeId === "school") {
     return {
       ...metadata,
@@ -61,7 +62,7 @@ export const createFreshSpawnBuildingMetadata = (
       }
     };
   }
-  return building.metadata;
+  return metadata;
 };
 
 export const isSpawnDistrictOccupationActive = (
@@ -129,6 +130,9 @@ export const handleSelectSpawnDistrict = (
     if (building) {
       updatedBuildingsById[buildingId] = {
         ...building,
+        ...(building.status === "disabled" && building.metadata?.releasedByEarlyLeavePlayerId
+          ? { status: "active" as const, processing: null, productionLines: {}, actionCooldowns: {} }
+          : {}),
         metadata: createFreshSpawnBuildingMetadata(building, state.root.tick),
         ownerPlayerId: player.id,
         version: building.version + 1

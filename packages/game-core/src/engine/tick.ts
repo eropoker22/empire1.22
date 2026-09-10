@@ -1,3 +1,4 @@
+import { retimeProductionSupport } from "../rules/production/productionSpeedModifiers";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
 import type { GameCoreContext } from "./context";
@@ -60,7 +61,7 @@ export const runTick = (
   };
   // End time-bound production boosts at the exact tick boundary before a
   // completed unit can schedule its successor with the post-expiry speed.
-  const boostLifecycleResult = expirePlayerBoosts(advancedState, context);
+  const boostLifecycleResult = expirePlayerBoosts(retimeProductionSupport(state, advancedState, context), context);
   const releasedPoliceState = releaseExpiredPoliceConsequences(boostLifecycleResult.nextState);
   const incomeState = collectIncome(releasedPoliceState, context);
   const producedState = completeProduction(incomeState, context);

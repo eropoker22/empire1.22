@@ -36,6 +36,7 @@ export interface ApplyRaidConsequencesResult {
 
 export interface ApplyRaidConsequencesOptions {
   preservePlayerHeat?: boolean;
+  keepRaidOpen?: boolean;
 }
 
 export const applyRaidConsequences = (
@@ -64,7 +65,7 @@ export const applyRaidConsequences = (
   const player = state.playersById[raid.playerId] ?? null;
   const policeState = player?.policeStateId ? state.policeStatesById[player.policeStateId] ?? null : null;
 
-  if (!player || !policeState || raid.status === "resolved" || raid.status === "expired") {
+  if (!player || !policeState || raid.status === "resolved" || raid.status === "expired" || raid.consequencesAppliedAtTick !== undefined) {
     const event = createPoliceEvent(raid, emptyResult, state.root.tick);
     return {
       nextState: state,
@@ -96,7 +97,7 @@ export const applyRaidConsequences = (
   const nextBuildingsById = preview.disruptedBuildingIds.length > 0
     ? applyBuildingDisruptions(state.buildingsById, preview.disruptedBuildingIds, preview.buildingDisruptionUntilTick ?? state.root.tick)
     : state.buildingsById;
-  const nextHeat = Math.max(0, sanitizeAmount(policeState.heat) - preview.heatReducedBy);
+  const nextHeat = Math.max(0, Number(policeState.heat || 0) - preview.heatReducedBy);
   const result: RaidConsequencesResult = {
     raidId: raid.raidId,
     severity: raid.severity,
@@ -110,11 +111,20 @@ export const applyRaidConsequences = (
     courtMitigationPct: preview.courtMitigationPct ?? 0,
     courtBuildingsOwned: preview.courtBuildingsOwned ?? 0,
     courthouseMitigation: preview.courthouseMitigation ?? null,
-    message: createRaidResultMessage(preview),
+    message: raid.kind === "inspection"
+      ? "Rutinní kontrola města: bez konfiskací, bez uzavření budov. Kontroly se střídají mezi způsobilými hráči."
+      : createRaidResultMessage(preview),
     eventId
   };
   const event = createPoliceEvent(raid, result, state.root.tick);
-  const nextPoliceState = applyResolvedRaidToPoliceState(policeState, raid, result, event, nextHeat, state.root.tick);
+  const resolvedPoliceState = applyResolvedRaidToPoliceState(policeState, raid, result, event, nextHeat, state.root.tick);
+  const nextPoliceState = options.keepRaidOpen ? {
+    ...resolvedPoliceState,
+    activeFlags: ensureFlag(resolvedPoliceState.activeFlags, "raid:pending"),
+    pendingRaids: resolvedPoliceState.pendingRaids?.map((entry) => entry.raidId === raid.raidId
+      ? { ...entry, status: raid.status, resolvedAtTick: undefined, consequencesAppliedAtTick: state.root.tick, heatReductionOnAcknowledge: options.preservePlayerHeat ? basePreview.heatReducedBy : 0 }
+      : entry)
+  } : resolvedPoliceState;
 
   const nextState = {
       ...state,
@@ -197,6 +207,8 @@ const createPoliceEvent = (
   createdAtTick: currentTick,
   payload: {
     raidId: raid.raidId,
+    kind: raid.kind,
+    explanation: raid.explanation,
     seizedDirtyCash: result.seizedDirtyCash,
     seizedResources: result.seizedResources,
     lockedDistrictId: result.lockedDistrictId,

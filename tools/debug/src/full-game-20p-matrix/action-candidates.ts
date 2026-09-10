@@ -11,6 +11,7 @@ import type { SeededRng } from "../free-br-simulation/seeded-rng";
 import type { MutableSimulationClock } from "./mutable-clock";
 import type { SimulationBot } from "./types";
 import { appendEconomyCandidates } from "./action-economy-candidates";
+import { getHeatReductionOptions } from "../../../../packages/game-core/src/rules/police/heatReduction";
 import {
   attackWeapons,
   candidate,
@@ -56,6 +57,15 @@ export const createCandidates = (
   ).filter((building) => building.status === "active");
   const weight = weights(bot.archetype);
   const candidates: Candidate[] = [];
+  // Exercise the same paid heat controls exposed by the authoritative UI.
+  const police = Object.values(state.policeStatesById).find(entry => entry.ownerPlayerId === bot.playerId);
+  if (Number(police?.heat ?? 0) >= 70) {
+    const option = getHeatReductionOptions(state, bot.playerId, { config, clock })
+      .filter(entry => entry.available)
+      .sort((a, b) => (a.method === "influence" ? -1 : b.method === "influence" ? 1 : a.cost - b.cost))[0];
+    if (option) candidates.push(candidate("reduce-police-heat", { method: option.method }, 100,
+      { purpose: "manage-police-pressure", method: option.method, auditRiskPct: option.auditRiskPct }));
+  }
 
   const spyTarget = pickOptional(rng, [...neutral, ...enemy]);
   if (spyTarget) candidates.push(candidate(

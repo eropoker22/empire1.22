@@ -1,3 +1,4 @@
+import { spendPlayerInfluence } from "../rules/economy/playerInfluence";
 import type {
   Alliance,
   AllianceChatMessage,
@@ -112,6 +113,13 @@ const createAlliance = (
   if (!name) return rejected(state, "ALLIANCE_NAME_REQUIRED", "Název aliance je povinný.");
   const tag = sanitizeAllianceTag(command.payload.tag || name);
   const emblemColor = sanitizeAllianceEmblemColor(command.payload.emblemColor);
+  const creationInfluenceCost = 40;
+  const availableInfluence = Object.values(state.districtsById)
+    .filter((district) => district.ownerPlayerId === player.id && district.status !== "destroyed")
+    .reduce((total, district) => total + Math.max(0, Number(district.influence || 0)), 0);
+  if (availableInfluence < creationInfluenceCost) {
+    return rejected(state, "ALLIANCE_CREATE_INSUFFICIENT_INFLUENCE", "Založení aliance stojí 40 bodů vlivu.");
+  }
   const allianceId = `alliance:${command.id}`;
   const membership = createInitialAllianceMembership(allianceId, player.id, "leader", nowIso, context);
   const alliance: Alliance = {
@@ -131,6 +139,7 @@ const createAlliance = (
 
   const nextState: CoreGameState = {
     ...state,
+    districtsById: spendPlayerInfluence({ state, playerId: player.id, amount: creationInfluenceCost }),
     alliancesById: { ...state.alliancesById, [alliance.id]: alliance },
     playersById: {
       ...state.playersById,

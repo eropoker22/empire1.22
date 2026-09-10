@@ -264,8 +264,7 @@ describe("legacy faction compatibility bridge", () => {
     expect(army.advantages).toEqual(expect.arrayContaining([
       "+12 % síla útoku",
       "+12 % síla obrany",
-      "-10 % ztráty vybavení v boji",
-      "+10 % síla při obsazování"
+      "-10 % ztráty vybavení v boji"
     ]));
     expect(army.disadvantages).toEqual(expect.arrayContaining([
       "+8 % heat z útoků a obsazování",
@@ -296,8 +295,8 @@ describe("legacy faction compatibility bridge", () => {
     expect(FACTION_CATALOG["tajna-organizace"].coreBackedEffects).toContain("+10 % pravdivost potvrzených drbů");
     expect(FACTION_CATALOG["tajna-organizace"].plannedEffects).not.toContain("+10 % pravdivost potvrzených drbů");
     expect(FACTION_CATALOG["tajna-organizace"].plannedEffects).toContain("+15 % kvalita informací ze špehování");
-    expect(FACTION_CATALOG["soukroma-armada"].coreBackedEffects).toContain("+10 % síla při obsazování");
-    expect(FACTION_CATALOG["soukroma-armada"].plannedEffects).not.toContain("+10 % síla při obsazování");
+    expect(FACTION_CATALOG["soukroma-armada"].coreBackedEffects).not.toContain("+10 % síla při obsazování");
+    expect(FACTION_CATALOG["soukroma-armada"].plannedEffects).toContain("+10 % síla při obsazování");
     expect(FACTION_CATALOG["soukroma-armada"].coreBackedEffects).not.toContain("+12 % náklady na údržbu a boj");
     expect(FACTION_CATALOG["soukroma-armada"].plannedEffects).toContain("+12 % náklady na údržbu a boj");
     expect(FACTION_DEFINITION_BY_ID.hackeri.specialAction.status).toBe("preview");

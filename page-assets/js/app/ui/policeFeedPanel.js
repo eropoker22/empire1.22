@@ -129,12 +129,12 @@ export function renderPoliceFeedPanel(mount, viewModel = {}, callbacks = {}, opt
     ? preview.courthouseMitigation
     : null;
   pending.textContent = viewModel.pendingRaid
-    ? `AKTUÁLNÍ ODHAD ZÁSAHU · ${safeText(viewModel.pendingRaid.severity, "vysoká")} · dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}${mitigation ? ` · Soud -${Number(mitigation.reductionPct || 0)} %` : ""}`
+    ? `${viewModel.pendingRaid.consequencesAppliedAtTick !== undefined ? "PROBÍHÁ RAZIE · ZABAVENO" : "ODHAD ZÁSAHU"} · ${safeText(viewModel.pendingRaid.severity, "vysoká")} · dirty cash ${Number(preview?.seizedDirtyCash || 0)} · heat -${Number(preview?.heatReducedBy || 0)}${mitigation ? ` · Soud -${Number(mitigation.reductionPct || 0)} %` : ""}`
     : safeText(viewModel.recommendedAction, available ? "" : "—");
   if (viewModel.pendingRaid?.expiresAtMs) {
     const unbindCountdown = bindSharedCountdown(
       pendingCountdown,
-      () => `ZÁSAH ZA ${formatRemainingMs(Number(viewModel.pendingRaid.expiresAtMs) - Date.now())}`
+      () => `${viewModel.pendingRaid.consequencesAppliedAtTick !== undefined ? "KONEC RAZIE ZA" : "ZÁSAH ZA"} ${formatRemainingMs(Number(viewModel.pendingRaid.expiresAtMs) - Date.now())}`
     );
     callbacks.onCountdownBound?.(unbindCountdown);
   }

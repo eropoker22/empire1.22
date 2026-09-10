@@ -101,7 +101,7 @@ export const resolveFactionProductionMultiplier = (
   modifiers: FactionPassiveModifiers
 ): number => {
   const base = safeMultiplier(modifiers.productionMultiplier);
-  const illegal = ILLEGAL_PRODUCTION_BUILDINGS.has(buildingTypeId)
+  const illegal = ILLEGAL_PRODUCTION_BUILDINGS.has(buildingTypeId.replace(/-/g, "_"))
     ? safeMultiplier(modifiers.illegalProductionMultiplier)
     : 1;
   const tech = TECH_RESOURCE_KEYS.has(resourceKey) ? safeMultiplier(modifiers.techProductionMultiplier) : 1;
@@ -119,7 +119,7 @@ export const applyFactionRumorTruthChancePct = (
 };
 
 export const isFactionIllegalActionBuilding = (buildingTypeId: string): boolean =>
-  ILLEGAL_PRODUCTION_BUILDINGS.has(buildingTypeId);
+  ILLEGAL_PRODUCTION_BUILDINGS.has(buildingTypeId.replace(/-/g, "_"));
 
 export const applyFactionHeatGain = (
   heatGain: number,

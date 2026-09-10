@@ -282,28 +282,28 @@ export const FACTION_CATALOG = Object.freeze({
     id: "soukroma-armada",
     name: "Soukromá armáda",
     tagline: "Když diplomacie selže, přijde faktura.",
-    description: "Soukromá armáda nehraje na pouliční chaos. Nasazuje vycvičené jednotky, taktiku a přesilu. Je silnější v útoku, lépe brání districty a při obsazování ztrácí méně vybavení. Profesionální násilí je ale drahé a viditelné.",
+    description: "Soukromá armáda nehraje na pouliční chaos. Nasazuje vycvičené jednotky, taktiku a přesilu. Je silnější v útoku, lépe brání districty a v boji ztrácí méně vybavení. Profesionální násilí je ale viditelné a oslabuje čistý příjem.",
     playstyleSummary: "Combat / defense / occupation / territory control / expensive operations",
     advantages: [
       "+12 % síla útoku",
       "+12 % síla obrany",
-      "-10 % ztráty vybavení v boji",
-      "+10 % síla při obsazování"
+      "-10 % ztráty vybavení v boji"
     ],
     disadvantages: [
       "+8 % heat z útoků a obsazování",
       "-8 % čistý příjem"
     ],
+    plannedAdvantages: ["+10 % síla při obsazování"],
     plannedDisadvantages: ["+12 % náklady na údržbu a boj"],
     passiveEffectSummary: [
       "+12 % síla útoku",
       "+12 % síla obrany",
       "-10 % ztráty vybavení v boji",
-      "+10 % síla při obsazování",
       "+8 % heat z útoků a obsazování",
       "-8 % čistý příjem"
     ],
     plannedPassiveEffectSummary: [
+      "+10 % síla při obsazování",
       "+12 % náklady na údržbu a boj"
     ],
     specialAction: {

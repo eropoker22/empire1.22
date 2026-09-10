@@ -103,7 +103,7 @@ describe("timed pharmacy production", () => {
   it("reserves a full-storage job without overflowing output when it becomes due", () => {
     const { state, building } = createCoreStateWithFixedBuildingFixture("pharmacy", {
       productionResourceKey: "chemicals",
-      productionStoredAmount: 12,
+      productionStoredAmount: 60,
       playerBalances: { cash: 360, chemicals: 0 }
     });
     const started = applyCommand(state, produce(building.id, "chemicals", 1), context);
@@ -112,7 +112,7 @@ describe("timed pharmacy production", () => {
 
     expect(started.errors).toEqual([]);
     expect(started.nextState.resourceStatesById["resource:1"]?.balances).toMatchObject({ cash: 0, chemicals: 0 });
-    expect(completed.resourceStatesById[`resource:${building.id}`]?.balances.chemicals).toBe(12);
+    expect(completed.resourceStatesById[`resource:${building.id}`]?.balances.chemicals).toBe(60);
     expect(completed.buildingsById[building.id]?.productionLines?.chemicals).toMatchObject({
       queuedAmount: 1,
       activeCompletesAtTick: dueTick

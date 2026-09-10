@@ -10,7 +10,7 @@ export const freeModeSchoolConfig: SchoolBalanceConfig = {
   influencePerMinute: 0.05,
   heatPerMinute: 0,
   populationPerMinute: 0.55,
-  baseStudentCapacity: 20,
+  baseStudentCapacity: 60,
   noDirtyCash: true,
   noLaundering: true,
   noAuditRisk: true,

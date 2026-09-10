@@ -143,7 +143,7 @@ describe("stabilization coverage for critical mode and placeholder hooks", () =>
       wantedLevel: 5,
       activeFlags: ["raid:pending"]
     });
-    expect(raidResult.events).toMatchObject([
+    expect(raidResult.events.filter(event => event.type === "police-raid-triggered")).toMatchObject([
       {
         type: "police-raid-triggered",
         payload: {

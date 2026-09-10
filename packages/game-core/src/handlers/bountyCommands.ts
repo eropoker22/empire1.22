@@ -49,6 +49,9 @@ export const createBounty = (
 
   if (!creator) return rejected(state, "bounty_creator_not_found", "Zadavatel bounty nebyl nalezen.");
   if (!target || target.status !== "active") return rejected(state, "bounty_target_not_found", "Cíl bounty není aktivní.");
+  if (!state.root.districtIds.some((districtId) => isActiveDistrictOwnedBy(state, districtId, target.id))) {
+    return rejected(state, "bounty_target_not_found", "Cíl bounty už nemá aktivní district.");
+  }
   if (target.id === creator.id) return rejected(state, "bounty_target_self", "Nemůžeš vypsat bounty sám na sebe.");
   if (creator.allianceId && target.allianceId === creator.allianceId) {
     return rejected(state, "bounty_target_ally", "Bounty na aktivního spojence není povolená.");

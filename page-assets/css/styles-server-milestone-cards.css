@@ -377,17 +377,57 @@
   text-shadow: 0 0 11px rgba(40, 230, 255, 0.24);
 }
 
+/* Server announcements stay centered in the visible phone viewport, including
+   browser toolbar changes and landscape. Keep the backdrop over the full page. */
+@media (max-width: 720px), (max-width: 900px) and (pointer: coarse) {
+  html body.game-body .server-milestone-modal:not(.hidden):not([hidden]) {
+    --milestone-viewport-gap: max(14px, env(safe-area-inset-top), env(safe-area-inset-bottom));
+    position: fixed !important;
+    inset: var(--mobile-visible-top, 0px) 0 auto !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 100vw !important;
+    height: var(--mobile-visible-vh, 100dvh) !important;
+    min-height: 0 !important;
+    max-height: var(--mobile-visible-vh, 100dvh) !important;
+    padding: var(--milestone-viewport-gap) 14px !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+
+  html body.game-body .server-milestone-modal:not(.hidden):not([hidden]) > .server-milestone-modal__backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    display: block !important;
+    width: 100vw !important;
+    height: 100lvh !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    background: rgba(1, 5, 12, .84) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    pointer-events: auto !important;
+    z-index: 0 !important;
+  }
+
+  html body.game-body .server-milestone-modal:not(.hidden):not([hidden]) > .server-milestone-card {
+    position: relative !important;
+    inset: auto !important;
+    width: min(680px, 100%) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc(var(--mobile-visible-vh, 100dvh) - 2 * var(--milestone-viewport-gap)) !important;
+    margin: 0 !important;
+    transform: none !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    z-index: 1 !important;
+  }
+}
+
 @media (max-width: 680px) {
-  .server-milestone-modal {
-    align-items: end;
-    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
-  }
-
-  .server-milestone-card {
-    max-height: calc(100dvh - max(16px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
-    border-radius: 20px;
-  }
-
   .server-milestone-card__content {
     padding: 20px 17px 22px;
   }

@@ -35,8 +35,10 @@ export const resolveStockExchangeAction = (input: {
     const insiderActive = Number(metadata.insiderWindowExpiresAtTick || 0) > input.state.root.tick;
     const successChance = Math.min(95, input.config.speculativeBuy.successChancePct + (insiderActive ? input.config.speculativeBuy.insiderSuccessChanceBonusPct : 0));
     const neutralChance = Math.max(0, Math.min(input.config.speculativeBuy.neutralChancePct, 100 - successChance));
-    const roll = deterministicUnitInterval(`${input.commandId}:stock-speculation:${input.state.root.tick}`);
-    const pctRoll = deterministicUnitInterval(`${input.commandId}:stock-speculation-return:${input.state.root.tick}`);
+    // A client chooses commandId. It must not be able to reroll an immediate monetary outcome.
+    const rollSeed = `${input.state.serverInstance.worldSeed}:${input.building.id}:${input.state.root.tick}`;
+    const roll = deterministicUnitInterval(`${rollSeed}:stock-speculation`);
+    const pctRoll = deterministicUnitInterval(`${rollSeed}:stock-speculation-return`);
     const outcome = roll < successChance / 100
       ? "success"
       : roll < (successChance + neutralChance) / 100

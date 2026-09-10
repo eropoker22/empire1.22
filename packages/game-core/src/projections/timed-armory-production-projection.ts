@@ -1,3 +1,5 @@
+import { getFactionPassiveModifiers, resolveFactionProductionMultiplier } from "../rules/factions/factionRules";
+import { resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
 import type { ArmoryProductionBuildingView, ArmoryProductionLineView } from "@empire/shared-types";
 import type { ArmoryRecipeId, ResolvedGameModeConfig } from "../contracts";
 import type { GameCoreContext } from "../engine/context";
@@ -58,6 +60,7 @@ export const createTimedArmoryProductionBuildingView = (input: ProjectionInput):
     const maxByInputs = inputAvailability.reduce((limit, item) => Math.min(limit, Math.floor(item.availableAmount / item.requiredAmount)), Number.POSITIVE_INFINITY);
     const queueSpace = Math.max(0, recipe.queueCap - line.queuedAmount);
     const maxStartQuantity = isOwner ? Math.max(0, Math.min(queueSpace, maxByInputs)) : 0;
+    const factionSpeedMultiplier = resolveFactionProductionMultiplier(recipe.outputResourceKey, input.building.buildingTypeId, getFactionPassiveModifiers(input.state, input.playerId, contextOf(config)));
     const effectiveUnitDurationTicks = resolveArmoryDurationTicks(input.state, input.building, recipe, contextOf(config));
     const playerStoredAmount = Math.max(0, Number(balances[recipe.outputResourceKey] || 0));
     const playerStoredCapacity = storage ? getWarehouseCapacityForResource(storage, recipe.outputResourceKey) : 0;
@@ -67,7 +70,8 @@ export const createTimedArmoryProductionBuildingView = (input: ProjectionInput):
       producedAmount, producedCapacity: recipe.localOutputCap, playerStoredAmount, playerStoredCapacity,
       queuedAmount: line.queuedAmount, queueCapacity: recipe.queueCap, ...timing,
       materialInputCosts: { ...recipe.inputCosts }, inputAvailability,
-      baseUnitDurationTicks: recipe.durationTicksPerUnit, effectiveUnitDurationTicks,
+      baseUnitDurationTicks: resolveCraftProcessingDurationTicks(recipe.durationTicksPerUnit, config.balance.cooldownMultiplier), effectiveUnitDurationTicks,
+      factionSpeedMultiplier,
       remainingMs: timing.remainingTicks * tickRateOf(input),
       status: statusOf(producedAmount, recipe.localOutputCap, timing.activeAmount, timing.waitingAmount),
       canStart: maxStartQuantity > 0, canCancelWaiting: timing.waitingAmount > 0, canCollect, maxStartQuantity,

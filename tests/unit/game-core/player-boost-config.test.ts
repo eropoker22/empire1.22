@@ -20,8 +20,8 @@ describe("strategic player boost config", () => {
 
   it("defines the exact Ghost Network balance", () => {
     expect(boosts["ghost-network"]).toMatchObject({
-      cleanCashCost: 5_000,
-      inputCosts: { "ghost-serum": 2, "pulse-shot": 2 },
+      cleanCashCost: 1_200,
+      inputCosts: { "ghost-serum": 1 },
       consumptionMode: "timed",
       effect: {
         spyDurationMultiplier: 0.65,
@@ -29,29 +29,29 @@ describe("strategic player boost config", () => {
         extraIntelBlocksOnSuccess: 1
       }
     });
-    expect(minutes(boosts["ghost-network"].activeDurationTicks)).toBe(12);
+    expect(minutes(boosts["ghost-network"].activeDurationTicks)).toBe(20);
     expect(minutes(boosts["ghost-network"].cooldownTicks)).toBe(35);
   });
 
   it("defines the exact Industrial Overdrive balance", () => {
     expect(boosts["industrial-overdrive"]).toMatchObject({
-      cleanCashCost: 7_500,
-      inputCosts: { "overdrive-x": 2, "combat-module": 2 },
+      cleanCashCost: 1_500,
+      inputCosts: { "pulse-shot": 2, "tech-core": 1 },
       consumptionMode: "timed",
       effect: { productionSpeedMultiplier: 1.25 }
     });
-    expect(minutes(boosts["industrial-overdrive"].activeDurationTicks)).toBe(12);
+    expect(minutes(boosts["industrial-overdrive"].activeDurationTicks)).toBe(30);
     expect(minutes(boosts["industrial-overdrive"].cooldownTicks)).toBe(45);
   });
 
   it("defines the exact Tactical Grid balance", () => {
     expect(boosts["tactical-grid"]).toMatchObject({
-      cleanCashCost: 10_000,
-      inputCosts: { "ghost-serum": 2, "overdrive-x": 1, "combat-module": 3 },
+      cleanCashCost: 2_500,
+      inputCosts: { "ghost-serum": 1, "tech-core": 2 },
       consumptionMode: "next-valid-pvp-combat",
       effect: { combatPowerMultiplier: 1.12 }
     });
-    expect(minutes(boosts["tactical-grid"].activeDurationTicks)).toBe(20);
+    expect(minutes(boosts["tactical-grid"].activeDurationTicks)).toBe(40);
     expect(minutes(boosts["tactical-grid"].cooldownTicks)).toBe(60);
   });
 

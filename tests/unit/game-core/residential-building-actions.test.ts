@@ -4,6 +4,8 @@ import { applyCommand, collectIncome } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import { createRunBuildingActionCommandFixture } from "../../fixtures/command-fixtures";
 import { createCoreStateWithFixedBuildingFixture, createFixedBuildingFixture } from "../../fixtures/game-state-fixtures";
+import { createCivilPopulationBufferPresentation } from "../../../packages/game-core/src/projections/district-building-civil-stats";
+import { createPopulationProductionState } from "../../../packages/game-core/src/projections/gameplay-economy-rate-state";
 
 const freeConfig = resolveModeConfig("free");
 const context = { config: freeConfig };
@@ -12,6 +14,42 @@ const cooldownTicks = (minutes: number): number =>
   Math.ceil(Math.ceil(minutes * 60_000 / freeConfig.tickRateMs) * freeConfig.balance.cooldownMultiplier);
 
 describe("residential building actions", () => {
+  it.each([1, 2])("applies Kult population bonus to %i stores in production and UI", (count) => {
+    const { state, building } = createConvenienceStoreState(0);
+    state.playersById["player:1"] = { ...state.playersById["player:1"], factionId: "kult" };
+    state.buildingsById[building.id] = {
+      ...building,
+      metadata: { convenienceStore: { storedPopulation: 0, populationLastUpdatedTick: 0 } }
+    };
+    if (count === 2) {
+      const extra = createFixedBuildingFixture("convenience_store", {
+        id: "building:extra-store",
+        metadata: { convenienceStore: { storedPopulation: 0, populationLastUpdatedTick: 0 } }
+      });
+      state.buildingsById[extra.id] = extra;
+    }
+    state.root.tick = ticksPerMinute * 30;
+    const expectedRate = (50 + (count - 1) * 5) * 1.1 / 60;
+    const result = collectIncome(state, context);
+    const preview = createPopulationProductionState(state, context);
+    const presentation = createCivilPopulationBufferPresentation({
+      state,
+      building: state.buildingsById[building.id],
+      convenienceStoreConfig: freeConfig.balance.convenienceStore,
+      dayNightConfig: freeConfig,
+      tick: state.root.tick,
+      tickRateMs: freeConfig.tickRateMs
+    });
+
+    expect(getConvenienceStorePopulation(result, building.id)).toBeCloseTo(expectedRate * 30, 6);
+    expect(getConvenienceStorePopulation(preview, building.id)).toBeCloseTo(expectedRate * 30, 6);
+    expect(presentation?.productionPerMinute).toBeCloseTo(expectedRate, 6);
+    expect(presentation?.timeToFullMs).toBe(Math.ceil(100 / expectedRate * ticksPerMinute) * freeConfig.tickRateMs);
+
+    const later = collectIncome({ ...result, root: { ...result.root, tick: ticksPerMinute * 120 } }, context);
+    expect(getConvenienceStorePopulation(later, building.id)).toBe(100);
+  });
+
   it("rejects apartment collection when local storage is empty", () => {
     const { state, building } = createApartmentBlockState(0);
     const result = applyCommand(state, createBuildingActionCommand(building.id, "collect_population"), context);

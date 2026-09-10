@@ -3,6 +3,7 @@ import type { GameCoreContext } from "../../engine/context";
 import type { CoreGameState } from "../../entities";
 import { DEFAULT_ELIMINATION_SCORE_WEIGHTS, resolveEliminationConfig } from "./eliminationConfig";
 import { resolvePlayerPopulation } from "../../state/playerPopulation";
+import { calculateCommittedEliminationAssets } from "./eliminationAssets";
 
 export interface PlayerEliminationScore {
   playerId: PlayerId;
@@ -16,6 +17,9 @@ export interface PlayerEliminationScore {
   cleanCash: number;
   dirtyCash: number;
   totalResourceValue: number;
+  reservedCleanCash?: number;
+  buildingCapitalValue?: number;
+  buildingCapitalScore?: number;
   population: number;
   recentActivityBonus: number;
   lastActionAt: string | null;
@@ -34,9 +38,15 @@ export const createPlayerEliminationScore = (
   const cleanCash = positiveNumber(resourceBalances.cash);
   const dirtyCash = positiveNumber(resourceBalances["dirty-cash"]);
   const population = resolvePlayerPopulation(state, player);
+  const nonStockKeys = new Set(["cash", "dirty-cash", "population", "gang-members", "gangMembers", "gang_members", "clean-cash", "cleanCash", "dirtyCash"]);
+  const resourceValue = (key: string, value: unknown): number => nonStockKeys.has(key)
+    ? 0 : positiveNumber(value) * resolveResourceScoreValue(weights.resourceScoreValues, key);
+  const assets = weights.includeCommittedAssets
+    ? calculateCommittedEliminationAssets(state, playerId, context, resourceValue)
+    : { resourceValue: 0, reservedCleanCash: 0, buildingCapitalValue: 0 };
   const totalResourceValue = Object.entries(resourceBalances)
-    .filter(([key]) => key !== "cash" && key !== "dirty-cash" && key !== "population")
-    .reduce((sum, [key, value]) => sum + (positiveNumber(value) * resolveResourceScoreValue(weights.resourceScoreValues, key)), 0);
+    .reduce((sum, [key, value]) => sum + resourceValue(key, value), assets.resourceValue);
+  const buildingCapitalScore = assets.buildingCapitalValue * positiveNumber(weights.buildingCapital);
   const activeBuildingCount = Object.values(state.buildingsById)
     .filter((building) => building.ownerPlayerId === playerId && building.status === "active").length;
   const totalOwnedDistrictInfluence = districts.reduce((sum, district) => sum + positiveNumber(district.influence), 0);
@@ -48,6 +58,8 @@ export const createPlayerEliminationScore = (
     + totalOwnedDistrictInfluence * weights.districtInfluence
     + activeBuildingCount * weights.activeBuildingCount
     + cleanCash * weights.cleanCash
+    + assets.reservedCleanCash * weights.cleanCash
+    + buildingCapitalScore
     + dirtyCash * weights.dirtyCash
     + totalResourceValue * weights.resources
     + population * weights.population
@@ -65,6 +77,9 @@ export const createPlayerEliminationScore = (
     cleanCash,
     dirtyCash,
     totalResourceValue,
+    reservedCleanCash: assets.reservedCleanCash,
+    buildingCapitalValue: assets.buildingCapitalValue,
+    buildingCapitalScore,
     population,
     recentActivityBonus,
     lastActionAt: player?.lastActionAt ?? null

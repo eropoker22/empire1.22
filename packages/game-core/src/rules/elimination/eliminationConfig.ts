@@ -76,6 +76,7 @@ const normalizeHour = (hour: number): number => {
   return normalized < 0 ? normalized + 24 : normalized;
 };
 
+const hourFormatters = new Map<string, Intl.DateTimeFormat>();
 const getLocalHourAtTick = (
   state: CoreGameState,
   tick: number,
@@ -84,10 +85,11 @@ const getLocalHourAtTick = (
 ): number => {
   const startedAtMs = Date.parse(state.serverInstance.startedAt || new Date(0).toISOString());
   const at = new Date((Number.isFinite(startedAtMs) ? startedAtMs : 0) + (Math.max(0, tick) * Math.max(1, tickRateMs)));
-  const hourPart = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "2-digit",
-    hourCycle: "h23"
-  }).formatToParts(at).find((part) => part.type === "hour")?.value;
+  let formatter = hourFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", { timeZone, hour: "2-digit", hourCycle: "h23" });
+    hourFormatters.set(timeZone, formatter);
+  }
+  const hourPart = formatter.formatToParts(at).find((part) => part.type === "hour")?.value;
   return normalizeHour(Number(hourPart));
 };

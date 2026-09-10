@@ -1,6 +1,6 @@
 import type { DistrictSummaryView } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
-import { hasRevealedDistrictTypeIntel } from "../validation/spyIntel";
+import { hasRevealedDistrictTypeIntel, validateOccupyEmptyDistrictAuthorization } from "../validation/spyIntel";
 
 /**
  * Responsibility: Builds lightweight district summaries for map/list client views.
@@ -28,6 +28,7 @@ export const createDistrictSummaryViews = (
           : state.playersById[district.ownerPlayerId]?.color ?? null,
         isOwnedByPlayer: district.status === "destroyed" ? false : district.ownerPlayerId === playerId,
         intelKnown,
+        occupyIntelValid: validateOccupyEmptyDistrictAuthorization(state, playerId, district.id) === true,
         status: district.status,
         adjacentDistrictIds: district.adjacentDistrictIds,
         heat: district.status === "destroyed" ? 0 : district.heat,

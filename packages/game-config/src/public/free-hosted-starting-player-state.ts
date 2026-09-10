@@ -58,10 +58,10 @@ export const FREE_HOSTED_STARTING_MATERIAL_IDS = Object.freeze(
 ) as readonly HostedStartingMaterialId[];
 
 export const FREE_HOSTED_STARTING_PLAYER_STATE: HostedStartingPlayerStateView = Object.freeze({
-  cleanCash: 1_500,
-  dirtyCash: 300,
-  population: 0,
-  influence: 0,
+  cleanCash: 6_000,
+  dirtyCash: 3_000,
+  population: 150,
+  influence: 15,
   spySlots: 2,
   materials: Object.freeze({
     chemicals: 10,

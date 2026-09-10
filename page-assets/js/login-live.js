@@ -90,7 +90,7 @@ function applyRegistrationAvailability(policy) {
   document.querySelectorAll("#register-form input, #register-form button[type='submit']").forEach((control) => {
     if (control instanceof HTMLInputElement || control instanceof HTMLButtonElement) control.disabled = !enabled;
   });
-  const minimumLength = Number(policy?.passwordMinimumLength) || 12;
+  const minimumLength = Number(policy?.passwordMinimumLength) || 8;
   ["register-password", "register-password-confirmation"].forEach((id) => {
     const input = document.getElementById(id);
     if (input instanceof HTMLInputElement) {

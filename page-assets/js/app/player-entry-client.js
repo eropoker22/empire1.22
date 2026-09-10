@@ -48,11 +48,17 @@ export const loadSpawnDistricts = (serverInstanceId) =>
   playerEntryRequest(`/api/lobby/servers/${encodeURIComponent(serverInstanceId)}/spawn-districts`);
 export const loadServerResults = (serverInstanceId) =>
   playerEntryRequest(`/api/lobby/servers/${encodeURIComponent(serverInstanceId)}/results`);
-export const confirmSpawnDistrict = (body) => playerEntryRequest("/api/lobby/spawn-confirm", {
-  method: "POST",
-  headers: { "idempotency-key": createStableIdempotencyKey("spawn", body) },
-  body: JSON.stringify(body)
-});
+export const confirmSpawnDistrict = async (body) => {
+  const submit = () => playerEntryRequest("/api/lobby/spawn-confirm", {
+    method: "POST", headers: { "idempotency-key": createStableIdempotencyKey("spawn", body) }, body: JSON.stringify(body)
+  });
+  const membership = await submit();
+  if (membership.status !== "left_early") return membership;
+  // The same district/revision can recur after leaving. Keep network retries
+  // idempotent, but start a new attempt when the old one has ended.
+  window.sessionStorage.removeItem(`empire:idempotency:spawn:${stablePayload(body)}`);
+  return submit();
+};
 export const finalizeServerSetup = (body) => playerEntryRequest("/api/lobby/setup/finalize", {
   method: "POST",
   headers: { "idempotency-key": createStableIdempotencyKey("setup", body) },

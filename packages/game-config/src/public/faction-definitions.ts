@@ -297,10 +297,10 @@ export const FACTION_DEFINITIONS: readonly FactionDefinition[] = [
     id: "soukroma-armada",
     name: "Soukromá armáda",
     tagline: "Když diplomacie selže, přijde faktura.",
-    description: "Soukromá armáda nehraje na pouliční chaos. Nasazuje vycvičené jednotky, taktiku a přesilu. Je silnější v útoku, lépe brání districty a při obsazování ztrácí méně vybavení. Profesionální násilí je ale drahé a viditelné.",
+    description: "Soukromá armáda nehraje na pouliční chaos. Nasazuje vycvičené jednotky, taktiku a přesilu. Je silnější v útoku, lépe brání districty a v boji ztrácí méně vybavení. Profesionální násilí je ale viditelné a oslabuje čistý příjem.",
     playstyleSummary: "Combat / defense / occupation / territory control / expensive operations",
     strengths: ["síla útoku", "síla obrany", "nižší bojové ztráty", "obsazování", "kontrola území"],
-    weaknesses: ["vyšší náklady na údržbu a boj", "vyšší heat z agresivních akcí", "slabší čistý příjem"],
+    weaknesses: ["vyšší heat z agresivních akcí", "slabší čistý příjem"],
     passiveModifiers: {
       attackPowerMultiplier: 1.12,
       defensePowerMultiplier: 1.12,
@@ -314,11 +314,11 @@ export const FACTION_DEFINITIONS: readonly FactionDefinition[] = [
       "+12 % síla útoku",
       "+12 % síla obrany",
       "-10 % ztráty vybavení v boji",
-      "+10 % síla při obsazování",
       "+8 % heat z útoků a obsazování",
       "-8 % čistý příjem"
     ],
     plannedPassiveEffectSummary: [
+      "+10 % síla při obsazování",
       "+12 % náklady na údržbu a boj"
     ],
     specialAction: {

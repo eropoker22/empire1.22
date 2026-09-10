@@ -282,7 +282,7 @@ export const collectIncome = (state: CoreGameState, context?: GameCoreContext): 
     ? applyRestaurantPassiveRumors(stripClubRumorState, context.config.balance.restaurant, context.config.tickRateMs, context.config.balance.lobbyClub, context.config)
     : stripClubRumorState;
   const conveniencePopulationState = context?.config.balance.convenienceStore
-    ? applyConvenienceStorePopulationProduction(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs)
+    ? applyConvenienceStorePopulationProduction(restaurantRumorState, context.config.balance.convenienceStore, context.config.tickRateMs, context)
     : restaurantRumorState;
   const convenienceRumorState = context?.config.balance.convenienceStore
     ? applyConvenienceStorePassiveRumors(conveniencePopulationState, context.config.balance.convenienceStore, context.config.tickRateMs, context.config.balance.restaurant, context.config.balance.lobbyClub, context.config)

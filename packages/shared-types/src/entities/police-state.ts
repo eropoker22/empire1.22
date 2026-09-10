@@ -1,4 +1,5 @@
 import type { DistrictId, PlayerId } from "../ids/entity-id";
+import type { HeatReductionMethod } from "../commands/reduce-police-heat-command";
 
 export type PoliceRaidSeverity = "low" | "medium" | "high" | "extreme";
 export type PendingRaidStatus = "pending" | "acknowledged" | "resolved" | "expired";
@@ -36,11 +37,16 @@ export interface PendingRaid {
   targetDistrictId?: DistrictId;
   severity: PoliceRaidSeverity;
   reason: string;
+  kind?: "raid" | "inspection";
+  explanation?: string;
   createdAtTick: number;
   expiresAtTick: number;
   status: PendingRaidStatus;
   previewConsequences: PoliceRaidPreviewConsequences;
   sourcePressure: number;
+  /** Penalties are applied once when the raid starts, before its visible duration ends. */
+  consequencesAppliedAtTick?: number;
+  heatReductionOnAcknowledge?: number;
   resolvedAtTick?: number;
   acknowledgedAtTick?: number;
 }
@@ -62,6 +68,20 @@ export interface PoliceEvent {
  * Does not belong here: UI-only formatting or browser-side police calculations.
  */
 export interface PoliceState {
+  heatReductionCooldowns?: Partial<Record<HeatReductionMethod, number>>;
+  heatReductionGlobalCooldownUntilTick?: number;
+  heatReductionHistory?: Array<{
+    tick: number;
+    method: HeatReductionMethod;
+    auditRiskPct: number;
+    audited: boolean;
+    heatReduced: number;
+    auditHeatGain: number;
+    fine: number;
+    paid: number;
+    message: string;
+    createdAt: string;
+  }>;
   id: string;
   ownerPlayerId: PlayerId;
   heat: number;

@@ -248,6 +248,7 @@ export function renderCityStatusBar(viewModel = {}, elements = {}) {
   elements.gamePhase.textContent = viewModel.gamePhaseLabel || "LIVE";
   setPillLabel(elements.gamePhase, viewModel.gamePhaseTitle || "Stav", viewModel.gamePhaseMobileLabel || "Stav");
   elements.status.textContent = viewModel.statusLabel || "";
+  elements.status.classList?.toggle?.("is-hold-position", viewModel.statusLabel === "drž pozici");
   setPillLabel(elements.status, viewModel.statusTitle || "Hráči", viewModel.statusMobileLabel || "Hráči");
   updateStatusClasses(elements.gamePhase, viewModel);
   if (elements.production.tagName === "BUTTON") {

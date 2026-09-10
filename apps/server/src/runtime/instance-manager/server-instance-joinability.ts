@@ -76,11 +76,14 @@ export const syncRuntimeCapacityStatus = (runtime: ServerInstanceRuntime): void 
 
   if (countRegisteredPlayers(runtime) >= runtime.lobby.maxPlayers) {
     runtime.record.status = "full";
+  } else if (runtime.record.status === "full") {
+    runtime.record.status = runtime.scheduler.isRunning ? "running" : "lobby";
   }
 };
 
 const countRegisteredPlayers = (runtime: ServerInstanceRuntime): number =>
-  new Set(runtime.state.root.playerIds.filter((playerId) => runtime.state.playersById[playerId])).size;
+  new Set(runtime.state.root.playerIds.filter((playerId) => runtime.state.playersById[playerId]
+    && runtime.state.playersById[playerId].status !== "left")).size;
 
 const createPlayerCapMessage = (runtime: ServerInstanceRuntime): string =>
   runtime.lobby.maxPlayers === runtime.config.balance.maxPlayersPerServer

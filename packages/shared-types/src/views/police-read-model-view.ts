@@ -4,6 +4,21 @@ import type { PendingRaid, PoliceEvent } from "../entities/police-state";
 export type PoliceRiskTier = "low" | "medium" | "high" | "extreme";
 
 export interface PoliceReadModel {
+  auditRiskPct?: number;
+  heatReductionActions?: Array<{
+    method: "dirty" | "clean" | "influence";
+    cost: number;
+    heatReduction: number;
+    actualHeatReduction: number;
+    auditRiskPct: number;
+    auditFineMax: number;
+    auditHeatGain: number;
+    cooldownMs: number;
+    remainingMs: number;
+    available: boolean;
+    reason: string | null;
+  }>;
+  heatJournal?: Array<{ id: string; type: "rise" | "fall"; amount: number; reason: string; createdAt: string }>;
   playerId: PlayerId;
   policeStateId: string | null;
   heat: number;
@@ -50,6 +65,8 @@ export interface PolicePendingRaidView extends Omit<PendingRaid, "targetDistrict
 }
 
 export interface PoliceRaidInfoView {
+  startedAt?: number;
+  expiresAt?: number | null;
   id: string;
   type: string;
   severity: string;

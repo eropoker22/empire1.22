@@ -28,7 +28,6 @@ import {
   validateSpy
 } from "../validation";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
-import { applyGarageCooldownReductionTicks } from "./garageBuildingActions";
 import { resolveCombinedCameraAlarmBonuses } from "./recruitmentCenterBuildingActions";
 import { createSpyReportNotification } from "./conflictReportNotifications";
 import { bumpDistrictConflictRevision } from "../state";
@@ -53,7 +52,6 @@ export const resolvePendingSpyDistrict = (
 
   const player = state.playersById[command.playerId];
   const spyOperationState = getPlayerSpyOperationState(state, player.id);
-  const selectedSlot = resolveAvailableSpySlot(state, player.id)!;
   const targetDistrict = state.districtsById[command.payload.districtId];
   const cooldownState = state.cooldownStatesById[player.cooldownStateId] ?? createPlayerCooldownState(player.id, player.cooldownStateId);
   const activeTrap = Object.values(state.trapsById).find(
@@ -77,6 +75,8 @@ export const resolvePendingSpyDistrict = (
   );
   const boostSnapshot = pendingOperation?.spyBoostSnapshot
     ?? resolvePlayerSpyBoostEffects(state, player.id);
+  const selectedSlot = spyOperationState.slots.find((slot) => slot.slotId === pendingOperation?.spySlotId)
+    ?? resolveAvailableSpySlot(state, player.id)!;
   const cameraStrengthBonusPct = ((1 + combinedCameraAlarmBonuses.cameraStrengthBonusPct / 100) * resolveFactionCameraEffectivenessMultiplier(defenderFactionModifiers) - 1) * 100;
   const alarmStrengthBonusPct = ((1 + combinedCameraAlarmBonuses.alarmStrengthBonusPct / 100) * resolveFactionAlarmEffectivenessMultiplier(defenderFactionModifiers) - 1) * 100;
   const reportResult = resolveSpy({
@@ -110,18 +110,11 @@ export const resolvePendingSpyDistrict = (
         1,
         Math.ceil(context.config.balance.conflict?.spyCaptureCooldownTicks ?? baseSpySlotCooldownTicks)
       )
-    : applyGarageCooldownReductionTicks({
-        baseTicks: baseSpySlotCooldownTicks,
-        state,
-        playerId: player.id,
-        config: context.config.balance.garage,
-        category: "districtSpy"
-      });
-  const boostedSpyCooldownTicks = isCriticalCapture
-    ? spyCooldownTicks
-    : Math.max(1, Math.ceil(spyCooldownTicks * boostSnapshot.spyDurationMultiplier));
-  const slotAvailableAtTick = state.root.tick + boostedSpyCooldownTicks;
-  const resolvedAtTick = skipValidation ? state.root.tick : slotAvailableAtTick;
+    : 0;
+  // Travel time was already spent by the pending operation. Only capture
+  // keeps the assigned spy unavailable after the report is resolved.
+  const slotAvailableAtTick = state.root.tick + spyCooldownTicks;
+  const resolvedAtTick = state.root.tick;
   const blockedUntilTick = isBlockedSpyOutcome(reportResult.result) ? slotAvailableAtTick : null;
   const report = createSpyReportNotification({
     command,
@@ -233,4 +226,4 @@ const createPlayerCooldownState = (
 });
 
 const isBlockedSpyOutcome = (result: SpyOutcome): boolean =>
-  result === "failed" || result === "critical_failed";
+  result === "critical_failed";

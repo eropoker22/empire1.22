@@ -24,7 +24,7 @@ test("registration survives reload, new tab, logout and login while invalid atte
     registrationEnabled: true,
     mode: "open",
     minimumAgeYears: 16,
-    passwordMinimumLength: 12,
+    passwordMinimumLength: 8,
     termsAcceptanceRequired: true
   });
 

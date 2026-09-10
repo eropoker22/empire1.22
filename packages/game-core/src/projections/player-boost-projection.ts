@@ -4,6 +4,7 @@ import type { CoreGameState } from "../entities";
 import { getActivePlayerBoost, getPlayerBoostState } from "../rules/player-boosts";
 
 const RESOURCE_LABELS: Record<string, string> = {
+  "tech-core": "Tech Core",
   "ghost-serum": "Ghost Serum",
   "pulse-shot": "Pulse Shot",
   "overdrive-x": "Overdrive X",

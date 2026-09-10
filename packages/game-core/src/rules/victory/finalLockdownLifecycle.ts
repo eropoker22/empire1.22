@@ -18,7 +18,7 @@ import {
   createFinalLockdownStartedNotification
 } from "./finalLockdownMessages";
 import { resolveFinalLockdown } from "./finalLockdownResolution";
-import { resolveEffectiveFinalLockdownTrigger } from "../server-pacing/serverPacingPolicy";
+import { resolveEffectiveFinalLockdownTrigger, resolveFinalLockdownStartWindow } from "../server-pacing/serverPacingPolicy";
 
 export interface FinalLockdownLifecycleResult {
   nextState: CoreGameState;
@@ -41,7 +41,10 @@ export const runFinalLockdownLifecycle = (
     if (effectiveTrigger === null) {
       return { nextState, events };
     }
-    if (activePlayerIds.length <= effectiveTrigger) {
+    const startWindow = resolveFinalLockdownStartWindow(nextState, context.config);
+    const mayStart = !startWindow || nextState.root.tick >= startWindow.earliestStartTick || activePlayerIds.length <= 1;
+    const deadlineReached = !!startWindow && nextState.root.tick >= startWindow.latestStartTick;
+    if ((mayStart && activePlayerIds.length <= effectiveTrigger) || deadlineReached) {
       const started = startFinalLockdown(nextState, context, activePlayerIds);
       nextState = started.nextState;
       events.push(...started.events);

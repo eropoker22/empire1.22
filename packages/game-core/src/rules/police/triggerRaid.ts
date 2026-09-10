@@ -1,3 +1,4 @@
+import { applyTriggeredRaidConsequences } from "./applyTriggeredRaidConsequences";
 import type { PendingRaid, PoliceState } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { CoreEvent } from "../../events";
@@ -28,13 +29,12 @@ export type { RaidTriggerEvaluation } from "./raidTriggerEvaluation";
 
 const RAID_PENDING_FLAG = "raid:pending";
 
-/** Creates authoritative warning/pending-raid decisions, never penalties or UI. */
+/** Schedules police activity and applies enabled immediate consequences once. */
 export const triggerRaid = (
   state: CoreGameState,
   context?: GameCoreContext
 ): { nextState: CoreGameState; events: CoreEvent[]; decisions: RaidTriggerDecision[]; evaluation: RaidTriggerEvaluation | null } => {
   const config = resolvePoliceConfig(context);
-  let changed = false;
   let nextPoliceStatesById = state.policeStatesById;
   const events: CoreEvent[] = [];
   const decisions: RaidTriggerDecision[] = [];
@@ -49,8 +49,6 @@ export const triggerRaid = (
   if (!scheduledWindow) {
     return { nextState: state, events: [], decisions: [], evaluation: null };
   }
-  nextPoliceStatesById = state.policeStatesById;
-  changed = true;
   const maxConcurrentRaids = resolveMaxConcurrentRaidsForPhase(config, phaseId);
   const raidDurationTicks = Math.max(1, Math.floor(Number(config.raidDurationTicks || config.pendingRaidTtlTicks || 1)));
 
@@ -82,7 +80,6 @@ export const triggerRaid = (
         ...nextPoliceStatesById,
         [currentPoliceState.id]: warning.nextPoliceState
       };
-      changed = true;
       events.push(warning.event);
       decisions.push({ playerId: player.id, type: "warning_only", aggregatePressure: pressure.aggregatePressure });
       continue;
@@ -99,7 +96,7 @@ export const triggerRaid = (
       continue;
     }
 
-    if (!isScheduledRaid && isRaidCooldownActive(currentPoliceState, currentTick, config.raidCooldownTicks)) {
+    if (isRaidCooldownActive(currentPoliceState, currentTick, config.raidCooldownTicks)) {
       decisions.push({ playerId: player.id, type: "cooldown_active", aggregatePressure: pressure.aggregatePressure });
       continue;
     }
@@ -116,16 +113,18 @@ export const triggerRaid = (
     const severityPressure = Math.floor(
       pressure.aggregatePressure * Math.max(0, Number(getDayNightModifiers(state, context).raidSeverityMultiplier ?? 1)) + 1e-9
     );
-    const usesScheduledMinimumSeverity = isScheduledRaid
+    const isInspection = isScheduledRaid
       && (pressure.riskTier === "low" || pressure.riskTier === "medium");
-    const severity = usesScheduledMinimumSeverity
-      ? "medium"
+    const severity = isInspection
+      ? "low"
       : resolveRaidSeverity(severityPressure, config.extremePressureRaidThreshold);
     const targetDistrictId = isScheduledRaid || pressure.hottestDistrictHeat >= Math.max(0, config.districtTargetHeatThreshold)
-      ? pressure.hottestDistrictId
+      ? pressure.hottestDistrictId ?? Object.values(state.districtsById)
+        .filter((district) => district.ownerPlayerId === player.id && district.status !== "destroyed")
+        .sort((left, right) => left.id.localeCompare(right.id))[0]?.id ?? null
       : null;
     const raidId = `police:raid:${player.id}:${currentTick}:${(currentPoliceState.pendingRaids ?? []).length + 1}`;
-    const cityHallMitigation = isScheduledRaid ? null : resolveCityHallPoliceMitigation({
+    const cityHallMitigation = isInspection ? null : resolveCityHallPoliceMitigation({
       state,
       context,
       playerId: player.id,
@@ -153,11 +152,17 @@ export const triggerRaid = (
       playerId: player.id,
       targetDistrictId: targetDistrictId ?? undefined,
       severity,
+      kind: isInspection ? "inspection" : "raid",
+      explanation: isInspection
+        ? "Pravidelná namátková kontrola města. Kontroly se střídají mezi hráči; tvůj tlak policie neodůvodňuje ostrou razii. Bez zabavení zásob, peněz a bez uzavření budov."
+        : `Zásah kvůli vysokému tlaku policie (${pressure.aggregatePressure}). Započítává se hledanost hráče i provoz jeho čtvrtí.`,
       reason: isScheduledRaid
         ? `scheduled-${scheduledWindow.boundary}:${pressure.aggregatePressure}:district:${targetDistrictId ?? "none"}`
         : createRaidReason(pressure.aggregatePressure, targetDistrictId),
       createdAtTick: currentTick,
-      expiresAtTick: currentTick + raidDurationTicks,
+      expiresAtTick: currentTick + (isInspection
+        ? Math.max(1, Math.ceil(10 * 60_000 / (context?.config.tickRateMs ?? 10_000)))
+        : raidDurationTicks),
       status: "pending",
       previewConsequences,
       sourcePressure: pressure.aggregatePressure
@@ -168,10 +173,12 @@ export const triggerRaid = (
       playerId: player.id,
       districtId: targetDistrictId ?? undefined,
       severity,
-      message: createPendingRaidMessage(severity),
+      message: isInspection ? "Probíhá rutinní policejní kontrola. Nízký tlak policie: bez konfiskací a omezení provozu." : createPendingRaidMessage(severity),
       createdAtTick: currentTick,
       payload: {
         raidId,
+        kind: pendingRaid.kind,
+        explanation: pendingRaid.explanation,
         sourcePressure: pressure.aggregatePressure,
         previewConsequences
       }
@@ -190,7 +197,6 @@ export const triggerRaid = (
       ...nextPoliceStatesById,
       [nextPoliceState.id]: nextPoliceState
     };
-    changed = true;
     events.push(
       createEvent(CORE_EVENT_TYPES.policeRaidTriggered, {
         playerId: player.id,
@@ -202,9 +208,9 @@ export const triggerRaid = (
         aggregatePressure: pressure.aggregatePressure,
         playerHeatPressure: pressure.playerHeatPressure,
         districtHeatPressure: pressure.districtHeatPressure,
-        threshold: usesScheduledMinimumSeverity
-          ? config.raidSeverityThresholds.medium
-          : config.highPressureRaidThreshold,
+        threshold: config.highPressureRaidThreshold,
+        kind: pendingRaid.kind,
+        explanation: pendingRaid.explanation,
         severity,
         targetDistrictId,
         previewConsequences,
@@ -239,16 +245,9 @@ export const triggerRaid = (
     state.policeScheduleState?.version ?? 0
   );
 
-  return {
-    nextState: changed
-      ? {
-          ...state,
-          policeStatesById: nextPoliceStatesById,
-          policeScheduleState
-        }
-      : state,
-    events,
-    decisions,
-    evaluation
-  };
+  const scheduledState = { ...state, policeStatesById: nextPoliceStatesById, policeScheduleState };
+  const applied = applyTriggeredRaidConsequences(scheduledState, decisions, context);
+  events.push(...applied.events);
+  const nextState = applied.nextState;
+  return { nextState, events, decisions, evaluation };
 };

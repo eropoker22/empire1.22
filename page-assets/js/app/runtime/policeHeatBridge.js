@@ -125,8 +125,8 @@ function normalizeCorePoliceEntries(model = {}) {
   if (pendingRaid.raidId) {
     entries.unshift({
       kind: "pending-raid",
-      title: `Připravená razie · ${pendingRaid.severity || "vysoká"}`,
-      message: pendingRaid.reason || `Vyprší za ${formatDurationMs(pendingRaid.remainingMs)}.`
+      title: `${pendingRaid.consequencesAppliedAtTick !== undefined ? "Probíhá razie" : "Připravená razie"} · ${pendingRaid.severity || "vysoká"}`,
+      message: pendingRaid.consequencesAppliedAtTick !== undefined ? `Konec za ${formatDurationMs(pendingRaid.remainingMs)}.` : pendingRaid.reason || `Zásah za ${formatDurationMs(pendingRaid.remainingMs)}.`
     });
   }
 

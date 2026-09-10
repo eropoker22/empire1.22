@@ -6,6 +6,7 @@ import {
 import {
   getConvenienceStoreMetadata,
   getOwnedConvenienceStoreCount,
+  resolveConvenienceStorePopulationPerMinute,
   resolveConvenienceStoreNetworkMultipliers,
   resolveConvenienceStoreRumorStats
 } from "../handlers/convenienceStoreBuildingActions";
@@ -155,17 +156,15 @@ export const createCivilPopulationBufferPresentation = (
     input.building.buildingTypeId === convenienceStoreConfig?.buildingTypeId
     && input.building.ownerPlayerId
   ) {
-    const ownedCount = getOwnedConvenienceStoreCount(
-      input.state,
-      input.building.ownerPlayerId,
-      convenienceStoreConfig
-    );
     const metadata = getConvenienceStoreMetadata(input.building);
     const capacity = Math.max(1, Math.floor(Number(convenienceStoreConfig.basePopulationCapacity || 1)));
     const storedAmount = Math.min(capacity, Math.max(0, Number(metadata.storedPopulation || 0)));
-    const productionPerMinute = Math.max(0, Number(convenienceStoreConfig.populationPerMinute || 0))
-      + Math.max(0, ownedCount - 1)
-        * Math.max(0, Number(convenienceStoreConfig.network.populationPerMinuteBonusPerExtraStore || 0));
+    const productionPerMinute = resolveConvenienceStorePopulationPerMinute(
+      input.state,
+      input.building.ownerPlayerId,
+      convenienceStoreConfig,
+      input.dayNightConfig ? { config: input.dayNightConfig } : undefined
+    );
     return {
       storedAmount,
       capacity,

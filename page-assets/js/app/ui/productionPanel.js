@@ -143,9 +143,10 @@ function appendDurationBonus(value, durationBonusLabel = "") {
   return durationBonusLabel ? `${value} (${durationBonusLabel})` : value;
 }
 
-function appendServerDurationAdjustment(scopeElement, metric, label = "", buildingType = "") {
+function appendServerDurationAdjustment(scopeElement, metric, label = "", buildingType = "", factionSpeedMultiplier) {
   const copy = String(label || "").trim();
   if (!metric) return null;
+  metric.classList.add("production-time-metric");
   let note = null;
   if (copy) {
     note = createElement(scopeElement, "small", "faction-passive-inline faction-passive-inline--production");
@@ -160,6 +161,7 @@ function appendServerDurationAdjustment(scopeElement, metric, label = "", buildi
   if (factionNote) {
     factionNote.dataset.factionPassiveStatLabel = "Produkce";
     factionNote.dataset.factionPassiveBuildingType = String(buildingType || "");
+    if (Number.isFinite(factionSpeedMultiplier)) factionNote.dataset.factionProductionMultiplier = String(factionSpeedMultiplier);
     factionNote.hidden = true;
     metric.append(factionNote);
   }
@@ -621,7 +623,7 @@ export function renderFactorySlotCard(slotView = {}, callbacks = {}, options = {
     : slotView.usesAuthoritativeCountdown
       ? formatDuration(Number(slotView.remainingMs || 0) > 0 ? slotView.remainingMs : slotView.durationMs, options)
       : formatFactorySlotTime(slotView, options));
-  appendServerDurationAdjustment(options.mount, timeValue?.parentElement || timeValue?.parentNode, slotView.durationAdjustmentLabel, "factory");
+  appendServerDurationAdjustment(options.mount, timeValue?.parentElement || timeValue?.parentNode, slotView.durationAdjustmentLabel, "factory", slotView.factionSpeedMultiplier);
   if (!isInstant && !slotView.usesAuthoritativeCountdown && slot.isProducing) {
     bindFactoryMetricCountdown(timeValue, () => formatFactorySlotTime(slotView, options), options);
   }

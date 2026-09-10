@@ -1,6 +1,7 @@
 import type { CoreGameState } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
-import type { DomainError } from "@empire/shared-types";
+import { normalizeFactionId } from "@empire/game-core";
+import { MAX_PLAYERS_PER_FACTION, type DomainError } from "@empire/shared-types";
 import {
   addPlayerToGameplaySliceState,
   ensureLiveBountyTarget,
@@ -61,6 +62,15 @@ export const ensureGameplaySliceMembershipInState = (
   const playerCount = countRegisteredPlayers(state);
   const maxPlayers = config.balance.maxPlayersPerServer;
 
+  const factionId = normalizeFactionId(request.factionId, config);
+  const factionPlayers = Object.values(state.playersById).filter((player) =>
+    player.status === "active" && player.factionId === factionId).length;
+  if (factionPlayers >= MAX_PLAYERS_PER_FACTION) {
+    return { accepted: false, state, joinedPlayer: false, stateChanged: false,
+      errors: [{ code: "server.faction_cap_reached", message: "Server je už touto frakcí zaplněn. Vyber jinou frakci.",
+        details: { factionId, currentPlayerCount: factionPlayers, maxPlayersPerFaction: MAX_PLAYERS_PER_FACTION } }] };
+  }
+
   if (playerCount >= maxPlayers) {
     return {
       accepted: false,
@@ -92,4 +102,4 @@ export const ensureGameplaySliceMembershipInState = (
 };
 
 const countRegisteredPlayers = (state: CoreGameState): number =>
-  new Set(state.root.playerIds.filter((playerId) => state.playersById[playerId])).size;
+  new Set(state.root.playerIds.filter((playerId) => state.playersById[playerId] && state.playersById[playerId].status !== "left")).size;

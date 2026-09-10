@@ -19,7 +19,7 @@ const createSession = (overrides = {}) => ({
       "pulse-shot": 10,
       "overdrive-x": 10
     },
-    factorySupplies: { combatModule: 10 }
+    factorySupplies: { combatModule: 10, techCore: 10, metalParts: 17 }
   },
   production: { jobs: {}, factory: {} },
   playerBoosts: createEmptyLocalPlayerBoostState(),
@@ -35,17 +35,17 @@ describe("local-demo player boost state", () => {
     });
 
     expect(activated).toMatchObject({ ok: true, replayed: false, boostId: "ghost-network" });
-    expect(activated.session.economy.cleanMoney).toBe(45_000);
+    expect(activated.session.economy.cleanMoney).toBe(48_800);
     expect(activated.session.inventory.drugs).toMatchObject({
-      "ghost-serum": 8,
-      "pulse-shot": 8,
+      "ghost-serum": 9,
+      "pulse-shot": 10,
       "overdrive-x": 10
     });
     expect(activated.session.playerBoosts.active).toMatchObject({
       boostId: "ghost-network",
       status: "timed",
       activatedAtMs: NOW,
-      expiresAtMs: NOW + 12 * 60_000
+      expiresAtMs: NOW + 20 * 60_000
     });
     expect(activated.session.playerBoosts.cooldownUntilMsByBoostId["ghost-network"])
       .toBe(NOW + 35 * 60_000);
@@ -55,8 +55,8 @@ describe("local-demo player boost state", () => {
       commandId: "boost:ghost:1"
     });
     expect(replay).toMatchObject({ ok: true, replayed: true });
-    expect(replay.session.economy.cleanMoney).toBe(45_000);
-    expect(replay.session.inventory.drugs["ghost-serum"]).toBe(8);
+    expect(replay.session.economy.cleanMoney).toBe(48_800);
+    expect(replay.session.inventory.drugs["ghost-serum"]).toBe(9);
 
     const blocked = activateLocalPlayerBoost(activated.session, "industrial-overdrive", {
       now: NOW + 100,
@@ -67,13 +67,11 @@ describe("local-demo player boost state", () => {
   });
 
   it.each([
-    ["ghost-network", "ghost-serum", { drugs: { "ghost-serum": 1, "pulse-shot": 10, "overdrive-x": 10 }, factorySupplies: { combatModule: 10 } }],
-    ["ghost-network", "pulse-shot", { drugs: { "ghost-serum": 10, "pulse-shot": 1, "overdrive-x": 10 }, factorySupplies: { combatModule: 10 } }],
-    ["industrial-overdrive", "overdrive-x", { drugs: { "ghost-serum": 10, "pulse-shot": 10, "overdrive-x": 1 }, factorySupplies: { combatModule: 10 } }],
-    ["industrial-overdrive", "combat-module", { drugs: { "ghost-serum": 10, "pulse-shot": 10, "overdrive-x": 10 }, factorySupplies: { combatModule: 1 } }],
-    ["tactical-grid", "ghost-serum", { drugs: { "ghost-serum": 1, "pulse-shot": 10, "overdrive-x": 10 }, factorySupplies: { combatModule: 10 } }],
-    ["tactical-grid", "overdrive-x", { drugs: { "ghost-serum": 10, "pulse-shot": 10, "overdrive-x": 0 }, factorySupplies: { combatModule: 10 } }],
-    ["tactical-grid", "combat-module", { drugs: { "ghost-serum": 10, "pulse-shot": 10, "overdrive-x": 10 }, factorySupplies: { combatModule: 2 } }]
+    ["ghost-network", "ghost-serum", { drugs: { "ghost-serum": 0 } }],
+    ["industrial-overdrive", "pulse-shot", { drugs: { "pulse-shot": 1 }, factorySupplies: { techCore: 10 } }],
+    ["industrial-overdrive", "tech-core", { drugs: { "pulse-shot": 10 }, factorySupplies: { techCore: 0 } }],
+    ["tactical-grid", "ghost-serum", { drugs: { "ghost-serum": 0 }, factorySupplies: { techCore: 10 } }],
+    ["tactical-grid", "tech-core", { drugs: { "ghost-serum": 10 }, factorySupplies: { techCore: 1 } }]
   ])("rejects %s with missing %s without a partial debit", (boostId, resourceKey, inventory) => {
     const original = createSession({ inventory });
     const result = activateLocalPlayerBoost(original, boostId, {
@@ -85,7 +83,7 @@ describe("local-demo player boost state", () => {
   });
 
   it("rejects missing clean cash without changing inventory or cooldown", () => {
-    const original = createSession({ economy: { cleanMoney: 4_999 } });
+    const original = createSession({ economy: { cleanMoney: 1_199 } });
     const result = activateLocalPlayerBoost(original, "ghost-network", {
       now: NOW,
       commandId: "missing:cash"
@@ -101,18 +99,18 @@ describe("local-demo player boost state", () => {
     });
     const synchronized = synchronizeLocalPlayerBoostSession(
       activated.session,
-      NOW + 12 * 60_000
+      NOW + 20 * 60_000
     );
 
     expect(synchronized.expired).toMatchObject({ boostId: "ghost-network" });
     expect(synchronized.session.playerBoosts.active).toBeNull();
-    expect(synchronized.session.economy.cleanMoney).toBe(45_000);
-    expect(synchronized.session.inventory.drugs["ghost-serum"]).toBe(8);
+    expect(synchronized.session.economy.cleanMoney).toBe(48_800);
+    expect(synchronized.session.inventory.drugs["ghost-serum"]).toBe(9);
     expect(synchronized.session.playerBoosts.cooldownUntilMsByBoostId["ghost-network"])
       .toBe(NOW + 35 * 60_000);
 
     const next = activateLocalPlayerBoost(synchronized.session, "industrial-overdrive", {
-      now: NOW + 12 * 60_000,
+      now: NOW + 20 * 60_000,
       commandId: "activate:industrial"
     });
     expect(next).toMatchObject({ ok: true, boostId: "industrial-overdrive" });
@@ -153,7 +151,7 @@ describe("local-demo player boost state", () => {
     });
     const synchronized = synchronizeLocalPlayerBoostSession(
       activated.session,
-      NOW + 20 * 60_000
+      NOW + 40 * 60_000
     );
 
     expect(synchronized.expired).toMatchObject({
@@ -163,13 +161,13 @@ describe("local-demo player boost state", () => {
     expect(synchronized.session.playerBoosts.active).toBeNull();
     expect(synchronized.session.playerBoosts.cooldownUntilMsByBoostId["tactical-grid"])
       .toBe(NOW + 60 * 60_000);
-    expect(synchronized.session.economy.cleanMoney).toBe(40_000);
+    expect(synchronized.session.economy.cleanMoney).toBe(47_500);
     expect(synchronized.session.inventory.drugs).toMatchObject({
-      "ghost-serum": 8,
-      "overdrive-x": 9
+      "ghost-serum": 9,
+      "overdrive-x": 10
     });
-    expect(synchronized.session.inventory.materials["combat-module"]).toBe(7);
-    expect(synchronized.session.inventory.factorySupplies).toBeUndefined();
+    expect(synchronized.session.inventory.materials["tech-core"]).toBe(8);
+    expect(synchronized.session.inventory.factorySupplies).toEqual({ techCore: 8, combatModule: 10, metalParts: 17 });
   });
 
   it("captures Ghost Network effects without mutating state", () => {

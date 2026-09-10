@@ -3,10 +3,9 @@ import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
-import { createRobCooldownKey, createRobSourceCooldownKey, resolveRobCooldownTicks } from "../rules";
+import { createRobCooldownKey, createRobSourceCooldownKey } from "../rules";
 import { validateRob } from "../validation";
-import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
-import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
+import { resolveRobberyDurationTicks } from "./robberyTiming";
 import { resolveSingleOwnedOrigin } from "./conflictReportNotifications";
 import { startPendingDistrictAction } from "./pendingDistrictActionShared";
 
@@ -26,15 +25,7 @@ export const handleRobDistrict = (
   const targetDistrict = state.districtsById[command.payload.targetDistrictId]!;
   const sourceDistrictId = command.payload.sourceDistrictId
     ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
-  const cityHallNightPatrol = resolveCityHallNightPatrolPressure({ state, context, targetDistrict, tick: state.root.tick });
-  const durationTicks = Math.max(1, Math.ceil(applyCarDealerCooldownReductionTicks({
-    baseTicks: resolveRobCooldownTicks(context.config.balance.conflict),
-    state,
-    playerId: player.id,
-    config: context.config.balance.carDealer,
-    garageConfig: context.config.balance.garage,
-    category: "districtRobbery"
-  }) * cityHallNightPatrol.cooldownMultiplier));
+  const durationTicks = resolveRobberyDurationTicks(state, player.id, targetDistrict.id, context);
   const operation: PendingDistrictActionOperation = {
     id: `district-action-operation:${command.id}`,
     operationType: "rob",

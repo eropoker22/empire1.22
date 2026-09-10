@@ -128,7 +128,7 @@ describe("timed armory production", () => {
 
     const fullFixture = createCoreStateWithFixedBuildingFixture("armory", {
       productionResourceKey: "pistol",
-      productionStoredAmount: 5,
+      productionStoredAmount: 24,
       playerBalances: { "metal-parts": 3, "tech-core": 1, pistol: 0 }
     });
     const full = applyCommand(fullFixture.state, produce(fullFixture.building.id, "pistol"), context);
@@ -140,7 +140,7 @@ describe("timed armory production", () => {
       "tech-core": 0,
       pistol: 0
     });
-    expect(completed.resourceStatesById[`resource:${fullFixture.building.id}`]?.balances.pistol).toBe(5);
+    expect(completed.resourceStatesById[`resource:${fullFixture.building.id}`]?.balances.pistol).toBe(24);
     expect(completed.buildingsById[fullFixture.building.id]?.productionLines?.pistol).toMatchObject({
       queuedAmount: 1,
       activeCompletesAtTick: dueTick

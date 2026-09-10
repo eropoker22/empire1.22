@@ -26,6 +26,7 @@ export interface AccountSessionView {
 }
 
 export interface ServerMembershipView {
+  factionAvailability?: Array<{ factionId: string; players: number; capacity: number; available: boolean }>;
   membershipId: string;
   serverInstanceId: string;
   serverDisplayName: string;

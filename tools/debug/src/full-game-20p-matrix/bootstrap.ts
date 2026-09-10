@@ -20,7 +20,8 @@ export const bootstrapTwentyPlayers = async (
   clock: MutableSimulationClock,
   instanceId: string,
   scenario: FullGameScenario,
-  seedOffset: number
+  seedOffset: number,
+  startingPlayerState?: HostedStartingPlayerStateView
 ): Promise<SimulationBot[]> => {
   const runtime = server.instanceManager.getInstanceById(instanceId);
   if (!runtime) throw new Error("Simulation runtime is missing during player bootstrap.");
@@ -41,7 +42,7 @@ export const bootstrapTwentyPlayers = async (
       playerId: registration.playerId,
       factionId,
       mode: "free",
-      startingPlayerState: createSimulationStartingState(index)
+      startingPlayerState: startingPlayerState ?? createSimulationStartingState(index)
     });
     if (!joined.accepted) throw new Error(`Player ${index + 1} bootstrap rejected: ${joined.errors[0]?.code}`);
     runtime.state = joined.state;
@@ -74,7 +75,10 @@ export const bootstrapTwentyPlayers = async (
   server.instanceManager.startInstance(instanceId);
   for (let index = 0; index < bots.length; index += 1) {
     const bot = bots[index]!;
-    const districtId = enabledSharedCitySpawnDistrictIds[(index + seedOffset) % enabledSharedCitySpawnDistrictIds.length]!;
+    const spawnDistrictIds = startingPlayerState
+      ? enabledSharedCitySpawnDistrictIds.filter((id) => ["residential", "park"].includes(runtime.state.districtsById[id]?.zone))
+      : enabledSharedCitySpawnDistrictIds;
+    const districtId = spawnDistrictIds[(index + seedOffset) % spawnDistrictIds.length]!;
     const response = await server.gameplaySliceTransport.submit({
       sessionToken: bot.sessionToken,
       focusDistrictId: districtId,

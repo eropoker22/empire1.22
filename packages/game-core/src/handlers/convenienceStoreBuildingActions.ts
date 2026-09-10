@@ -1,5 +1,8 @@
 import type { ConvenienceStoreBalanceConfig, FixedBuildingBalanceConfig, LobbyClubBalanceConfig, ResolvedGameModeConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
+import type { GameCoreContext } from "../engine/context";
+import { getOwnedConvenienceStoreCount, resolveConvenienceStorePopulationPerMinute } from "./convenienceStorePopulationRate";
+export { getOwnedConvenienceStoreCount, resolveConvenienceStorePopulationPerMinute } from "./convenienceStorePopulationRate";
 import { applyResolvedRumorEventsToState, createPassiveBuildingRumorInput, type ResolveRumorEventInput } from "../rules/events/rumorPipeline";
 import {
   convenienceStoreDeterministicRollPct as deterministicRollPct,
@@ -48,16 +51,6 @@ export interface ConvenienceStoreActionResolution {
   reportText: string;
   convenienceStoreResult: Record<string, unknown>;
 }
-export const getOwnedConvenienceStoreCount = (
-  state: CoreGameState,
-  playerId: string,
-  config: ConvenienceStoreBalanceConfig
-): number =>
-  Object.values(state.buildingsById).filter((building) =>
-    building.buildingTypeId === config.buildingTypeId
-    && building.ownerPlayerId === playerId
-    && building.status === "active"
-  ).length;
 export const resolveConvenienceStoreNetworkMultipliers = (
   count: number,
   config: ConvenienceStoreBalanceConfig
@@ -74,7 +67,8 @@ export const resolveConvenienceStoreNetworkMultipliers = (
 export const applyConvenienceStorePopulationProduction = (
   state: CoreGameState,
   config: ConvenienceStoreBalanceConfig,
-  tickRateMs: number
+  tickRateMs: number,
+  context?: GameCoreContext
 ): CoreGameState => {
   let buildingsById = state.buildingsById;
   let changed = false;
@@ -87,9 +81,7 @@ export const applyConvenienceStorePopulationProduction = (
     const lastTick = metadata.populationLastUpdatedTick ?? state.root.tick;
     const elapsedTicks = Math.max(0, state.root.tick - lastTick);
     const capacity = Math.max(1, Math.floor(Number(config.basePopulationCapacity || 1)));
-    const extraStores = Math.max(0, getOwnedConvenienceStoreCount(state, building.ownerPlayerId, config) - 1);
-    const populationPerMinute = Math.max(0, Number(config.populationPerMinute || 0))
-      + extraStores * Math.max(0, Number(config.network.populationPerMinuteBonusPerExtraStore || 0));
+    const populationPerMinute = resolveConvenienceStorePopulationPerMinute(state, building.ownerPlayerId, config, context);
     const currentStored = Math.min(capacity, metadata.storedPopulation);
     const gain = currentStored >= capacity
       ? 0

@@ -62,7 +62,8 @@ export const persistHostedMatchResult = async (
     const membership = await database.query(
       `UPDATE empire_server_memberships SET final_rank=$3,final_score=$4,final_score_breakdown=$5::jsonb,
          updated_at=$6::timestamptz,version=version+1
-       WHERE server_instance_id=$1 AND player_id=$2`,
+       WHERE membership_id=(SELECT membership_id FROM empire_server_memberships
+         WHERE server_instance_id=$1 AND player_id=$2 ORDER BY joined_at DESC LIMIT 1)`,
       [serverInstanceId, entry.subjectId, entry.rank, entry.score, JSON.stringify(entry.scoreBreakdown ?? {}), at]
     );
     if ((membership.rowCount ?? 0) !== 1) {
@@ -88,7 +89,8 @@ export const loadHostedMatchResultsForAccount = async (
      JOIN empire_snapshot_latest snapshot ON snapshot.server_instance_id=result.server_instance_id
        AND snapshot.payload #>> '{state,matchResult,id}'=result.match_result_id
      JOIN empire_server_memberships membership ON membership.server_instance_id=result.server_instance_id
-     WHERE result.server_instance_id=$1 AND membership.account_id=$2`,
+     WHERE result.server_instance_id=$1 AND membership.account_id=$2
+     ORDER BY membership.joined_at DESC LIMIT 1`,
     [serverInstanceId, accountId]
   );
   const row = result.rows[0];

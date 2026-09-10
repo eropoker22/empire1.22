@@ -312,6 +312,17 @@ describe("server-authoritative bounty actions", () => {
     expect(failed.nextState.bountiesById?.["bounty:command:bounty:create:1"].status).toBe("active");
   });
 
+  it("removes defeated, departed and landless targets and rejects stale selections", () => {
+    for (const reason of ["defeated", "left", "landless"]) {
+      const state = createBountyState();
+      if (reason === "defeated") state.playersById["player:2"].status = "defeated";
+      else if (reason === "left") state.playersById["player:2"].status = "left";
+      else state.districtsById["district:2"].status = "destroyed";
+      expect(createBountyReadModel(state, "player:1").eligibleTargets.map((target) => target.playerId)).not.toContain("player:2");
+      expect(applyCommand(state, createBountyCommand(), context).errors[0]?.code).toBe("bounty_target_not_found");
+    }
+  });
+
   it("projects eligible targets and active bounty table from authoritative state", () => {
     const created = applyCommand(createBountyState(), createBountyCommand(), context).nextState;
     const view = createBountyReadModel(created, "player:1", {

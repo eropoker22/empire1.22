@@ -27,8 +27,8 @@ export const freeModeFactoryConfig: FactoryBalanceConfig = {
       cleanCashCostPerUnit: 300,
       inputCosts: {},
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(4),
-      localOutputCap: 10,
-      queueCap: 13
+      localOutputCap: 60,
+      queueCap: 63
     },
     "tech-core": {
       label: "Tech Core",
@@ -37,8 +37,8 @@ export const freeModeFactoryConfig: FactoryBalanceConfig = {
       cleanCashCostPerUnit: 900,
       inputCosts: { "metal-parts": 4 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(8),
-      localOutputCap: 5,
-      queueCap: 8
+      localOutputCap: 24,
+      queueCap: 27
     },
     "combat-module": {
       label: "Bojový modul",
@@ -47,8 +47,8 @@ export const freeModeFactoryConfig: FactoryBalanceConfig = {
       cleanCashCostPerUnit: 2500,
       inputCosts: { "metal-parts": 4, "tech-core": 2 },
       durationTicksPerUnit: baseCooldownTicksForFinalMinutes(15),
-      localOutputCap: 2,
-      queueCap: 5
+      localOutputCap: 8,
+      queueCap: 11
     }
   }
 };

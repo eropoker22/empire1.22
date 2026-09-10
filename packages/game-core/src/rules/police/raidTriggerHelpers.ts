@@ -55,8 +55,8 @@ export const createRaidReason = (aggregatePressure: number, targetDistrictId: st
 
 export const createPendingRaidMessage = (severity: PoliceRaidSeverity): string =>
   severity === "extreme"
-    ? "Hlídky sevřely čtvrť. Další hluk může spustit tvrdou razii."
-    : "District je pod tlakem. Policie připravuje zásah.";
+    ? "Probíhá tvrdá policejní razie. Hlídky sevřely čtvrť."
+    : "Probíhá policejní razie. Policie zasahuje v districtu.";
 
 export const ensureFlag = (flags: string[], flag: string): string[] =>
   flags.includes(flag) ? flags : [...flags, flag];

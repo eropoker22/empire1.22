@@ -1999,7 +1999,6 @@ const renderAllianceLauncher = (activeAlliance) => {
       ${renderAllianceIconSvg(iconKey)}
     </span>
     <span class="alliance-launcher__body">
-      <span class="alliance-launcher__eyebrow">Aliance</span>
       <strong class="alliance-launcher__name" title="${escapeHtml(activeAlliance.name)}">${escapeHtml(activeAlliance.name)}</strong>
     </span>
   `;

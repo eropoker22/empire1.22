@@ -155,7 +155,7 @@ describe("gameplay economy rates projection", () => {
         apartmentBlock: {
           storedPopulation: 10,
           lastUpdatedTick: 0,
-          lastCapacity: 50,
+          lastCapacity: 180,
           wasFull: false
         }
       }
@@ -191,7 +191,7 @@ describe("gameplay economy rates projection", () => {
       target: "building-storage",
       playerBalanceAmountPerTick: 0,
       storedAmount: 10,
-      capacity: 50,
+      capacity: 180,
       isFull: false,
       status: "producing"
     });
@@ -200,14 +200,14 @@ describe("gameplay economy rates projection", () => {
     expect(projected.selectedDistrict?.passivePopulationSourceSummary)
       .toContain("apartment_block:");
     expect(projected.selectedDistrict?.passivePopulationSourceSummary)
-      .toContain("do zásoby (10/50; topbar +0; produkce aktivní)");
+      .toContain("do zásoby (10/180; topbar +0; produkce aktivní)");
 
     const fullState = structuredClone(state);
     fullState.buildingsById[building.id].metadata = {
       apartmentBlock: {
-        storedPopulation: 50,
+        storedPopulation: 180,
         lastUpdatedTick: 0,
-        lastCapacity: 50,
+        lastCapacity: 180,
         wasFull: true
       }
     };
@@ -223,8 +223,8 @@ describe("gameplay economy rates projection", () => {
       amountPerTick: 0,
       amountPerHour: 0,
       playerBalanceAmountPerTick: 0,
-      storedAmount: 50,
-      capacity: 50,
+      storedAmount: 180,
+      capacity: 180,
       isFull: true,
       status: "capacity-full"
     });

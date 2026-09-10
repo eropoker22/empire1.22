@@ -41,6 +41,7 @@ export const createServerMapInteractionState = (settings = {}) => {
     reducedMapEffects: false,
     gamePhase: "live",
     revealedDistrictIds: new Set(),
+    occupiableSpyDistrictIds: new Set(),
     occupiedDistrictIds: new Set(),
     ownedDistrictIds: new Set(),
     destroyedDistrictIds: new Set(),
@@ -68,6 +69,7 @@ export const syncServerMapInteractionState = (state, model, settings = {}) => {
     ...model.ownedDistrictIds,
     ...(model.revealedDistrictIds || [])
   ]);
+  state.occupiableSpyDistrictIds = new Set(model.occupiableSpyDistrictIds || []);
   state.destroyedDistrictIds = new Set(model.destroyedDistrictIds);
   state.districtOwnerById = { ...model.districtOwnerById };
   state.launchOwnerByDistrictId = new Map(

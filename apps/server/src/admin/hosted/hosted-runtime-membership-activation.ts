@@ -1,4 +1,4 @@
-import { handleSelectSpawnDistrict } from "@empire/game-core";
+import { clearDepartedPlayerState, handleSelectSpawnDistrict } from "@empire/game-core";
 import { ensureGameplaySliceMembershipInState } from "../../bootstrap/gameplay-slice-session-membership";
 import { findSharedCitySpawnCandidate } from "../../bootstrap/gameplay-slice-shared-city-seed";
 import type { PostgresPlayerEntryRepository } from "../../player-entry/postgres-player-entry-repository";
@@ -17,7 +17,10 @@ export const applyHostedMembershipActivation = (
   claimedAt: Date
 ): boolean => {
   const existingPlayer = runtime.state.playersById[membership.playerId];
-  if (existingPlayer) {
+  const rejoining = existingPlayer?.status === "left"
+    && membership.status === "finalizing_setup"
+    && existingPlayer.metadata?.membershipId !== membership.membershipId;
+  if (existingPlayer && !rejoining) {
     const ensured = ensureGameplaySliceMembershipInState(runtime.state, {
       serverInstanceId: membership.serverInstanceId,
       playerId: membership.playerId,
@@ -32,6 +35,13 @@ export const applyHostedMembershipActivation = (
       throw hostedMutationError("MEMBERSHIP_ACTIVATION_CONFLICT");
     }
     return syncHostedMembershipPlayerIdentity(runtime, membership) || ensured.stateChanged;
+  }
+
+  if (rejoining) {
+    // The completed leave revoked sessions and released territory. Recreate the
+    // account's player with the new membership's starter state, once per attempt.
+    runtime.state = clearDepartedPlayerState(runtime.state, membership.playerId);
+    delete runtime.state.playersById[membership.playerId];
   }
 
   const created = ensureGameplaySliceMembershipInState(runtime.state, {

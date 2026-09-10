@@ -120,6 +120,12 @@ export const validateModeConfig = (config: ResolvedGameModeConfig): ResolvedGame
 
   const finalLockdown = config.balance.finalLockdown;
   if (finalLockdown?.enabled) {
+    const window = finalLockdown.competitiveWindow;
+    if (window && (!Number.isInteger(window.minimumStartingPlayers) || window.minimumStartingPlayers < 2
+      || !Number.isInteger(window.earliestStartTick) || window.earliestStartTick < 0
+      || !Number.isInteger(window.latestStartTick) || window.latestStartTick < window.earliestStartTick)) {
+      throw new Error("Final Lockdown requires a valid competitive start window.");
+    }
     for (const [key, value] of [
       ["triggerActivePlayers", finalLockdown.triggerActivePlayers],
       ["activeDurationTicks", finalLockdown.activeDurationTicks],

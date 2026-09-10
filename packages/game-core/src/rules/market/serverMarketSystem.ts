@@ -698,11 +698,13 @@ export const getMarketViewModel = (
 
 export const getServerTotalMoney = (serverState: AnyRecord): number => {
   const players = getAllPlayers(serverState);
-  const seenResourceStates = new Set<string>();
+  // Each wallet contributes both currencies once, including wallets exposed by aliases.
+  const seenCleanResourceStates = new Set<string>();
+  const seenDirtyResourceStates = new Set<string>();
 
   return Math.floor(players.reduce((total, player) => {
-    const clean = getPlayerCash(serverState, player, "cleanCash", seenResourceStates);
-    const dirty = getPlayerCash(serverState, player, "dirtyCash", seenResourceStates);
+    const clean = getPlayerCash(serverState, player, "cleanCash", seenCleanResourceStates);
+    const dirty = getPlayerCash(serverState, player, "dirtyCash", seenDirtyResourceStates);
     return total + clean + dirty * 0.7;
   }, 0));
 };
@@ -1669,7 +1671,7 @@ const addHeatToPlayer = (serverState: AnyRecord, player: AnyRecord, amount: numb
     };
     serverState.policeStatesById[player.policeStateId] = {
       ...current,
-      heat: safeInteger(current.heat) + safeAmount,
+      heat: Math.max(0, safeNumber(current.heat)) + safeAmount,
       version: safeInteger(current.version) + 1
     };
   }

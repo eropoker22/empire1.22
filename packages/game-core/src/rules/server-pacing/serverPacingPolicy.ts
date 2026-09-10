@@ -1,6 +1,13 @@
 import type { GameModeConfig } from "../../contracts";
 import type { CoreGameState } from "../../entities";
 
+export const resolveFinalLockdownStartWindow = (state: CoreGameState, config: GameModeConfig) => {
+  const startWindow = config.balance.finalLockdown?.competitiveWindow;
+  const rosterSize = state.serverPacingState?.registrationBaselinePlayers ?? state.root.playerIds.length;
+  if (!startWindow || rosterSize < startWindow.minimumStartingPlayers) return null;
+  return startWindow;
+};
+
 export const resolveEffectiveFinalLockdownTrigger = (
   state: CoreGameState,
   config: GameModeConfig

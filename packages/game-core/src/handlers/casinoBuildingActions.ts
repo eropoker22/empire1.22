@@ -426,7 +426,7 @@ const resolveBribedInspector = (input: Parameters<typeof resolveCasinoAction>[0]
   const config = input.casinoConfig;
   const metadata = cleanupCasinoMetadata(getCasinoMetadata(input.building), input.state.root.tick);
   const cleanCash = Math.max(0, Number(input.balances.cash || 0));
-  const failed = deterministicRollPct(`${input.commandId}:${input.state.root.tick}`) < config.bribedInspector.failureChancePct;
+  const failed = deterministicRollPct(`${input.state.serverInstance.worldSeed}:${input.building.id}:inspector:${input.state.root.tick}`) < config.bribedInspector.failureChancePct;
   const nextBalances = {
     ...input.balances,
     cash: Math.max(0, cleanCash - config.bribedInspector.cleanCashCost)

@@ -25,6 +25,31 @@ const FREE_CONFIG = resolveModeConfig("free");
 const CONTEXT = { config: FREE_CONFIG };
 
 describe("Free BR Final Lockdown", () => {
+  it("keeps a full server competitive until 60 hours and forces the finale at 78 hours", () => {
+    const state = createTop8State();
+    state.serverPacingState = createFrozenPacingState(state, { registrationBaselinePlayers: 20 });
+    state.root.tick = 60 * 360 - 1;
+    expect(runFinalLockdownLifecycle(state, CONTEXT).nextState.finalLockdownState).toBeNull();
+    state.root.tick++;
+    expect(runFinalLockdownLifecycle(state, CONTEXT).nextState.finalLockdownState?.startedAtTick).toBe(60 * 360);
+    state.playersById["player:9"] = createPlayerFixture({ id: "player:9" });
+    state.root.playerIds.push("player:9");
+    state.root.tick = 78 * 360 - 1;
+    expect(runFinalLockdownLifecycle(state, CONTEXT).nextState.finalLockdownState).toBeNull();
+    state.root.tick++;
+    expect(runFinalLockdownLifecycle(state, CONTEXT).nextState.finalLockdownState?.startedAtTick).toBe(78 * 360);
+    state.serverPacingState.registrationClosedAt = null;
+    expect(runFinalLockdownLifecycle(state, CONTEXT).nextState.finalLockdownState).toBeNull();
+  });
+
+  it("does not leave the sole survivor waiting for the full-server time gate", () => {
+    const state = createTop8State();
+    state.serverPacingState = createFrozenPacingState(state, { registrationBaselinePlayers: 20 });
+    for (const id of state.root.playerIds.slice(1)) state.playersById[id].status = "defeated";
+    state.root.tick = 360;
+    expect(runFinalLockdownLifecycle(state, CONTEXT).nextState.finalLockdownState?.startedAtTick).toBe(360);
+  });
+
   it("starts Final Lockdown when Top 8 is reached and stops scheduled eliminations", () => {
     const state = createTop8State();
 

@@ -59,7 +59,7 @@ export const createDistrictPanelView = (
       nightLengthTicks: input.config?.balance.nightLengthTicks
     }
   );
-  const heistTargets = createDistrictHeistTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt);
+  const heistTargets = createDistrictHeistTargetViews(state, input.playerId, district.id, input.conflictConfig, issuedAt, input.config ? { config: input.config } : undefined);
   const targetActions = isOwnedByPlayer
     ? {
         attackTargets: [],

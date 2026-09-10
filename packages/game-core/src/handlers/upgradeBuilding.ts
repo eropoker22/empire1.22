@@ -1,3 +1,4 @@
+import { retimeProductionSupport } from "../rules/production/productionSpeedModifiers";
 import type { ResourceState, UpgradeBuildingCommand } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { CoreEvent } from "../events";
@@ -48,7 +49,7 @@ export const handleUpgradeBuilding = (
   };
 
   return {
-    nextState: {
+    nextState: retimeProductionSupport(state, {
       ...state,
       buildingsById: {
         ...state.buildingsById,
@@ -58,7 +59,7 @@ export const handleUpgradeBuilding = (
         ...state.resourceStatesById,
         [nextResourceState.id]: nextResourceState
       }
-    },
+    }, context),
     events: [
       createEvent(CORE_EVENT_TYPES.buildingUpgraded, {
         playerId: command.playerId,

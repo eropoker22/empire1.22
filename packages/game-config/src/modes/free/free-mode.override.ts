@@ -38,6 +38,7 @@ import { freeModePlayerBoostConfig } from "./free-mode-player-boost-config";
 import { freeModeCityEventConfig } from "./free-mode-city-event-config";
 import { freeModeAllianceLifecycleConfig } from "./free-mode-alliance-lifecycle-config";
 import { freeModePoliceConfig } from "./free-police-config";
+import { freeModeResourceScoreValues } from "./free-mode-resource-score-values";
 import {
   FREE_MODE_COOLDOWN_MULTIPLIER,
   FREE_MODE_TICK_RATE_MS,
@@ -106,16 +107,23 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
         activeBuildingCount: 500,
         cleanCash: 0.1,
         dirtyCash: 0.05,
-        resources: 0.2,
+        resources: 0.1,
+        includeCommittedAssets: true,
+        buildingCapital: 0.05,
         population: 2,
         recentActivityBonus: 250,
         recentActivityWindowTicks: ticksFromHours(1),
-        resourceScoreValues: {}
+        resourceScoreValues: freeModeResourceScoreValues
       }
     },
     finalLockdown: {
       enabled: true,
       triggerActivePlayers: 8,
+      competitiveWindow: {
+        minimumStartingPlayers: 16,
+        earliestStartTick: ticksFromHours(60),
+        latestStartTick: ticksFromHours(78)
+      },
       activeDurationTicks: ticksFromHours(12),
       pauseDuringQuietHours: true,
       scoreMode: "final_empire_score",
@@ -305,8 +313,8 @@ export const freeModeOverride: Partial<ResolvedGameModeConfig> = {
       catastropheChance: 0.02
     },
     startingResources: {
-      cash: 1500,
-      "dirty-cash": 300,
+      cash: 6000,
+      "dirty-cash": 3000,
       chemicals: 10,
       biomass: 6,
       "metal-parts": 8,

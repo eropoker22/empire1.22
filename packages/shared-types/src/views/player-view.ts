@@ -53,6 +53,7 @@ export interface PlayerView {
     affectedPlayerIds: PlayerId[];
     expiresAtTick: number;
   }>;
+  spySlots?: Array<{ slotId: string; availableAtTick: number; available: boolean; lastMissionId: string | null }>;
   economy: PlayerEconomyView;
   faction?: FactionReadModel | null;
   dayNight?: DayNightReadModel | null;

@@ -9,7 +9,7 @@ import {
 import { getLivePlayerAvatarPreviews } from "./app/model/livePlayerAvatarCatalog.js";
 import { PLAYER_COLOR_OPTIONS } from "./app/model/playerColorOptions.js";
 
-const state = { membership: null, factionId: null, avatarId: null, gangColor: null, busy: false };
+const state = { membership: null, factionId: null, avatarId: null, gangColor: null, busy: false, refreshing: false };
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => void boot(), { once: true });
 else void boot();
@@ -31,6 +31,10 @@ async function boot() {
     renderAvatars();
     bindAvatarControls();
     bindSubmit();
+    renderFactionAvailability();
+    const refreshTimer = setInterval(() => { if (!document.hidden && !state.busy) void refreshFactionAvailability(); }, 5000);
+    window.addEventListener("pagehide", () => clearInterval(refreshTimer), { once: true });
+    window.addEventListener("focus", () => { if (!state.busy) void refreshFactionAvailability(); });
     if (state.membership.status === "finalizing_setup") {
       setStatus("Aktivace probíhá", "Worker dokončuje hráče, district a startovní zdroje právě jednou.");
       void awaitActivation();
@@ -43,7 +47,7 @@ async function boot() {
 
 function bindFactionCards() {
   document.querySelectorAll("[data-faction-id]").forEach((button) => button.addEventListener("click", () => {
-    if (state.busy) return;
+    if (state.busy || button.disabled) return;
     const factionId = String(button.dataset.factionId || "");
     if (!FACTION_CATALOG[factionId]) return;
     state.factionId = factionId;
@@ -53,6 +57,54 @@ function bindFactionCards() {
     renderAvatars();
     updateReadyState();
   }));
+}
+
+function renderFactionAvailability() {
+  const factions = state.membership?.factionAvailability;
+  document.querySelectorAll("[data-faction-id]").forEach((button) => {
+    const faction = factions?.find((entry) => entry.factionId === button.dataset.factionId);
+    const full = faction?.available === false;
+    button.disabled = state.busy || !faction || full;
+    button.classList.toggle("is-full", full);
+    button.setAttribute("aria-disabled", String(button.disabled));
+    let capacity = button.querySelector(".structure-card__capacity");
+    if (!capacity) {
+      capacity = createElement("span", "structure-card__capacity");
+      button.append(capacity);
+    }
+    capacity.textContent = faction ? `${faction.players}/${faction.capacity} · ${full ? "OBSAZENO" : "HRÁČI"}` : "NAČÍTÁM MÍSTA…";
+    let message = button.querySelector(".structure-card__availability");
+    if (!message) {
+      message = createElement("span", "structure-card__availability");
+      button.append(message);
+    }
+    message.hidden = !full;
+    message.textContent = "Server je už touto frakcí zaplněn.";
+    if (full && state.factionId === button.dataset.factionId && !state.busy) {
+      state.factionId = null;
+      state.avatarId = null;
+      button.classList.remove("is-active");
+      closeAvatarLightbox();
+      renderFactionDetail();
+      renderAvatars();
+      setStatus("Frakce je obsazená", "Poslední místo mezitím získal jiný hráč. Vyber jinou frakci.");
+    }
+  });
+  updateReadyState();
+}
+
+async function refreshFactionAvailability() {
+  if (!state.membership || state.refreshing) return;
+  state.refreshing = true;
+  try {
+    const membership = await loadMembership(state.membership.membershipId);
+    state.membership = membership;
+    renderFactionAvailability();
+  } catch (error) {
+    setStatus("Obsazenost se nepodařilo obnovit", error.message);
+  } finally {
+    state.refreshing = false;
+  }
 }
 
 function renderFactionDetail() {
@@ -205,7 +257,7 @@ function bindSubmit() {
 }
 
 async function submitSetup() {
-  if (state.busy || !state.membership || !state.factionId || !state.avatarId || !state.gangColor) return;
+  if (state.busy || !state.membership || !isSelectedFactionAvailable() || !state.avatarId || !state.gangColor) return;
   state.busy = true;
   updateReadyState();
   setStatus("Potvrzuji serverovou identitu", "Čekám na authoritative worker a platný lease.");
@@ -219,6 +271,7 @@ async function submitSetup() {
     await awaitActivation();
   } catch (error) {
     state.busy = false;
+    if (error?.code === "FACTION_FULL") await refreshFactionAvailability();
     updateReadyState();
     setStatus("Setup se nezdařil", error instanceof Error ? error.message : "Server setup se nepodařilo uložit.");
   }
@@ -254,11 +307,15 @@ function renderContext(account, membership) {
 }
 
 function updateReadyState() {
-  const ready = Boolean(state.factionId && state.avatarId && state.gangColor && !state.busy);
+  const ready = Boolean(isSelectedFactionAvailable() && state.avatarId && state.gangColor && !state.busy);
   const link = document.querySelector("#go-game");
   link?.classList.toggle("faction-link--disabled", !ready);
   link?.setAttribute("aria-disabled", String(!ready));
   if (link) link.textContent = state.busy ? "SERVER SE PŘIPRAVUJE…" : "POTVRDIT A VSTOUPIT";
+}
+
+function isSelectedFactionAvailable() {
+  return Boolean(state.factionId && state.membership?.factionAvailability?.find((entry) => entry.factionId === state.factionId)?.available);
 }
 
 function setStatus(title, message) {

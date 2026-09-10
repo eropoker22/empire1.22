@@ -100,14 +100,19 @@ export function renderFactionPassiveUi(documentRef = document, factionView = lat
   for (const element of documentRef?.querySelectorAll?.("[data-faction-passive-inline-context], [data-faction-passive-stat-label]") || []) {
     const context = String(element.dataset?.factionPassiveInlineContext || "");
     const shell = element.closest?.("[data-building-mechanics-type], [data-district-building-detail-building-type-id], [data-district-building-detail-popup]");
-    const copy = resolveFactionPassiveInlineCopy(factionId, context, factionView, {
+    const projectedProductionMultiplier = Number(element.dataset?.factionProductionMultiplier);
+    const copy = Number.isFinite(projectedProductionMultiplier)
+      ? projectedProductionMultiplier === 1 ? "" : `Frakce ${projectedProductionMultiplier > 1 ? "+" : "−"}${Math.abs(Math.round((projectedProductionMultiplier - 1) * 100))}%`
+      : resolveFactionPassiveInlineCopy(factionId, context, factionView, {
       statLabel: element.dataset?.factionPassiveStatLabel || "",
       buildingType: element.dataset?.factionPassiveBuildingType
         || shell?.dataset?.buildingMechanicsType
         || shell?.dataset?.districtBuildingDetailBuildingTypeId
         || ""
     });
-    element.textContent = copy;
+    const productionNote = element.classList?.contains("faction-passive-inline--production");
+    const numericBonus = copy.match(/[+−-]\d+(?:[.,]\d+)?\s*%/u)?.[0]?.replace(/\s+/gu, "");
+    element.textContent = productionNote && numericBonus ? `Frakce ${numericBonus}` : copy;
     element.hidden = !copy;
     element.classList?.toggle?.("hidden", !copy);
     const conditionalRow = element.closest?.("[data-faction-passive-inline-row]");

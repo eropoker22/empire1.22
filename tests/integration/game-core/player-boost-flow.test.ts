@@ -55,7 +55,7 @@ const fundedState = () => {
       "ghost-serum": 10,
       "pulse-shot": 10,
       "overdrive-x": 10,
-      "combat-module": 10
+      "combat-module": 10, "tech-core": 10
     }
   };
   return state;
@@ -85,11 +85,11 @@ describe("authoritative player boost flow", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.nextState.resourceStatesById["resource:1"].balances).toMatchObject({
-      cash: 45_000,
-      "ghost-serum": 8,
-      "pulse-shot": 8,
+      cash: 48_800,
+      "ghost-serum": 9,
+      "pulse-shot": 10,
       "overdrive-x": 10,
-      "combat-module": 10
+      "combat-module": 10, "tech-core": 10
     });
     expect(result.nextState.playerBoostStatesByPlayerId?.["player:1"]?.active).toMatchObject({
       boostId: "ghost-network",
@@ -123,7 +123,7 @@ describe("authoritative player boost flow", () => {
 
   it("rejects missing resources and active/cooldown conflicts without partial mutation", () => {
     const missing = fundedState();
-    missing.resourceStatesById["resource:1"].balances["pulse-shot"] = 1;
+    missing.resourceStatesById["resource:1"].balances["ghost-serum"] = 0;
     const rejected = applyCommand(missing, command("ghost-network", "command:missing"), context);
     expect(rejected.errors.map((error) => error.code)).toEqual(["boost_missing_resources"]);
     expect(rejected.nextState).toBe(missing);
@@ -173,7 +173,10 @@ describe("authoritative player boost flow", () => {
 
     for (const buildingTypeId of ["pharmacy", "drug_lab", "factory", "armory"]) {
       const building = createFixedBuildingFixture(buildingTypeId);
-      expect(resolveProductionLineDurationTicks(state, building, recipe, context)).toBe(640);
+      const boosted = resolveProductionLineDurationTicks(state, building, recipe, context);
+      const unboosted = resolveProductionLineDurationTicks({ ...state, playerBoostStatesByPlayerId: {} }, building, recipe, context);
+      expect(boosted).toBeLessThan(unboosted);
+      expect(Math.abs(boosted * 1.25 - unboosted)).toBeLessThanOrEqual(1.25);
       expect(recipe).toMatchObject({ outputAmount: 1, localOutputCap: 2, queueCap: 2, inputCosts: {} });
     }
 

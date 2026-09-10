@@ -162,7 +162,8 @@ function formatServerDurationAdjustment(baseDurationMs = 0, effectiveDurationMs 
   ) {
     return "";
   }
-  return `Zrychlení: ${formatDurationLabel(baseMs)} → ${formatDurationLabel(effectiveMs)}`;
+  const reductionPct = Math.round((1 - effectiveMs / baseMs) * 100);
+  return reductionPct > 0 ? `Čas −${reductionPct}%` : `Čas +${Math.abs(reductionPct)}%`;
 }
 
 function resolveFactoryLineSpeedMultiplier(line = {}, {
@@ -359,6 +360,7 @@ export function buildFactoryDashboardViewModel({
         disabledReason: slot.disabledReason || null,
         baseDurationMs: resolvedBaseDurationMs,
         durationMs,
+        factionSpeedMultiplier: slot.factionSpeedMultiplier,
         durationBonusLabel: isInstant ? "" : formatFactoryDurationBonus(resolvedBaseDurationMs, durationMs),
         durationAdjustmentLabel: !isInstant && slot.usesAuthoritativeDuration === true
           ? formatServerDurationAdjustment(slot.authoritativeBaseDurationMs, slot.effectiveDurationMs, formatDurationLabel)
@@ -444,6 +446,7 @@ export function buildServerFactoryDashboardViewModel({
           : undefined
       ),
       effectiveDurationMs: projectedEffectiveDurationMs,
+      factionSpeedMultiplier: line.factionSpeedMultiplier,
       effectiveSpeedMultiplier: isInstant ? 1 : resolveFactoryLineSpeedMultiplier(line, {
         canonicalBaseDurationMs,
         effectiveDurationMs: projectedEffectiveDurationMs

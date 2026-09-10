@@ -6,6 +6,8 @@ import {
   resolveFinalLockdownQuietHoursResumeTick
 } from "../rules/victory/finalLockdownLifecycle";
 import { createFinalEmpireRanking } from "../rules/victory/finalEmpireScore";
+import { createScoreContributionView } from "./score-contribution-view";
+import { resolveFinalLockdownStartWindow } from "../rules/server-pacing/serverPacingPolicy";
 
 export const createFinalLockdownReadModel = (
   state: CoreGameState,
@@ -44,9 +46,14 @@ export const createFinalLockdownReadModel = (
   const pausedByQuietHours = finalState?.pausedByQuietHours ?? false;
   const top3Threshold = ranking[Math.min(topRankCount, ranking.length) - 1] ?? null;
   const firstPlace = ranking[0] ?? null;
+  const startWindow = resolveFinalLockdownStartWindow(state, context.config);
+  const hours = (ticks: number) => Math.round(ticks * context.config.tickRateMs / 3_600_000);
 
   return {
     enabled: true,
+    startRuleDescription: startWindow
+      ? `Při dosažení finálního počtu hráčů začne finále nejdříve ${hours(startWindow.earliestStartTick)} h od startu, nejpozději ${hours(startWindow.latestStartTick)} h. Poté běží ${hours(config.activeDurationTicks)} aktivních hodin. Jediný přeživší může zahájit finále dříve. Registrace musí být uzavřena.`
+      : "Final Lockdown začne podle počtu hráčů po uzavření registrace.",
     status: finalState?.status ?? "inactive",
     active: finalState?.status === "active" || finalState?.status === "paused",
     pausedByQuietHours,
@@ -68,6 +75,7 @@ export const createFinalLockdownReadModel = (
         }
       : null,
     currentPlayerScoreBreakdown: currentPlayerScore?.scoreBreakdown ?? null,
+    currentPlayerScoreContributions: currentPlayerScore ? createScoreContributionView(currentPlayerScore.scoreBreakdown, context, true) : null,
     scoreGapToTop3: currentPlayerScore && top3Threshold && currentPlayerIndex + 1 > topRankCount
       ? roundScore(Math.max(0, top3Threshold.score - currentPlayerScore.score + 1))
       : currentPlayerScore

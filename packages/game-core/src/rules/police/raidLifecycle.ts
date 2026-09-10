@@ -1,3 +1,4 @@
+import { resolveWantedLevel } from "./wantedLevel";
 import type { PendingRaid, PoliceEvent } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { CoreEvent } from "../../events";
@@ -23,14 +24,17 @@ export const acknowledgePendingRaid = (
   }
 
   let acknowledgedRaid: PendingRaid | null = null;
+  let heatRelief = 0;
   const pendingRaids = (policeState.pendingRaids ?? []).map((raid) => {
     if (raid.raidId !== raidId || raid.status !== "pending") {
       return raid;
     }
+    heatRelief = Math.min(policeState.heat, Math.max(0, Number(raid.heatReductionOnAcknowledge || 0)));
     acknowledgedRaid = {
       ...raid,
       status: "acknowledged",
-      acknowledgedAtTick: state.root.tick
+      acknowledgedAtTick: state.root.tick,
+      heatReductionOnAcknowledge: 0
     };
     return acknowledgedRaid;
   });
@@ -46,6 +50,8 @@ export const acknowledgePendingRaid = (
         ...state.policeStatesById,
         [policeState.id]: {
           ...policeState,
+          heat: Math.max(0, policeState.heat - heatRelief),
+          wantedLevel: resolveWantedLevel(Math.max(0, policeState.heat - heatRelief)),
           pendingRaids,
           version: policeState.version + 1
         }
@@ -83,6 +89,20 @@ export const resolvePendingRaid = (
     };
   }
 
+  if (raid.consequencesAppliedAtTick !== undefined) {
+    if (state.root.tick < raid.expiresAtTick || !policeState) return { nextState: state, events: [], result: null };
+    const pendingRaids = (policeState.pendingRaids ?? []).map((entry) => entry.raidId === raidId
+      ? { ...entry, status: "resolved" as const, resolvedAtTick: state.root.tick } : entry);
+    const hasOpenRaid = pendingRaids.some((entry) => entry.status === "pending" || entry.status === "acknowledged");
+    return {
+      nextState: { ...state, policeStatesById: { ...state.policeStatesById, [policeState.id]: {
+        ...policeState, pendingRaids,
+        activeFlags: hasOpenRaid ? policeState.activeFlags : policeState.activeFlags.filter((flag) => flag !== "raid:pending"),
+        version: policeState.version + 1
+      } } },
+      events: [], result: null
+    };
+  }
   const applyResult = applyRaidConsequences(state, raid, context, options);
 
   return {
@@ -115,7 +135,7 @@ export const expirePendingRaids = (
     );
 
     for (const raid of expiredRaids) {
-      if (config.autoResolveExpiredPendingRaids !== false) {
+      if (config.autoResolveExpiredPendingRaids !== false || raid.consequencesAppliedAtTick !== undefined) {
         const resolved = resolvePendingRaid(
           nextState,
           policeState.ownerPlayerId,

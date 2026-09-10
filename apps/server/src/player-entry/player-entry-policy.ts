@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import { PLAYER_COLOR_OPTIONS } from "@empire/shared-types";
 
 export const PLAYER_ENTRY_POLICY = Object.freeze({
-  allowRejoinAfterEarlyLeave: false,
+  allowRejoinAfterEarlyLeave: true,
   earlyLeaveWindowMs: 60 * 60 * 1000
 });
 

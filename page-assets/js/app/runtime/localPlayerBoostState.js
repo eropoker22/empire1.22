@@ -3,6 +3,7 @@ import { PLAYER_BOOST_CONFIG } from "../../../../packages/game-config/src/legacy
 const BOOST_STATE_VERSION = 1;
 const BOOST_IDS = Object.freeze(["ghost-network", "industrial-overdrive", "tactical-grid"]);
 const RESOURCE_LABELS = Object.freeze({
+  "tech-core": "Tech Core",
   "ghost-serum": "Ghost Serum",
   "pulse-shot": "Pulse Shot",
   "overdrive-x": "Overdrive X",
@@ -330,10 +331,11 @@ function writeCleanCash(session, amount) {
 }
 
 function readResource(session, resourceKey) {
-  if (resourceKey === "combat-module") {
+  if (resourceKey === "combat-module" || resourceKey === "tech-core") {
+    const legacyKey = resourceKey === "tech-core" ? "techCore" : "combatModule";
     return Math.max(0, Math.floor(Number(
-      session?.inventory?.materials?.["combat-module"]
-      ?? session?.inventory?.factorySupplies?.combatModule
+      session?.inventory?.materials?.[resourceKey]
+      ?? session?.inventory?.factorySupplies?.[legacyKey]
       ?? 0
     )));
   }
@@ -342,13 +344,14 @@ function readResource(session, resourceKey) {
 
 function writeResource(session, resourceKey, amount) {
   const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
-  if (resourceKey === "combat-module") {
+  if (resourceKey === "combat-module" || resourceKey === "tech-core") {
+    const legacyKey = resourceKey === "tech-core" ? "techCore" : "combatModule";
     return {
       ...session,
       inventory: {
         ...(session.inventory || {}),
-        materials: { ...(session.inventory?.materials || {}), "combat-module": safeAmount },
-        factorySupplies: undefined
+        materials: { ...(session.inventory?.materials || {}), [resourceKey]: safeAmount },
+        factorySupplies: { ...(session.inventory?.factorySupplies || {}), [legacyKey]: safeAmount }
       }
     };
   }

@@ -110,6 +110,7 @@ export function buildGangWantedStatusViewModel({
       ? options.influenceActionDisabled
       : Number(gangState.influence || 0) < Number(options.influenceActionCost || 0),
     clearLogDisabled: Boolean(options.clearLogDisabled),
+    heatReductionActions: options.heatReductionActions || [],
     now
   };
 }
@@ -134,6 +135,8 @@ export function buildServerGangWantedStatusViewModel({
     ? normalizeAuthoritativeHeatJournal(police.heatJournal)
     : [];
   const auditRiskPct = finiteNumberOrNull(police.auditRiskPct);
+  const heatReductionActions = Array.isArray(police.heatReductionActions) ? police.heatReductionActions : [];
+  const reductionByMethod = Object.fromEntries(heatReductionActions.map(action => [action.method, action]));
   const policeFeedback = player.police && typeof options.resolvePoliceFeedback === "function"
     ? safeObject(options.resolvePoliceFeedback({ policeReadModel: player.police }))
     : {};
@@ -172,9 +175,10 @@ export function buildServerGangWantedStatusViewModel({
     auditRiskLabel: auditRiskPct === null ? UNAVAILABLE_VALUE_LABEL : `${Math.max(0, auditRiskPct)} %`,
     riseEmptyText: authoritativeJournalAvailable ? "" : UNAVAILABLE_VALUE_LABEL,
     fallEmptyText: authoritativeJournalAvailable ? "" : UNAVAILABLE_VALUE_LABEL,
-    dirtyActionDisabled: true,
-    cleanActionDisabled: true,
-    influenceActionDisabled: true,
+    heatReductionActions,
+    dirtyActionDisabled: !authoritativeHeatAvailable || reductionByMethod.dirty?.available !== true,
+    cleanActionDisabled: !authoritativeHeatAvailable || reductionByMethod.clean?.available !== true,
+    influenceActionDisabled: !authoritativeHeatAvailable || reductionByMethod.influence?.available !== true,
     clearLogDisabled: true,
     resolveAuditRisk: null
   });
@@ -272,6 +276,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
   const bindGangWantedStatus = (root) => {
     const elements = resolveWantedElements(root, selectors);
     let lastAuthoritativeWantedViewModel = null;
+    let actionPending = false;
 
     if (!hasRequiredWantedElements(elements)) {
       return false;
@@ -364,6 +369,17 @@ export function createGangWantedStatusRuntime(deps = {}) {
           clearLogButton: elements.clearLogButton
         }
       });
+      for (const action of wantedViewModel.heatReductionActions || []) {
+        const costNode = root.querySelector(`[data-wanted-popup-${action.method}-cost]`);
+        const button = elements[`${action.method}ActionButton`];
+        const currency = action.method === "influence" ? "vlivu" : `${action.method} cash`;
+        const wait = action.remainingMs > 0 ? ` · za ${Math.ceil(action.remainingMs / 60000)} min` : "";
+        if (costNode) costNode.textContent = `${Number(action.cost).toLocaleString("cs-CZ")} ${currency} · −${action.actualHeatReduction} heat · audit ${action.auditRiskPct} % · CD ${Math.ceil(action.cooldownMs / 60000)} min${wait}`;
+        if (button) button.title = action.reason || `Sníží pouze heat hráče. Audit může přidat ${action.auditHeatGain} heat a pokutu nejvýše ${action.auditFineMax} ${currency}. Rozběhnutou razii nezruší.`;
+      }
+      if (actionPending) for (const button of [elements.dirtyActionButton, elements.cleanActionButton, elements.influenceActionButton]) {
+        if (button) button.disabled = true;
+      }
       return wantedViewModel;
     };
 
@@ -384,7 +400,25 @@ export function createGangWantedStatusRuntime(deps = {}) {
     };
 
     elements.heatButton.addEventListener("click", openPopup);
-    const runWantedAction = (callback) => {
+    const runWantedAction = async (callback, method) => {
+      if (deps.isServerAuthoritativeMode?.() && method && typeof deps.onServerAction === "function") {
+        if (actionPending) return false;
+        actionPending = true;
+        syncWantedStatus();
+        try {
+          const result = await deps.onServerAction(method);
+          const history = deps.getServerPlayerView?.()?.police?.heatJournal || [];
+          renderFeedback(result?.accepted ? "success" : "warning", result?.accepted
+            ? history[0]?.reason || "Heat byl snížen. Výsledek potvrdil server."
+            : result?.errors?.[0]?.message || "Snížení heat se nepodařilo.");
+        } catch {
+          renderFeedback("warning", "Server výsledek nepotvrdil. Vyčkej na obnovení stavu.");
+        } finally {
+          actionPending = false;
+          syncWantedStatus();
+        }
+        return true;
+      }
       const localDemo = typeof deps.isLocalDemoMode === "function"
         ? Boolean(deps.isLocalDemoMode())
         : !deps.isServerAuthoritativeMode?.();
@@ -397,9 +431,9 @@ export function createGangWantedStatusRuntime(deps = {}) {
       return true;
     };
 
-    elements.dirtyActionButton?.addEventListener("click", () => runWantedAction(deps.onDirtyAction));
-    elements.cleanActionButton?.addEventListener("click", () => runWantedAction(deps.onCleanAction));
-    elements.influenceActionButton?.addEventListener("click", () => runWantedAction(deps.onInfluenceAction));
+    elements.dirtyActionButton?.addEventListener("click", () => runWantedAction(deps.onDirtyAction, "dirty"));
+    elements.cleanActionButton?.addEventListener("click", () => runWantedAction(deps.onCleanAction, "clean"));
+    elements.influenceActionButton?.addEventListener("click", () => runWantedAction(deps.onInfluenceAction, "influence"));
     elements.clearLogButton?.addEventListener("click", () => runWantedAction(deps.onClearLog));
 
     for (const closeElement of elements.popupCloseElements) {

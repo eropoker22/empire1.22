@@ -63,6 +63,42 @@ const createMarketScheduleContext = () => ({
 }) as any;
 
 describe("server market system", () => {
+  it("counts both authoritative wallet currencies once and matches the legacy representation", () => {
+    const normalized = {
+      mode: "free",
+      playersById: {
+        first: { id: "first", resourceStateId: "wallet:1" },
+        alias: { id: "alias", resourceStateId: "wallet:1" },
+        second: { id: "second", resourceStateId: "wallet:2" }
+      },
+      resourceStatesById: {
+        "wallet:1": { id: "wallet:1", balances: { cash: 6000, "dirty-cash": 3000 } },
+        "wallet:2": { id: "wallet:2", balances: { cash: 10000, "dirty-cash": 5000 } }
+      }
+    };
+    const legacy = { mode: "free", playersById: {
+      first: { id: "first", cleanCash: 6000, dirtyCash: 3000 },
+      second: { id: "second", cleanCash: 10000, dirtyCash: 5000 }
+    } };
+    expect(getServerTotalMoney(normalized)).toBe(21600);
+    expect(getServerTotalMoney(normalized)).toBe(getServerTotalMoney(legacy));
+    expect(getInflationFactor(normalized)).toBe(getInflationFactor(legacy));
+    normalized.resourceStatesById["wallet:1"].balances.cash = 0;
+    expect(getServerTotalMoney(normalized)).toBe(15600);
+  });
+
+  it("includes the proposed twenty-player starting dirty cash in inflation", () => {
+    const playersById = Object.fromEntries(Array.from({ length: 20 }, (_, index) => [
+      `player:${index}`, { id: `player:${index}`, resourceStateId: `wallet:${index}` }
+    ]));
+    const resourceStatesById = Object.fromEntries(Array.from({ length: 20 }, (_, index) => [
+      `wallet:${index}`, { id: `wallet:${index}`, balances: { cash: 6000, "dirty-cash": 3000 } }
+    ]));
+    const state = { mode: "free", playersById, resourceStatesById };
+    expect(getServerTotalMoney(state)).toBe(162000);
+    expect(getInflationFactor(state)).toBe(1);
+  });
+
   it("initializes per-server market stock with config baselines", () => {
     const state = initializeServerMarket(createMarketStateFixture(), 1000);
 

@@ -30,8 +30,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 120000,
-      "localOutputCap": 12,
-      "queueCap": 15
+      "localOutputCap": 60,
+      "queueCap": 63
     },
     "biomass": {
       "name": "Biomass",
@@ -43,8 +43,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 240000,
-      "localOutputCap": 8,
-      "queueCap": 11
+      "localOutputCap": 60,
+      "queueCap": 63
     },
     "stim-pack": {
       "name": "Stim Pack",
@@ -56,8 +56,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 600000,
-      "localOutputCap": 4,
-      "queueCap": 7
+      "localOutputCap": 24,
+      "queueCap": 27
     }
   },
   "drugLabRecipes": {
@@ -73,8 +73,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 300000,
-      "localOutputCap": 10,
-      "queueCap": 13
+      "localOutputCap": 60,
+      "queueCap": 63
     },
     "pulse-shot": {
       "name": "Pulse Shot",
@@ -89,8 +89,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 480000,
-      "localOutputCap": 6,
-      "queueCap": 9
+      "localOutputCap": 24,
+      "queueCap": 27
     },
     "velvet-smoke": {
       "name": "Velvet Smoke",
@@ -105,8 +105,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 900000,
-      "localOutputCap": 5,
-      "queueCap": 8
+      "localOutputCap": 24,
+      "queueCap": 27
     },
     "ghost-serum": {
       "name": "Ghost Serum",
@@ -121,8 +121,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 1200000,
-      "localOutputCap": 2,
-      "queueCap": 5
+      "localOutputCap": 8,
+      "queueCap": 11
     },
     "overdrive-x": {
       "name": "Overdrive X",
@@ -137,8 +137,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 1800000,
-      "localOutputCap": 1,
-      "queueCap": 4
+      "localOutputCap": 8,
+      "queueCap": 11
     }
   },
   "armoryRecipes": {
@@ -154,8 +154,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 180000,
-      "localOutputCap": 8,
-      "queueCap": 11
+      "localOutputCap": 60,
+      "queueCap": 63
     },
     "pistol": {
       "name": "Pistole",
@@ -170,8 +170,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 300000,
-      "localOutputCap": 5,
-      "queueCap": 8
+      "localOutputCap": 24,
+      "queueCap": 27
     },
     "grenade": {
       "name": "Granát",
@@ -186,8 +186,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 360000,
-      "localOutputCap": 4,
-      "queueCap": 7
+      "localOutputCap": 24,
+      "queueCap": 27
     },
     "smg": {
       "name": "SMG",
@@ -202,8 +202,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 480000,
-      "localOutputCap": 3,
-      "queueCap": 6
+      "localOutputCap": 8,
+      "queueCap": 11
     },
     "bazooka": {
       "name": "Bazuka",
@@ -218,8 +218,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 840000,
-      "localOutputCap": 2,
-      "queueCap": 5
+      "localOutputCap": 8,
+      "queueCap": 11
     },
     "vest": {
       "name": "Vesta",
@@ -234,8 +234,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 300000,
-      "localOutputCap": 5,
-      "queueCap": 8
+      "localOutputCap": 24,
+      "queueCap": 27
     },
     "barricades": {
       "name": "Barikády",
@@ -249,8 +249,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 300000,
-      "localOutputCap": 6,
-      "queueCap": 9
+      "localOutputCap": 60,
+      "queueCap": 63
     },
     "cameras": {
       "name": "Kamery",
@@ -265,8 +265,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 360000,
-      "localOutputCap": 4,
-      "queueCap": 7
+      "localOutputCap": 24,
+      "queueCap": 27
     },
     "defense-tower": {
       "name": "Obranná věž",
@@ -281,8 +281,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 900000,
-      "localOutputCap": 2,
-      "queueCap": 5
+      "localOutputCap": 8,
+      "queueCap": 11
     },
     "alarm": {
       "name": "Alarm",
@@ -297,8 +297,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 300000,
-      "localOutputCap": 4,
-      "queueCap": 7
+      "localOutputCap": 24,
+      "queueCap": 27
     }
   },
   "playerBoosts": {
@@ -308,12 +308,11 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "category": "intel",
       "description": "Prožeň špiony neviditelnou sítí a vytáhni z districtu víc informací.",
       "shortEffect": "Špionáž −35 % času · rozšířený intel",
-      "cleanCashCost": 5000,
+      "cleanCashCost": 1200,
       "inputCosts": {
-        "ghost-serum": 2,
-        "pulse-shot": 2
+        "ghost-serum": 1
       },
-      "activeDurationTicks": 72,
+      "activeDurationTicks": 120,
       "cooldownTicks": 210,
       "consumptionMode": "timed",
       "effect": {
@@ -323,7 +322,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "uiAccent": "cyan",
       "iconKey": "signal-eye",
-      "durationMs": 720000,
+      "durationMs": 1200000,
       "cooldownMs": 2100000
     },
     "industrial-overdrive": {
@@ -332,12 +331,12 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "category": "production",
       "description": "Přetěž výrobní síť a vytlač z každé linky vyšší tempo.",
       "shortEffect": "Všechny výrobní linky +25 % rychlosti",
-      "cleanCashCost": 7500,
+      "cleanCashCost": 1500,
       "inputCosts": {
-        "overdrive-x": 2,
-        "combat-module": 2
+        "pulse-shot": 2,
+        "tech-core": 1
       },
-      "activeDurationTicks": 72,
+      "activeDurationTicks": 180,
       "cooldownTicks": 270,
       "consumptionMode": "timed",
       "effect": {
@@ -345,7 +344,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "uiAccent": "amber",
       "iconKey": "industrial-gear",
-      "durationMs": 720000,
+      "durationMs": 1800000,
       "cooldownMs": 2700000
     },
     "tactical-grid": {
@@ -354,13 +353,12 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "category": "combat",
       "description": "Propoj výzbroj, obranu a intel do jediné taktické sítě.",
       "shortEffect": "+12 % k příštímu útoku nebo obraně",
-      "cleanCashCost": 10000,
+      "cleanCashCost": 2500,
       "inputCosts": {
-        "ghost-serum": 2,
-        "overdrive-x": 1,
-        "combat-module": 3
+        "ghost-serum": 1,
+        "tech-core": 2
       },
-      "activeDurationTicks": 120,
+      "activeDurationTicks": 240,
       "cooldownTicks": 360,
       "consumptionMode": "next-valid-pvp-combat",
       "effect": {
@@ -368,7 +366,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "uiAccent": "red",
       "iconKey": "tactical-grid",
-      "durationMs": 1200000,
+      "durationMs": 2400000,
       "cooldownMs": 3600000
     }
   },
@@ -6579,8 +6577,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 240000,
-      "localOutputCap": 10,
-      "queueCap": 13
+      "localOutputCap": 60,
+      "queueCap": 63
     },
     "tech-core": {
       "name": "Tech Core",
@@ -6594,8 +6592,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 480000,
-      "localOutputCap": 5,
-      "queueCap": 8
+      "localOutputCap": 24,
+      "queueCap": 27
     },
     "combat-module": {
       "name": "Bojový modul",
@@ -6610,8 +6608,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "amount": 1
       },
       "durationMs": 900000,
-      "localOutputCap": 2,
-      "queueCap": 5
+      "localOutputCap": 8,
+      "queueCap": 11
     }
   },
   "factory": {
@@ -6645,8 +6643,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "amount": 1
         },
         "durationMs": 240000,
-        "localOutputCap": 10,
-        "queueCap": 13
+        "localOutputCap": 60,
+        "queueCap": 63
       },
       "tech-core": {
         "name": "Tech Core",
@@ -6660,8 +6658,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "amount": 1
         },
         "durationMs": 480000,
-        "localOutputCap": 5,
-        "queueCap": 8
+        "localOutputCap": 24,
+        "queueCap": 27
       },
       "combat-module": {
         "name": "Bojový modul",
@@ -6676,15 +6674,15 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "amount": 1
         },
         "durationMs": 900000,
-        "localOutputCap": 2,
-        "queueCap": 5
+        "localOutputCap": 8,
+        "queueCap": 11
       }
     }
   },
   "factorySlotStorageCaps": {
-    "metalParts": 10,
-    "techCore": 5,
-    "combatModule": 2
+    "metalParts": 60,
+    "techCore": 24,
+    "combatModule": 8
   },
   "factorySlots": [
     {
@@ -7226,7 +7224,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "noLaundering": true,
       "noAuditRisk": true,
       "populationPerMinute": 0.8333333333333334,
-      "basePopulationCapacity": 50,
+      "basePopulationCapacity": 100,
       "collectPopulation": {
         "actionId": "collect_convenience_store_population",
         "cooldownMinutes": 0,

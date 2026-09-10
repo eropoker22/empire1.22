@@ -14,12 +14,11 @@ import {
   NEUTRAL_ROBBERY_LOOT_KEYS,
   NEUTRAL_ROBBERY_MATERIAL_KEYS,
   resolveCurrentNeutralDistrictLootPool,
-  resolveNeutralRobbery,
-  resolveRobCooldownTicks
+  resolveNeutralRobbery
 } from "../rules";
 import { validateRob } from "../validation";
 import { createPlayerCooldownState } from "./attackDistrictHelpers";
-import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
+import { resolveRobberyDurationTicks } from "./robberyTiming";
 import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
 import { increasePlayerPoliceHeat } from "./playerPoliceState";
 import { calculateReceivableResourceAmount } from "./storageCapacityCredit";
@@ -75,7 +74,8 @@ export const resolvePendingRobDistrict = (
     state.serverInstance.worldSeed,
     command.id,
     targetDistrict.id,
-    currentPool
+    currentPool,
+    getFactionPassiveModifiers(state, player.id, context)
   );
   const resourceState = state.resourceStatesById[player.resourceStateId]
     ?? createPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
@@ -120,14 +120,7 @@ export const resolvePendingRobDistrict = (
   const nextPoliceState = increasePlayerPoliceHeat(state, player, playerHeat, state.root.tick);
   const cooldownState = state.cooldownStatesById[player.cooldownStateId]
     ?? createPlayerCooldownState(player.id, player.cooldownStateId);
-  const cooldownTicks = Math.ceil(applyCarDealerCooldownReductionTicks({
-    baseTicks: resolveRobCooldownTicks(context.config.balance.conflict),
-    state,
-    playerId: player.id,
-    config: context.config.balance.carDealer,
-    garageConfig: context.config.balance.garage,
-    category: "districtRobbery"
-  }) * cityHallNightPatrol.cooldownMultiplier);
+  const cooldownTicks = resolveRobberyDurationTicks(state, player.id, targetDistrict.id, context);
   const cooldownEndsAtTick = state.root.tick + cooldownTicks;
   const report = createRobReportNotification({
     command,

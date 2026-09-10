@@ -111,7 +111,7 @@ V centralnim validatoru existuji vetve:
 - `rob`: prazdny neutralni sousedni district, bez spy authorization,
 - `heist`: sousedni nepratelsky vlastneny district.
 
-V aktivnim `GameCommand` unionu zatim nejsou samostatne `rob` ani moderni `heist` commandy. Existujici heist system je legacy/AnyRecord pravidlova vrstva, proto neni v tomto baliku napojen jako autoritativni command handler.
+Aktivni `GameCommand` union obsahuje `rob-district` a `heist-district`. Obe akce zpracovava autoritativni server: pri odeslani vytvori cekajici operaci a v `resolveAtTick` vyhodnoti vysledek, skutecnou korist, ztraty, heat a cooldown. Loupez cerpa omezeny fond neutralniho districtu; heist presouva existujici zasoby soupere. Starsi AnyRecord heist vrstva neni zdrojem pravidel tohoto toku.
 
 ## Trap Bezpecnost
 

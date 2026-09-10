@@ -232,6 +232,17 @@ const createHarness = (initialSlice = createSlice(), overrides = {}) => {
 };
 
 describe("server map presentation controller", () => {
+  it("starts persistent trap frames on placement and clears them on removal", () => {
+    const harness = createHarness();
+    harness.controller.mount();
+    harness.composition.renderDistrictEffectsCanvas.mockClear();
+    harness.source.emit(createSlice({ mapEffects: [{ type: "trap", playerId: "player:1", districtId: "district:1" }] }));
+    expect(harness.composition.renderDistrictEffectsCanvas).toHaveBeenCalled();
+    expect(harness.windowRef.frames.size).toBe(1);
+    harness.source.emit(createSlice({ mapEffects: [] }));
+    expect(harness.windowRef.frames.size).toBe(0);
+    harness.controller.destroy();
+  });
   it("mounts one composition root with exactly five canvas layers", () => {
     const harness = createHarness();
 

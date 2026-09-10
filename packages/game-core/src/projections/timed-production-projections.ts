@@ -1,3 +1,5 @@
+import { getFactionPassiveModifiers, resolveFactionProductionMultiplier } from "../rules/factions/factionRules";
+import { resolveCraftProcessingDurationTicks } from "../rules/production/productionRules";
 import type {
   DrugLabProductionBuildingView,
   DrugLabProductionLineView,
@@ -87,14 +89,15 @@ export const createTimedPharmacyProductionBuildingView = (input: ProjectionInput
     const cleanCash = Math.max(0, Number(balances.cash || 0));
     const maxByCash = recipe.cleanCashCostPerUnit > 0 ? Math.floor(cleanCash / recipe.cleanCashCostPerUnit) : Number.MAX_SAFE_INTEGER;
     const maxStartQuantity = isOwner ? Math.max(0, Math.min(queueSpace, maxByCash)) : 0;
+    const factionSpeedMultiplier = resolveFactionProductionMultiplier(recipe.outputResourceKey, input.building.buildingTypeId, getFactionPassiveModifiers(input.state, input.playerId, contextOf(config)));
     const effectiveUnitDurationTicks = resolvePharmacyDurationTicks(input.state, input.building, recipe, contextOf(config));
     const canCollect = isOwner && producedAmount > 0 && (!storage || playerStoredAmount < playerStoredCapacity);
     return {
       executionMode: "legacy-timed", recipeId, resourceKey: recipe.outputResourceKey, label: recipe.label,
       producedAmount, producedCapacity: recipe.localOutputCap, playerStoredAmount, playerStoredCapacity,
       queuedAmount: line.queuedAmount, queueCapacity: recipe.queueCap, ...timing,
-      unitCleanCashCost: recipe.cleanCashCostPerUnit, baseUnitDurationTicks: recipe.durationTicksPerUnit,
-      effectiveUnitDurationTicks, remainingMs: timing.remainingTicks * tickRateOf(input),
+      unitCleanCashCost: recipe.cleanCashCostPerUnit, baseUnitDurationTicks: resolveCraftProcessingDurationTicks(recipe.durationTicksPerUnit, config.balance.cooldownMultiplier),
+      effectiveUnitDurationTicks, factionSpeedMultiplier, remainingMs: timing.remainingTicks * tickRateOf(input),
       status: producedAmount >= recipe.localOutputCap
         ? "full"
         : timing.activeAmount ? "processing" : timing.waitingAmount ? "waiting" : producedAmount > 0 ? "completed" : "ready",
@@ -129,6 +132,7 @@ export const createTimedDrugLabProductionBuildingView = (input: ProjectionInput)
     const maxByCash = recipe.cleanCashCostPerUnit > 0 ? Math.floor(cleanCash / recipe.cleanCashCostPerUnit) : Number.MAX_SAFE_INTEGER;
     const queueSpace = Math.max(0, recipe.queueCap - line.queuedAmount);
     const maxStartQuantity = isOwner ? Math.max(0, Math.min(queueSpace, maxByCash, maxByInputs)) : 0;
+    const factionSpeedMultiplier = resolveFactionProductionMultiplier(recipe.outputResourceKey, input.building.buildingTypeId, getFactionPassiveModifiers(input.state, input.playerId, contextOf(config)));
     const effectiveUnitDurationTicks = resolveDrugLabDurationTicks(input.state, input.building, recipe, contextOf(config));
     const playerStoredAmount = Math.max(0, Number(balances[recipe.outputResourceKey] || 0));
     const playerStoredCapacity = storage ? getWarehouseCapacityForResource(storage, recipe.outputResourceKey) : 0;
@@ -138,7 +142,8 @@ export const createTimedDrugLabProductionBuildingView = (input: ProjectionInput)
       description: recipe.description, itemRole: recipe.itemRole, producedAmount, producedCapacity: recipe.localOutputCap,
       playerStoredAmount, playerStoredCapacity, queuedAmount: line.queuedAmount, queueCapacity: recipe.queueCap,
       ...timing, unitCleanCashCost: recipe.cleanCashCostPerUnit, materialInputCosts: { ...recipe.inputCosts }, inputAvailability,
-      baseUnitDurationTicks: recipe.durationTicksPerUnit, effectiveUnitDurationTicks,
+      baseUnitDurationTicks: resolveCraftProcessingDurationTicks(recipe.durationTicksPerUnit, config.balance.cooldownMultiplier), effectiveUnitDurationTicks,
+      factionSpeedMultiplier,
       remainingMs: timing.remainingTicks * tickRateOf(input),
       status: producedAmount >= recipe.localOutputCap
         ? "full"
@@ -175,20 +180,22 @@ export const createTimedFactoryProductionBuildingView = (input: ProjectionInput)
     const maxByInputs = Object.entries(recipe.inputCosts).reduce((limit, [key, amount]) => Math.min(limit, Math.floor(Math.max(0, Number(balances[key] || 0)) / amount)), Number.POSITIVE_INFINITY);
     const queueSpace = Math.max(0, recipe.queueCap - line.queuedAmount);
     const maxStartQuantity = isOwner ? Math.max(0, Math.min(queueSpace, maxByCash, maxByInputs)) : 0;
+    const factionSpeedMultiplier = resolveFactionProductionMultiplier(recipe.outputResourceKey, input.building.buildingTypeId, getFactionPassiveModifiers(input.state, input.playerId, contextOf(config)));
     const effectiveUnitDurationTicks = resolveFactoryDurationTicks(input.state, input.building, recipe, contextOf(config));
     const playerStoredAmount = Math.max(0, Number(balances[recipe.outputResourceKey] || 0));
     const playerStoredCapacity = storage ? getWarehouseCapacityForResource(storage, recipe.outputResourceKey) : 0;
     const canCollect = isOwner && producedAmount > 0 && (!storage || playerStoredAmount < playerStoredCapacity);
     const missingInputs = Object.entries(recipe.inputCosts).some(([key, amount]) => Number(balances[key] || 0) < amount);
-    const speed = recipe.durationTicksPerUnit / Math.max(1, effectiveUnitDurationTicks);
+    const speed = resolveCraftProcessingDurationTicks(recipe.durationTicksPerUnit, config.balance.cooldownMultiplier) / Math.max(1, effectiveUnitDurationTicks);
     return {
       executionMode: "legacy-timed", recipeId, resourceKey: recipe.outputResourceKey, label: recipe.label,
       producedAmount, producedCapacity: recipe.localOutputCap, queuedAmount: line.queuedAmount, queueCapacity: recipe.queueCap,
       ...timing, unitCleanCashCost: recipe.cleanCashCostPerUnit, materialInputCosts: { ...recipe.inputCosts },
       costDisplayRows: [{ resourceKey: "cash", label: "Clean Cash", amount: recipe.cleanCashCostPerUnit, availableAmount: cleanCash },
         ...Object.entries(recipe.inputCosts).map(([key, amount]) => ({ resourceKey: key, label: RESOURCE_LABELS[key] ?? key, amount, availableAmount: Math.max(0, Number(balances[key] || 0)) }))],
-      baseUnitDurationTicks: recipe.durationTicksPerUnit, effectiveUnitDurationTicks, effectiveSpeedMultiplier: speed,
+      baseUnitDurationTicks: resolveCraftProcessingDurationTicks(recipe.durationTicksPerUnit, config.balance.cooldownMultiplier), effectiveUnitDurationTicks, effectiveSpeedMultiplier: speed,
       unitsPerHour: 3_600_000 / Math.max(1, effectiveUnitDurationTicks * tickRateOf(input)),
+      factionSpeedMultiplier,
       remainingMs: timing.remainingTicks * tickRateOf(input),
       status: statusOf(producedAmount, recipe.localOutputCap, timing.activeAmount, timing.waitingAmount),
       canStart: maxStartQuantity > 0, canCancelWaiting: timing.waitingAmount > 0, canCollect,

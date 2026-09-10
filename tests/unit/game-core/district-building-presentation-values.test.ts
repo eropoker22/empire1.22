@@ -44,13 +44,13 @@ describe("district building presentation values", () => {
 
     expect(apartmentBuffer).toEqual({
       storedAmount: 14 / 30,
-      capacity: 50,
+      capacity: 180,
       productionPerMinute: 2,
-      timeToFullMs: 1_490_000
+      timeToFullMs: 5_390_000
     });
     expect(apartmentStats).toEqual(expect.arrayContaining([
       { label: "Populace / min", value: "2" },
-      { label: "Lokální zásobník", value: "0/50" }
+      { label: "Lokální zásobník", value: "0/180" }
     ]));
 
     const convenienceFixture = createCoreStateWithFixedBuildingFixture("convenience_store", {
@@ -77,13 +77,13 @@ describe("district building presentation values", () => {
 
     expect(convenienceBuffer).toEqual({
       storedAmount: 0,
-      capacity: 50,
+      capacity: 100,
       productionPerMinute: 50 / 60,
-      timeToFullMs: 3_600_000
+      timeToFullMs: 7_200_000
     });
     expect(convenienceStats).toEqual(expect.arrayContaining([
       { label: "Populace / min", value: "0.83" },
-      { label: "Lokální zásobník", value: "0/50" }
+      { label: "Lokální zásobník", value: "0/100" }
     ]));
   });
 
@@ -111,9 +111,9 @@ describe("district building presentation values", () => {
 
     expect(populationBuffer).toEqual({
       storedAmount: 0,
-      capacity: 20,
+      capacity: 60,
       productionPerMinute: 0.55,
-      timeToFullMs: 1_820_000
+      timeToFullMs: 5_460_000
     });
   });
 
@@ -409,9 +409,9 @@ describe("district building presentation values", () => {
     const speculativeBuy = project("stock_exchange", { cash: 10_000 })
       .find((action) => action.actionId === "speculative_buy");
     expect(speculativeBuy).toMatchObject({
-      inputCost: { cash: 3_500 },
+      inputCost: { cash: 10_000 },
       costPreview: {
-        fixedInputCost: { cash: 2_500 },
+        fixedInputCost: { cash: 750 },
         variableInputCosts: [{
           inputId: "investmentCleanCash",
           resourceKey: "cash",
@@ -420,7 +420,7 @@ describe("district building presentation values", () => {
       }
     });
     expect(speculativeBuy?.requiresInput.find((input) => input.id === "investmentCleanCash"))
-      .toMatchObject({ min: 1, max: 7_500, defaultValue: 1_000 });
+      .toMatchObject({ min: 1, max: 9_250, defaultValue: 9_250 });
 
     const expressImport = project("airport", { cash: 20_000 }, {
       airport: { nextImportCostPenaltyPct: 20 }
@@ -558,9 +558,9 @@ describe("district building presentation values", () => {
 
     expect(apartmentView.presentation?.populationBuffer).toEqual({
       storedAmount: 14 / 30,
-      capacity: 50,
+      capacity: 180,
       productionPerMinute: 2,
-      timeToFullMs: 1_490_000
+      timeToFullMs: 5_390_000
     });
 
     const dealerFixture = createCoreStateWithFixedBuildingFixture("street_dealers", {

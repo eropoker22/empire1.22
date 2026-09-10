@@ -21,7 +21,7 @@ describe("account registration policy", () => {
       registrationEnabled: true,
       mode: "open",
       expiresAt: null,
-      passwordMinimumLength: 12,
+      passwordMinimumLength: 8,
       minimumAgeYears: 16,
       termsAcceptanceRequired: true,
       termsVersion: "closed-alpha-internal-v1"
@@ -75,7 +75,7 @@ describe("account registration policy", () => {
       registrationEnabled: true,
       mode: "open",
       expiresAt: null,
-      passwordMinimumLength: 12,
+      passwordMinimumLength: 8,
       minimumAgeYears: 16,
       termsAcceptanceRequired: true,
       termsVersion: "closed-alpha-internal-v1"

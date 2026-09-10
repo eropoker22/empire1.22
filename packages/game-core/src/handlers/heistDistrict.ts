@@ -55,7 +55,7 @@ export const resolvePendingHeistDistrict = (
   const targetOwner = state.playersById[targetDistrict.ownerPlayerId!]!;
   const sourceDistrictId = command.payload.sourceDistrictId
     ?? resolveSingleOwnedOrigin(state, player.id, targetDistrict.id)!;
-  const resolution = resolveImmediateHeist(state, command, sourceDistrictId, config);
+  const resolution = resolveImmediateHeist(state, command, sourceDistrictId, config, context);
   const attackerResource = state.resourceStatesById[player.resourceStateId]
     ?? createPlayerResourceState(player.resourceStateId, player.id, state.root.tick);
   const defenderResource = state.resourceStatesById[targetOwner.resourceStateId]

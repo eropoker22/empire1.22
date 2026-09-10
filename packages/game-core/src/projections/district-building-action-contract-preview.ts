@@ -14,7 +14,7 @@ import {
   getFactionPassiveModifiers
 } from "../rules/factions/factionRules";
 
-const DEFAULT_SPECULATIVE_INVESTMENT_CLEAN_CASH = 1_000;
+const DEFAULT_SPECULATIVE_INVESTMENT_CLEAN_CASH = 10_000;
 
 interface DynamicActionResolution {
   inputCost: Record<string, number>;

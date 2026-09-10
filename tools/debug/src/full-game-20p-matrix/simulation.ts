@@ -1,4 +1,5 @@
 import { createServerApp, type ServerApp } from "../../../../apps/server/src/app/server-app";
+import type { HostedStartingPlayerStateView } from "@empire/shared-types";
 import {
   createInMemoryRuntimePersistenceRepositories,
   type ServerRuntimePersistenceRepositories
@@ -29,8 +30,11 @@ import {
   updateOwnershipTracking
 } from "./simulation-report";
 import type { FullGameReport, FullGameScenario } from "./types";
+import { recordResolvedSimulationEvents } from "./resolved-outcomes";
 
 export interface RunFullGameOptions {
+  startingPlayerState?: HostedStartingPlayerStateView;
+  skipAllianceSetup?: boolean;
   seed?: string | number;
   scenario?: FullGameScenario;
   verbose?: boolean;
@@ -56,7 +60,7 @@ export const runFullGameSimulation = async (options: RunFullGameOptions = {}): P
     worldSeed: `full-game:${scenario}:${seed}`
   });
   if (!created.accepted) throw new Error(created.errors[0]?.code ?? "Simulation instance creation failed.");
-  const bots = await bootstrapTwentyPlayers(server, clock, instanceId, scenario, seedOffset);
+  const bots = await bootstrapTwentyPlayers(server, clock, instanceId, scenario, seedOffset, options.startingPlayerState);
   const metrics = createExecutionMetrics();
   const executor = createCommandExecutor({ server, clock, instanceId, seed, metrics });
   const initial = captureInitialPlayerState(server, instanceId, bots);
@@ -75,7 +79,7 @@ export const runFullGameSimulation = async (options: RunFullGameOptions = {}): P
   let stalled = false;
 
   executor.checkInvariants();
-  await establishAlliances(executor, server, clock, instanceId, bots, scenario);
+  if (!options.skipAllianceSetup) await establishAlliances(executor, server, clock, instanceId, bots, scenario);
   // Alliance setup deliberately submits several commands at the same simulated
   // instant. Advance through one normal worker tick before the independent
   // market race so the production rate limiter observes a real elapsed window.
@@ -205,10 +209,7 @@ const drainRuntimeEvents = (
   runtime: ReturnType<typeof requiredRuntime>,
   metrics: FullGameExecutionMetrics
 ): void => {
-  for (const event of runtime.eventQueue.drain() as Array<{ type?: string }>) {
-    const type = String(event.type ?? "unknown");
-    metrics.eventCounts[type] = (metrics.eventCounts[type] ?? 0) + 1;
-  }
+  recordResolvedSimulationEvents(metrics, runtime.eventQueue.drain());
 };
 
 const requiredRuntime = (server: ServerApp, instanceId: string) => {

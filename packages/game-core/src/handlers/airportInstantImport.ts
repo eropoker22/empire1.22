@@ -25,8 +25,9 @@ export const resolveInstantAirportImport = (input: {
   const penaltyPct = Math.max(0, Number(input.metadata.nextImportCostPenaltyPct || 0));
   const cost = resolveAirportExpressImportCost(input.config, input.metadata);
   const importId = `airport-import:${input.commandId}`;
-  const requestedShipment = createImportShipment(input.category, input.config, `${input.commandId}:${input.state.root.tick}`);
-  const customsTriggered = deterministicUnitInterval(`${input.state.serverInstance.worldSeed}:${importId}:customs`)
+  const rollSeed = `${input.state.serverInstance.worldSeed}:${input.building.id}:${input.state.root.tick}`;
+  const requestedShipment = createImportShipment(input.category, input.config, `${rollSeed}:shipment`);
+  const customsTriggered = deterministicUnitInterval(`${rollSeed}:customs`)
     < input.config.expressImport.customsRiskPct / 100;
   const shipment = customsTriggered
     ? scaleShipment(requestedShipment, 1 - input.config.expressImport.customsShipmentPenaltyPct / 100)

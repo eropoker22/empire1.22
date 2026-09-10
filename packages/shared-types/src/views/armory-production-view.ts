@@ -30,6 +30,7 @@ export interface ArmoryProductionLineView {
   inputAvailability: ArmoryMaterialInputView[];
   baseUnitDurationTicks: number;
   effectiveUnitDurationTicks: number;
+  factionSpeedMultiplier?: number;
   remainingTicks: number;
   remainingMs: number;
   status: ArmoryProductionStatus;

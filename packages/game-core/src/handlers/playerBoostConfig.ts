@@ -8,7 +8,8 @@ const KNOWN_INPUT_RESOURCES = new Set([
   "ghost-serum",
   "pulse-shot",
   "overdrive-x",
-  "combat-module"
+  "combat-module",
+  "tech-core"
 ]);
 
 export const validatePlayerBoostConfig = (
