@@ -115,3 +115,12 @@ Opraveny všechny čtyři následně potvrzené nálezy a jejich přímé návaz
 Ověření: **171/171 testů ve 22 souborech**, bez skipů, včetně nových regresí a všech šesti read-model sad. Prošly také TypeScript, lint, kontrola diffu a sestavení klienta/admina/API i workeru. Sestavení doplnilo dvouhodinovou ochranu také do sledovaného generovaného admin bundle. Nové regrese zahrnují obnovu dat po více než minutě, pauzu, zastaralé spojení, čekání na serverový tick, ukončený server, skutečný DOM řádku stabilizace, veřejné jméno vlastníka a 60 aktivních bounty mezi 70 ukončenými záznamy.
 
 Lokální prohlížečové a živé PostgreSQL ověření zůstávají nedoložené; stav automatických kontrol bude uveden přímo v PR. Nejde o kompletní hosted acceptance ani o nasazení.
+
+## Zveřejnění a oprava prohlížečové brány
+
+Otevřen draft [PR #5](https://github.com/eropoker22/empire1.22/pull/5). Commit `d6c9684` obsahuje přesně strom čtyř místních opravných commitů; jejich původní historie zůstala v místní záložní větvi. V [Quality 34577200066](https://github.com/eropoker22/empire1.22/actions/runs/34577200066) prošly všechny unit, integration, server, persistence, read-model a critical recovery úlohy i lint/typecheck/buildy a původní live E2E smoke. Nový krok hráčského UI odhalil dvě chyby testovací infrastruktury:
+
+- Scénář volal nevystavenou `window.EmpireRuntime.queueOrOpenResultModal`. Nyní doručuje skutečnou událost `empire:gameplay-slice-rendered`; běžný listener aplikace otevře oznámení útoku a prodeje nad kartou HEAT. Kontroluje obsah, reset barevných stavů, prioritu a obnovení starší zprávy přes skutečné tlačítko zavření na obou velikostech obrazovky. Produkční API nebylo rozšířeno kvůli testu.
+- Ukončení spouštěče nechávalo na Unixu běžet Vite jako potomka Node wrapperu; další krok narazil na obsazený port 4174. Spouštěč nyní vytváří vlastní procesové skupiny, ukončuje celou skupinu a čeká na zavření serveru. Ověřeny dva bezprostředně navazující skutečné starty Vite s Playwright `--list`: oba prošly, bez konfliktu portu, po druhém šlo port znovu obsadit. Tento lokální test ověřuje životní cyklus spouštěče, nikoli prohlížečové scénáře.
+
+Výsledek opraveného prohlížečového kroku bude doložen následným CI během v PR. Sloučení ani nasazení neproběhlo.
