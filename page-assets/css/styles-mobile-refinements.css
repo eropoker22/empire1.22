@@ -94,24 +94,24 @@
   html body.game-body #game-command-bar-mount .city-status-pill:has([data-city-day-phase]) { display: flex !important; justify-content: center !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 4px !important; }
   html body.game-body #game-command-bar-mount .city-status-pill:has([data-city-day-phase]) > * { position: static !important; transform: none !important; white-space: nowrap !important; }
   html body.game-body #game-command-bar-mount .city-status-bar .city-status-pill [data-city-status].is-hold-position { justify-self: end !important; margin-left: 20px !important; font-size: 6px !important; letter-spacing: 0 !important; white-space: nowrap !important; }
-  html body.game-body .production-time-metric { position: relative !important; margin-top: 28px !important; overflow: visible !important; }
+  html body.game-body .production-time-metric { position: relative !important; margin-top: 0 !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; justify-content: center !important; gap: 3px !important; }
   html body.game-body .production-time-metric > .faction-passive-inline--production {
-    position: absolute !important;
-    top: -14px !important;
-    left: 0 !important;
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
     margin: 0 !important;
     padding: 0 !important;
-    width: max-content !important;
-    max-width: 150px !important;
+    width: auto !important;
+    max-width: 100% !important;
     color: #72ffc0 !important;
     font-size: 9px !important;
     font-weight: 650 !important;
     line-height: 12px !important;
     letter-spacing: .015em !important;
-    white-space: nowrap !important;
+    white-space: normal !important;
     text-shadow: 0 0 7px rgba(57, 255, 166, .48) !important;
   }
-  html body.game-body .production-time-metric > [data-production-duration-adjustment] { top: -27px !important; }
+  html body.game-body .production-time-metric > [data-production-duration-adjustment] { position: static !important; order: 2; margin-top: 2px !important; }
 }
 @media (hover: none), (pointer: coarse) {
   html body.game-body #buildings-modal.buildings-popup-shell:not([hidden]) .buildings-popup__building:not(.is-active),
@@ -149,3 +149,76 @@ html body.game-body .runtime-notification--upgrade {
   z-index: 31000 !important; pointer-events: none !important;
 }
 html body.game-body .game-upgrade-toast-root { position: fixed; inset: 0; z-index: 31000; pointer-events: none; }
+
+/* A single ingredient occupies the centre of the full materials row. */
+html body.game-body .armory-slot__materials-row:has(> .armory-slot__material-pill:only-child) {
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+html body.game-body .armory-slot__materials-row > .armory-slot__material-pill:only-child {
+  flex: 0 1 auto !important;
+  margin-inline: auto !important;
+}
+@media (max-width: 720px), (pointer: coarse) {
+  html:has(body.game-body) { overscroll-behavior-y: none; }
+  html body.game-body { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+  html body.game-body > .game-shell { padding-bottom: 0 !important; margin-bottom: 0 !important; }
+  html body.game-body .game-mobile-utility-actions {
+    margin-bottom: 0 !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (max-width: 720px), (max-width: 900px) and (pointer: coarse) {
+  html body.game-body #event-detail-modal:not(.hidden):not([hidden]) {
+    inset: var(--mobile-visible-top, 0px) 0 auto !important;
+    height: var(--mobile-visible-vh, 100dvh) !important;
+    min-height: 0 !important;
+    max-height: var(--mobile-visible-vh, 100dvh) !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 16px !important;
+  }
+}
+
+/* Boost content owns scrolling; its frame follows browser chrome changes. */
+@media (max-width: 720px), (max-width: 900px) and (pointer: coarse) {
+  html body.game-body #boost-modal:not(.hidden):not([hidden]) {
+    --boost-viewport-gap: max(8px, env(safe-area-inset-top), env(safe-area-inset-bottom));
+    inset: var(--mobile-visible-top, 0px) 0 auto !important;
+    height: var(--mobile-visible-vh, 100dvh) !important;
+    min-height: 0 !important;
+    max-height: var(--mobile-visible-vh, 100dvh) !important;
+    padding: var(--boost-viewport-gap) 8px !important;
+    box-sizing: border-box;
+    overflow: hidden !important;
+  }
+  html body.game-body #boost-modal:not(.hidden):not([hidden]) > .modal__content.boost-modal__content {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    animation: none !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    width: min(680px, 100%) !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box;
+  }
+  html body.game-body #boost-modal .boost-modal__body {
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+    scroll-padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}

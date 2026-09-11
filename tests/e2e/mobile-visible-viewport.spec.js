@@ -185,3 +185,47 @@ test("server milestone cards center every announcement and darken the whole phon
     await expect(modal).toBeHidden();
   }
 });
+
+test("boosts remain scrollable to the last action when browser toolbars change height", async ({ page }) => {
+  await page.addInitScript(() => {
+    const viewport = new EventTarget();
+    Object.defineProperties(viewport, {
+      height: { get: () => window.__boostVisibleViewport?.height ?? innerHeight },
+      width: { get: () => innerWidth },
+      offsetTop: { get: () => window.__boostVisibleViewport?.top ?? 0 },
+      offsetLeft: { get: () => 0 },
+      scale: { get: () => 1 }
+    });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+  });
+  await openLocalGame(page);
+  await tapVisibleControl(page, page.locator("[data-boost-open-trigger]").first());
+  const card = page.locator("#boost-modal > .boost-modal__content");
+  const body = card.locator(".boost-modal__body");
+  const lastAction = body.locator("[data-boost-activate]").last();
+  await expect(lastAction).toBeVisible();
+  for (const viewport of [
+    { height: 670, top: 0 }, { height: 851, top: 0 },
+    { height: 630, top: 25 }, { height: 851, top: 0 }
+  ]) {
+    await page.evaluate(value => {
+      window.__boostVisibleViewport = value;
+      visualViewport.dispatchEvent(new Event("resize"));
+      visualViewport.dispatchEvent(new Event("scroll"));
+    }, viewport);
+    await expect.poll(() => card.evaluate((element, viewport) => {
+      const rect = element.getBoundingClientRect();
+      return rect.top >= viewport.top + 7 && rect.bottom <= viewport.top + viewport.height - 7;
+    }, viewport)).toBe(true);
+    await body.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect.poll(() => lastAction.evaluate(button => {
+      const body = button.closest(".boost-modal__body");
+      const rect = button.getBoundingClientRect();
+      const scrollRect = body.getBoundingClientRect();
+      return rect.top >= scrollRect.top && rect.bottom <= scrollRect.bottom
+        && button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+    })).toBe(true);
+  }
+  await tapVisibleControl(page, page.locator("#boost-modal-close"));
+  await expect(card).toBeHidden();
+});

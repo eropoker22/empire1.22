@@ -1042,7 +1042,10 @@ const createServerBuildingDetailView = ({
   const mechanicsInput = createServerMechanicsInput({
     building: {
       ...building,
-      actions: uniqueActions
+      actions: uniqueActions,
+      presentation: { ...panelBuilding?.presentation, ...building?.presentation,
+        populationBuffer: building?.presentation?.populationBuffer || panelBuilding?.presentation?.populationBuffer
+      }
     },
     mechanicsPresentation: building?.presentation?.mechanics
       || panelBuilding?.presentation?.mechanics
@@ -1117,6 +1120,15 @@ const createServerBuildingDetailView = ({
         tickRateMs
       })
     : null;
+  if (collectActionPresentation) {
+    const buffer = building?.presentation?.populationBuffer || panelBuilding?.presentation?.populationBuffer;
+    if (buffer && Number.isFinite(Number(buffer.storedAmount)) && Number.isFinite(Number(buffer.capacity))) {
+      const stored = Math.max(0, Math.floor(Number(buffer.storedAmount)));
+      const capacity = Math.max(0, Number(buffer.capacity));
+      collectActionPresentation.rewardSummary = `Obyvatelé k vyzvednutí: ${stored}`;
+      collectActionPresentation.inputSummary = `Připraveno ${stored} / ${capacity} obyvatel`;
+    }
+  }
   const canonicalUpgradeTitle = String(sharedViewModel.upgrade?.title || "")
     .replace(/\s+za\s*$/u, "")
     .trim();
