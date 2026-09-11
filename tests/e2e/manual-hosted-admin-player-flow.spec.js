@@ -91,6 +91,7 @@ test("owner creates a server and players prove exact hosted state through visibl
   page: adminPage
 }, testInfo) => {
   const playerClients = [];
+  const originalProductionClockInstanceId = process.env.EMPIRE_UI_PARITY_SERVER_ID;
   let serverInstanceId = null;
   const safeTrace = {
     cleanupError: null,
@@ -130,6 +131,14 @@ test("owner creates a server and players prove exact hosted state through visibl
     );
     safeTrace.persistedStartingPlayerState = readyServer.startingPlayerState;
     expect(readyServer.startingPlayerState).toEqual(startingPlayerState);
+    if (process.env.EMPIRE_LOCAL_HOSTED_CONTROLLED_PRODUCTION_CLOCK === "1") {
+      // This suite provisions through the UI, so the runner cannot bind its
+      // clock in advance. Bind only the server confirmed by the admin response.
+      expect(readyServer.displayName).toBe(displayName);
+      expect(!originalProductionClockInstanceId
+        || originalProductionClockInstanceId === serverInstanceId).toBe(true);
+      process.env.EMPIRE_UI_PARITY_SERVER_ID = serverInstanceId;
+    }
     await refreshAdmin(adminPage, serverInstanceId);
     await expect(adminPage.locator("[data-admin-starting-state]")).toBeVisible();
     await expect(adminPage.locator("[data-admin-starting-state]"))
@@ -337,6 +346,11 @@ test("owner creates a server and players prove exact hosted state through visibl
       await expect(client.page.getByTestId("continue-active-server")).toBeHidden();
     }
   } finally {
+    if (originalProductionClockInstanceId === undefined) {
+      delete process.env.EMPIRE_UI_PARITY_SERVER_ID;
+    } else {
+      process.env.EMPIRE_UI_PARITY_SERVER_ID = originalProductionClockInstanceId;
+    }
     let cleanupError = null;
     if (serverInstanceId && safeTrace.finalStatus !== "archived") {
       try {
