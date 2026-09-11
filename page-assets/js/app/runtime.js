@@ -220,6 +220,8 @@ import {
   refreshSelectedDistrictUi
 } from "./map/mapRefreshPipeline.js";
 import { createMapRenderScheduler } from "./map/mapRenderScheduler.js";
+import { observeMapViewportVisibility } from "./map/mapViewportVisibility.js";
+import { hasLiveServerMapEffects } from "./map/serverMapPresentationState.js";
 import { buildMapStatusViewModel } from "./map/mapStatusViewModel.js";
 import {
   hideDistrictTooltip,
@@ -227,7 +229,7 @@ import {
 } from "./map/mapTooltip.js";
 import { buildMapTooltipViewModel, getMapTooltipContentKey } from "./map/mapTooltipViewModel.js";
 import { buildMapMissionMarkersViewModel } from "./map/mapMissionMarkersViewModel.js";
-import { createServerMapPresentationModel } from "./map/serverMapPresentationModel.js";
+import { createServerMapEffectsModel } from "./map/serverMapPresentationModel.js";
 import {
   applyMobilePerformanceMode,
   detectMobilePerformanceMode,
@@ -11792,6 +11794,8 @@ function bindDistrictCanvas(root) {
   let tooltipSize = { width: 84, height: 52 };
   let lastMissionAnimationAt = 0;
   let lastMissionMarkerSyncAt = 0;
+  let mapInViewport = true;
+  const isMapVisible = () => mapInViewport && !document.hidden;
   const districtSelectionGesture = {
     pointerId: null,
     startX: 0,
@@ -14011,10 +14015,10 @@ function bindDistrictCanvas(root) {
       getSpyMissionExpiryTimestamp
     });
     if (isServerAuthoritativeGameplayRuntimeReady()) {
-      const serverEffects = createServerMapPresentationModel(
+      const serverEffects = createServerMapEffectsModel(
         latestGameplaySliceReadModel,
         { now }
-      )?.effects;
+      );
       if (serverEffects) {
         nextMarkers.activeSpyDistrictIds = serverEffects.activeSpyDistrictIds;
         nextMarkers.activeSpyMarkersByDistrictId = serverEffects.activeSpyMarkersByDistrictId;
@@ -14050,7 +14054,7 @@ function bindDistrictCanvas(root) {
   );
 
   const renderMapEffects = () => {
-    if (!effectsCanvas || !geometry) {
+    if (!effectsCanvas || !geometry || !isMapVisible()) {
       return;
     }
 
@@ -14128,6 +14132,7 @@ function bindDistrictCanvas(root) {
   const mapRenderScheduler = createMapRenderScheduler({
     windowRef: window,
     documentRef: document,
+    isVisible: isMapVisible,
     frameIntervalMs: getMapFrameIntervalMs(),
     render: performRender,
     onVisible: () => {
@@ -14170,11 +14175,14 @@ function bindDistrictCanvas(root) {
   }
 
   const ensureMissionAnimationLoop = () => {
+    // Visibility changes stop an existing loop. Do not rebuild markers or
+    // clear canvases for subsequent server/UI updates while it is offscreen.
+    if (!isMapVisible()) return;
     const initialAnimationTick = Date.now();
     syncMapMissionMarkers(initialAnimationTick);
     const hasActiveMissions = hasActiveMapMissions();
 
-    if (document.hidden || getCurrentPerformanceMode().reducedMotion || !hasActiveMissions) {
+    if (!isMapVisible() || getCurrentPerformanceMode().reducedMotion || !hasActiveMissions) {
       if (spyAnimationFrameId !== null) {
         window.cancelAnimationFrame(spyAnimationFrameId);
         spyAnimationFrameId = null;
@@ -14193,9 +14201,10 @@ function bindDistrictCanvas(root) {
 
     interactionState.animationTick = initialAnimationTick;
     renderMapEffects();
+    if (!hasLiveServerMapEffects(interactionState, initialAnimationTick)) return;
 
     const animate = (time) => {
-      if (document.hidden) {
+      if (!isMapVisible()) {
         spyAnimationFrameId = null;
         getRuntimePerformanceDiagnostics()?.setMapRafActive?.(false);
         return;
@@ -14222,6 +14231,14 @@ function bindDistrictCanvas(root) {
 
       interactionState.animationTick = now;
       renderMapEffects();
+      // Keep the last marker while waiting for the server, without animating
+      // an already elapsed operation forever after a delayed/disconnected poll.
+      if (!hasLiveServerMapEffects(interactionState, now)) {
+        spyAnimationFrameId = null;
+        getRuntimePerformanceDiagnostics()?.setMapRafActive?.(false);
+        lastMissionAnimationAt = 0;
+        return;
+      }
       spyAnimationFrameId = window.requestAnimationFrame(animate);
     };
 
@@ -14555,8 +14572,10 @@ function bindDistrictCanvas(root) {
     render("mobile-performance-mode");
     ensureMissionAnimationLoop();
   };
-  const handleMapVisibilityChange = () => {
-    if (document.hidden) {
+  const handleMapVisibilityChange = (visible) => {
+    if (mapInViewport === visible) return;
+    mapInViewport = visible;
+    if (!isMapVisible()) {
       if (spyAnimationFrameId !== null) {
         window.cancelAnimationFrame(spyAnimationFrameId);
         spyAnimationFrameId = null;
@@ -14645,7 +14664,9 @@ function bindDistrictCanvas(root) {
     ensureMissionAnimationLoop();
   };
   window.addEventListener("empire:mobile-performance-mode-changed", handleMobilePerformanceModeChange);
-  document.addEventListener("visibilitychange", handleMapVisibilityChange);
+  const mapViewportVisibility = observeMapViewportVisibility({
+    element: viewport, windowRef: window, documentRef: document, onChange: handleMapVisibilityChange
+  });
   document.addEventListener("empire:map-invalidate", handleExplicitMapInvalidation);
   document.addEventListener("empire:gameplay-slice-rendered", handleServerSliceRendered);
   window.addEventListener("resize", requestMapResizeRender, { passive: true });
@@ -15736,7 +15757,7 @@ function bindDistrictCanvas(root) {
     }
     mapRenderScheduler.destroy();
     window.removeEventListener("empire:mobile-performance-mode-changed", handleMobilePerformanceModeChange);
-    document.removeEventListener("visibilitychange", handleMapVisibilityChange);
+    mapViewportVisibility.destroy();
     document.removeEventListener("empire:map-invalidate", handleExplicitMapInvalidation);
     document.removeEventListener("empire:gameplay-slice-rendered", handleServerSliceRendered);
     window.removeEventListener("resize", requestMapResizeRender);

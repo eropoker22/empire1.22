@@ -52,6 +52,24 @@ class FakeWindow {
 }
 
 describe("map render scheduler", () => {
+  it("retains dirty layers without drawing a frame queued before scrolling offscreen", () => {
+    const windowRef = new FakeWindow();
+    const documentRef = new FakeDocument();
+    const render = vi.fn();
+    let visible = true;
+    const scheduler = createMapRenderScheduler({ windowRef, documentRef, render, isVisible: () => visible });
+    scheduler.invalidate("owner-change", { layers: ["state"] });
+    visible = false;
+    windowRef.fireFrame([...windowRef.frames.keys()][0], 16);
+    expect(render).not.toHaveBeenCalled();
+    expect(scheduler.getDirtyLayers()).toEqual(["state"]);
+    expect(windowRef.frames.size).toBe(0);
+    visible = true;
+    scheduler.invalidate("visibility-return", { layers: ["effects"], immediate: true });
+    expect(render).toHaveBeenCalledOnce();
+    expect(render.mock.calls[0][0].layers).toEqual(["state", "effects"]);
+    scheduler.destroy();
+  });
   it("does not render until marked dirty and coalesces clean frames", () => {
     const windowRef = new FakeWindow();
     const documentRef = new FakeDocument();

@@ -1,0 +1,820 @@
+{
+  "config": {
+    "maxFactionOccurrences": 3,
+    "playerCount": 20,
+    "resourceFieldMapping": {
+      "cleanCash": "resource.balances.cash",
+      "dirtyCash": "resource.balances['dirty-cash']",
+      "heat": "policeState.heat + sum(district.heat for owned districts)",
+      "influence": "sum(district.influence for owned districts)",
+      "materials": "sum(chemicals, biomass, stim-pack, metal-parts, tech-core, combat-module, metalParts, techCore, combatModule)"
+    },
+    "scenario": "mixed",
+    "seed": "release-2026-09-11",
+    "steps": 500,
+    "tickRateMs": 10000
+  },
+  "runtime": {
+    "completed": true,
+    "finalTick": 500,
+    "wallClockMs": 570418
+  },
+  "passed": true,
+  "errors": [],
+  "warnings": [
+    "Command/event audit log count differs by 813. Atomic event records store command-applied envelopes.",
+    "No standalone boost command/mechanic was found in the authoritative command router. Drug/effect-like building outputs are measured under building specials.",
+    "More than 45% of submitted commands were rejected; inspect cooldowns, resource gates, and action availability.",
+    "27 configured building special actions were not used in this run.",
+    "mafian final wealth is more than 2.25x motorkarsky-gang."
+  ],
+  "invariantViolations": [],
+  "metrics": {
+    "alliances": {
+      "acceptedInvites": 3,
+      "activeAlliances": [
+        {
+          "allianceId": "alliance:command:player_14:alliance-create:246",
+          "members": [
+            "player_14",
+            "player_12",
+            "player_20"
+          ],
+          "name": "ClosedAlpha 14 Pact"
+        },
+        {
+          "allianceId": "alliance:command:player_02:alliance-create:313",
+          "members": [
+            "player_02"
+          ],
+          "name": "ClosedAlpha 02 Pact"
+        },
+        {
+          "allianceId": "alliance:command:player_17:alliance-create:325",
+          "members": [
+            "player_17",
+            "player_03"
+          ],
+          "name": "ClosedAlpha 17 Pact"
+        }
+      ],
+      "attacksOnAllies": 0,
+      "createRequests": 3,
+      "disbanded": 0,
+      "invitesSent": 18,
+      "joinRequests": 10,
+      "rejectedInvites": 2
+    },
+    "boost": {
+      "implemented": false,
+      "note": "No standalone boost command/mechanic was found in the authoritative command router. Drug/effect-like building outputs are measured under building specials.",
+      "uses": 0
+    },
+    "bounty": {
+      "byCreator": {
+        "player_01": 2,
+        "player_03": 1,
+        "player_05": 3,
+        "player_08": 2,
+        "player_09": 1,
+        "player_11": 2,
+        "player_13": 1,
+        "player_14": 2,
+        "player_15": 4,
+        "player_17": 1,
+        "player_18": 2,
+        "player_19": 2
+      },
+      "byTarget": {
+        "player_02": 1,
+        "player_03": 1,
+        "player_04": 1,
+        "player_05": 3,
+        "player_06": 2,
+        "player_10": 1,
+        "player_11": 1,
+        "player_12": 5,
+        "player_13": 1,
+        "player_16": 2,
+        "player_18": 4,
+        "player_20": 1
+      },
+      "cancelled": 0,
+      "claimed": 1,
+      "created": 23,
+      "expired": 1,
+      "largestBounty": 5000,
+      "selfClaimAbuseDetected": false,
+      "totalValue": 115000
+    },
+    "buildings": {
+      "availableSpecialActions": [
+        {
+          "actionId": "liquidity_injection",
+          "buildingTypeId": "central_bank"
+        },
+        {
+          "actionId": "frozen_accounts",
+          "buildingTypeId": "central_bank"
+        },
+        {
+          "actionId": "currency_intervention",
+          "buildingTypeId": "central_bank"
+        },
+        {
+          "actionId": "official_cover",
+          "buildingTypeId": "city_hall"
+        },
+        {
+          "actionId": "city_contract",
+          "buildingTypeId": "city_hall"
+        },
+        {
+          "actionId": "emergency_decree",
+          "buildingTypeId": "city_hall"
+        },
+        {
+          "actionId": "backroom_pressure",
+          "buildingTypeId": "lobby_club"
+        },
+        {
+          "actionId": "quiet_negotiation",
+          "buildingTypeId": "lobby_club"
+        },
+        {
+          "actionId": "media_screen",
+          "buildingTypeId": "lobby_club"
+        },
+        {
+          "actionId": "speculative_buy",
+          "buildingTypeId": "stock_exchange"
+        },
+        {
+          "actionId": "market_pressure",
+          "buildingTypeId": "stock_exchange"
+        },
+        {
+          "actionId": "insider_window",
+          "buildingTypeId": "stock_exchange"
+        },
+        {
+          "actionId": "express_import",
+          "buildingTypeId": "airport"
+        },
+        {
+          "actionId": "black_charter",
+          "buildingTypeId": "airport"
+        },
+        {
+          "actionId": "evacuation_corridor",
+          "buildingTypeId": "airport"
+        },
+        {
+          "actionId": "port_container_cut",
+          "buildingTypeId": "port"
+        },
+        {
+          "actionId": "parliament_policy_window",
+          "buildingTypeId": "parliament"
+        },
+        {
+          "actionId": "restaurant_collect_revenue",
+          "buildingTypeId": "restaurant"
+        },
+        {
+          "actionId": "restaurant_cover_meetings",
+          "buildingTypeId": "restaurant"
+        },
+        {
+          "actionId": "restaurant_local_network",
+          "buildingTypeId": "restaurant"
+        },
+        {
+          "actionId": "night_machines",
+          "buildingTypeId": "arcade"
+        },
+        {
+          "actionId": "back_cashdesk",
+          "buildingTypeId": "arcade"
+        },
+        {
+          "actionId": "quiet_backroom",
+          "buildingTypeId": "casino"
+        },
+        {
+          "actionId": "vip_night",
+          "buildingTypeId": "casino"
+        },
+        {
+          "actionId": "bribed_inspector",
+          "buildingTypeId": "casino"
+        },
+        {
+          "actionId": "good_rate",
+          "buildingTypeId": "exchange"
+        },
+        {
+          "actionId": "collect_population",
+          "buildingTypeId": "apartment_block"
+        },
+        {
+          "actionId": "stabilization_protocol",
+          "buildingTypeId": "clinic"
+        },
+        {
+          "actionId": "evening_course",
+          "buildingTypeId": "school"
+        },
+        {
+          "actionId": "collect_school_population",
+          "buildingTypeId": "school"
+        },
+        {
+          "actionId": "backup_grid_switch",
+          "buildingTypeId": "power_station"
+        },
+        {
+          "actionId": "power_station_feed_production",
+          "buildingTypeId": "power_station"
+        },
+        {
+          "actionId": "power_station_reduce_heat",
+          "buildingTypeId": "power_station"
+        },
+        {
+          "actionId": "extract_losses",
+          "buildingTypeId": "recycling_center"
+        },
+        {
+          "actionId": "open_channel",
+          "buildingTypeId": "smuggling_tunnel"
+        },
+        {
+          "actionId": "collect_convenience_store_population",
+          "buildingTypeId": "convenience_store"
+        },
+        {
+          "actionId": "strip_club_collect_cash",
+          "buildingTypeId": "strip_club"
+        },
+        {
+          "actionId": "vip_lounge",
+          "buildingTypeId": "strip_club"
+        },
+        {
+          "actionId": "private_party",
+          "buildingTypeId": "strip_club"
+        },
+        {
+          "actionId": "start_drug_sale",
+          "buildingTypeId": "street_dealers"
+        }
+      ],
+      "built": 0,
+      "cooldownViolations": 0,
+      "invalidSpecialAttempts": 58,
+      "leastUsedBuilding": "exchange",
+      "mostUsedBuilding": "restaurant",
+      "specialActions": 172,
+      "specialActionsByAction": {
+        "back_cashdesk": 10,
+        "collect_convenience_store_population": 4,
+        "collect_population": 53,
+        "collect_school_population": 10,
+        "evening_course": 3,
+        "good_rate": 3,
+        "open_channel": 5,
+        "private_party": 9,
+        "restaurant_collect_revenue": 16,
+        "restaurant_cover_meetings": 22,
+        "restaurant_local_network": 23,
+        "stabilization_protocol": 7,
+        "strip_club_collect_cash": 7
+      },
+      "specialActionsByType": {
+        "apartment_block": 53,
+        "arcade": 10,
+        "clinic": 7,
+        "convenience_store": 4,
+        "exchange": 3,
+        "restaurant": 61,
+        "school": 13,
+        "smuggling_tunnel": 5,
+        "strip_club": 16
+      },
+      "unusedSpecialActions": [
+        {
+          "actionId": "liquidity_injection",
+          "buildingTypeId": "central_bank"
+        },
+        {
+          "actionId": "frozen_accounts",
+          "buildingTypeId": "central_bank"
+        },
+        {
+          "actionId": "currency_intervention",
+          "buildingTypeId": "central_bank"
+        },
+        {
+          "actionId": "official_cover",
+          "buildingTypeId": "city_hall"
+        },
+        {
+          "actionId": "city_contract",
+          "buildingTypeId": "city_hall"
+        },
+        {
+          "actionId": "emergency_decree",
+          "buildingTypeId": "city_hall"
+        },
+        {
+          "actionId": "backroom_pressure",
+          "buildingTypeId": "lobby_club"
+        },
+        {
+          "actionId": "quiet_negotiation",
+          "buildingTypeId": "lobby_club"
+        },
+        {
+          "actionId": "media_screen",
+          "buildingTypeId": "lobby_club"
+        },
+        {
+          "actionId": "speculative_buy",
+          "buildingTypeId": "stock_exchange"
+        },
+        {
+          "actionId": "market_pressure",
+          "buildingTypeId": "stock_exchange"
+        },
+        {
+          "actionId": "insider_window",
+          "buildingTypeId": "stock_exchange"
+        },
+        {
+          "actionId": "express_import",
+          "buildingTypeId": "airport"
+        },
+        {
+          "actionId": "black_charter",
+          "buildingTypeId": "airport"
+        },
+        {
+          "actionId": "evacuation_corridor",
+          "buildingTypeId": "airport"
+        },
+        {
+          "actionId": "port_container_cut",
+          "buildingTypeId": "port"
+        },
+        {
+          "actionId": "parliament_policy_window",
+          "buildingTypeId": "parliament"
+        },
+        {
+          "actionId": "night_machines",
+          "buildingTypeId": "arcade"
+        },
+        {
+          "actionId": "quiet_backroom",
+          "buildingTypeId": "casino"
+        },
+        {
+          "actionId": "vip_night",
+          "buildingTypeId": "casino"
+        },
+        {
+          "actionId": "bribed_inspector",
+          "buildingTypeId": "casino"
+        },
+        {
+          "actionId": "backup_grid_switch",
+          "buildingTypeId": "power_station"
+        },
+        {
+          "actionId": "power_station_feed_production",
+          "buildingTypeId": "power_station"
+        },
+        {
+          "actionId": "power_station_reduce_heat",
+          "buildingTypeId": "power_station"
+        },
+        {
+          "actionId": "extract_losses",
+          "buildingTypeId": "recycling_center"
+        },
+        {
+          "actionId": "vip_lounge",
+          "buildingTypeId": "strip_club"
+        },
+        {
+          "actionId": "start_drug_sale",
+          "buildingTypeId": "street_dealers"
+        }
+      ],
+      "upgrades": 16
+    },
+    "combat": {
+      "alliedDefensePlacements": 12,
+      "attackerOccupationLosses": 0,
+      "attacks": 12,
+      "attacksByFaction": {
+        "hackeri": 1,
+        "kartel": 1,
+        "kult": 2,
+        "mafian": 2,
+        "motorkarsky-gang": 2,
+        "soukroma-armada": 2,
+        "tajna-organizace": 2
+      },
+      "attacksByPlayer": {
+        "player_05": 2,
+        "player_07": 1,
+        "player_09": 1,
+        "player_11": 2,
+        "player_13": 1,
+        "player_17": 1,
+        "player_18": 1,
+        "player_19": 2,
+        "player_20": 1
+      },
+      "attacksOnAllies": 0,
+      "averageAttackIntervalTicks": 32,
+      "capturedDefenseTransferViolations": 0,
+      "damageOrLossEvents": 314,
+      "defensePlacements": 54,
+      "failedAttacks": 0,
+      "heists": 11,
+      "maxConsecutiveCaptureStreak": 0,
+      "mostFrequentAttacker": "player_19",
+      "mostFrequentVictim": "player_18",
+      "occupations": 5,
+      "offlinePlayerActions": 0,
+      "robs": 36,
+      "simultaneousConflictCommands": 303,
+      "successfulAttacks": 0,
+      "top1DistrictShare": 0.125,
+      "top3DistrictShare": 0.2917,
+      "trapPlacements": 6,
+      "victimsByPlayer": {
+        "player_04": 1,
+        "player_05": 1,
+        "player_07": 1,
+        "player_09": 1,
+        "player_13": 1,
+        "player_16": 2,
+        "player_18": 3,
+        "player_19": 1,
+        "player_20": 1
+      }
+    },
+    "commands": {
+      "acceptedByPlayer": {
+        "player_01": 46,
+        "player_02": 43,
+        "player_03": 33,
+        "player_04": 21,
+        "player_05": 49,
+        "player_06": 42,
+        "player_07": 16,
+        "player_08": 55,
+        "player_09": 25,
+        "player_10": 28,
+        "player_11": 56,
+        "player_12": 43,
+        "player_13": 16,
+        "player_14": 58,
+        "player_15": 35,
+        "player_16": 43,
+        "player_17": 49,
+        "player_18": 52,
+        "player_19": 46,
+        "player_20": 40
+      },
+      "averageCommandsPerPlayer": 81.35,
+      "byPlayer": {
+        "player_01": 150,
+        "player_02": 65,
+        "player_03": 124,
+        "player_04": 30,
+        "player_05": 106,
+        "player_06": 77,
+        "player_07": 21,
+        "player_08": 131,
+        "player_09": 53,
+        "player_10": 82,
+        "player_11": 99,
+        "player_12": 50,
+        "player_13": 33,
+        "player_14": 87,
+        "player_15": 79,
+        "player_16": 89,
+        "player_17": 72,
+        "player_18": 107,
+        "player_19": 90,
+        "player_20": 82
+      },
+      "byType": {
+        "attack-district": 12,
+        "buy-market-resource": 753,
+        "create-alliance": 3,
+        "create-bounty": 26,
+        "heist-district": 11,
+        "invite-alliance-member": 19,
+        "join-alliance": 10,
+        "occupy-district": 6,
+        "place-defense": 56,
+        "place-trap": 9,
+        "respond-alliance-invite": 5,
+        "rob-district": 36,
+        "run-building-action": 234,
+        "sell-market-resource": 20,
+        "spy-district": 373,
+        "upgrade-building": 54
+      },
+      "duplicateOrIdempotent": 32,
+      "errors": 0,
+      "expectedRejectionProbes": 70,
+      "leastActivePlayer": "player_07",
+      "mostActivePlayer": "player_01",
+      "payloadConflicts": 2,
+      "rejected": 831,
+      "rejectedByCode": {
+        "ALLIANCE_INVITE_ALREADY_PENDING": 3,
+        "ALLIANCE_INVITE_REQUIRED": 10,
+        "apartment_block_no_population": 18,
+        "bounty_target_self": 3,
+        "building_action_cooldown": 58,
+        "building_action_insufficient_resources": 1,
+        "building_upgrade_unavailable": 18,
+        "clinic_insufficient_clean_cash": 1,
+        "clinic_recovery_pool_empty": 2,
+        "convenience_store_no_population": 1,
+        "insufficient_upgrade_resources": 19,
+        "market_black_market_offer_unavailable": 144,
+        "market_normal_market_offer_unavailable": 299,
+        "market_not_enough_cash": 8,
+        "market_not_enough_stock": 257,
+        "school_evening_course_active": 2,
+        "school_no_population": 3,
+        "server.command_payload_conflict": 2,
+        "smuggling_tunnel_open_channel_active": 1,
+        "spy_target_not_found": 5,
+        "strip_club_private_party_active": 4,
+        "TARGET_OWNER_CHANGED": 2,
+        "trap_limit_reached": 3
+      },
+      "successful": 796,
+      "totalSubmitted": 1627
+    },
+    "economy": {
+      "averageGrowth": 3293.34,
+      "bottom5ByWealth": [
+        {
+          "playerId": "player_13",
+          "wealth": 4470.85
+        },
+        {
+          "playerId": "player_08",
+          "wealth": 4476.77
+        },
+        {
+          "playerId": "player_07",
+          "wealth": 4724.76
+        },
+        {
+          "playerId": "player_16",
+          "wealth": 5078.16
+        },
+        {
+          "playerId": "player_10",
+          "wealth": 5128.65
+        }
+      ],
+      "cleanCashDelta": -22854.01,
+      "collects": 0,
+      "dirtyCashDelta": 86759.02,
+      "heatDelta": 2287.11,
+      "influenceDelta": 636.56,
+      "invalidNegativeBalances": [],
+      "marketBuys": 736,
+      "marketSells": 20,
+      "materialsDelta": 142,
+      "medianGrowth": 3896.66,
+      "top5ByWealth": [
+        {
+          "playerId": "player_11",
+          "wealth": 23129.46
+        },
+        {
+          "playerId": "player_06",
+          "wealth": 17354.58
+        },
+        {
+          "playerId": "player_18",
+          "wealth": 16437.61
+        },
+        {
+          "playerId": "player_03",
+          "wealth": 12160.97
+        },
+        {
+          "playerId": "player_05",
+          "wealth": 11868
+        }
+      ],
+      "totalFinalWealth": 199866.81,
+      "totalStartingWealth": 134000
+    },
+    "fairness": {
+      "behaviorSuccessRates": {
+        "aggressive_attacker": {
+          "accepted": 102,
+          "submitted": 249,
+          "successRate": 0.41
+        },
+        "balanced_casual": {
+          "accepted": 65,
+          "submitted": 93,
+          "successRate": 0.699
+        },
+        "bounty_hunter": {
+          "accepted": 84,
+          "submitted": 185,
+          "successRate": 0.454
+        },
+        "chaotic": {
+          "accepted": 107,
+          "submitted": 238,
+          "successRate": 0.45
+        },
+        "defensive_builder": {
+          "accepted": 86,
+          "submitted": 115,
+          "successRate": 0.748
+        },
+        "diplomat_alliance": {
+          "accepted": 79,
+          "submitted": 117,
+          "successRate": 0.675
+        },
+        "economy_optimizer": {
+          "accepted": 85,
+          "submitted": 166,
+          "successRate": 0.512
+        },
+        "heat_risk": {
+          "accepted": 71,
+          "submitted": 143,
+          "successRate": 0.497
+        },
+        "special_building_user": {
+          "accepted": 68,
+          "submitted": 164,
+          "successRate": 0.415
+        },
+        "spy_intelligence": {
+          "accepted": 49,
+          "submitted": 157,
+          "successRate": 0.312
+        }
+      },
+      "bottomFactionWealth": {
+        "factionId": "motorkarsky-gang",
+        "wealth": 11868
+      },
+      "dominantBehaviorWarning": null,
+      "dominantFactionWarning": "mafian final wealth is more than 2.25x motorkarsky-gang.",
+      "giniWealth": 0.258,
+      "topFactionWealth": {
+        "factionId": "mafian",
+        "wealth": 37630.93
+      },
+      "topToMedianWealthRatio": 2.18
+    },
+    "heatRisk": {
+      "averageHeat": 114.36,
+      "heatGainByAction": {
+        "run-building-action": 984.5600000000002
+      },
+      "highestHeatPlayer": "player_18",
+      "maxHeat": 254.49
+    },
+    "spying": {
+      "actions": 365,
+      "byPlayer": {
+        "player_01": 26,
+        "player_02": 18,
+        "player_03": 22,
+        "player_04": 11,
+        "player_05": 25,
+        "player_06": 19,
+        "player_07": 8,
+        "player_08": 26,
+        "player_09": 8,
+        "player_10": 23,
+        "player_11": 23,
+        "player_12": 17,
+        "player_13": 9,
+        "player_14": 15,
+        "player_15": 17,
+        "player_16": 17,
+        "player_17": 18,
+        "player_18": 21,
+        "player_19": 20,
+        "player_20": 22
+      },
+      "failed": 23,
+      "invalidInformationLeaks": 0,
+      "mostFrequentTarget": "district:136",
+      "partial": 44,
+      "success": 258,
+      "targetCounts": {
+        "district:111": 5,
+        "district:112": 7,
+        "district:114": 7,
+        "district:116": 3,
+        "district:117": 9,
+        "district:118": 7,
+        "district:119": 4,
+        "district:120": 3,
+        "district:121": 4,
+        "district:128": 4,
+        "district:129": 4,
+        "district:130": 4,
+        "district:134": 4,
+        "district:136": 10,
+        "district:138": 4,
+        "district:139": 5,
+        "district:141": 4,
+        "district:143": 3,
+        "district:151": 7,
+        "district:153": 6,
+        "district:157": 5,
+        "district:158": 4,
+        "district:159": 6,
+        "district:160": 4,
+        "district:18": 4,
+        "district:19": 4,
+        "district:2": 5,
+        "district:20": 8,
+        "district:21": 4,
+        "district:24": 8,
+        "district:25": 8,
+        "district:26": 6,
+        "district:27": 5,
+        "district:28": 9,
+        "district:29": 4,
+        "district:3": 5,
+        "district:30": 5,
+        "district:4": 8,
+        "district:41": 4,
+        "district:42": 6,
+        "district:43": 9,
+        "district:44": 8,
+        "district:45": 4,
+        "district:47": 1,
+        "district:48": 9,
+        "district:49": 2,
+        "district:50": 7,
+        "district:51": 7,
+        "district:52": 5,
+        "district:53": 1,
+        "district:6": 1,
+        "district:64": 4,
+        "district:65": 6,
+        "district:66": 9,
+        "district:67": 4,
+        "district:7": 2,
+        "district:70": 7,
+        "district:71": 7,
+        "district:72": 2,
+        "district:73": 7,
+        "district:74": 2,
+        "district:75": 7,
+        "district:76": 1,
+        "district:88": 3,
+        "district:89": 6,
+        "district:90": 4,
+        "district:91": 4,
+        "district:94": 4,
+        "district:95": 2,
+        "district:96": 2,
+        "district:97": 7,
+        "district:missing:200": 1,
+        "district:missing:280": 1,
+        "district:missing:40": 1,
+        "district:missing:440": 1,
+        "district:missing:501": 1
+      }
+    },
+    "stability": {
+      "completed": true,
+      "invalidStates": 0,
+      "invariantViolations": 0,
+      "runtimeErrors": 0,
+      "snapshotCommandLogDivergence": 813
+    }
+  },
+  "interpretation": "Runner invariant verdict only. 500 logical ticks, legacy normalized starting balances and faction cap; not live load, hosted acceptance or full-match balance."
+}

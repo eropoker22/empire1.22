@@ -112,16 +112,17 @@ export function renderFactionPassiveUi(documentRef = document, factionView = lat
     });
     const productionNote = element.classList?.contains("faction-passive-inline--production");
     const numericBonus = copy.match(/[+−-]\d+(?:[.,]\d+)?\s*%/u)?.[0]?.replace(/\s+/gu, "");
-    element.textContent = productionNote && numericBonus ? `Frakce ${numericBonus}` : copy;
-    element.hidden = !copy;
+    const text = productionNote && numericBonus ? `Frakce ${numericBonus}` : copy;
+    if (element.textContent !== text) element.textContent = text;
+    if (element.hidden !== !copy) element.hidden = !copy;
     element.classList?.toggle?.("hidden", !copy);
     const conditionalRow = element.closest?.("[data-faction-passive-inline-row]");
     if (conditionalRow) {
-      conditionalRow.hidden = !copy;
+      if (conditionalRow.hidden !== !copy) conditionalRow.hidden = !copy;
       conditionalRow.classList?.toggle?.("hidden", !copy);
     }
-    if (copy) element.title = copy;
-    else element.removeAttribute?.("title");
+    if (copy && element.title !== copy) element.title = copy;
+    else if (!copy && element.hasAttribute?.("title")) element.removeAttribute?.("title");
   }
 }
 
