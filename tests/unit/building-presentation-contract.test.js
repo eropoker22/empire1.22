@@ -10,6 +10,7 @@ import {
   DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES
 } from "../../page-assets/js/app/runtime/buildingDetailData.js";
 import {
+  createServerBuildingActionExecutionPresentation,
   ServerBuildingPresentationAdapter
 } from "../../page-assets/js/app/runtime/buildingPresentationAdapters.js";
 import {
@@ -284,6 +285,35 @@ describe("building presentation contract", () => {
     }
   });
 
+  it("preserves authoritative variable costs through the visible card and a changed confirmation input", () => {
+    const source = {
+      actionId: "speculative_buy",
+      title: "Spekulativní nákup",
+      serverAction: {
+        requiredInputs: [{ id: "investmentCleanCash", label: "Investice", type: "number", min: 1, required: true }],
+        influenceChange: -3,
+        costPreview: {
+          fixedInputCost: { cash: 2500 },
+          variableInputCosts: [{ inputId: "investmentCleanCash", resourceKey: "cash", amountPerUnit: 1 }]
+        }
+      }
+    };
+    const { actions: [action] } = pickBuildingDetailPresentationViewModel({ actions: [source] });
+    // The rendered card must own a copy, so UI changes cannot mutate the server read model.
+    expect(action.serverAction.costPreview.fixedInputCost).not.toBe(source.serverAction.costPreview.fixedInputCost);
+    expect(action.serverAction.costPreview.variableInputCosts[0]).not.toBe(source.serverAction.costPreview.variableInputCosts[0]);
+    for (const [investment, total] of [[1000, 3500], [2750, 5250]]) {
+      const { confirmation } = createServerBuildingActionExecutionPresentation({
+        action,
+        request: { inputs: { investmentCleanCash: investment } }
+      });
+      expect(confirmation.costSummary).toBe(`Pevný poplatek: $2500 clean cash · Celkem: $${total} clean cash + 3 vliv`);
+      expect(confirmation.inputSummary).toBe(`Investice: $${investment} clean cash`);
+      expect(confirmation.canConfirm).toBe(true);
+    }
+    expect(source.serverAction.costPreview.fixedInputCost).toEqual({ cash: 2500 });
+  });
+
   it("passes only renderer-approved fields to the visible card", () => {
     const viewModel = pickBuildingDetailPresentationViewModel({
       title: "Herna",
@@ -312,7 +342,9 @@ describe("building presentation contract", () => {
     expect(viewModel.actions[0].serverAction).toEqual({
       description: "Spustí automaty.",
       requiredInputs: [],
-      riskSummary: ["Heat +2"]
+      riskSummary: ["Heat +2"],
+      influenceChange: 0,
+      costPreview: null
     });
     expect(viewModel.layout).toBe("single-panel");
     expect(resolveBuildingDetailLayout("central-bank")).toBe("tabbed");

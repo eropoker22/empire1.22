@@ -238,11 +238,15 @@ async function completeFactionSelection(page) {
   await expect(colorOption).toBeVisible({ timeout: 30_000 });
   const gangColor = await colorOption.getAttribute("data-live-color");
   expect(gangColor, "Faction setup must expose the selected gang color").toBeTruthy();
-  await page.locator('[data-faction-id="mafian"]').click();
+  const factionCard = page.locator('button[data-faction-id]:not([disabled])').first();
+  await expect(factionCard, "A faction with an available authoritative slot is required").toBeEnabled();
+  const factionId = await factionCard.getAttribute("data-faction-id");
+  expect(factionId).toBeTruthy();
+  await factionCard.click();
   await colorOption.click();
   await page.locator("[data-live-avatar]").first().click();
   await page.getByTestId("continue-to-game").click();
-  return { gangColor, membershipId };
+  return { factionId, gangColor, membershipId };
 }
 
 export async function waitForLiveGame(page, expectedServerInstanceId = null) {
@@ -498,6 +502,7 @@ export async function registerAndEnterHostedUiParityGame(page, {
   expect(gameIdentity.playerId).toBe(membership.playerId);
   return {
     diagnostics,
+    factionId: factionSelection.factionId,
     gangColor: factionSelection.gangColor,
     identity,
     membershipId: membership.membershipId,
@@ -542,6 +547,7 @@ export async function loginAndEnterHostedUiParityGame(page, {
   expect(gameIdentity.playerId).toBe(membership.playerId);
   return {
     diagnostics,
+    factionId: factionSelection.factionId,
     gangColor: factionSelection.gangColor,
     membershipId: membership.membershipId,
     playerId: membership.playerId,

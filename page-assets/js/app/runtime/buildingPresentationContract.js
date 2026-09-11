@@ -128,7 +128,12 @@ const copyActions = (actions) => copyRows(actions).map((action) => ({
     requiredInputs: copyRows(action.serverAction.requiredInputs),
     riskSummary: Array.isArray(action.serverAction.riskSummary)
       ? action.serverAction.riskSummary.slice()
-      : []
+      : [],
+    influenceChange: Number(action.serverAction.influenceChange || 0),
+    costPreview: action.serverAction.costPreview ? {
+      fixedInputCost: { ...(action.serverAction.costPreview.fixedInputCost || {}) },
+      variableInputCosts: copyRows(action.serverAction.costPreview.variableInputCosts)
+    } : null
   } : null,
   dealerSale: action?.dealerSale ? {
     ...action.dealerSale,
