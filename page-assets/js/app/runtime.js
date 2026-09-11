@@ -4152,7 +4152,7 @@ function createServerConflictReportPresentation(report = {}) {
       modalKind: "police",
       payload: {
         tone: "is-success is-building-action-result",
-        title: `${buildingLabel}: Hotovo`,
+        title: `${buildingLabel}: ${resolveStreetNewsBuildingActionDescriptor(buildingLabel, actionId).actionLabel}`,
         badge: "Speciální akce",
         summary: String(report.message || `Akce budovy v ${targetLabel} byla dokončena.`),
         districtId: report.districtId,

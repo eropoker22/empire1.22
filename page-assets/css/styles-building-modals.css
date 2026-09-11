@@ -8869,3 +8869,29 @@
   background: linear-gradient(135deg, #206c60, #123e3b);
 }
 .market-trade-confirm .building-special-action-confirm__meta { color: #d2b369; }
+
+/* Special actions use the same warm glass treatment as building upgrades. */
+.building-special-action-confirm:not(.market-trade-confirm) .building-special-action-confirm__dialog {
+  border: 1px solid rgba(251, 172, 75, .68);
+  border-radius: 18px;
+  padding: 20px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 90% 5%, rgba(251, 146, 60, .34), transparent 55%),
+    radial-gradient(circle at 5% 95%, rgba(40, 183, 170, .18), transparent 55%),
+    linear-gradient(145deg, rgba(58, 30, 16, .96), rgba(8, 17, 28, .97));
+  box-shadow: inset 0 1px 0 #ffedd533, 0 20px 60px #0009, 0 0 28px #fb923333;
+}
+.building-special-action-confirm:not(.market-trade-confirm) .building-special-action-confirm__stat {
+  border-radius: 12px;
+  border-color: rgba(226, 174, 89, .25);
+  background: linear-gradient(120deg, rgba(226, 174, 89, .09), rgba(7, 18, 28, .55));
+}
+.building-special-action-confirm:not(.market-trade-confirm) .building-special-action-confirm__button--confirm {
+  min-height: 48px;
+  color: #fff4d6;
+  border-color: #e7ae59;
+  background: linear-gradient(135deg, #9b5b22, #573219);
+  box-shadow: 0 0 18px #eda64022;
+}
+.building-special-action-confirm__button:disabled { opacity: .45; cursor: not-allowed; }
