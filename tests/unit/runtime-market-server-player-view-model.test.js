@@ -127,6 +127,7 @@ describe("server player market view model", () => {
     const refreshMarketTab = vi.fn();
     const callbacks = createServerPlayerMarketCallbacks({
       submitServerMarketCommand,
+      confirmMarketTrade: vi.fn().mockResolvedValue(true),
       refreshMarketTab,
       setMarketFeedback: vi.fn()
     });
@@ -153,4 +154,13 @@ describe("server player market view model", () => {
     ]);
     expect(refreshMarketTab).toHaveBeenCalledTimes(3);
   });
+  it("does not buy a listing when its in-game confirmation is cancelled", async () => {
+    const submitServerMarketCommand = vi.fn();
+    const confirmMarketTrade = vi.fn().mockResolvedValue(false);
+    const callbacks = createServerPlayerMarketCallbacks({ submitServerMarketCommand, confirmMarketTrade });
+    await callbacks.onBuyListing({ id: "listing:1", amount: 2, itemName: "Metal Parts", total: 800, currency: "cleanMoney" });
+    expect(confirmMarketTrade).toHaveBeenCalledWith(expect.stringContaining("800"));
+    expect(submitServerMarketCommand).not.toHaveBeenCalled();
+  });
+
 });

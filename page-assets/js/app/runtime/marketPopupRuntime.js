@@ -1,3 +1,4 @@
+import { createBuildingSpecialActionConfirmationController } from "./buildingSpecialActionConfirmation.js";
 import { createMarketDataSourceSnapshot } from "./marketDataSource.js";
 import {
   GAMEPLAY_EXECUTION_MODES,
@@ -184,6 +185,26 @@ export function createMarketPopupRuntime(deps = {}) {
       return false;
     }
 
+    const tradeConfirmation = createBuildingSpecialActionConfirmationController({
+      documentRef,
+      host: documentRef?.body,
+      theme: "market"
+    });
+    const confirmTrade = deps.confirmMarketTrade || ((preview) => {
+      if (!documentRef?.body) return Promise.resolve(false);
+      return tradeConfirmation.open({
+        titleLabel: "Potvrdit obchod",
+        buildingLabel: "Městský market · Bazar",
+        rewardSummary: preview,
+        costSummary: "",
+        inputSummary: "Cena i dostupnost se při potvrzení znovu ověří na serveru.",
+        cooldownLabel: "",
+        riskSummary: "",
+        confirmLabel: "Potvrdit obchod",
+        rewardLabel: "Souhrn obchodu",
+        inputLabel: "Potvrzení"
+      });
+    });
     let activeTab = "market";
     let hideServerRecentTransactions = false;
     let playerMarketFormState = null;
@@ -276,6 +297,7 @@ export function createMarketPopupRuntime(deps = {}) {
           formState: playerMarketFormState
         }, {
           ...createServerPlayerMarketCallbacks({
+            confirmMarketTrade: confirmTrade,
             submitServerMarketCommand: deps.submitServerMarketCommand,
             setMarketFeedback,
             refreshMarketTab: renderMarketTab
@@ -450,6 +472,7 @@ export function createMarketPopupRuntime(deps = {}) {
       const marketCallbacks = dataSource.useServerMarket
         ? createServerMarketCallbacks({
             activeTab,
+            confirmMarketTrade: confirmTrade,
             submitServerMarketCommand: deps.submitServerMarketCommand,
             setMarketFeedback,
             formatMarketPrice: deps.formatMarketPrice,
@@ -495,6 +518,7 @@ export function createMarketPopupRuntime(deps = {}) {
 
     const closePopup = () => {
       playerMarketFormState = null;
+      tradeConfirmation.close();
       deps.closeMarketPanel?.(popup);
     };
 
@@ -582,7 +606,7 @@ function createServerMarketCallbacks(deps = {}) {
       refreshMarketTab();
       return;
     }
-    const confirmed = typeof window === "undefined" || window.confirm?.(successLabel.preview) !== false;
+    const confirmed = await deps.confirmMarketTrade?.(successLabel.preview);
     if (!confirmed) {
       return;
     }

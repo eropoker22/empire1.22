@@ -8846,3 +8846,26 @@
   }
 }
 
+
+/* Trade confirmation shares the accessible in-game modal behavior. */
+.market-trade-confirm {
+  position: fixed;
+  z-index: 10000;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+}
+.market-trade-confirm .building-special-action-confirm__dialog {
+  width: min(460px, 100%);
+  max-height: calc(100dvh - 64px);
+  box-sizing: border-box;
+  border-radius: 20px;
+  padding: 22px;
+  border-color: rgba(88, 212, 192, .5);
+  background: radial-gradient(ellipse at top right, rgba(46, 148, 132, .22), transparent 65%), #0b141b;
+  box-shadow: 0 24px 80px #000b, inset 0 1px 0 #a8ffe526;
+}
+.market-trade-confirm .building-special-action-confirm__button--confirm {
+  min-height: 48px;
+  border-color: #c5a354;
+  background: linear-gradient(135deg, #206c60, #123e3b);
+}
+.market-trade-confirm .building-special-action-confirm__meta { color: #d2b369; }
