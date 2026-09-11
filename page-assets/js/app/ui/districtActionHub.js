@@ -106,6 +106,13 @@ export function renderDistrictActionButton(action = {}, callback = null, options
       );
       if (subtitle) {
         subtitle.textContent = presentation.countdownLabel || presentation.subtitle;
+        const windowRef = button.ownerDocument?.defaultView;
+        if (presentation.getCountdownLabel && windowRef?.setInterval) {
+          const timer = windowRef.setInterval(() => {
+            if (!button.isConnected) { windowRef.clearInterval(timer); return; }
+            if (!button.ownerDocument.hidden) subtitle.textContent = presentation.getCountdownLabel();
+          }, 1000);
+        }
         button.append(subtitle);
       }
     }

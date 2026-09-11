@@ -55,6 +55,7 @@ export interface GameplayMapEffectView {
   type: "spy" | "robbery" | "heist" | "attack" | "occupy" | "trap";
   source: "server-pending-operation" | "server-public-operation" | "server-owned-trap";
   playerId: string;
+  sourceDistrictId?: string;
   playerName?: string;
   playerColor?: string;
   districtId: string;

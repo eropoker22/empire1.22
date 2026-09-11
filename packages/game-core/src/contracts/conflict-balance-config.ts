@@ -1,4 +1,6 @@
 export interface ConflictBalanceConfig {
+  /** Real elapsed time from server start; independent of quiet hours and ticks. */
+  initialAttackProtectionMs?: number;
   spyCooldownTicks: number;
   spyAuthorizationTtlTicks?: number;
   spySlotCooldownTicks?: number;

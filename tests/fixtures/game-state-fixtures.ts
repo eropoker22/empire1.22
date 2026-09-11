@@ -154,6 +154,8 @@ export const createCoreStateWithFixedBuildingFixture = (
 
 export const createCombatStateFixture = (instanceId = "instance:1") => {
   const state = createInitialState(instanceId, "free");
+  // Established combat fixture: spy intel is already available and initial two-hour protection has elapsed.
+  state.serverInstance.startedAt = new Date(-2 * 60 * 60 * 1000).toISOString();
   const attacker = createPlayerFixture({
     serverInstanceId: instanceId,
     population: 100,

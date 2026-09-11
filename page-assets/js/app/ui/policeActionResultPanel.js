@@ -16,7 +16,10 @@ const POLICE_ACTION_RESULT_TONE_CLASSES = Object.freeze([
   "is-district-raid-warning",
   "is-district-attack-warning",
   "is-owned-district-raid-alert",
-  "is-building-action-result"
+  "is-building-action-result",
+  "is-player-alert",
+  "is-major-fail",
+  "is-success"
 ]);
 
 function query(root, selector) {
@@ -148,7 +151,7 @@ export function renderPoliceActionResultPanel(root, payload = {}, options = {}) 
   renderRows();
   elements.modal.classList.remove("hidden");
   elements.modal.removeAttribute("aria-hidden");
-  openOverlay(elements.modal, { type: "modal", ariaModal: true });
+  openOverlay(elements.modal, { type: "modal", ariaModal: true, alwaysOnTop: true });
   return {
     ok: true,
     ...elements,

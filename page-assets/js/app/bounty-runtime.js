@@ -11,6 +11,7 @@ import {
   getBountyDistrictLabel,
   getBountyIconType,
   getBountyRemainingMs,
+  selectBountyBoardEntries,
   withBountyCountdownSnapshot
 } from "./bounty-view-helpers.js";
 import { resolveLivePlayerAvatarSrc } from "./model/livePlayerAvatarCatalog.js";
@@ -905,9 +906,7 @@ export function initBountyRuntime() {
 
   const renderBoard = () => {
     const entries = Array.isArray(getBountyReadModel().activeBounties) ? getBountyReadModel().activeBounties : [];
-    const activeEntries = entries
-      .sort((left, right) => Number(right.rewardCleanCash || 0) - Number(left.rewardCleanCash || 0))
-      .slice(0, 20);
+    const activeEntries = selectBountyBoardEntries(entries);
     const targets = getTargets();
     const activeTotal = activeEntries
       .filter((entry) => entry.status === "active")

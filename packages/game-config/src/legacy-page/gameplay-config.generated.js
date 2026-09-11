@@ -7503,7 +7503,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "neon-dust": {
         "name": "Neon Dust",
-        "basePrice": 1900,
+        "basePrice": 1530,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 140,
         "minPriceMultiplier": 1,
@@ -7536,7 +7536,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "pulse-shot": {
         "name": "Pulse Shot",
-        "basePrice": 3010,
+        "basePrice": 2430,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 90,
         "minPriceMultiplier": 1,
@@ -7547,7 +7547,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "velvet-smoke": {
         "name": "Velvet Smoke",
-        "basePrice": 3260,
+        "basePrice": 2630,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 90,
         "minPriceMultiplier": 1,
@@ -7558,7 +7558,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "tech-core": {
         "name": "Tech Core",
-        "basePrice": 3260,
+        "basePrice": 2630,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 80,
         "minPriceMultiplier": 1,
@@ -7569,7 +7569,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "pistol": {
         "name": "Pistole",
-        "basePrice": 4650,
+        "basePrice": 3750,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 70,
         "minPriceMultiplier": 1,
@@ -7580,7 +7580,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "grenade": {
         "name": "Granát",
-        "basePrice": 4190,
+        "basePrice": 3380,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 70,
         "minPriceMultiplier": 1,
@@ -7591,7 +7591,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "vest": {
         "name": "Vesta",
-        "basePrice": 4650,
+        "basePrice": 3750,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 70,
         "minPriceMultiplier": 1,
@@ -7602,7 +7602,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "cameras": {
         "name": "Kamery",
-        "basePrice": 7440,
+        "basePrice": 6000,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 50,
         "minPriceMultiplier": 1,
@@ -7613,7 +7613,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "alarm": {
         "name": "Alarm",
-        "basePrice": 4190,
+        "basePrice": 3380,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 70,
         "minPriceMultiplier": 1,
@@ -7624,7 +7624,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "combat-module": {
         "name": "Combat Module",
-        "basePrice": 12250,
+        "basePrice": 9880,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 24,
         "minPriceMultiplier": 1,
@@ -7635,7 +7635,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "ghost-serum": {
         "name": "Ghost Serum",
-        "basePrice": 10670,
+        "basePrice": 8600,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 18,
         "minPriceMultiplier": 1,
@@ -7646,7 +7646,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "overdrive-x": {
         "name": "Overdrive X",
-        "basePrice": 16490,
+        "basePrice": 13300,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 18,
         "minPriceMultiplier": 1,
@@ -7657,7 +7657,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "smg": {
         "name": "SMG",
-        "basePrice": 13180,
+        "basePrice": 10630,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 16,
         "minPriceMultiplier": 1,
@@ -7668,7 +7668,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "bazooka": {
         "name": "Bazuka",
-        "basePrice": 25890,
+        "basePrice": 20880,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 8,
         "minPriceMultiplier": 1,
@@ -7679,7 +7679,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "defense-tower": {
         "name": "Obranná věž",
-        "basePrice": 34260,
+        "basePrice": 27630,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 8,
         "minPriceMultiplier": 1,

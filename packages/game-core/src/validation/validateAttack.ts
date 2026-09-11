@@ -14,6 +14,7 @@ import {
   validateMapAction
 } from "../rules";
 import { hasValidAttackAuthorization } from "./spyIntel";
+import { getInitialAttackProtection } from "../rules/conflict/initialAttackProtection";
 import { formatTickDuration } from "../utils/time";
 import { resolvePlayerPopulation } from "../state/playerPopulation";
 
@@ -48,6 +49,11 @@ export const validateAttack = (
     ];
   }
 
+  const initialProtection = getInitialAttackProtection(state, context, command.issuedAt);
+  if (initialProtection.remainingMs > 0) return [{
+    code: "INITIAL_ATTACK_PROTECTION", message: `Útoky se odemknou za ${formatTickDuration(initialProtection.remainingMs / 1000, 1000)}. První 2 hodiny od startu jsou na přípravu.`,
+    details: { availableAt: new Date(initialProtection.endsAt).toISOString(), remainingMs: initialProtection.remainingMs }
+  }];
   const revisionError = validateDistrictConflictRevision(targetDistrict, command.payload.expectedConflictRevision);
   if (revisionError) return [revisionError];
   const availabilityError = resolveDistrictActionAvailability(
@@ -109,7 +115,7 @@ export const validateAttack = (
     ? state.districtsById[command.payload.sourceDistrictId]
     : null;
   if (sourceDistrict && (sourceDistrict.stabilizingUntilTick ?? 0) > state.root.tick) {
-    return [{ code: "SOURCE_DISTRICT_STABILIZING", message: "Stabilizující district nelze použít jako zdroj útoku." }];
+    return [{ code: "SOURCE_DISTRICT_STABILIZING", message: `District se stabilizuje ještě ${formatTickDuration(sourceDistrict.stabilizingUntilTick! - state.root.tick, context?.config.tickRateMs)}. Potom z něj můžeš útočit.`, details: { cooldownUntilTick: sourceDistrict.stabilizingUntilTick } }];
   }
   if (calculateTotalAttackPower(selection.loadout, attackWeapons) <= 0) {
     return [

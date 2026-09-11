@@ -3,6 +3,8 @@ import type { DefenseWeaponId } from "../entities/weapon";
 import type { DistrictId, PlayerId } from "../ids/entity-id";
 
 export interface DistrictAttackTargetView {
+  attackUnlocksAt?: string | null;
+  actionCooldownEndsAtTick?: number;
   sourceDistrictId: DistrictId;
   districtId: DistrictId;
   name: string;

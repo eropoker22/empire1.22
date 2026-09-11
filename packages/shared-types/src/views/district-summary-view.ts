@@ -15,11 +15,13 @@ export interface DistrictSummaryView {
   name: string;
   zone: string;
   ownerPlayerId: PlayerId | null;
+  ownerName?: string | null;
   ownerColor: PlayerColorHex | null;
   isOwnedByPlayer: boolean;
   intelKnown: boolean;
   occupyIntelValid?: boolean;
   status: DistrictStatus;
+  stabilizingUntilTick?: number | null;
   adjacentDistrictIds: DistrictId[];
   heat: number;
   influence: number;

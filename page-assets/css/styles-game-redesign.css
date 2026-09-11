@@ -3453,7 +3453,7 @@ body.game-body--booting .game-logo-slot {
   }
 
   .map-stage-title::after {
-    content: "Mapa";
+    content: "Čísla";
     font-size: 0.72rem;
     font-weight: 850;
     line-height: 1;
@@ -5242,3 +5242,9 @@ body.game-body--booting .game-logo-slot {
     overflow: hidden !important;
   }
 }
+
+/* Player feedback controls, preserving the existing visual identity. */
+.gang-heat-row-button { width: 100%; cursor: pointer; color: inherit; font: inherit; text-align: left; }
+.map-numbers-toggle { cursor: pointer; color: inherit; font-family: inherit; }
+.map-numbers-toggle[aria-pressed="true"] { border-color: #6ae9f5; box-shadow: 0 0 12px #39d9f455; }
+.district-bounty-notice { color: #ff617d; font-size: .78rem; font-weight: 700; margin: 6px 0; }

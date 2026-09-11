@@ -124,6 +124,17 @@ describe("police action result panel", () => {
     expect(nodes["#details"].innerHTML).toContain("2s");
   });
 
+  it("clears the previous player notification tone when reusing the result card", () => {
+    const nodes = Object.fromEntries(Object.values(selectors).map((selector) => [selector, new FakeElement()]));
+    const root = new FakeRoot(nodes);
+    for (const tone of ["is-success", "is-major-fail", "is-player-alert", "is-tier-3"]) {
+      renderPoliceActionResultPanel(root, { title: "Oznámení", tone, rows: [] }, { selectors });
+      for (const candidate of ["is-success", "is-major-fail", "is-player-alert", "is-tier-3"]) {
+        expect(nodes["#content"].classList.contains(candidate)).toBe(candidate === tone);
+      }
+    }
+  });
+
   it("renders owned raid impact as a compact player-facing card", () => {
     const container = new FakeElement();
     const rendered = renderPoliceRaidImpactDetails(container, {

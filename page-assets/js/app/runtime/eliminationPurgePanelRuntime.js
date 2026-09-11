@@ -847,7 +847,7 @@ export function bindEliminationResultPopup(root, deps = {}) {
     render(result);
     popup.hidden = false;
     popup.classList?.add?.("is-open");
-    openOverlay(popup, { type: "modal", ariaModal: true, focusTarget: card, restoreFocusOnClose: false });
+    openOverlay(popup, { type: "modal", ariaModal: true, alwaysOnTop: true, focusTarget: card, restoreFocusOnClose: false });
     documentRef?.body?.classList?.add?.("elimination-result-popup-open");
     documentRef?.addEventListener?.("keydown", handleKeydown);
     focusWithoutScroll(card);

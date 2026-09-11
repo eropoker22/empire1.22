@@ -351,13 +351,14 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
     }
 
     amountInput.max = String(Math.max(1, maxAmount));
-    amountInput.value = String(Math.min(Math.max(Number.parseInt(String(amountInput.value || "1"), 10) || 1, 1), Math.max(1, maxAmount)));
+    if (Number(amountInput.value) > maxAmount) amountInput.value = String(maxAmount);
     const maxUnitPrice = Math.max(1, Math.floor(Number(item.maxUnitPrice || Number.MAX_SAFE_INTEGER)));
     unitPriceInput.max = String(maxUnitPrice);
-    unitPriceInput.value = String(Math.min(
-      Math.max(1, Math.floor(Number(unitPriceInput.value || callbacks.getSuggestedUnitPrice?.(item) || 1))),
-      maxUnitPrice
-    ));
+    const amount = Number(amountInput.value);
+    const price = Number(unitPriceInput.value);
+    submit.disabled = !item || ownListingCount >= ownListingLimit
+      || !Number.isSafeInteger(amount) || amount < 1 || amount > maxAmount
+      || !Number.isSafeInteger(price) || price < 1 || price > maxUnitPrice;
     currencySelect.value = item.inventory === "drugs" ? "dirtyMoney" : currencySelect.value;
     submit.title = ownListingCount >= ownListingLimit
       ? "Máš plný limit aktivních nabídek."
@@ -368,8 +369,8 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
   const publishSellFormState = () => {
     callbacks.onFormStateChange?.({
       itemValue: String(itemSelect.value || ""),
-      requestedAmount: Math.max(1, Number.parseInt(String(amountInput.value || "1"), 10) || 1),
-      unitPrice: Math.max(1, Math.floor(Number(unitPriceInput.value || 1))),
+      requestedAmount: amountInput.value,
+      unitPrice: unitPriceInput.value,
       currency: currencySelect.value === "dirtyMoney" ? "dirtyMoney" : "cleanMoney"
     });
   };
@@ -377,7 +378,7 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
   itemSelect.addEventListener("change", () => {
     const item = getSelectedSellItem();
     if (item) {
-      unitPriceInput.value = String(callbacks.getSuggestedUnitPrice?.(item) || 1);
+      unitPriceInput.value = String(Math.min(callbacks.getSuggestedUnitPrice?.(item) || 1, item.maxUnitPrice || Number.MAX_SAFE_INTEGER));
       currencySelect.value = item.inventory === "drugs" ? "dirtyMoney" : "cleanMoney";
     }
     syncSellForm();
@@ -394,7 +395,7 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
   currencySelect.addEventListener("change", publishSellFormState);
 
   if (sellableItems[0]) {
-    unitPriceInput.value = String(callbacks.getSuggestedUnitPrice?.(sellableItems[0]) || 1);
+    unitPriceInput.value = String(Math.min(callbacks.getSuggestedUnitPrice?.(sellableItems[0]) || 1, sellableItems[0].maxUnitPrice || Number.MAX_SAFE_INTEGER));
     currencySelect.value = sellableItems[0].inventory === "drugs" ? "dirtyMoney" : "cleanMoney";
   }
   if (formState) {
@@ -402,12 +403,14 @@ export function renderPlayerMarketPanel(listElement, viewModel = {}, callbacks =
       `${item.inventory}|${item.itemId}` === formState.itemValue
     ));
     if (selectedItemExists) itemSelect.value = String(formState.itemValue);
-    amountInput.value = String(formState.requestedAmount || 1);
-    unitPriceInput.value = String(formState.unitPrice || 1);
+    amountInput.value = String(formState.requestedAmount ?? 1);
+    unitPriceInput.value = String(formState.unitPrice ?? 1);
     currencySelect.value = formState.currency === "dirtyMoney" ? "dirtyMoney" : "cleanMoney";
   }
 
   submit.addEventListener("click", () => {
+    syncSellForm();
+    if (submit.disabled) return;
     const item = getSelectedSellItem();
     const payload = {
       item,

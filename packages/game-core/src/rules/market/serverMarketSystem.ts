@@ -55,7 +55,6 @@ type NormalMarketOfferSchedule = {
 export {
   blackMarketResourceIds,
   marketConfig,
-  marketReplacementCost,
   marketResourceIds,
   normalMarketResourceIds,
   playerMarketResourceIds
@@ -620,7 +619,7 @@ export const getMarketViewModel = (
       const maxStock = getMaxStock(resourceId, state.market.mode);
       const stock = clampStock(state.market.stock[resourceId], resourceId, state.market.mode);
       const stockPercent = maxStock > 0 ? Math.round((stock / maxStock) * 100) : 0;
-      const sellPrice = Math.max(1, Math.floor(normalPrice * getSellMultiplier(state, resourceId)));
+      const sellPrice = Math.max(1, Math.floor(baseNormalPrice * getSellMultiplier(state, resourceId)));
       const trend = getResourceTrend(state, resourceId);
 
       return {
@@ -905,6 +904,8 @@ const getDemandFactor = (serverState: AnyRecord, resourceId: MarketResourceId): 
 };
 
 const getScarcityFactor = (serverState: AnyRecord, resourceId: MarketResourceId): number => {
+  // Only normal-market items have a replenished, purchase-limiting warehouse.
+  if (!(normalMarketResourceIds as readonly string[]).includes(resourceId)) return 1;
   const market = getExistingOrInitializedMarket(serverState);
   const maxStock = getMaxStock(resourceId, market.mode);
   const currentStock = clampStock(market.stock[resourceId], resourceId, market.mode);
@@ -1004,7 +1005,8 @@ const getBlackMarketTypeFactor = (serverState: AnyRecord, resourceId: MarketReso
   const resource = marketConfig.resources[resourceId];
   const warMarkup = state.market.mode === "war" ? marketConfig.warModePriceMultipliers.blackMarketMarkupMultiplier : 1;
   const maxStock = getMaxStock(resourceId, state.market.mode);
-  const scarcityRatio = maxStock > 0 ? 1 - clampStock(state.market.stock[resourceId], resourceId, state.market.mode) / maxStock : 1;
+  const scarcityRatio = (normalMarketResourceIds as readonly string[]).includes(resourceId) && maxStock > 0
+    ? 1 - clampStock(state.market.stock[resourceId], resourceId, state.market.mode) / maxStock : 0;
   const inflationRisk = Math.max(0, getInflationFactor(state) - 1);
   const chaosRisk = Math.max(0, getChaosFactor(state) - 1);
   const riskFactor = clamp(

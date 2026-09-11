@@ -13,9 +13,9 @@ describe("authoritative police street news", () => {
     const restored = createServerPoliceRaidNews({ policeFeed: [event] }, { now });
     expect(active).toHaveLength(1);
     expect(active[0].title).toBe("RUTINNÍ POLICEJNÍ KONTROLA");
-    expect(restored[0].title).toBe("VÝSLEDEK POLICEJNÍ KONTROLY");
+    expect(restored).toEqual([]);
     expect(active[0].summary).toBe(explanation);
-    expect(restored[0].summary).toBe(explanation);
+    expect(active[0].resultPayload.hideSummary).toBe(true);
     expect(active[0].resultPayload.getRows()).toContainEqual({ label: "Provoz budov", value: "Bez omezení" });
   });
 
@@ -30,9 +30,7 @@ describe("authoritative police street news", () => {
     expect(active[0].resultPayload.getRows()).toContainEqual({ label: "Zabavené špinavé peníze", value: 220 });
     expect(active[0].resultPayload.getRows()).toContainEqual({ label: "Chemikálie", value: "−5" });
     const restored = createServerPoliceRaidNews({ pendingRaid: null, policeFeed: [event] }, { now });
-    expect(restored).toHaveLength(1);
-    expect(restored[0].id).toBe(active[0].id);
-    expect(restored[0].title).toBe("DOPADY POLICEJNÍ RAZIE");
-    expect(restored[0].resultPayload.getRows()).toContainEqual({ label: "Zabavené špinavé peníze", value: 220 });
+    expect(restored).toEqual([]);
+    expect(createServerPoliceRaidNews({ pendingRaid: raid }, { now: now + 60000 })).toEqual([]);
   });
 });

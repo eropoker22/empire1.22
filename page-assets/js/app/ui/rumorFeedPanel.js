@@ -101,12 +101,15 @@ export function getCityFeedBadge(event = {}) {
 
 export function normalizeCityFeedEvents(events = []) {
   const seen = new Set();
+  const contents = new Set();
   return asArray(events)
     .map((event) => normalizeCityFeedEvent(event))
     .filter((event) => {
       const key = event.sourceEventId || event.id;
-      if (seen.has(key)) return false;
+      const contentKey = `${event.districtId}|${event.message.trim().replace(/\s+/gu, " ").toLocaleLowerCase("cs-CZ")}`;
+      if (seen.has(key) || (event.intelType !== "confirmed_event" && contents.has(contentKey))) return false;
       seen.add(key);
+      contents.add(contentKey);
       return true;
     })
     .sort((left, right) => right.priority - left.priority || right.createdAtTick - left.createdAtTick || left.id.localeCompare(right.id));

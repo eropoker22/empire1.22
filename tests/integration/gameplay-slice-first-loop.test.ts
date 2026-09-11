@@ -32,7 +32,7 @@ const createLoadRequest = (
   playerId: overrides.playerId ?? `player:first-loop:${index}`
 });
 
-describe("gameplay slice first 10 minutes shared city loop", () => {
+describe("gameplay slice shared city entry and opening protection", () => {
   it("loads a player into an assigned home district with neighbors and action targets", async () => {
     const server = createServerApp();
     const request = createLoadRequest(1, { districtId: "district:not-in-shared-city" });
@@ -168,7 +168,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     expect(readModel.district?.attackTargets.length).toBeGreaterThan(0);
   });
 
-  it("submits spy and attack commands through the existing command flow and returns reports", async () => {
+  it("allows spying during opening protection and starts battle after it expires", async () => {
     const server = createServerApp();
     const firstRequest = createLoadRequest(1);
     const secondRequest = createLoadRequest(2, { factionId: "kartel" });
@@ -243,7 +243,7 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
     runtime.state.resourceStatesById[attackPlayer.resourceStateId]!.balances["baseball-bat"] = 1;
 
     const attackStartedAtTick = runtime.state.root.tick;
-    const attack = await server.gameplaySliceTransport.submit({
+    const attackRequest = {
       sessionToken: initial.sessionToken,
       focusDistrictId: sourceDistrictId,
       command: createAttackCommand({
@@ -255,7 +255,13 @@ describe("gameplay slice first 10 minutes shared city loop", () => {
           target.districtId === targetDistrictId
         )!.expectedConflictRevision
       })
-    });
+    };
+    const protectedAttack = await server.gameplaySliceTransport.submit({...attackRequest,
+      command: {...attackRequest.command, id: "command:first-loop:attack:protected"}});
+    expect(protectedAttack.accepted).toBe(false);
+    expect(protectedAttack.errors).toContainEqual(expect.objectContaining({code:"INITIAL_ATTACK_PROTECTION"}));
+    runtime.state.serverInstance.startedAt = new Date(runtime.clock.now().getTime() - 7200000).toISOString();
+    const attack = await server.gameplaySliceTransport.submit(attackRequest);
     const immediateAttackReadModel = attack.readModel as GameplaySliceView;
 
     expect(attack.errors).toEqual([]);

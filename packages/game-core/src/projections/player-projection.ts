@@ -38,7 +38,10 @@ export const createPlayerView = (state: CoreGameState, playerId: string, context
   const player = state.playersById[playerId];
   const notifications: Notification[] = state.root.notificationIds
     .map((notificationId) => state.notificationsById[notificationId])
-    .filter((notification): notification is Notification => notification?.recipientId === playerId);
+    .filter((notification): notification is Notification => notification?.recipientType === "player"
+      && notification.recipientId === playerId
+      && (notification.category !== "player.feedback" || !notification.payload.membershipId
+        || notification.payload.membershipId === player?.metadata?.membershipId));
 
   const victoryState: VictoryState | null = state.victoryState;
   const resourceBalances = player

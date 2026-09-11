@@ -1,3 +1,4 @@
+import { readAuthoritativeSnapshotClock } from "../../../../packages/shared-types/src/views/authoritative-snapshot-clock.js";
 import { createGameplaySliceMapFingerprints } from "./mapLayerInvalidation.js";
 import { resolveLegacyDistrictId } from "./mapGeometry.js";
 
@@ -74,9 +75,12 @@ const addEffect = (state, effect, now) => {
   if (!districtId || !type) return;
 
   const marker = {
+    effectId: effect?.effectId,
+    expiresAtTick: effect?.expiresAtTick,
     seed: Number(effect?.seed || districtId),
     source: effect?.source || effect?.status || type,
     playerId: String(effect?.playerId || effect?.attackerPlayerId || ""),
+    sourceDistrictId: effect?.sourceDistrictId,
     playerName: String(effect?.playerName || effect?.displayName || ""),
     playerColor: String(effect?.playerColor || ""),
     startedAt: normalizeTimestamp(effect?.startedAt || effect?.createdAt, now),
@@ -120,7 +124,18 @@ const createEffectState = (gameplaySlice, now, currentPlayerId) => {
       .replace(/^police-raid$/u, "police")];
     const effectPlayerId = String(effect?.playerId || effect?.attackerPlayerId || "");
     if ((type === "spy" || type === "robbery") && effectPlayerId !== currentPlayerId) return;
-    addEffect(state, effect, now);
+    const clock = readAuthoritativeSnapshotClock(gameplaySlice);
+    const offset = Number.isFinite(clock.serverNowMs) ? now - clock.serverNowMs : 0;
+    const deadline = normalizeTimestamp(effect.expiresAt, NaN);
+    addEffect(state, { ...effect,
+      ...(Number.isFinite(deadline) ? { expiresAt: deadline + offset } : {}) }, now);
+    const marker = type === "attack" ? state.activeAttackMarkersByDistrictId.get(resolveServerMapDistrictId(effect.districtId)) : null;
+    if (marker && Number.isFinite(deadline)) marker.getRemainingMs = () => {
+      const currentClock = readAuthoritativeSnapshotClock(gameplaySlice);
+      return Number.isFinite(effect.expiresAtTick)
+        ? Math.max(0, (effect.expiresAtTick - gameplaySlice.server.currentTick) * Number(gameplaySlice.mode?.tickRateMs || 10000) - currentClock.elapsedMs)
+        : Math.max(0, deadline - (currentClock.serverNowMs ?? Date.now()));
+    };
   });
 
   const activeRaid = gameplaySlice?.player?.police?.activeRaid || gameplaySlice?.police?.activeRaid;

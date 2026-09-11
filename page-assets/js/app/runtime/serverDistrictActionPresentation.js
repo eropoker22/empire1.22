@@ -1,3 +1,5 @@
+import { readAuthoritativeSnapshotClock } from "../../../../packages/shared-types/src/views/authoritative-snapshot-clock.js";
+import { formatEliminationRemainingMs } from "./authoritativeEliminationCountdown.js";
 const ACTION_DEFINITIONS = Object.freeze([
   Object.freeze({ id: "defense", label: "Obrana" }),
   Object.freeze({ id: "trap", label: "Past" }),
@@ -93,6 +95,17 @@ export function createServerDistrictActionPresentation(readModel, districtId) {
     if (!target) return [];
     const enabled = target.enabled === true;
     const reason = enabled ? "" : resolveTargetDisabledReason(definition, target);
+    const getCountdownLabel = !enabled && definition.id === "attack" && Number(target.cooldownRemainingTicks) > 0
+      ? () => {
+          const clock = readAuthoritativeSnapshotClock(readModel);
+          if (clock.state !== "running") return "Čeká na server";
+          const tickMs = Number(readModel.mode?.tickRateMs || 10000);
+          const actionRemaining = target.actionCooldownEndsAtTick !== undefined
+            ? (Number(target.actionCooldownEndsAtTick) - Number(readModel.server?.currentTick || 0)) * tickMs - clock.elapsedMs
+            : target.attackUnlocksAt ? 0 : Number(target.cooldownRemainingTicks) * tickMs - clock.elapsedMs;
+          const remaining = Math.max(actionRemaining, target.attackUnlocksAt ? Date.parse(target.attackUnlocksAt) - clock.serverNowMs : 0);
+          return remaining > 0 ? `Za ${formatEliminationRemainingMs(remaining)}` : "Čeká na potvrzení serveru";
+        } : null;
     const heistLaunchCopy = enabled && definition.id === "heist"
       ? resolveHeistLaunchCopy(target)
       : "";
@@ -101,6 +114,7 @@ export function createServerDistrictActionPresentation(readModel, districtId) {
       enabled,
       label: definition.label,
       reason: "",
+      ...(getCountdownLabel ? { getCountdownLabel, countdownLabel: getCountdownLabel() } : {}),
       stacked: !enabled || Boolean(heistLaunchCopy),
       subtitle: reason || heistLaunchCopy,
       disabledTone: !enabled && definition.id === "spy" && target.disabledCode === "SPY_SLOT_LIMIT_REACHED"

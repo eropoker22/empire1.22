@@ -27,6 +27,7 @@ export const stampPendingOperationReportTiming = (
         issuedAt: operation.command.issuedAt,
         createdAt: resolvedAt,
         resolveAt: resolvedAt,
+        ...(operation.operationType === "attack" ? { attackDurationTicks: operation.resolveAtTick - operation.issuedAtTick } : {}),
         issuedAtTick: operation.issuedAtTick,
         resolveAtTick: operation.resolveAtTick
       }

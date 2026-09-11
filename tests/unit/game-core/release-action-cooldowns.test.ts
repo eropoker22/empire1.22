@@ -10,7 +10,8 @@ const factories = { spy: createSpyDistrictCommandFixture, attack: createAttackDi
 const kinds = ["spy", "attack", "rob", "heist"] as const;
 function fixture(kind: typeof kinds[number]) {
   const state = createCombatStateFixture();
-  state.serverInstance.startedAt = new Date(epoch).toISOString();
+  // Recovery penalties are tested after the two-hour opening protection.
+  state.serverInstance.startedAt = new Date(epoch - 2 * 3600000).toISOString();
   state.serverInstance.worldSeed = "release-cooldown";
   state.playersById["player:1"].population = 200;
   state.playersById["player:1"].factionId = "motorkarsky-gang";

@@ -17,6 +17,7 @@ import {
   type MarketResourceId,
   type MarketType
 } from "../rules/market";
+import { addPlayerFeedback } from "./playerFeedbackNotification";
 import { canPlayerReceiveResource, normalizeStorageBalances } from "./warehouseBuilding";
 
 export const handleMarketCommand = (
@@ -92,8 +93,18 @@ export const handleMarketCommand = (
     );
   }
 
+  let nextState = result.nextState as CoreGameState;
+  if (command.type === "buy-player-market-listing") {
+    const listing = (marketState.market as { playerListings?: Array<{ id: string; sellerPlayerId: string }> })
+      ?.playerListings?.find((entry) => entry.id === command.payload.listingId);
+    if (listing) nextState = addPlayerFeedback(nextState, context, {
+      id: `market-sale:${command.payload.listingId}`, playerId: listing.sellerPlayerId, title: "Tvá nabídka byla prodána",
+      payload: { kind: "market-sale", resourceId: result.resourceId, amount: result.amount,
+        creditedAmount: result.totalPrice, paymentType: result.paymentType, listingId: command.payload.listingId }
+    });
+  }
   return {
-    nextState: result.nextState as CoreGameState,
+    nextState,
     events: [createEvent(CORE_EVENT_TYPES.marketTransactionResolved, createMarketEventPayload(command, result))],
     errors: []
   };

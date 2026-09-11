@@ -399,7 +399,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
       closeOverlay(elements.popup, { restoreFocus: false });
     };
 
-    elements.heatButton.addEventListener("click", openPopup);
+    (elements.heatButton.closest?.("[data-gang-heat-open]") || elements.heatButton).addEventListener("click", openPopup);
     const runWantedAction = async (callback, method) => {
       if (deps.isServerAuthoritativeMode?.() && method && typeof deps.onServerAction === "function") {
         if (actionPending) return false;

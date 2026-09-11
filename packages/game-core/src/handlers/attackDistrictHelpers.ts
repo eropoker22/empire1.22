@@ -1,3 +1,4 @@
+import type { BattleReportNotificationInput, BattleReportNotificationsInput } from "./battleReportNotificationTypes";
 import type {
   AttackDistrictCommand,
   AttackWeaponId,
@@ -76,43 +77,7 @@ export const markDestroyedDistrictBuildings = (
       : collection;
   }, state.buildingsById);
 
-export const createBattleReportNotification = (input: {
-  command: AttackDistrictCommand;
-  recipientPlayerId: string;
-  defenderPlayerId: string | null;
-  targetDistrictId: string;
-  result: "success" | "failure" | "blocked" | "catastrophe";
-  outcomeTier: "clean_capture" | "costly_capture" | "failed_raid" | "disaster";
-  districtCaptured: boolean;
-  districtDestroyed: boolean;
-  districtDamaged: boolean;
-  trapTriggered: boolean;
-  trapType: "toxic" | null;
-  trapReport: string | null;
-  attackerLosses: Partial<Record<AttackWeaponId, number>>;
-  defenderLosses: Partial<Record<DefenseWeaponId, number>>;
-  heatGained: number;
-  reportForAttacker: string;
-  reportForDefender: string;
-  combatPopulationLoss: number;
-  occupationPopulationLoss: number;
-  defenderPopulationLoss: number;
-  vestPopulationSaved: number;
-  survivingDefenseAbandoned: boolean;
-  catastropheBaseChance: number;
-  bazookaCatastropheBonus: number;
-  catastropheFinalChance: number;
-  attackDurationTicks: number;
-  resolveAtTick?: number;
-  tacticalGrid: {
-    attackerApplied: boolean;
-    defenderApplied: boolean;
-    multiplier: number;
-  };
-  detectedDefense: ReturnType<typeof filterDefenseLoadout>;
-  tick: number;
-  eventId: string;
-}): Notification =>
+export const createBattleReportNotification = (input: BattleReportNotificationInput): Notification =>
   createNotification({
     id: composeEntityId("notification", `${input.command.id}:battle:${input.recipientPlayerId}`),
     recipientType: "player",
@@ -150,6 +115,9 @@ export const createBattleReportNotification = (input: {
       catastropheBaseChance: input.catastropheBaseChance,
       bazookaCatastropheBonus: input.bazookaCatastropheBonus,
       catastropheFinalChance: input.catastropheFinalChance,
+      attackPower: input.attackPower,
+      defensePower: input.defensePower,
+      stabilizingUntilTick: input.stabilizingUntilTick,
       attackDurationTicks: input.attackDurationTicks,
       issuedAtTick: input.tick,
       resolveAtTick: input.resolveAtTick ?? input.tick + input.attackDurationTicks,
@@ -166,41 +134,7 @@ export const createBattleReportNotification = (input: {
     readAt: null
   });
 
-export const createBattleReportNotifications = (input: {
-  command: AttackDistrictCommand;
-  attackerPlayerId: string;
-  defenderPlayerId: string | null;
-  targetDistrict: CoreGameState["districtsById"][string];
-  result: "success" | "failure" | "blocked" | "catastrophe";
-  outcomeTier: "clean_capture" | "costly_capture" | "failed_raid" | "disaster";
-  districtCaptured: boolean;
-  districtDestroyed: boolean;
-  districtDamaged: boolean;
-  trapTriggered: boolean;
-  trapType: "toxic" | null;
-  trapReport: string | null;
-  attackerLosses: Partial<Record<AttackWeaponId, number>>;
-  defenderLosses: Partial<Record<DefenseWeaponId, number>>;
-  heatGained: number;
-  reportForAttacker: string;
-  reportForDefender: string;
-  combatPopulationLoss: number;
-  occupationPopulationLoss: number;
-  defenderPopulationLoss: number;
-  vestPopulationSaved: number;
-  survivingDefenseAbandoned: boolean;
-  catastropheBaseChance: number;
-  bazookaCatastropheBonus: number;
-  catastropheFinalChance: number;
-  attackDurationTicks: number;
-  resolveAtTick?: number;
-  tacticalGrid: {
-    attackerApplied: boolean;
-    defenderApplied: boolean;
-    multiplier: number;
-  };
-  tick: number;
-}): Notification[] => {
+export const createBattleReportNotifications = (input: BattleReportNotificationsInput): Notification[] => {
   const eventId = composeEntityId("event", `${input.command.id}:district-attacked`);
   const baseReport = {
     command: input.command,
@@ -227,7 +161,10 @@ export const createBattleReportNotifications = (input: {
     catastropheBaseChance: input.catastropheBaseChance,
     bazookaCatastropheBonus: input.bazookaCatastropheBonus,
     catastropheFinalChance: input.catastropheFinalChance,
-    attackDurationTicks: input.attackDurationTicks,
+    attackPower: input.attackPower,
+      defensePower: input.defensePower,
+      stabilizingUntilTick: input.stabilizingUntilTick,
+      attackDurationTicks: input.attackDurationTicks,
     resolveAtTick: input.resolveAtTick,
     tacticalGrid: input.tacticalGrid,
     detectedDefense: filterDefenseLoadout(input.targetDistrict.defenseLoadout),
