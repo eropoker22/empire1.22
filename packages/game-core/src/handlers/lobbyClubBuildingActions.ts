@@ -232,8 +232,6 @@ export const resolveLobbyClubAction = (input: {
         type: "media_screen",
         activeUntilTick: expiresAtTick,
         negativeRumorReductionPct: input.config.mediaScreen.negativeRumorReductionPct,
-        policeRaidWarningChancePct: input.config.mediaScreen.policeRaidWarningChancePct,
-        weakRewriteChancePct: input.config.mediaScreen.weakRewriteChancePct,
         lobbyScandalRiskAddedPct: input.config.mediaScreen.scandalRiskPct
       }
     };

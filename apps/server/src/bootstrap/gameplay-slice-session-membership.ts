@@ -1,3 +1,4 @@
+import { countRuntimeOccupiedSeats } from "../runtime/instance/runtime-player-occupancy";
 import type { CoreGameState } from "@empire/game-core";
 import { resolveModeConfig } from "@empire/game-config";
 import { normalizeFactionId } from "@empire/game-core";
@@ -59,7 +60,7 @@ export const ensureGameplaySliceMembershipInState = (
   }
 
   const config = resolveModeConfig(request.mode);
-  const playerCount = countRegisteredPlayers(state);
+  const playerCount = countRuntimeOccupiedSeats(state);
   const maxPlayers = config.balance.maxPlayersPerServer;
 
   if (playerCount >= maxPlayers) {
@@ -100,6 +101,3 @@ export const ensureGameplaySliceMembershipInState = (
     errors: []
   };
 };
-
-const countRegisteredPlayers = (state: CoreGameState): number =>
-  new Set(state.root.playerIds.filter((playerId) => state.playersById[playerId] && state.playersById[playerId].status !== "left")).size;

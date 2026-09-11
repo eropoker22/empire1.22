@@ -130,7 +130,7 @@ describe("MVP buildings core loop hardening", () => {
       actionId: "good_rate",
       cashDelta: 1408,
       dirtyCashDelta: -1600,
-      heatDelta: mafianHeat(12),
+      heatDelta: mafianHeat(6),
       influenceDelta: 3,
       producedItems: { cash: 1408 },
       consumedItems: { "dirty-cash": 1600 },
@@ -140,12 +140,12 @@ describe("MVP buildings core loop hardening", () => {
       },
       message: expect.stringContaining("Výhodný kurz"),
       policeImpact: {
-        heatDelta: mafianHeat(12),
-        playerHeat: mafianHeat(12)
+        heatDelta: mafianHeat(6),
+        playerHeat: mafianHeat(6)
       }
     });
     expect(Number.isNaN(report.cashDelta)).toBe(false);
-    expect(police.heat).toBe(mafianHeat(12));
+    expect(police.heat).toBe(mafianHeat(6));
     expect(police.totalHeat).toBeGreaterThanOrEqual(mafianHeat(8));
     expect(police.heatSources.map((source) => source.kind)).toContain("player");
     expect(police.heatSources.map((source) => source.kind)).toContain("district");

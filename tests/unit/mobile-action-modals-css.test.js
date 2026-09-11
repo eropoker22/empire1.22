@@ -396,7 +396,7 @@ describe("mobile action modal CSS", () => {
       expect(stylesheet).toContain("Final police raid composition: keep overview and active impact groups aligned.");
       expect(stylesheet).toContain("html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden])");
       expect(stylesheet).toContain(":has(#police-action-result-modal:not(.hidden):not([hidden])) .game-resource-strip");
-      expect(stylesheet).toContain("padding: max(2px, env(safe-area-inset-top)) 4px max(6px, env(safe-area-inset-bottom)) !important;");
+      expect(stylesheet).toContain("padding: calc(var(--mobile-topbar-offset, 100px) + 12px) 4px max(6px, env(safe-area-inset-bottom)) !important;");
       expect(stylesheet).toContain("grid-template-columns: repeat(3, minmax(0, 1fr)) !important;");
       expect(stylesheet).toContain("grid-template-columns: repeat(2, minmax(0, 1fr)) !important;");
     }

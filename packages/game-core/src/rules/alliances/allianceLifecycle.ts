@@ -1,3 +1,4 @@
+import { isCurrentAllianceMember, isCurrentAllianceLeader } from "./allianceAuthorization";
 import { addNotificationsAndAudit, createAllianceNotification, createPlayerNotification, createAudit } from "./allianceLifecycleEvents";
 import { invalidateDepartureVotes } from "./allianceDepartureVotes";
 import { repairAllianceLeadership } from "./allianceLeadershipRepair";
@@ -178,6 +179,7 @@ export const confirmAllianceReady = (
   const activeVote = membership?.activeVoteId ? alliance.kickVotesById?.[membership.activeVoteId] : null;
   if (!membership || membership.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Členství v alianci nebylo nalezeno.");
   if (membership.status === "exit_pending") return failure(state, "READY_NOT_ALLOWED", "Hráč na odchodu nemůže potvrdit aktivitu.");
+  if (!isCurrentAllianceMember(prepared.nextState, alliance, command.playerId)) return failure(state, "MEMBERSHIP_NOT_FOUND", "Členství už není platné.");
   if (
     typeof command.payload.expectedMembershipVersion === "number"
     && membership.version !== command.payload.expectedMembershipVersion
@@ -228,9 +230,8 @@ export const startInactiveMemberKickVote = (
   if (prepared.errors.length) return { nextState: state, events: [], errors: prepared.errors };
 
   const alliance = prepared.alliance;
-  const initiator = alliance.membershipByPlayerId?.[command.playerId];
   const target = alliance.membershipByPlayerId?.[command.payload.targetPlayerId];
-  if (!initiator || initiator.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Hráč, který spouští hlasování, není člen aliance.");
+  if (!isCurrentAllianceMember(prepared.nextState, alliance, command.playerId)) return failure(state, "MEMBERSHIP_NOT_FOUND", "Hráč, který spouští hlasování, není člen aliance.");
   if (!target || target.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Cílový hráč není člen aliance.");
   if (command.playerId === command.payload.targetPlayerId) return failure(state, "TARGET_CANNOT_VOTE", "Nemůžeš spustit hlasování sám proti sobě.");
   if (
@@ -316,7 +317,6 @@ export const castAllianceKickVote = (
   const vote = prepared.alliance.kickVotesById?.[command.payload.voteId];
   if (!vote) return failure(state, "VOTE_NOT_FOUND", "Hlasování nebylo nalezeno.");
   if (vote.status !== "pending") return failure(state, "VOTE_NOT_PENDING", "Hlasování už nečeká na hlasy.");
-  if (Date.parse(vote.expiresAt) <= Date.parse(nowIso)) return finalizeVote(prepared.nextState, vote.id, context);
   if (vote.targetPlayerId === command.playerId) return failure(state, "TARGET_CANNOT_VOTE", "Cílový hráč nemůže hlasovat.");
   if (!vote.eligibleVoterIds.includes(command.playerId)) return failure(state, "VOTER_NOT_ELIGIBLE", "Hráč nemá právo hlasovat.");
   if (
@@ -326,10 +326,11 @@ export const castAllianceKickVote = (
     return failure(state, "VOTE_INVALIDATED", "Verze hlasování se změnila.");
   }
 
-  const voterMembership = prepared.alliance.membershipByPlayerId?.[command.playerId];
-  if (!voterMembership || voterMembership.status === "removed") {
+  if (!isCurrentAllianceMember(prepared.nextState, prepared.alliance, command.playerId)) {
     return failure(state, "VOTER_NOT_ELIGIBLE", "Hlasující hráč není aktivní člen.");
   }
+
+  if (Date.parse(vote.expiresAt) <= Date.parse(nowIso)) return finalizeVote(prepared.nextState, vote.id, context);
 
   const previousChoice = vote.votes[command.playerId];
   const nextVote = evaluateVoteResult({
@@ -445,6 +446,7 @@ export const leaveAlliance = (
   const membership = prepared.alliance.membershipByPlayerId?.[command.playerId];
   if (!membership || membership.status === "removed") return failure(state, "MEMBERSHIP_NOT_FOUND", "Členství nebylo nalezeno.");
   if (membership.status === "exit_pending") return failure(state, "PLAYER_ALREADY_EXITING", "Hráč už alianci opouští.");
+  if (!isCurrentAllianceMember(prepared.nextState, prepared.alliance, command.playerId)) return failure(state, "MEMBERSHIP_NOT_FOUND", "Členství už není platné.");
   if (
     typeof command.payload.expectedMembershipVersion === "number"
     && membership.version !== command.payload.expectedMembershipVersion
@@ -480,8 +482,7 @@ export const disbandAlliance = (
   const config = getAllianceLifecycleConfig(context);
   const prepared = prepareAlliance(state, command.payload.allianceId, nowIso, config);
   if (prepared.errors.length) return { nextState: state, events: [], errors: prepared.errors };
-  const membership = prepared.alliance.membershipByPlayerId?.[command.playerId];
-  if (!membership || membership.role !== "leader") {
+  if (!isCurrentAllianceLeader(prepared.nextState, prepared.alliance, command.playerId)) {
     return failure(state, "READY_NOT_ALLOWED", "Alianci může rozpustit jen leader.");
   }
 
@@ -777,6 +778,9 @@ const cleanupAllianceExitEffects = (
       penaltyConfig.actionCooldownDebuffSeconds,
       penaltyConfig.statDebuffSeconds ?? 0
     )),
+    influenceDebuffEndsAt: addSecondsIso(input.nowIso, penaltyConfig.influenceDebuffSeconds),
+    actionCooldownDebuffEndsAt: addSecondsIso(input.nowIso, penaltyConfig.actionCooldownDebuffSeconds),
+    statDebuffEndsAt: addSecondsIso(input.nowIso, penaltyConfig.statDebuffSeconds ?? 0),
     allianceJoinLockedUntil: addSecondsIso(input.nowIso, penaltyConfig.allianceJoinLockoutSeconds),
     allianceCreateLockedUntil: addSecondsIso(input.nowIso, penaltyConfig.allianceCreateLockoutSeconds),
     formerAllyTruceUntil: addSecondsIso(input.nowIso, penaltyConfig.formerAllyTruceSeconds),

@@ -21,6 +21,7 @@ interface ActiveReservation extends PublicServerReservation {
 export interface PublicServerMatchmakingService {
   reservePublicServer(request: PublicServerMatchmakingRequest): PublicServerMatchmakingResponse;
   listActiveReservations(): PublicServerReservation[];
+  completeReservation(accountId: string, serverInstanceId: string): void;
 }
 
 export const createPublicServerMatchmakingService = (
@@ -52,6 +53,11 @@ export const createPublicServerMatchmakingService = (
       const reservation = createReservation(selected.summary, playerId, clock.now());
       reservations.set(reservation.reservationId, reservation);
       return { accepted: true, reservation, errors: [] };
+    },
+    completeReservation: (accountId, serverInstanceId) => {
+      for (const [id, reservation] of reservations) {
+        if (reservation.playerId === accountId && reservation.serverInstanceId === serverInstanceId) reservations.delete(id);
+      }
     },
     listActiveReservations: () => {
       pruneExpiredReservations(reservations, clock.now());

@@ -7,17 +7,17 @@ export const freeModeRestaurantBuildingActions: NonNullable<ResolvedGameModeConf
     label: "Vybrat tržby",
     description: "Vybere lokální tržby restaurace jako clean a dirty cash.",
     durationMs: 0,
-    cooldownMs: 30 * 60 * 1000,
+    cooldownMs: 60 * 60 * 1000,
     inputCost: {},
     outputGain: {
-      cash: 869,
-      "dirty-cash": 550
+      cash: 1800,
+      "dirty-cash": 900
     },
     heatGain: 5,
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Restaurace vybrala lokální tržby: 869 clean cash a 550 dirty cash."
+    reportText: "Restaurace vybrala lokální tržby: 1800 clean cash a 900 dirty cash."
   },
   restaurant_cover_meetings: {
     actionId: "restaurant_cover_meetings",
@@ -44,13 +44,13 @@ export const freeModeRestaurantBuildingActions: NonNullable<ResolvedGameModeConf
     label: "Posílit lokální síť",
     description: "Na 30 minut posílí lokální vliv restaurace.",
     durationMs: 30 * 60 * 1000,
-    cooldownMs: 30 * 60 * 1000,
+    cooldownMs: 45 * 60 * 1000,
     inputCost: {},
     outputGain: {},
-    heatGain: 8,
-    influenceChange: 4,
+    heatGain: 5,
+    influenceChange: 10,
     effectModifiers: {
-      influenceMultiplier: 1.12
+      influenceMultiplier: 1.5
     },
     requiredOwner: true,
     allowedIfContested: false,

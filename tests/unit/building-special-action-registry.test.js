@@ -284,13 +284,13 @@ describe("building special action registry", () => {
 
     expect(openChannel.status).toBe("implemented");
     expect(openChannel.actionId).toBe("open_channel");
-    expect(openChannel.costSummary).toBe("$1800 clean cash");
+    expect(openChannel.costSummary).toBe("$900 clean cash");
     expect(openChannel.rewardSummary).toContain("Dirty income +45%");
     expect(openChannel.rewardSummary).toContain("Pouliční dealeři rychlost +10%");
-    expect(openChannel.rewardSummary).toContain("Efekt 15m 00s");
+    expect(openChannel.rewardSummary).toContain("Efekt 30m 00s");
     expect(openChannel.riskSummary).toContain("Heat +5");
     expect(openChannel.riskSummary).toContain("Pouliční incident +5%");
-    expect(openChannel.cooldownMs).toBe(30 * 60 * 1000);
+    expect(openChannel.cooldownMs).toBe(60 * 60 * 1000);
   });
 
   it("keeps strip club card actions server-backed and aligned", () => {
@@ -325,17 +325,17 @@ describe("building special action registry", () => {
       "server-run-building-action",
       "server-run-building-action"
     ]);
-    expect(collect.rewardSummary).toContain("Dirty cash +$360");
-    expect(collect.riskSummary).toBe("Heat +3");
+    expect(collect.rewardSummary).toContain("Dirty cash +$1500");
+    expect(collect.riskSummary).toBe("Heat +5");
     expect(vip.costSummary).toBe("$800 clean cash");
     expect(vip.rewardSummary).toContain("Clean income +45%");
     expect(vip.rewardSummary).toContain("Dirty income +35%");
     expect(vip.rewardSummary).toContain("Vliv +55%");
-    expect(collect.cooldownMs).toBe(10 * 60 * 1000);
+    expect(collect.cooldownMs).toBe(40 * 60 * 1000);
     expect(vip.cooldownMs).toBe(60 * 60 * 1000);
     expect(vip.rewardSummary).toContain("Efekt 30m 00s");
-    expect(privateParty.costSummary).toBe("$1500 clean cash");
-    expect(privateParty.rewardSummary).toContain("Vliv +8");
+    expect(privateParty.costSummary).toBe("$900 clean cash");
+    expect(privateParty.rewardSummary).toContain("Vliv +12");
     expect(privateParty.rewardSummary).toContain("Vliv +70%");
     expect(privateParty.riskSummary).toContain("Heat +6");
     expect(privateParty.cooldownMs).toBe(30 * 60 * 1000);
@@ -380,18 +380,18 @@ describe("building special action registry", () => {
       actionProfile: profiles[2]
     });
 
-    expect(collect.rewardSummary).toContain("Clean +$869");
-    expect(collect.rewardSummary).toContain("Dirty cash +$550");
+    expect(collect.rewardSummary).toContain("Clean +$1800");
+    expect(collect.rewardSummary).toContain("Dirty cash +$900");
     expect(collect.riskSummary).toBe("Heat +5");
-    expect(collect.cooldownMs).toBe(30 * 60 * 1000);
+    expect(collect.cooldownMs).toBe(60 * 60 * 1000);
 
     expect(meetings.rewardSummary).toContain("Vliv +8");
     expect(meetings.riskSummary).toBe("Heat +4");
     expect(meetings.cooldownMs).toBe(45 * 60 * 1000);
 
-    expect(network.rewardSummary).toContain("Vliv +4");
-    expect(network.riskSummary).toBe("Heat +8");
-    expect(network.cooldownMs).toBe(30 * 60 * 1000);
+    expect(network.rewardSummary).toContain("Vliv +10");
+    expect(network.riskSummary).toBe("Heat +5");
+    expect(network.cooldownMs).toBe(45 * 60 * 1000);
   });
 
   it("maps renamed power station heat action to a server handler", () => {

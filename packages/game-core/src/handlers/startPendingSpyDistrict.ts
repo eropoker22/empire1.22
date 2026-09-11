@@ -54,5 +54,5 @@ export const handleSpyDistrict = (
           [player.id]: spyOperationState
         }
       };
-  return { nextState: startPendingDistrictAction(stateWithSpySlots, operation), events: [], errors: [] };
+  return { nextState: startPendingDistrictAction(stateWithSpySlots, operation, context), events: [], errors: [] };
 };

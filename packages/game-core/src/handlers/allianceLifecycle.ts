@@ -1,3 +1,4 @@
+import { retimeProductionSupport } from "../rules/production/productionSpeedModifiers";
 import type {
   AllianceLifecycleCommand
 } from "@empire/shared-types";
@@ -14,7 +15,7 @@ import {
 } from "../rules/alliances/allianceLifecycle";
 import { handleAllianceMembershipCommand } from "./allianceMembership";
 
-export const handleAllianceLifecycleCommand = (
+const routeAllianceLifecycleCommand = (
   state: CoreGameState,
   command: AllianceLifecycleCommand,
   context: GameCoreContext
@@ -45,4 +46,9 @@ export const handleAllianceLifecycleCommand = (
         errors: [{ code: "unsupported_command", message: "Nepodporovaný alliance command." }]
       };
   }
+};
+
+export const handleAllianceLifecycleCommand = (state: CoreGameState, command: AllianceLifecycleCommand, context: GameCoreContext) => {
+  const result = routeAllianceLifecycleCommand(state, command, context);
+  return result.errors.length ? result : { ...result, nextState: retimeProductionSupport(state, result.nextState, context) };
 };

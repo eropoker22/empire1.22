@@ -88,6 +88,9 @@ export interface AllianceExitPenalty {
   reason: AllianceRemovalReason;
   startedAt: string;
   penaltyEndsAt: string;
+  influenceDebuffEndsAt?: string;
+  actionCooldownDebuffEndsAt?: string;
+  statDebuffEndsAt?: string;
   allianceJoinLockedUntil: string;
   allianceCreateLockedUntil: string;
   formerAllyTruceUntil: string;

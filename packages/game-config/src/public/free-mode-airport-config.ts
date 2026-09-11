@@ -48,21 +48,21 @@ export const freeModeAirportConfig: AirportBalanceConfig = {
     customsHeatGain: 10,
     customsShipmentPenaltyPct: 25,
     shipmentValueRanges: {
-      materials: { min: 1800, max: 2800 },
-      rareComponents: { min: 1200, max: 2000 },
-      weapons: { min: 1500, max: 2400 },
-      defenseItems: { min: 1500, max: 2400 }
+      materials: { min: 3000, max: 4000 },
+      rareComponents: { min: 4200, max: 6000 },
+      weapons: { min: 3000, max: 4200 },
+      defenseItems: { min: 3000, max: 4200 }
     }
   },
   blackCharter: {
     actionId: "black_charter",
     cooldownMinutes: 24,
     durationMinutes: 8,
-    costDirtyCash: 2500,
+    costDirtyCash: 1000,
     heatGain: 9,
     specialOfferDiscountPct: 6,
     purchaseCustomsRiskPct: 15,
-    offerItems: ["tech-core", "combat-module", "smg", "bazooka", "defense-tower", "cameras", "ghost-serum", "overdrive-x"]
+    offerItems: ["tech-core", "combat-module", "smg", "bazooka", "ghost-serum", "overdrive-x"]
   },
   evacuationCorridor: {
     actionId: "evacuation_corridor",

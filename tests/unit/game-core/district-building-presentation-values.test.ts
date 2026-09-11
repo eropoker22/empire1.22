@@ -523,7 +523,7 @@ describe("district building presentation values", () => {
       slotId: "slot-1",
       itemId: "neon-dust",
       ownedAmount: 60,
-      unitSalePriceDirtyCash: 625,
+      unitSalePriceDirtyCash: 2196,
       minimumAmountPerSale: 10,
       locked: false
     });

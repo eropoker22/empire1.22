@@ -367,6 +367,9 @@ export const DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES = Object.freeze(Object.fr
       cleanCost: action.inputCost?.cash ?? 0, dirtyCost: action.inputCost?.["dirty-cash"] ?? 0,
       heat: action.heatGain ?? 0, influence: action.influenceChange ?? 0, influenceCost: Math.max(0, -(action.influenceChange ?? 0)) };
     for (const [key, value] of Object.entries(values)) if (key in profile) shared[key] = value;
+    for (const [key, modifier] of Object.entries({ cleanIncomeBoostPct: "cleanIncomeMultiplier", dirtyIncomeBoostPct: "dirtyIncomeMultiplier", influenceBoostPct: "influenceMultiplier" })) {
+      if (key in profile && Number.isFinite(action.effectModifiers?.[modifier])) shared[key] = Math.round((action.effectModifiers[modifier] - 1) * 100);
+    }
     return Object.freeze({ ...profile, ...shared });
   }))])
 ));

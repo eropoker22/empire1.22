@@ -1464,3 +1464,59 @@ html body.game-body #event-detail-modal .event-detail-modal__section {
     letter-spacing: 0.02em;
   }
 }
+
+/* Compact confirmation, centred inside Safari's actual visible viewport. */
+html body.game-body #event-detail-modal:not(.hidden):not([hidden]) {
+  display: flex !important;
+  position: fixed !important;
+  inset: 0 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+}
+html body.game-body #event-detail-modal .event-detail-modal__content {
+  width: min(440px, 100%) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: calc(100dvh - 32px) !important;
+  margin: 0 !important;
+  padding: 16px !important;
+  box-sizing: border-box;
+  border-radius: 20px !important;
+  overflow-y: auto !important;
+  background: radial-gradient(ellipse at top right, rgba(22, 166, 169, .18), transparent 65%), #0a121e !important;
+  border-color: rgba(71, 209, 204, .5) !important;
+  box-shadow: 0 24px 65px #000a, inset 0 1px 0 #acf4e921;
+}
+html body.game-body #event-detail-modal .modal__header { padding: 0 0 10px !important; }
+html body.game-body #event-detail-modal .modal__header h3 { font-size: 20px; margin: 0; }
+html body.game-body #event-detail-modal .event-detail-modal__body { gap: 10px !important; padding: 0 !important; }
+html body.game-body #event-detail-modal .event-detail-modal__meta {
+  padding: 8px 10px !important;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px !important;
+}
+html body.game-body #event-detail-modal .event-detail-modal__desc {
+  margin: 0 !important;
+  padding: 10px !important;
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+}
+html body.game-body #event-detail-modal .event-detail-modal__section { padding: 10px !important; }
+html body.game-body #event-detail-modal .event-detail-modal__label { font-size: 11px !important; margin-bottom: 6px; }
+html body.game-body #event-detail-modal .event-detail-modal__chips { font-size: 12px; gap: 5px; }
+html body.game-body #event-detail-modal .event-detail-modal__actions .button { min-height: 44px !important; padding: 10px !important; font-size: 14px !important; }
+@media (max-width: 720px), (pointer: coarse) {
+  html body.game-body #event-detail-modal:not(.hidden):not([hidden]) {
+    top: var(--mobile-visible-top, 0px) !important;
+    bottom: auto !important;
+    height: var(--mobile-visible-vh, 100dvh) !important;
+    min-height: 0 !important;
+    padding: 16px !important;
+    box-sizing: border-box;
+  }
+  html body.game-body #event-detail-modal .event-detail-modal__content {
+    max-height: calc(var(--mobile-visible-vh, 100dvh) - 32px) !important;
+  }
+}

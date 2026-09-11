@@ -1,3 +1,4 @@
+import { applyPendingAllianceCooldown } from "./pendingAllianceCooldown";
 import type {
   AttackDistrictCommand,
   HeistDistrictCommand,
@@ -61,7 +62,7 @@ export const completePendingDistrictActions = (
       continue;
     }
     nextState = finishPendingDistrictActionResolution(
-      stampPendingOperationReportTiming(result.nextState, operation, context),
+      stampPendingOperationReportTiming(applyPendingAllianceCooldown(result.nextState, operation), operation, context),
       operation
     );
     if (operation.operationType === "spy") nextState = preserveResolvedSpyPenalty(nextState, operation);

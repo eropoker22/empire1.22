@@ -14,9 +14,9 @@ export const freeModeParliamentConfig: ParliamentBalanceConfig = {
   noPopulationProduction: true,
   policyWindow: {
     actionId: "parliament_policy_window",
-    cooldownMinutes: 18,
+    cooldownMinutes: 45,
     heatGain: 5,
-    cleanCashGain: 160,
-    influenceGain: 5
+    cleanCashGain: 1600,
+    influenceGain: 10
   }
 };

@@ -1,3 +1,4 @@
+import { applyRestaurantActionIncome } from "./buildingActionIncomeModifiers";
 import type { FixedBuildingBalanceConfig } from "../../contracts";
 import type { GameCoreContext } from "../../engine/context";
 import type { CoreGameState } from "../../entities";
@@ -260,10 +261,11 @@ export const resolveFixedBuildingIncomeConfigBeforeDayNight = (input: {
 
 export const resolveFixedBuildingIncomeConfig = (
   input: Parameters<typeof resolveFixedBuildingIncomeConfigBeforeDayNight>[0]
-): FixedBuildingIncomeValues => applyDayNightBuildingIncomeModifiers({
-  state: input.state,
-  context: input.context,
-  buildingTypeId: input.building.buildingTypeId,
-  ...resolveFixedBuildingIncomeConfigBeforeDayNight(input)
+): FixedBuildingIncomeValues => applyRestaurantActionIncome({
+  ...input,
+  income: applyDayNightBuildingIncomeModifiers({
+    ...input,
+    buildingTypeId: input.building.buildingTypeId,
+    ...resolveFixedBuildingIncomeConfigBeforeDayNight(input)
+  })
 });
-

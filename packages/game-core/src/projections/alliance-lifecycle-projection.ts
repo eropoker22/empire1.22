@@ -1,3 +1,4 @@
+import { resolveAlliancePenaltyDeadlines } from "../rules/alliances/alliancePenaltyDeadlines";
 import type { PlayerAllianceLifecycleView } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
@@ -25,9 +26,11 @@ export const createPlayerAllianceLifecycleView = (
     : null;
   const eligibleVotes = Object.values(alliance?.kickVotesById ?? {})
     .filter((vote) => vote.status === "pending" && vote.eligibleVoterIds.includes(playerId));
-  const exitPenalty = Object.values(state.allianceExitPenaltiesById ?? {})
+  const exitPenalties = Object.values(state.allianceExitPenaltiesById ?? {})
     .filter((penalty) => penalty.playerId === playerId)
-    .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt))[0] ?? null;
+    .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt))
+    .map(penalty => ({ ...penalty, ...resolveAlliancePenaltyDeadlines(penalty) }));
+  const exitPenalty = exitPenalties[0] ?? null;
   const formerAllyTruces = Object.values(state.formerAllianceTrucesById ?? {})
     .filter((truce) => truce.playerAId === playerId || truce.playerBId === playerId)
     .filter((truce) => Date.parse(truce.expiresAt) > Date.parse(nowIso));
@@ -43,6 +46,7 @@ export const createPlayerAllianceLifecycleView = (
     activeVote: activeVote ?? null,
     eligibleVotes,
     exitPenalty,
+    exitPenalties,
     formerAllyTruces,
     canConfirmReady: Boolean(derivedMembership && ["active", "due_soon", "overdue", "vote_eligible", "vote_pending"].includes(derivedMembership.status)),
     readyReasonCode: derivedMembership?.status ?? null

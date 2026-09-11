@@ -1,3 +1,4 @@
+import { countRuntimeOccupiedSeats } from "../instance/runtime-player-occupancy";
 import {
   PRODUCTION_GAME_LIFECYCLE_PHASES,
   type DomainError
@@ -81,9 +82,7 @@ export const syncRuntimeCapacityStatus = (runtime: ServerInstanceRuntime): void 
   }
 };
 
-const countRegisteredPlayers = (runtime: ServerInstanceRuntime): number =>
-  new Set(runtime.state.root.playerIds.filter((playerId) => runtime.state.playersById[playerId]
-    && runtime.state.playersById[playerId].status !== "left")).size;
+const countRegisteredPlayers = (runtime: ServerInstanceRuntime): number => countRuntimeOccupiedSeats(runtime.state);
 
 const createPlayerCapMessage = (runtime: ServerInstanceRuntime): string =>
   runtime.lobby.maxPlayers === runtime.config.balance.maxPlayersPerServer

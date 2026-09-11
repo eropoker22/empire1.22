@@ -152,12 +152,12 @@ export const resolveBuildingActionSpecificResolution = (
     : null;
   const airportResolution = !casinoResolution && !exchangeOfficeResolution && !arcadeResolution && !apartmentBlockResolution && !clinicResolution && !recyclingCenterResolution && !stripClubResolution && !powerStationResolution && !smugglingTunnelResolution && !stockExchangeResolution && context.config.balance.airport
     ? resolveAirportAction({
+        gameConfig: context.config,
         state,
         building,
         action,
         balances: nextBalances,
         config: context.config.balance.airport,
-        tickRateMs: context.config.tickRateMs,
         commandId: command.id,
         payload: command.payload
       })

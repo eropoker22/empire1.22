@@ -29,6 +29,9 @@ export interface ActivePlayerCityEventRun {
   startedAtTick: number;
   completesAtTick: number;
   deterministicOutcomeSeed: string;
+  /** Private authoritative accepted contract, independent of rotating offers. */
+  offerSnapshot?: PlayerCityEventOffer;
+  titleSnapshot?: string;
   status: "running";
 }
 
@@ -46,6 +49,8 @@ export interface PlayerCityEventState {
   version: number;
   offersByAgent: Record<PlayerCityEventAgentId, PlayerCityEventOffer[]>;
   activeRun: ActivePlayerCityEventRun | null;
+  /** Retained claims from legacy orphaned runs; only evidence-backed settlement is allowed. */
+  unresolvedRuns?: Array<{ run: ActivePlayerCityEventRun; reason: "missing-accepted-contract"; recordedAtTick: number }>;
   attemptedOfferIds: string[];
   pendingRewards: PendingPlayerCityEventReward[];
   lastProcessedScheduleWindowByAgent: Partial<Record<PlayerCityEventAgentId, string>>;

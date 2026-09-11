@@ -1,3 +1,4 @@
+import { createAlliancePenaltyNewsModels } from "./runtime/alliancePenaltyPresentation.js";
 import { createPoliceRaidResultPayload, createServerPoliceRaidNews } from "./runtime/policeRaidPresentation.js";
 import { resolveDistrictActions } from "./legacy/district-action-policy.js";
 import {
@@ -4152,7 +4153,7 @@ function createServerConflictReportPresentation(report = {}) {
       modalKind: "police",
       payload: {
         tone: "is-success is-building-action-result",
-        title: `${buildingLabel}: Hotovo`,
+        title: `${buildingLabel}: ${resolveStreetNewsBuildingActionDescriptor(buildingLabel, actionId).actionLabel}`,
         badge: "Speciální akce",
         summary: String(report.message || `Akce budovy v ${targetLabel} byla dokončena.`),
         districtId: report.districtId,
@@ -4717,42 +4718,10 @@ function collectBuildingCooldownStreetNewsEntries(now) {
 }
 
 function collectAlliancePenaltyStreetNewsEntries(now) {
-  const penalty = latestGameplaySliceReadModel?.player?.alliance?.exitPenalty;
-  const expiresAt = parseStreetNewsCooldownTimestamp(penalty?.penaltyEndsAt);
-  if (!penalty || !expiresAt || expiresAt <= now) {
-    return [];
-  }
-
-  const attackMultiplier = Math.max(0, Number(penalty.attackMultiplier ?? 1));
-  const defenseMultiplier = Math.max(0, Number(penalty.defenseMultiplier ?? 1));
-  const attackPenaltyPercent = Math.max(0, Math.round((1 - attackMultiplier) * 100));
-  const defensePenaltyPercent = Math.max(0, Math.round((1 - defenseMultiplier) * 100));
-  const reason = penalty.reason === "inactive_kick" ? "Vyhození z aliance" : "Odchod z aliance";
-  const remainingLabel = formatStreetNewsCooldownRemaining(expiresAt - now);
-  const resultPayload = {
-    openable: true,
-    tone: "warning",
-    title: "Oslabení po alianci",
-    badge: "Debuff",
-    summary: `${reason} dočasně snižuje bojovou sílu.`,
-    rows: [
-      { label: "Důvod", value: reason },
-      { label: "Útok", value: attackPenaltyPercent > 0 ? `-${attackPenaltyPercent} %` : "Bez změny" },
-      { label: "Obrana", value: defensePenaltyPercent > 0 ? `-${defensePenaltyPercent} %` : "Bez změny" },
-      { label: "Zbývá", value: remainingLabel, nowrap: true, countdownUntil: expiresAt }
-    ]
-  };
-
   const entries = [];
-  appendStreetNewsCooldownEntry(entries, {
-    id: `cooldown:alliance-penalty:${String(penalty.id || expiresAt)}`,
-    title: "Oslabení po alianci",
-    summary: `${reason} · útok -${attackPenaltyPercent} % · obrana -${defensePenaltyPercent} %`,
-    meta: `Čekání ${remainingLabel}`,
-    expiresAt,
-    resultKind: "alliance-penalty",
-    resultPayload
-  }, now);
+  for (const model of createAlliancePenaltyNewsModels(latestGameplaySliceReadModel?.player?.alliance, now, formatStreetNewsCooldownRemaining)) {
+    appendStreetNewsCooldownEntry(entries, model, now);
+  }
   return entries;
 }
 

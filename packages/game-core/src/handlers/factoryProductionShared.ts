@@ -1,3 +1,4 @@
+import { resolveProductionNetworkMultiplier } from "../rules/production/productionTransitionFactors";
 import { resolveProductionSupportMultiplier } from "../rules/production/productionSpeedModifiers";
 import { getFactionPassiveModifiers, resolveFactionProductionMultiplier } from "../rules/factions/factionRules";
 import type { Building, BuildingProductionLine, ResourceState } from "@empire/shared-types";
@@ -88,10 +89,7 @@ export const resolveFactoryDurationTicks = (
     recipe.durationTicksPerUnit,
     context.config.balance.cooldownMultiplier
   );
-  const networkMultiplier = resolveFactoryNetworkSpeedMultiplier(
-    resolveActiveFactoryCount(state, resolveFactoryOwnerPlayerId(state, building)),
-    factory
-  );
+  const networkMultiplier = resolveProductionNetworkMultiplier(state, building, context);
   return applyDistrictStabilizationToProductionDuration(Math.max(1, Math.ceil(
     baseDuration / networkMultiplier / resolveProductionBuildingLevelMultiplier(building, context)
       / getPlayerProductionBoostMultiplier(state, resolveFactoryOwnerPlayerId(state, building), state.root.tick)

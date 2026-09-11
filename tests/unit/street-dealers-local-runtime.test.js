@@ -21,9 +21,9 @@ describe("local Street Dealers runtime", () => {
     });
 
     expect(view.slots.map((slot) => [slot.slotId, slot.itemId, slot.unitSalePriceDirtyCash, slot.minimumAmountPerSale])).toEqual([
-      ["slot-1", "neon-dust", 625, 10],
-      ["slot-2", "pulse-shot", 1000, 10],
-      ["slot-3", "velvet-smoke", 1125, 10]
+      ["slot-1", "neon-dust", 2196, 10],
+      ["slot-2", "pulse-shot", 3492, 10],
+      ["slot-3", "velvet-smoke", 3780, 10]
     ]);
     expect(view.slots.map((slot) => slot.label)).toEqual(["Neon Dust", "Pulse Shot", "Velvet Smoke"]);
     expect(view.slots.some((slot) => slot.statusLabel === "Volný")).toBe(false);
@@ -66,7 +66,7 @@ describe("local Street Dealers runtime", () => {
     expect(started).toMatchObject({
       ok: true,
       nextInventory: { "neon-dust": 0 },
-      sale: { amount: 10, rewardDirtyCash: 6250, completesAt: 1_000, instant: true }
+      sale: { amount: 10, rewardDirtyCash: 21960, completesAt: 1_000, instant: true }
     });
     const settlement = settleLocalStreetDealerSales(started.nextSaleState, started.sale.completesAt);
     expect(settlement.completed).toEqual([]);
@@ -141,6 +141,6 @@ describe("local Street Dealers runtime", () => {
       dayNightRule: PARK_DAY_NIGHT_ACTION_RULES.startDrugSale,
       now: 1_000
     });
-    expect(day.sale).toMatchObject({ rewardDirtyCash: 6250 });
+    expect(day.sale).toMatchObject({ rewardDirtyCash: 21960 });
   });
 });

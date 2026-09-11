@@ -23,8 +23,8 @@ export const freeModeArcadeConfig: ArcadeBalanceConfig = {
   },
   nightMachines: {
     actionId: "night_machines",
-    cooldownMinutes: 16,
-    durationMinutes: 7,
+    cooldownMinutes: 45,
+    durationMinutes: 20,
     cleanIncomeBonusPct: 35,
     dirtyIncomeBonusPct: 65,
     influenceBonusPct: 15,

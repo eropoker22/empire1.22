@@ -80,6 +80,7 @@ export const createPlayerFinalEmpireScore = (
       buildingCapitalValue: roundScore(base.buildingCapitalValue ?? 0),
       buildingCapitalScore: roundScore(base.buildingCapitalScore ?? 0),
       population: roundScore(base.population),
+      reservedPopulation: roundScore(base.reservedPopulation ?? 0),
       recentActivityBonus: roundScore(base.recentActivityBonus),
       downtownDistricts,
       downtownBonus: roundScore(downtownBonus),

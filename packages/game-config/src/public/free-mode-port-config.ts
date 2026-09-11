@@ -14,10 +14,10 @@ export const freeModePortConfig: PortBalanceConfig = {
   noPopulationProduction: true,
   containerCut: {
     actionId: "port_container_cut",
-    cooldownMinutes: 14,
+    cooldownMinutes: 40,
     heatGain: 6,
-    dirtyCashGain: 160,
-    metalPartsGain: 3,
-    influenceGain: 1
+    dirtyCashGain: 900,
+    metalPartsGain: 6,
+    influenceGain: 2
   }
 };

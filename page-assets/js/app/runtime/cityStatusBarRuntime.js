@@ -86,6 +86,13 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
   );
 
   if (finalActive) {
+    const clocks = resolveAuthoritativeMatchCountdowns(playerOptions.gameplaySlice, playerOptions.nowMs);
+    const clockLabel = (ms) => {
+      if (ms === null || !Number.isFinite(ms)) return "—";
+      const seconds = Math.max(0, Math.ceil(ms / 1000));
+      return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+        .map((part) => String(part).padStart(2, "0")).join(":");
+    };
     const rank = Number(finalLockdown.currentPlayerRank);
     const topRankCount = Math.max(1, Math.floor(Number(finalLockdown.topRankCount || 3)));
     return {
@@ -93,8 +100,8 @@ function buildBattleRoyaleStatusViewModel(playerOptions = {}) {
       secondaryLabel: "Finále",
       secondaryMobileLabel: "Fin",
       secondaryValue: finalLockdown.result ? "ukončeno" : finalLockdown.pausedByQuietHours
-        ? `pauza · ${formatEliminationRemainingMs(resolveAuthoritativeMatchCountdowns(playerOptions.gameplaySlice, playerOptions.nowMs).finalActiveMs, { compact: true })}`
-        : `${formatEliminationRemainingMs(resolveAuthoritativeMatchCountdowns(playerOptions.gameplaySlice, playerOptions.nowMs).finalActiveMs, { compact: true })} zbývá`,
+        ? `Pauza ${clockLabel(clocks.quietRemainingMs)} · FIN ${clockLabel(clocks.finalActiveMs)}`
+        : `${clockLabel(clocks.finalActiveMs)} zbývá`,
       statusLabel: "Rank",
       statusMobileLabel: "Rank",
       statusValue: Number.isFinite(rank) && rank > 0 && rank <= topRankCount ? `Top ${topRankCount}` : (Number.isFinite(rank) && rank > 0 ? `#${rank}` : "-"),

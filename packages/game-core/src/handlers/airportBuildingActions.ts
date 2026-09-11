@@ -1,5 +1,5 @@
 import type { RunBuildingActionCommand } from "@empire/shared-types";
-import type { AirportBalanceConfig, BuildingActionBalanceConfig, FixedBuildingBalanceConfig } from "../contracts";
+import type { AirportBalanceConfig, BuildingActionBalanceConfig, FixedBuildingBalanceConfig, ResolvedGameModeConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import type { AirportActionResolution, AirportMetadata } from "./airportTypes";
 import {
@@ -72,12 +72,12 @@ export const resolveAirportImportDiscountPct = (input: {
 };
 
 export const resolveAirportAction = (input: {
+  gameConfig: ResolvedGameModeConfig;
   state: CoreGameState;
   building: CoreGameState["buildingsById"][string];
   action: BuildingActionBalanceConfig;
   balances: Record<string, number>;
   config: AirportBalanceConfig;
-  tickRateMs: number;
   commandId: string;
   payload: RunBuildingActionCommand["payload"];
 }): AirportActionResolution | null => {
@@ -88,6 +88,7 @@ export const resolveAirportAction = (input: {
   if (actionId === input.config.expressImport.actionId) {
     const category = resolveImportCategory(input.payload.targetCategory ?? input.payload.category, input.config.expressImport.targetCategories);
     return resolveInstantAirportImport({
+      gameConfig: input.gameConfig,
       state: input.state,
       building: input.building,
       balances: input.balances,
@@ -99,7 +100,7 @@ export const resolveAirportAction = (input: {
   }
 
   if (actionId === input.config.blackCharter.actionId) {
-    const expiresAtTick = input.state.root.tick + minutesToTicks(input.config.blackCharter.durationMinutes, input.tickRateMs);
+    const expiresAtTick = input.state.root.tick + minutesToTicks(input.config.blackCharter.durationMinutes, input.gameConfig.tickRateMs);
     const nextMetadata: AirportMetadata = {
       ...metadata,
       blackCharterExpiresAtTick: expiresAtTick,
@@ -119,7 +120,7 @@ export const resolveAirportAction = (input: {
       influenceChange: 0,
       inputCost: { "dirty-cash": input.config.blackCharter.costDirtyCash },
       outputGain: {},
-      reportText: `Černý charter otevřel speciální Black Market nabídku na ${formatTickDuration(expiresAtTick - input.state.root.tick, input.tickRateMs)}.`,
+      reportText: `Černý charter zlevnil vybrané položky černého trhu na ${formatTickDuration(expiresAtTick - input.state.root.tick, input.gameConfig.tickRateMs)}.`,
       airportResult: {
         type: "black_charter_opened",
         activeUntilTick: expiresAtTick,
@@ -131,7 +132,7 @@ export const resolveAirportAction = (input: {
   }
 
   if (actionId === input.config.evacuationCorridor.actionId) {
-    const expiresAtTick = input.state.root.tick + minutesToTicks(input.config.evacuationCorridor.durationMinutes, input.tickRateMs);
+    const expiresAtTick = input.state.root.tick + minutesToTicks(input.config.evacuationCorridor.durationMinutes, input.gameConfig.tickRateMs);
     const nextMetadata: AirportMetadata = {
       ...metadata,
       evacuationCorridorExpiresAtTick: expiresAtTick
@@ -146,13 +147,12 @@ export const resolveAirportAction = (input: {
       influenceChange: 0,
       inputCost: { cash: input.config.evacuationCorridor.costCleanCash },
       outputGain: {},
-      reportText: `Evakuační koridor je aktivní ${formatTickDuration(expiresAtTick - input.state.root.tick, input.tickRateMs)}.`,
+      reportText: `Evakuační koridor je aktivní ${formatTickDuration(expiresAtTick - input.state.root.tick, input.gameConfig.tickRateMs)}.`,
       airportResult: {
         type: "evacuation_corridor_active",
         activeUntilTick: expiresAtTick,
         escapeChanceBonusPct: input.config.evacuationCorridor.escapeChanceBonusPct,
-        equipmentLossReductionPct: input.config.evacuationCorridor.equipmentLossReductionPct,
-        peopleLossReductionPct: input.config.evacuationCorridor.peopleLossReductionPct
+        equipmentLossReductionPct: input.config.evacuationCorridor.equipmentLossReductionPct
       }
     };
   }

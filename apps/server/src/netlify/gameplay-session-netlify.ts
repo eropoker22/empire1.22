@@ -116,6 +116,8 @@ const handleJoin = async (
   if (!runtime) {
     return createJsonResponse(200, createErrorResponse("server.instance_not_found", "Joined runtime was not found."));
   }
+  // The accepted runtime player now occupies the seat; its transient reservation must not count again.
+  options.server.publicServerMatchmaking.completeReservation(identity.accountId, consumed.registration.serverInstanceId);
   const session = await options.server.gameplaySessionService.createSession({
     registration: consumed.registration,
     nowIso: runtime.clock.nowIso(),

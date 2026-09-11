@@ -1,3 +1,4 @@
+import { resolveAlliancePenaltyDeadlines } from "./alliancePenaltyDeadlines";
 import type { CoreGameState } from "../../entities";
 
 export interface AlliancePenaltyStatModifiers {
@@ -21,7 +22,8 @@ export const createDefaultAlliancePenaltyStatModifiers = (): AlliancePenaltyStat
 export const resolveActiveAlliancePenaltyStatModifiers = (
   state: CoreGameState,
   playerId: string | null | undefined,
-  nowIso: string
+  nowIso: string,
+  actionId?: string
 ): AlliancePenaltyStatModifiers => {
   if (!playerId) return createDefaultAlliancePenaltyStatModifiers();
   const now = Date.parse(nowIso);
@@ -29,14 +31,19 @@ export const resolveActiveAlliancePenaltyStatModifiers = (
 
   return Object.values(state.allianceExitPenaltiesById ?? {})
     .filter((penalty) => penalty.playerId === playerId && Date.parse(penalty.startedAt) <= now && Date.parse(penalty.penaltyEndsAt) > now)
-    .reduce((modifiers, penalty) => ({
-      attackMultiplier: modifiers.attackMultiplier * resolveMultiplier(penalty.attackMultiplier),
-      defenseMultiplier: modifiers.defenseMultiplier * resolveMultiplier(penalty.defenseMultiplier),
-      productionMultiplier: modifiers.productionMultiplier * resolveMultiplier(penalty.productionMultiplier),
-      incomeMultiplier: modifiers.incomeMultiplier * resolveMultiplier(penalty.incomeMultiplier),
-      influenceGenerationMultiplier: modifiers.influenceGenerationMultiplier * resolveMultiplier(penalty.influenceGenerationMultiplier),
-      actionCooldownMultiplier: modifiers.actionCooldownMultiplier * resolveMultiplier(penalty.actionCooldownMultiplier)
-    }), createDefaultAlliancePenaltyStatModifiers());
+    .reduce((modifiers, penalty) => {
+      const ends = resolveAlliancePenaltyDeadlines(penalty);
+      const effect = (value: number | undefined, end: string) => Date.parse(end) > now ? resolveMultiplier(value) : 1;
+      return {
+        attackMultiplier: modifiers.attackMultiplier * effect(penalty.attackMultiplier, ends.statDebuffEndsAt),
+        defenseMultiplier: modifiers.defenseMultiplier * effect(penalty.defenseMultiplier, ends.statDebuffEndsAt),
+        productionMultiplier: modifiers.productionMultiplier * effect(penalty.productionMultiplier, ends.statDebuffEndsAt),
+        incomeMultiplier: modifiers.incomeMultiplier * effect(penalty.incomeMultiplier, ends.statDebuffEndsAt),
+        influenceGenerationMultiplier: modifiers.influenceGenerationMultiplier * effect(penalty.influenceGenerationMultiplier, ends.influenceDebuffEndsAt),
+        actionCooldownMultiplier: modifiers.actionCooldownMultiplier * (!actionId || penalty.affectedActionIds.includes(actionId)
+          ? effect(penalty.actionCooldownMultiplier, ends.actionCooldownDebuffEndsAt) : 1)
+      };
+    }, createDefaultAlliancePenaltyStatModifiers());
 };
 
 const resolveMultiplier = (value: number | undefined): number => {

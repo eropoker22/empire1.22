@@ -957,6 +957,9 @@ describe("shared building presentation adapters", () => {
       },
       title: "Vybrat připravený výstup: 4/20 členů"
     });
+    expect(readySchool.viewModel.collect.action.rewardSummary).toBe("Obyvatelé k vyzvednutí: 4");
+    expect(readySchool.viewModel.collect.action.inputSummary).toBe("Připraveno 4 / 20 obyvatel");
+    expect(readySchool.viewModel.mechanics).toContainEqual(expect.objectContaining({ label: "Vyrobeno", value: "4/20" }));
     expect(readySchool.viewModel.actions.map((action) => action.actionId)).not.toContain("collect_school_population");
   });
 

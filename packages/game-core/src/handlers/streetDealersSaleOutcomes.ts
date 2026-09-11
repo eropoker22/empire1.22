@@ -24,7 +24,8 @@ export const resolveSaleCompletion = (input: {
   }
   const riskPct = Math.min(
     input.config.streetIncidents.maxStreetRiskPct,
-    Math.max(0, Number(input.slot.streetRiskPct || 0)) + openChannel.streetIncidentFlatRiskPct
+    // The sale slot already contains the final quoted risk, including channel and phase.
+    Math.max(0, Number(input.slot.streetRiskPct || 0))
   );
   const saleSeed = `${input.state.serverInstance.worldSeed}:street_dealers:${input.playerId}:${input.slot.saleId}:${input.slot.startedAtTick}`;
   const incidentTriggered = deterministicUnitInterval(`${saleSeed}:trigger`) < riskPct / 100;

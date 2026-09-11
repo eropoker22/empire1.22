@@ -1,11 +1,19 @@
 import type { StreetDealersBalanceConfig } from "../contracts/balance-config";
 import { freeModeDrugLabConfig } from "../modes/free/free-mode-drug-lab-config";
+import { freeModePharmacyConfig } from "../modes/free/free-mode-pharmacy-config";
 
-const STREET_SALE_PRICE_MULTIPLIER = 1.25;
+export const STREET_SALE_PRICE_MULTIPLIER = 1.8;
 
 const getStreetSalePrice = (recipeId: "neon-dust" | "pulse-shot" | "velvet-smoke"): number => {
-  const cleanCashCost = freeModeDrugLabConfig.recipes[recipeId].cleanCashCostPerUnit;
-  return Math.round(cleanCashCost * STREET_SALE_PRICE_MULTIPLIER);
+  const recipe = freeModeDrugLabConfig.recipes[recipeId];
+  const inputsCost = Object.entries(recipe.inputCosts).reduce((total, [itemId, amount]) => {
+    const input = Object.values(freeModePharmacyConfig.recipes).find((candidate) => candidate.outputResourceKey === itemId);
+    if (!input || Object.keys(input.inputCosts).length > 0) {
+      throw new Error(`Street sale input '${itemId}' requires a complete replacement value.`);
+    }
+    return total + amount * input.cleanCashCostPerUnit;
+  }, 0);
+  return Math.round((recipe.cleanCashCostPerUnit + inputsCost) * STREET_SALE_PRICE_MULTIPLIER);
 };
 
 export const freeModeStreetDealersConfig: StreetDealersBalanceConfig = {

@@ -58,7 +58,7 @@ export const handleAttackDistrict = (
     },
     resourceStatesById: writeAttackWeaponInventory(state, attacker, availableInventory)
   };
-  return { nextState: startPendingDistrictAction(stateWithReservedAttackLoadout, operation), events: [], errors: [] };
+  return { nextState: startPendingDistrictAction(stateWithReservedAttackLoadout, operation, context), events: [], errors: [] };
 };
 
 export const resolveAttackPreparationDurationTicks = (

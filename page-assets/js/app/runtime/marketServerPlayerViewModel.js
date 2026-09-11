@@ -90,6 +90,7 @@ export function createServerPlayerMarketPanelPayload({
 
 export function createServerPlayerMarketCallbacks({
   submitServerMarketCommand,
+  confirmMarketTrade,
   setMarketFeedback = () => {},
   refreshMarketTab = () => {}
 } = {}) {
@@ -118,10 +119,12 @@ export function createServerPlayerMarketCallbacks({
       unitPrice,
       paymentType: currency === "dirtyMoney" ? "dirtyCash" : "cleanCash"
     }, "Vystavuji nabídku do escrow...", "Nabídka byla vystavena."),
-    onBuyListing: (listing) => submit({
-      action: "buy-listing",
-      listingId: listing?.id
-    }, "Ověřuji obchod...", "Nákup byl dokončen."),
+    onBuyListing: async (listing) => {
+      const preview = `Koupit ${listing?.amount}× ${listing?.itemName || listing?.itemId} od ${listing?.sellerName || "hráče"} za ${listing?.total} $ (${listing?.currency === "dirtyMoney" ? "špinavé" : "čisté"} peníze)?`;
+      if (!await confirmMarketTrade?.(preview)) return;
+      return submit({ action: "buy-listing", listingId: listing?.id },
+        "Ověřuji obchod...", "Nákup byl dokončen.");
+    },
     onCancelListing: (listing) => submit({
       action: "cancel-listing",
       listingId: listing?.id

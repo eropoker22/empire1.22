@@ -50,9 +50,9 @@ describe("building detail view-model builder", () => {
       30 * 60 * 1000
     ]);
     expect(restaurantActions.map((action) => action.cooldownMs)).toEqual([
-      30 * 60 * 1000,
+      60 * 60 * 1000,
       45 * 60 * 1000,
-      30 * 60 * 1000
+      45 * 60 * 1000
     ]);
   });
 
@@ -60,7 +60,7 @@ describe("building detail view-model builder", () => {
     const stripClubActions = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["strip club"];
 
     expect(stripClubActions).toHaveLength(3);
-    expect(stripClubActions[0].cooldownMs).toBe(10 * 60 * 1000);
+    expect(stripClubActions[0].cooldownMs).toBe(40 * 60 * 1000);
     expect(stripClubActions[1].durationMs).toBe(30 * 60 * 1000);
     expect(stripClubActions[1].cooldownMs).toBe(60 * 60 * 1000);
     expect(stripClubActions[2].cooldownMs).toBe(30 * 60 * 1000);
@@ -70,10 +70,10 @@ describe("building detail view-model builder", () => {
     const [openChannel] = DISTRICT_BUILDING_SPECIAL_ACTION_PROFILES["pasovaci tunel"];
 
     expect(openChannel.smugglingOpenChannel).toBe(true);
-    expect(openChannel.cleanCost).toBe(1800);
+    expect(openChannel.cleanCost).toBe(900);
     expect(openChannel.heat).toBe(5);
-    expect(openChannel.durationMs).toBe(15 * 60 * 1000);
-    expect(openChannel.cooldownMs).toBe(30 * 60 * 1000);
+    expect(openChannel.durationMs).toBe(30 * 60 * 1000);
+    expect(openChannel.cooldownMs).toBe(60 * 60 * 1000);
     expect(openChannel.dirtyIncomeBoostPct).toBe(45);
   });
 
@@ -87,17 +87,17 @@ describe("building detail view-model builder", () => {
     expect(streetDealerActions.map((action) => action.heat || 0)).toEqual([0]);
     expect(streetDealerActions.map((action) => action.dirty || 0)).toEqual([0]);
     expect(stripClubActions.map((action) => action.cooldownMs)).toEqual([
-      10 * 60 * 1000,
+      40 * 60 * 1000,
       60 * 60 * 1000,
       30 * 60 * 1000
     ]);
-    expect(stripClubActions.map((action) => action.heat)).toEqual([3, undefined, 6]);
+    expect(stripClubActions.map((action) => action.heat)).toEqual([5, undefined, 6]);
     expect(smugglingTunnelActions).toHaveLength(1);
     expect(smugglingTunnelActions[0]).toMatchObject({
-      cleanCost: 1800,
+      cleanCost: 900,
       heat: 5,
-      durationMs: 15 * 60 * 1000,
-      cooldownMs: 30 * 60 * 1000
+      durationMs: 30 * 60 * 1000,
+      cooldownMs: 60 * 60 * 1000
     });
     expect(convenienceStoreActions).toHaveLength(1);
     expect(convenienceStoreActions[0]).toMatchObject({
@@ -418,7 +418,7 @@ describe("building detail view-model builder", () => {
     expect(powerStationActions[1].dirty).toBe(500);
     expect(powerStationActions[1].heat).toBe(10);
     expect(powerStationActions[2].durationMs).toBe(0);
-    expect(powerStationActions[2].cleanCost).toBe(10_000);
+    expect(powerStationActions[2].cleanCost).toBe(5_000);
     expect(powerStationActions[2].heat).toBe(-20);
   });
 
@@ -643,7 +643,7 @@ describe("building detail view-model builder", () => {
       phaseLockTone: "night"
     });
     expect(nightModel.actions.map((action) => action.cooldownMs)).toEqual([
-      16 * 60 * 1000,
+      45 * 60 * 1000,
       16 * 60 * 1000
     ]);
   });
@@ -2145,7 +2145,7 @@ describe("building detail view-model builder", () => {
     expect(copy).not.toContain("obranný přesun");
   });
 
-  it("disables smuggling tunnel open channel when dirty cash is missing", () => {
+  it("disables smuggling tunnel open channel when clean cash is missing", () => {
     const rows = createBuildingDetailActionRows({
       buildingName: "Pašovací tunel",
       profile: { actions: ["Otevřít kanál"] },
@@ -2162,9 +2162,9 @@ describe("building detail view-model builder", () => {
 
     expect(rows[0].disabled).toBe(true);
     expect(rows[0].description).toContain("clean cash");
-    expect(rows[0].buttonCostLabel).toBe("$1800 clean cash");
-    expect(rows[0].cooldownMs).toBe(30 * 60 * 1000);
-    expect(rows[0].rewardSummary).toContain("Trvání 15m 00s");
+    expect(rows[0].buttonCostLabel).toBe("$900 clean cash");
+    expect(rows[0].cooldownMs).toBe(60 * 60 * 1000);
+    expect(rows[0].rewardSummary).toContain("Trvání 30m 00s");
   });
 
   it("keeps smuggling tunnel open channel action button server-backed and player-facing", () => {
@@ -2185,7 +2185,7 @@ describe("building detail view-model builder", () => {
     expect(rows[0]).toMatchObject({
       actionId: "open_channel",
       buildingTypeId: "smuggling_tunnel",
-      buttonCostLabel: "$1800 clean cash",
+      buttonCostLabel: "$900 clean cash",
       disabled: false
     });
     expect(rows[0].rewardSummary).toContain("Pouliční dealeři čas prodeje -10%");
@@ -2213,7 +2213,7 @@ describe("building detail view-model builder", () => {
     expect(rows[1].rewardSummary).toContain("Dirty cash +$500");
     expect(rows[1].rewardSummary).toContain("Heat +10");
     expect(rows[1].rewardSummary).not.toContain("Trvání");
-    expect(rows[2].buttonCostLabel).toBe("$10000 clean cash");
+    expect(rows[2].buttonCostLabel).toBe("$5000 clean cash");
     expect(rows[2].rewardSummary).toContain("Heat -20");
     expect(rows[2].riskSummary).toContain("Heat -20");
   });
@@ -2365,9 +2365,9 @@ describe("building detail view-model builder", () => {
     expect(rows).toHaveLength(3);
     expect(rows[0]).toMatchObject({
       actionId: "restaurant_collect_revenue",
-      rewardSummary: "Clean +$869 · Dirty cash +$550 · Heat +5 · Čekání 30m 00s",
+      rewardSummary: "Clean +$1800 · Dirty cash +$900 · Heat +5 · Čekání 60m 00s",
       riskSummary: "Heat +5",
-      cooldownLabel: "Čekání 30m 00s"
+      cooldownLabel: "Čekání 60m 00s"
     });
     expect(rows[1]).toMatchObject({
       actionId: "restaurant_cover_meetings",
@@ -2377,9 +2377,9 @@ describe("building detail view-model builder", () => {
     });
     expect(rows[2]).toMatchObject({
       actionId: "restaurant_local_network",
-      rewardSummary: "Vliv +4 · Heat +8 · Vliv 80/den -> 89/den · Trvání 30m 00s · Čekání 30m 00s",
-      riskSummary: "Heat +8",
-      cooldownLabel: "Čekání 30m 00s"
+      rewardSummary: "Vliv +10 · Heat +5 · Vliv 80/den -> 120/den · Trvání 30m 00s · Čekání 45m 00s",
+      riskSummary: "Heat +5",
+      cooldownLabel: "Čekání 45m 00s"
     });
   });
 
@@ -2406,8 +2406,8 @@ describe("building detail view-model builder", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       actionId: "good_rate",
-      rewardSummary: "Vypere 16% dirty cash, max $7800 · fee 12% · Vliv +3 · Heat +12 · Čekání 18m 00s",
-      riskSummary: "Heat +12 · Audit +4%",
+      rewardSummary: "Vypere 16% dirty cash, max $7800 · fee 12% · Vliv +3 · Heat +6 · Čekání 18m 00s",
+      riskSummary: "Heat +6 · Audit +4%",
       cooldownLabel: "Čekání 18m 00s"
     });
   });
