@@ -20,6 +20,39 @@ import { clearDepartedPlayerState } from "../../../packages/game-core/src/rules/
 const BASE_TIME = "2026-01-01T00:00:00.000Z";
 
 describe("alliance lifecycle", () => {
+  it.each(["voluntary", "server", "return", "inconsistent-owner"])("rejects a former leader after %s without any side effects", (scenario) => {
+    const { state } = createAllianceState(["player:1", "player:2"]);
+    const left = applyCommand(state, command("leave-alliance", "player:1", { allianceId: "alliance:1", chosenSuccessorPlayerId: "player:2" }), context(BASE_TIME));
+    expect(left.errors).toEqual([]);
+    const restored = JSON.parse(JSON.stringify(left.nextState));
+    if (scenario === "server") restored.playersById["player:1"].status = "left";
+    if (scenario === "return") restored.playersById["player:1"].status = "active";
+    if (scenario === "inconsistent-owner") {
+      restored.alliancesById["alliance:1"].ownerPlayerId = "player:1";
+      restored.alliancesById["alliance:1"].memberIds.push("player:1");
+      restored.alliancesById["alliance:1"].membershipByPlayerId["player:1"].status = "active";
+    }
+    const before = JSON.stringify(restored);
+    const result = applyCommand(restored, command("disband-alliance", "player:1", { allianceId: "alliance:1" }), context(BASE_TIME));
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.events).toEqual([]);
+    expect(JSON.stringify(result.nextState)).toBe(before);
+    expect(JSON.stringify(restored)).toBe(before);
+    if (scenario !== "inconsistent-owner") expect(applyCommand(restored, command("disband-alliance", "player:2", { allianceId: "alliance:1" }), context(BASE_TIME)).errors).toEqual([]);
+  });
+
+  it("does not let an outsider finalize an expired membership vote through a denied command", () => {
+    const { state } = createAllianceState(["player:1", "player:2", "player:3"]);
+    addUnalignedPlayer(state, "player:outsider");
+    const started = applyCommand(state, command("start-alliance-kick-vote", "player:1", { allianceId: "alliance:1", targetPlayerId: "player:2" }), context(addHours(BASE_TIME, 29)));
+    expect(started.errors).toEqual([]);
+    const voteId = Object.keys(started.nextState.alliancesById["alliance:1"].kickVotesById!)[0];
+    const before = JSON.stringify(started.nextState);
+    const denied = applyCommand(started.nextState, command("cast-alliance-kick-vote", "player:outsider", { voteId, choice: "yes" }), context(addHours(BASE_TIME, 32)));
+    expect(denied.errors[0]?.code).toBe("VOTER_NOT_ELIGIBLE");
+    expect(JSON.stringify(denied.nextState)).toBe(before);
+  });
+
   it.each([["player:4", "player:5"], ["player:5", "player:4"]])("serializes invitations for the last seat in either order: %s then %s", (first, second) => {
     let { state } = createAllianceState(["player:1", "player:2", "player:3"]);
     for (const id of [first, second]) {

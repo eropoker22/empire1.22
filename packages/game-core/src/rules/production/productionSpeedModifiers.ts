@@ -1,3 +1,5 @@
+import { productionOwnerId, resolveProductionTransitionFactors } from "./productionTransitionFactors";
+import { getPlayerProductionBoostMultiplier } from "../player-boosts";
 import type { Building } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";
 import type { GameCoreContext } from "../../engine/context";
@@ -36,15 +38,23 @@ export const retimeProductionSupport = (previous: CoreGameState, next: CoreGameS
   for (const building of Object.values(next.buildingsById)) {
     const oldBuilding = previous.buildingsById[building.id];
     if (!oldBuilding || building.status !== "active" || !building.productionLines) continue;
-    const playerId = building.ownerPlayerId === "player:neutral" ? next.districtsById[building.districtId]?.ownerPlayerId : building.ownerPlayerId;
-    const before = resolveProductionSupportMultiplier(previous, oldBuilding, playerId, previousContext) * resolveProductionBuildingLevelMultiplier(oldBuilding, previousContext);
+    const playerId = productionOwnerId(next, building);
+    const oldPlayerId = productionOwnerId(previous, oldBuilding);
+    const before = resolveProductionSupportMultiplier(previous, oldBuilding, oldPlayerId, previousContext) * resolveProductionBuildingLevelMultiplier(oldBuilding, previousContext);
     const after = resolveProductionSupportMultiplier(next, building, playerId, context) * resolveProductionBuildingLevelMultiplier(building, context);
-    if (before === after) continue;
     let productionLines = building.productionLines;
     for (const [key, line] of Object.entries(building.productionLines)) {
       if (line.activeCompletesAtTick === null || line.activeCompletesAtTick <= next.root.tick) continue;
+      if (!oldBuilding.productionLines?.[key] || oldBuilding.productionLines[key].activeCompletesAtTick === null) continue;
+      // Boost start/expiry already has its dedicated transition. Only ownership
+      // transfer changes whose boost applies without going through that path.
+      const beforeBoost = oldPlayerId !== playerId ? getPlayerProductionBoostMultiplier(previous, oldPlayerId, previous.root.tick) : 1;
+      const afterBoost = oldPlayerId !== playerId ? getPlayerProductionBoostMultiplier(next, playerId, next.root.tick) : 1;
+      const beforeSpeed = before * beforeBoost * resolveProductionTransitionFactors(previous, oldBuilding, key, previousContext);
+      const afterSpeed = after * afterBoost * resolveProductionTransitionFactors(next, building, key, context);
+      if (!Number.isFinite(beforeSpeed) || !Number.isFinite(afterSpeed) || beforeSpeed <= 0 || afterSpeed <= 0 || beforeSpeed === afterSpeed) continue;
       productionLines = { ...productionLines, [key]: { ...line,
-        activeCompletesAtTick: next.root.tick + Math.max(1, Math.ceil((line.activeCompletesAtTick - next.root.tick) * before / after)),
+        activeCompletesAtTick: next.root.tick + Math.max(1, Math.ceil((line.activeCompletesAtTick - next.root.tick) * beforeSpeed / afterSpeed)),
         version: line.version + 1
       } };
     }

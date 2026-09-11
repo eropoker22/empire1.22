@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createServerMapPresentationModel,
+  createServerMapEffectsModel,
   resolveServerMapDistrictId
 } from "../../page-assets/js/app/map/serverMapPresentationModel.js";
 
@@ -46,6 +47,24 @@ const createSlice = (overrides = {}) => ({
   district: { districtId: "district:2" },
   reports: [],
   ...overrides
+});
+
+describe("mission-only map projection", () => {
+  it("preserves effect output and expiry without reading or fingerprinting districts", () => {
+    const slice = createSlice({ mapEffects: [
+      { type: "spy", districtId: "district:2", playerId: "player:1", expiresAt: 10_000 },
+      { type: "spy", districtId: "district:1", playerId: "player:2", expiresAt: 10_000 },
+      { type: "occupy", districtId: "district:3", playerId: "player:1", expiresAt: 15_000 }
+    ] });
+    const expected = createServerMapPresentationModel(slice, { now: 1_000 }).effects;
+    Object.defineProperty(slice, "districts", { get() { throw new Error("Mission frame must not rebuild district data"); } });
+    expect(createServerMapEffectsModel(slice, { now: 1_000 })).toEqual(expected);
+    // Expired markers remain until an authoritative update; their animation
+    // loop may stop, but this projection must not decide a mission's result.
+    expect(createServerMapEffectsModel(slice, { now: 10_000 }).activeSpyMarkersByDistrictId.get(2).expiresAt).toBe(10_000);
+    expect(createServerMapEffectsModel(slice, { now: 10_000 }).activeOccupyCountdownByDistrictId.get(3)).toBe(5);
+    expect(createServerMapEffectsModel(slice, { now: 15_000 }).activeOccupyCountdownByDistrictId.get(3)).toBe(0);
+  });
 });
 
 describe("server map presentation model", () => {

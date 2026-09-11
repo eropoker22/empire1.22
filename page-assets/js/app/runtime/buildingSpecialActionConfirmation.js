@@ -30,7 +30,8 @@ function createInfoRow(documentRef, label) {
 
 export function createBuildingSpecialActionConfirmationController({
   documentRef,
-  host
+  host,
+  theme = "building"
 } = {}) {
   if (!documentRef || !host || typeof documentRef.createElement !== "function") {
     return {
@@ -43,6 +44,7 @@ export function createBuildingSpecialActionConfirmationController({
 
   const overlay = documentRef.createElement("div");
   overlay.className = "building-special-action-confirm";
+  if (theme === "market") overlay.classList.add("market-trade-confirm");
   overlay.hidden = true;
 
   const backdrop = documentRef.createElement("button");
@@ -133,17 +135,26 @@ export function createBuildingSpecialActionConfirmationController({
     riskSummary = "Bez přímého heat rizika",
     cooldownLabel = "Připraveno",
     disabledReason = "",
-    canConfirm = true
+    canConfirm = true,
+    confirmLabel = "Potvrdit akci",
+    rewardLabel = "Efekt",
+    inputLabel = "Volba"
   } = {}) => {
     setText(title, titleLabel);
+    dialog.setAttribute("aria-label", titleLabel);
+    setText(confirmButton, confirmLabel);
     setText(meta, [buildingLabel, districtLabel].filter(Boolean).join(" · "));
     setText(cost.value, costSummary);
     cost.row.hidden = !String(costSummary || "").trim();
+    setText(reward.row.firstElementChild, rewardLabel);
+    setText(input.row.firstElementChild, inputLabel);
     setText(reward.value, rewardSummary);
     setText(input.value, inputSummary);
     input.row.hidden = !inputSummary;
     setText(cooldown, `Čekání: ${cooldownLabel}`);
+    cooldown.hidden = !cooldownLabel;
     setText(risk, `Riziko: ${riskSummary}`);
+    risk.hidden = !String(riskSummary || "").trim();
     setText(reason, disabledReason);
     reason.hidden = !disabledReason;
     confirmButton.disabled = !canConfirm;

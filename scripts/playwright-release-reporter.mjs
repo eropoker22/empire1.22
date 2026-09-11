@@ -30,7 +30,7 @@ export default class PlaywrightReleaseReporter {
         : [];
     for (const error of resultErrors) {
       const diagnostic = formatErrorDiagnostic({
-        message: `${title}: ${error?.message || error?.value || String(error)}`
+        message: `${title}: ${error?.stack || error?.message || error?.value || String(error)}`
       });
       if (!diagnostic || this.errors.includes(diagnostic)) continue;
       this.errors.push(diagnostic);

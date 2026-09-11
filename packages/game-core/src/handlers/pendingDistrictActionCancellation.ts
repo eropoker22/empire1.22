@@ -11,6 +11,7 @@ export const resolvePendingDistrictActionInvalidReason = (
 ): { code: string; message: string } | null => {
   const player = state.playersById[operation.playerId];
   if (!player) return { code: "PLAYER_NOT_FOUND", message: "Gang už v tomto městě neexistuje." };
+  if (operation.membershipId !== undefined && operation.membershipId !== player.metadata?.membershipId) return { code: "MEMBERSHIP_CHANGED", message: "Operace patří předchozímu vstupu do serveru." };
   if (player.status !== "active") {
     return { code: "PLAYER_INACTIVE", message: "Gang už není aktivní a operaci nemůže dokončit." };
   }

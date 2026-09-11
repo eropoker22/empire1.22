@@ -66,30 +66,30 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Expresní dovoz byl objednán. Zásilka dorazí po krátkém runway okně."
+      "reportText": "Expresní dovoz byl okamžitě uložen do SKLADU."
     },
     "black_charter": {
       "actionId": "black_charter",
       "buildingType": "airport",
       "label": "Černý charter",
-      "description": "Na 8 minut otevře speciální Black Market nabídku se slevou a celním rizikem při nákupu.",
+      "description": "Na 8 minut zlevní vybrané položky černého trhu o dalších 6 %. Celní kontrola při nákupu může přidat 10 HEAT.",
       "durationMs": 480000,
       "cooldownMs": 1440000,
       "inputCost": {
-        "dirty-cash": 2500
+        "dirty-cash": 1000
       },
       "outputGain": {},
       "heatGain": 9,
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Černý charter otevřel dočasnou Black Market nabídku."
+      "reportText": "Černý charter aktivoval dočasnou slevu na vybrané položky černého trhu."
     },
     "evacuation_corridor": {
       "actionId": "evacuation_corridor",
       "buildingType": "airport",
       "label": "Evakuační koridor",
-      "description": "Na 7 minut zlepší únik, sníží ztráty při neúspěchu a zrychlí návratové logistické časy.",
+      "description": "Na 7 minut podpoří nově zahájené útoky: zlepší únik a omezí ztráty při neúspěchu.",
       "durationMs": 420000,
       "cooldownMs": 1560000,
       "inputCost": {
@@ -100,7 +100,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Evakuační koridor je aktivní. Únik a logistika mají dočasný boost."
+      "reportText": "Evakuační koridor je aktivní. Nově zahájené útoky mají podporu úniku při neúspěchu."
     },
     "port_container_cut": {
       "actionId": "port_container_cut",
@@ -108,14 +108,14 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "label": "Proříznout kontejner",
       "description": "Vybere z kontejnerů užitečné zásoby a dirty cash přes přístavní trasu.",
       "durationMs": 0,
-      "cooldownMs": 840000,
+      "cooldownMs": 2400000,
       "inputCost": {},
       "outputGain": {
-        "dirty-cash": 160,
-        "metal-parts": 3
+        "dirty-cash": 900,
+        "metal-parts": 6
       },
       "heatGain": 6,
-      "influenceChange": 1,
+      "influenceChange": 2,
       "requiredOwner": true,
       "allowedIfContested": false,
       "reportText": "Přístav rozebral kontejnerovou trasu a vytáhl dirty cash i metal parts."
@@ -126,13 +126,13 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "label": "Politické okno",
       "description": "Otevře krátké politické okno pro zisk vlivu a clean cash.",
       "durationMs": 0,
-      "cooldownMs": 1080000,
+      "cooldownMs": 2700000,
       "inputCost": {},
       "outputGain": {
-        "cash": 160
+        "cash": 1600
       },
       "heatGain": 5,
-      "influenceChange": 5,
+      "influenceChange": 10,
       "requiredOwner": true,
       "allowedIfContested": false,
       "reportText": "Parlament otevřel politické okno a přidal vliv i clean cash."
@@ -175,11 +175,11 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "actionId": "insider_window",
       "buildingType": "stock_exchange",
       "label": "Vnitřní tipy",
-      "description": "Na 6 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
-      "durationMs": 360000,
-      "cooldownMs": 1080000,
+      "description": "Na 16 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
+      "durationMs": 960000,
+      "cooldownMs": 1800000,
       "inputCost": {
-        "cash": 1500
+        "cash": 750
       },
       "outputGain": {},
       "heatGain": 4,
@@ -241,15 +241,15 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "actionId": "backroom_pressure",
       "buildingType": "lobby_club",
       "label": "Zákulisní tlak",
-      "description": "Na 8 minut posílí influence produkci, sníží cenu influence akcí a přidá politický tlak.",
-      "durationMs": 480000,
-      "cooldownMs": 1200000,
+      "description": "Na 20 minut posílí influence produkci, sníží cenu influence akcí a omezí negativní drby.",
+      "durationMs": 1200000,
+      "cooldownMs": 2400000,
       "inputCost": {
         "cash": 1200
       },
       "outputGain": {},
       "heatGain": 3,
-      "influenceChange": -25,
+      "influenceChange": -8,
       "requiredOwner": true,
       "allowedIfContested": false,
       "reportText": "Zákulisní tlak je aktivní. Influence síť tlačí na rozhodnutí v celém městě."
@@ -262,11 +262,11 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "durationMs": 0,
       "cooldownMs": 1440000,
       "inputCost": {
-        "cash": 1500
+        "cash": 800
       },
       "outputGain": {},
       "heatGain": 2,
-      "influenceChange": -15,
+      "influenceChange": -5,
       "requiredOwner": true,
       "allowedIfContested": false,
       "reportText": "Tiché vyjednávání proběhlo mimo záznam. Rizika klesla a další influence akce bude levnější."
@@ -275,11 +275,11 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "actionId": "media_screen",
       "buildingType": "lobby_club",
       "label": "Mediální clona",
-      "description": "Na 8 minut brání negativním drbům, snižuje jejich pravdivost a zlepšuje veřejný obraz.",
-      "durationMs": 480000,
-      "cooldownMs": 1560000,
+      "description": "Na 15 minut sníží pravděpodobnost negativních drbů.",
+      "durationMs": 900000,
+      "cooldownMs": 1800000,
       "inputCost": {
-        "cash": 2000
+        "cash": 800
       },
       "outputGain": {},
       "heatGain": 4,
@@ -292,18 +292,18 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "actionId": "open_channel",
       "buildingType": "smuggling_tunnel",
       "label": "Otevřít kanál",
-      "description": "Na 15 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
-      "durationMs": 900000,
-      "cooldownMs": 1800000,
+      "description": "Na 30 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
+      "durationMs": 1800000,
+      "cooldownMs": 3600000,
       "inputCost": {
-        "cash": 1800
+        "cash": 900
       },
       "outputGain": {},
       "heatGain": 5,
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Otevřený kanál krátkodobě zvedne tok špinavých peněz v tunelech. Pouliční dealeři prodávají výhodněji, ale roste riziko pouličního incidentu."
+      "reportText": "Otevřený kanál krátkodobě zvedne tok špinavých peněz v tunelech. Pouliční dealeři mohou dříve zopakovat prodej, ale roste riziko pouličního incidentu."
     },
     "extract_losses": {
       "actionId": "extract_losses",
@@ -405,9 +405,9 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "actionId": "night_machines",
       "buildingType": "arcade",
       "label": "Noční automaty",
-      "description": "Na 7 minut zvýší produkci Herny, vliv, heat a audit risk.",
-      "durationMs": 420000,
-      "cooldownMs": 960000,
+      "description": "Na 20 minut zvýší produkci Herny, vliv, heat a audit risk.",
+      "durationMs": 1200000,
+      "cooldownMs": 2700000,
       "inputCost": {},
       "outputGain": {},
       "heatGain": 0,
@@ -455,24 +455,24 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Napájení výroby přidalo 2000 clean cash a 500 dirty cash. Heat +10."
+      "reportText": "Prodej přebytku připsal výnos. Přesné částky a HEAT jsou v přehledu výsledku."
     },
     "power_station_reduce_heat": {
       "actionId": "power_station_reduce_heat",
       "buildingType": "power_station",
       "label": "Snížit heat",
-      "description": "Serverově sníží heat districtu o 20 bodů.",
+      "description": "Sníží HEAT hráče i tohoto districtu o 20 bodů. Rozběhnutou razii neruší.",
       "durationMs": 0,
       "cooldownMs": 3600000,
       "inputCost": {
-        "cash": 10000
+        "cash": 5000
       },
       "outputGain": {},
       "heatGain": -20,
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Energetická stanice stabilizovala provoz a snížila heat districtu o 20."
+      "reportText": "Energetická stanice stabilizovala provoz a snížila HEAT hráče i districtu o 20."
     },
     "start_drug_sale": {
       "actionId": "start_drug_sale",
@@ -495,17 +495,17 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "label": "Vybrat tržby",
       "description": "Vybere lokální tržby restaurace jako clean a dirty cash.",
       "durationMs": 0,
-      "cooldownMs": 1800000,
+      "cooldownMs": 3600000,
       "inputCost": {},
       "outputGain": {
-        "cash": 869,
-        "dirty-cash": 550
+        "cash": 1800,
+        "dirty-cash": 900
       },
       "heatGain": 5,
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Restaurace vybrala lokální tržby: 869 clean cash a 550 dirty cash."
+      "reportText": "Restaurace vybrala lokální tržby: 1800 clean cash a 900 dirty cash."
     },
     "restaurant_cover_meetings": {
       "actionId": "restaurant_cover_meetings",
@@ -532,13 +532,13 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "label": "Posílit lokální síť",
       "description": "Na 30 minut posílí lokální vliv restaurace.",
       "durationMs": 1800000,
-      "cooldownMs": 1800000,
+      "cooldownMs": 2700000,
       "inputCost": {},
       "outputGain": {},
-      "heatGain": 8,
-      "influenceChange": 4,
+      "heatGain": 5,
+      "influenceChange": 10,
       "effectModifiers": {
-        "influenceMultiplier": 1.12
+        "influenceMultiplier": 1.5
       },
       "requiredOwner": true,
       "allowedIfContested": false,
@@ -568,7 +568,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "cooldownMs": 1080000,
       "inputCost": {},
       "outputGain": {},
-      "heatGain": 12,
+      "heatGain": 6,
       "influenceChange": 3,
       "requiredOwner": true,
       "allowedIfContested": false,
@@ -633,16 +633,16 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "label": "Vybrat cash",
       "description": "Okamžitě vybere noční dirty cash ze Strip Clubu.",
       "durationMs": 0,
-      "cooldownMs": 600000,
+      "cooldownMs": 2400000,
       "inputCost": {},
       "outputGain": {
-        "dirty-cash": 360
+        "dirty-cash": 1500
       },
-      "heatGain": 3,
+      "heatGain": 5,
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Strip Club vybral 360 dirty cash. Heat +3."
+      "reportText": "Strip Club vybral aktuální tržby. Přesná částka a HEAT jsou v přehledu výsledku."
     },
     "vip_lounge": {
       "actionId": "vip_lounge",
@@ -675,11 +675,11 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "durationMs": 600000,
       "cooldownMs": 1800000,
       "inputCost": {
-        "cash": 1500
+        "cash": 900
       },
       "outputGain": {},
       "heatGain": 6,
-      "influenceChange": 8,
+      "influenceChange": 12,
       "effectModifiers": {
         "influenceMultiplier": 1.7
       },
@@ -7822,7 +7822,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "aliases": [
             "neonDust"
           ],
-          "unitSalePriceDirtyCash": 625,
+          "unitSalePriceDirtyCash": 2196,
           "cooldownMinutes": 4,
           "baseHeatPerUnit": 2,
           "minimumAmountPerSale": 10,
@@ -7834,7 +7834,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "aliases": [
             "pulseShot"
           ],
-          "unitSalePriceDirtyCash": 1000,
+          "unitSalePriceDirtyCash": 3492,
           "cooldownMinutes": 5,
           "baseHeatPerUnit": 3,
           "minimumAmountPerSale": 10,
@@ -7846,7 +7846,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
           "aliases": [
             "velvetSmoke"
           ],
-          "unitSalePriceDirtyCash": 1125,
+          "unitSalePriceDirtyCash": 3780,
           "cooldownMinutes": 6,
           "baseHeatPerUnit": 4,
           "minimumAmountPerSale": 10,
@@ -7884,10 +7884,10 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "dealerSupplyStreetRiskReductionSharePct": 40,
       "dealerSupplyPassiveDirtyIncomeSharePct": 25,
       "dealerSupplySaleHeatRiskSharePct": 20,
-      "openChannelCleanCost": 1800,
+      "openChannelCleanCost": 900,
       "openChannelHeatGain": 5,
-      "openChannelDurationMs": 900000,
-      "openChannelCooldownMs": 1800000,
+      "openChannelDurationMs": 1800000,
+      "openChannelCooldownMs": 3600000,
       "openChannelTunnelDirtyProductionBonusPct": 45,
       "openChannelDealerSaleSpeedBonusPct": 10,
       "openChannelDealerSaleHeatBonusPct": 15,
@@ -8039,8 +8039,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "actionId": "private_party",
         "cooldownMinutes": 30,
         "durationMinutes": 10,
-        "cleanCashCost": 1500,
-        "instantInfluenceGain": 8,
+        "cleanCashCost": 900,
+        "instantInfluenceGain": 12,
         "influenceProductionBonusPct": 70,
         "extraRumorChancePct": 45,
         "heatGain": 6,

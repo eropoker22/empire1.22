@@ -1,3 +1,4 @@
+import { isCurrentAllianceLeader } from "../rules/alliances/allianceAuthorization";
 import type { Alliance } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
@@ -24,9 +25,8 @@ export const addPlayerToAlliance = (
   if (!alliance || alliance.status !== "active") return rejected(state, "ALLIANCE_NOT_FOUND", "Aliance nebyla nalezena.");
   const invite = state.allianceInvitesById?.[authorization.inviteId];
   const leader = state.playersById[alliance.ownerPlayerId];
-  const leaderMembership = alliance.membershipByPlayerId?.[alliance.ownerPlayerId];
   const authorized = invite?.status === "pending" && leader?.status === "active"
-    && leaderMembership?.role === "leader" && leaderMembership.status !== "removed" && alliance.memberIds.includes(leader.id)
+    && isCurrentAllianceLeader(state, alliance, leader.id)
     && (invite.kind === "alliance_contact"
       ? invite.allianceId === alliance.id && invite.targetAllianceId === alliance.id
         && invite.invitedByPlayerId === playerId && invite.targetPlayerId === leader.id && authorization.approvingPlayerId === leader.id

@@ -1,3 +1,4 @@
+import { countRuntimeOccupiedSeats } from "../instance/runtime-player-occupancy";
 import {
   PRODUCTION_GAME_LIFECYCLE_PHASES,
   type DomainError,
@@ -101,7 +102,7 @@ export const validateCommandDispatchGate = (
     ];
   }
 
-  if (runtime.state.root.playerIds.length > runtime.config.balance.maxPlayersPerServer) {
+  if (countRuntimeOccupiedSeats(runtime.state) > runtime.config.balance.maxPlayersPerServer) {
     return [
       {
         code: "server.player_cap_exceeded",

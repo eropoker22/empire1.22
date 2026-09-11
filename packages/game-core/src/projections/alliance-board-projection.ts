@@ -1,3 +1,4 @@
+import { isCurrentAllianceMember, isCurrentAllianceLeader } from "../rules/alliances/allianceAuthorization";
 import type { AllianceBoardReadModel } from "@empire/shared-types";
 import type { GameCoreContext } from "../engine/context";
 import type { CoreGameState } from "../entities";
@@ -14,8 +15,7 @@ export const createAllianceBoardReadModel = (
   const config = getAllianceLifecycleConfig(context);
   const player = state.playersById[playerId];
   const activeAlliance = player?.allianceId ? state.alliancesById[player.allianceId] ?? null : null;
-  const activeMembership = activeAlliance?.membershipByPlayerId?.[playerId] ?? null;
-  const isCurrentLeader = activeMembership?.role === "leader";
+  const isCurrentLeader = isCurrentAllianceLeader(state, activeAlliance, playerId);
   const createEligibility = canJoinOrCreateAlliance(state, playerId, "create", nowIso);
   const activeView = activeAlliance ? createAllianceView(state, activeAlliance.id, playerId, context, nowIso) : null;
 
@@ -64,8 +64,8 @@ export const createAllianceBoardReadModel = (
   ): AllianceBoardReadModel["activeAlliance"] {
     const alliance = inputState.alliancesById[allianceId];
     if (!alliance || alliance.status !== "active") return null;
-    const currentMembership = alliance.membershipByPlayerId?.[currentPlayerId] ?? null;
-    const isLeader = currentMembership?.role === "leader";
+    const currentMembership = isCurrentAllianceMember(inputState, alliance, currentPlayerId) ? alliance.membershipByPlayerId?.[currentPlayerId] ?? null : null;
+    const isLeader = isCurrentAllianceLeader(inputState, alliance, currentPlayerId);
     const joinEligibility = canJoinOrCreateAlliance(inputState, currentPlayerId, "join", currentNowIso);
     const canJoin = !currentMembership && joinEligibility === true && alliance.memberIds.length < inputContext.config.balance.maxAllianceSize;
     const activeVote = currentMembership?.activeVoteId ? alliance.kickVotesById?.[currentMembership.activeVoteId] ?? null : null;

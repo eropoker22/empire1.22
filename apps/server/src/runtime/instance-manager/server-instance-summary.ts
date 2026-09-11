@@ -1,3 +1,4 @@
+import { countRuntimeOccupiedSeats } from "../instance/runtime-player-occupancy";
 import type { ServerInstanceSummary } from "@empire/shared-types";
 import type { ServerInstanceRuntime } from "../instance/server-instance-runtime";
 import { isRuntimeJoinable } from "./server-instance-joinability";
@@ -10,7 +11,7 @@ export const createServerInstanceSummary = (
   mode: runtime.record.mode,
   region: runtime.lobby.region,
   status: runtime.record.status,
-  playerCount: runtime.state.root.playerIds.length,
+  playerCount: countRuntimeOccupiedSeats(runtime.state),
   maxPlayers: runtime.lobby.maxPlayers,
   joinPolicy: runtime.lobby.joinPolicy,
   startedAt: runtime.record.startedAt,

@@ -36,6 +36,9 @@ export interface PendingDistrictActionOperation {
   cooldownKeys: string[];
   reservedAttackLoadout?: Partial<Record<AttackWeaponId, number>>;
   reservedPopulation?: number;
+  membershipId?: string;
+  reservationsReleased?: boolean;
+  allianceCooldownMultiplier?: number;
   spySlotId?: string;
   spyBoostSnapshot?: PendingSpyBoostSnapshot;
   version: number;

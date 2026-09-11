@@ -18,9 +18,9 @@ export const freeModeSmugglingTunnelConfig: SmugglingTunnelBalanceConfig = {
   noAuditRisk: true,
   openChannel: {
     actionId: "open_channel",
-    cooldownMinutes: 30,
-    durationMinutes: 15,
-    costCleanCash: 1800,
+    cooldownMinutes: 60,
+    durationMinutes: 30,
+    costCleanCash: 900,
     heatGain: 5,
     tunnelDirtyProductionBonusPct: 45,
     dealerSaleSpeedBonusPct: 10,

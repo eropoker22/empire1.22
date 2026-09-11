@@ -1,4 +1,4 @@
-import type { AirportBalanceConfig } from "../contracts";
+import type { AirportBalanceConfig, ResolvedGameModeConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
 import { deterministicUnitInterval } from "../utils/math";
 import { withAirportMetadata } from "./airportMetadata";
@@ -14,6 +14,7 @@ export const resolveAirportExpressImportCost = (
 };
 
 export const resolveInstantAirportImport = (input: {
+  gameConfig: ResolvedGameModeConfig;
   state: CoreGameState;
   building: CoreGameState["buildingsById"][string];
   balances: Record<string, number>;
@@ -26,7 +27,7 @@ export const resolveInstantAirportImport = (input: {
   const cost = resolveAirportExpressImportCost(input.config, input.metadata);
   const importId = `airport-import:${input.commandId}`;
   const rollSeed = `${input.state.serverInstance.worldSeed}:${input.building.id}:${input.state.root.tick}`;
-  const requestedShipment = createImportShipment(input.category, input.config, `${rollSeed}:shipment`);
+  const requestedShipment = createImportShipment(input.category, input.config, `${rollSeed}:shipment`, input.gameConfig);
   const customsTriggered = deterministicUnitInterval(`${rollSeed}:customs`)
     < input.config.expressImport.customsRiskPct / 100;
   const shipment = customsTriggered

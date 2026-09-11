@@ -716,14 +716,19 @@ export function defineHostedProductionParityTest({
       await assertMobileSurfaceFits(page, result.shell);
       const collectHeader = result.shell.locator(".building-detail-title__action-btn--collect");
       const upgradeHeader = result.shell.locator(".building-detail-title__action-btn--upgrade");
-      expect(await collectHeader.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      const collectWidths = await collectHeader.evaluate(el => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+      expect(collectWidths.scrollWidth, `${label}: mobile collect label ${JSON.stringify(collectWidths)}`)
+        .toBeLessThanOrEqual(collectWidths.clientWidth);
       const collectBounds = await collectHeader.boundingBox();
       const upgradeBounds = await upgradeHeader.boundingBox();
       expect(collectBounds.x + collectBounds.width).toBeLessThanOrEqual(upgradeBounds.x + 1);
-      expect(await collectHeader.evaluate(el => {
+      const collectHit = await collectHeader.evaluate(el => {
         const box = el.getBoundingClientRect();
-        return el.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
-      })).toBe(true);
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return { clickable: el.contains(hit), hitTag: hit?.tagName || null,
+          hitClass: hit?.className || null, box: { x: box.x, y: box.y, width: box.width, height: box.height } };
+      });
+      expect(collectHit.clickable, `${label}: mobile collect hit test ${JSON.stringify(collectHit)}`).toBe(true);
       await captureParitySurface(page, {
         mode: "server-authoritative",
         phase: "after",

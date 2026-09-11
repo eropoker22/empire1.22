@@ -1063,6 +1063,7 @@ export async function openParityLocalDemo(page, {
   await page.addInitScript(({
     sessionKey,
     scopedSessionKey,
+    factionId: configuredFactionId,
     gamePhase: configuredGamePhase,
     ownedDistrictIds: configuredOwnedDistrictIds,
     startDistrictId: configuredStartDistrictId,
@@ -1096,8 +1097,8 @@ export async function openParityLocalDemo(page, {
         activeServerInstanceId: serverId,
         serverMode: "free",
         activeServerMode: "free",
-        factionId: "mafian",
-        selectedFaction: "mafian",
+        factionId: configuredFactionId,
+        selectedFaction: configuredFactionId,
         startDistrictId: configuredStartDistrictId,
         preferredStartDistrictId: configuredStartDistrictId,
         factionLocked: true,
@@ -1178,6 +1179,7 @@ export async function openParityLocalDemo(page, {
   }, {
     sessionKey: SESSION_KEY,
     scopedSessionKey: SCOPED_SESSION_KEY,
+    factionId,
     gamePhase,
     ownedDistrictIds,
     startDistrictId,

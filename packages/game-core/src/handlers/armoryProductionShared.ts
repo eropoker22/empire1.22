@@ -1,3 +1,4 @@
+import { resolveProductionNetworkMultiplier } from "../rules/production/productionTransitionFactors";
 import { resolveProductionSupportMultiplier } from "../rules/production/productionSpeedModifiers";
 import { getFactionPassiveModifiers, resolveFactionProductionMultiplier } from "../rules/factions/factionRules";
 import type { Building, BuildingProductionLine, ResourceState } from "@empire/shared-types";
@@ -62,7 +63,7 @@ export const resolveArmoryDurationTicks = (
   const baseDuration = resolveCraftProcessingDurationTicks(recipe.durationTicksPerUnit, context.config.balance.cooldownMultiplier);
   return applyDistrictStabilizationToProductionDuration(Math.max(1, Math.ceil(
     baseDuration
-      / resolveArmoryNetworkSpeedMultiplier(resolveActiveArmoryCount(state, building.ownerPlayerId ?? ""), armory)
+      / resolveProductionNetworkMultiplier(state, building, context)
       / resolveProductionBuildingLevelMultiplier(building, context)
       / getPlayerProductionBoostMultiplier(state, building.ownerPlayerId, state.root.tick)
       / resolveFactionProductionMultiplier(recipe.outputResourceKey ?? "", building.buildingTypeId, getFactionPassiveModifiers(state, building.ownerPlayerId, context))

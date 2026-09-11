@@ -1,0 +1,170 @@
+{
+  "date": "2026-09-11",
+  "baselineSha": "99a4cffac2eb911ff3889a187ec142724bb9c2a8",
+  "note": "Diagnostic exit 0 means reproduction completed, not passing behavior. All eight findings reproduced before this repair.",
+  "cases": {
+    "city-boundary": {
+      "offerId": "victor_23:victor:day-0:1800",
+      "realDurationTicks": 96,
+      "startedAtTick": 959,
+      "offerExpiresAtTick": 960,
+      "dueAt": 1055,
+      "completedEventCount": 0,
+      "activeRunStillPresent": true,
+      "originalOfferStillPresent": false,
+      "nextQuestRejected": [
+        {
+          "code": "city_event_already_active",
+          "message": "Nejdřív dokonči aktivní zakázku."
+        }
+      ]
+    },
+    "former-leader": {
+      "before": {
+        "owner": "player:2",
+        "members": [
+          "player:2"
+        ],
+        "formerLeaderMembership": {
+          "allianceId": "alliance:audit:alliance:1",
+          "playerId": "player:1",
+          "role": "leader",
+          "joinedAt": "2026-09-10T12:00:00.000Z",
+          "status": "removed",
+          "lastReadyAt": "2026-09-10T12:00:00.000Z",
+          "readyDueAt": "2026-09-11T12:00:00.000Z",
+          "graceEndsAt": "2026-09-11T16:00:00.000Z",
+          "version": 2,
+          "removedAt": "2026-09-10T12:00:00.000Z",
+          "removedReason": "voluntary_leave"
+        },
+        "formerLeaderCurrentAlliance": null
+      },
+      "unauthorizedDisbandAccepted": true,
+      "after": {
+        "status": "disbanded",
+        "members": [],
+        "remainingPlayerAlliance": null
+      },
+      "penalties": [
+        {
+          "playerId": "player:1",
+          "reason": "voluntary_leave"
+        },
+        {
+          "playerId": "player:2",
+          "reason": "alliance_disbanded"
+        }
+      ]
+    },
+    "heist-score-and-alliance-penalty": {
+      "score": {
+        "before": {
+          "purge": 13590,
+          "final": 13590,
+          "population": 120
+        },
+        "during": {
+          "purge": 13570,
+          "final": 13570,
+          "population": 110
+        },
+        "reservedCrew": 10,
+        "populationWeight": 2,
+        "operationTicks": 48
+      },
+      "penalty": {
+        "configured": {
+          "allianceJoinLockoutSeconds": 43200,
+          "allianceCreateLockoutSeconds": 43200,
+          "influenceDebuffSeconds": 28800,
+          "actionCooldownDebuffSeconds": 21600,
+          "formerAllyTruceSeconds": 3600,
+          "influenceGenerationMultiplier": 0.8,
+          "actionCooldownMultiplier": 1.15,
+          "statDebuffSeconds": 43200,
+          "attackMultiplier": 0.8,
+          "defenseMultiplier": 0.8,
+          "blocksAllianceDefenseSupport": true
+        },
+        "applied": {
+          "startedAt": "2026-09-10T12:00:00.000Z",
+          "penaltyEndsAt": "2026-09-11T00:00:00.000Z"
+        },
+        "effectiveAfter9Hours": {
+          "attackMultiplier": 0.8,
+          "defenseMultiplier": 0.8,
+          "productionMultiplier": 1,
+          "incomeMultiplier": 1,
+          "influenceGenerationMultiplier": 0.8,
+          "actionCooldownMultiplier": 1.15
+        },
+        "normalDuration": 48,
+        "penalizedDuration": 48,
+        "normalCooldowns": {
+          "heist:global": 96,
+          "heist:attacker-target:district:2": 120,
+          "offense:global": 57,
+          "conflict:source:district:1": 57
+        },
+        "penalizedCooldowns": {
+          "heist:global": 96,
+          "heist:attacker-target:district:2": 120,
+          "offense:global": 57,
+          "conflict:source:district:1": 57
+        }
+      }
+    },
+    "production-transitions": {
+      "kick": {
+        "removed": true,
+        "configuredPenaltyMultiplier": 0.8,
+        "combinedSupportMultiplierAfter": 0.8800000000000001,
+        "kickTick": 5,
+        "originalEnd": 44,
+        "endAfterKick": 44,
+        "endAfterNextTick": 44,
+        "expectedEndPreservingWork": 54,
+        "localOutputAtOriginalEnd": 1
+      },
+      "stabilization": {
+        "expiresAtTick": 5,
+        "fullDurationDuring": 88,
+        "fullDurationAfter": 44,
+        "initialEnd": 88,
+        "endAfterStabilization": 88,
+        "expectedEndPreservingWork": 47
+      }
+    },
+    "replacement-cap": {
+      "factionIds": [
+        "mafian",
+        "kartel",
+        "kult",
+        "tajna-organizace",
+        "hackeri",
+        "motorkarsky-gang",
+        "soukroma-armada",
+        "korporace"
+      ],
+      "initialPlayerCount": 20,
+      "beforeErrors": [],
+      "left": true,
+      "newMemberAccepted": true,
+      "rootPlayerCount": 21,
+      "activePlayerCount": 20,
+      "existingPlayerErrors": [
+        {
+          "code": "server.player_cap_exceeded",
+          "message": "Server instance player count exceeds the configured maximum."
+        }
+      ],
+      "newPlayerErrors": [
+        {
+          "code": "server.player_cap_exceeded",
+          "message": "Server instance player count exceeds the configured maximum."
+        }
+      ]
+    }
+  }
+}

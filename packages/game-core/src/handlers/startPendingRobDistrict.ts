@@ -39,5 +39,5 @@ export const handleRobDistrict = (
     cooldownKeys: [createRobCooldownKey(targetDistrict.id), createRobSourceCooldownKey(sourceDistrictId)],
     version: 1
   };
-  return { nextState: startPendingDistrictAction(state, operation), events: [], errors: [] };
+  return { nextState: startPendingDistrictAction(state, operation, context), events: [], errors: [] };
 };

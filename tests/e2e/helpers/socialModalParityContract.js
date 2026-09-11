@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import { acknowledgeVisibleServerMilestones } from "./serverMilestoneAcknowledgement.js";
 import {
   captureIsolatedParityScreenshot,
   parityComputedStyleProperties
@@ -314,6 +315,7 @@ async function selectStableSurfaceState(target, surfaceName) {
 }
 
 export async function openSocialModalParitySurface(page, surfaceName) {
+  await acknowledgeVisibleServerMilestones(page);
   const definition = resolveSurface(surfaceName);
   const trigger = page.locator(`${definition.triggerSelector}:visible`).first();
   await expect(trigger, `${surfaceName} must open through a visible game.html trigger`).toBeVisible();
@@ -347,6 +349,7 @@ export async function openSocialModalParitySurface(page, surfaceName) {
 }
 
 export async function closeSocialModalParitySurface(page, surfaceName) {
+  await acknowledgeVisibleServerMilestones(page);
   const definition = resolveSurface(surfaceName);
   const shell = page.locator(`${definition.shellSelector}:visible`).last();
   if (!await shell.isVisible().catch(() => false)) {

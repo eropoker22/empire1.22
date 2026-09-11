@@ -65,13 +65,13 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Expresní dovoz byl objednán. Zásilka dorazí po krátkém runway okně."
+    reportText: "Expresní dovoz byl okamžitě uložen do SKLADU."
   },
   black_charter: {
     actionId: "black_charter",
     buildingType: "airport",
     label: "Černý charter",
-    description: "Na 8 minut otevře speciální Black Market nabídku se slevou a celním rizikem při nákupu.",
+    description: "Na 8 minut zlevní vybrané položky černého trhu o dalších 6 %. Celní kontrola při nákupu může přidat 10 HEAT.",
     durationMs: freeModeAirportConfig.blackCharter.durationMinutes * 60 * 1000,
     cooldownMs: freeModeAirportConfig.blackCharter.cooldownMinutes * 60 * 1000,
     inputCost: { "dirty-cash": freeModeAirportConfig.blackCharter.costDirtyCash },
@@ -80,13 +80,13 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Černý charter otevřel dočasnou Black Market nabídku."
+    reportText: "Černý charter aktivoval dočasnou slevu na vybrané položky černého trhu."
   },
   evacuation_corridor: {
     actionId: "evacuation_corridor",
     buildingType: "airport",
     label: "Evakuační koridor",
-    description: "Na 7 minut zlepší únik, sníží ztráty při neúspěchu a zrychlí návratové logistické časy.",
+    description: "Na 7 minut podpoří nově zahájené útoky: zlepší únik a omezí ztráty při neúspěchu.",
     durationMs: freeModeAirportConfig.evacuationCorridor.durationMinutes * 60 * 1000,
     cooldownMs: freeModeAirportConfig.evacuationCorridor.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeAirportConfig.evacuationCorridor.costCleanCash },
@@ -95,7 +95,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Evakuační koridor je aktivní. Únik a logistika mají dočasný boost."
+    reportText: "Evakuační koridor je aktivní. Nově zahájené útoky mají podporu úniku při neúspěchu."
   },
   port_container_cut: {
     actionId: "port_container_cut",
@@ -164,7 +164,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     actionId: "insider_window",
     buildingType: "stock_exchange",
     label: "Vnitřní tipy",
-    description: "Na 6 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
+    description: "Na 16 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
     durationMs: freeModeStockExchangeConfig.insiderWindow.durationMinutes * 60 * 1000,
     cooldownMs: freeModeStockExchangeConfig.insiderWindow.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeStockExchangeConfig.insiderWindow.costCleanCash },

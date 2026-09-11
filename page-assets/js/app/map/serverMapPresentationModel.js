@@ -136,6 +136,12 @@ const createEffectState = (gameplaySlice, now, currentPlayerId) => {
   return state;
 };
 
+export function createServerMapEffectsModel(gameplaySlice = null, options = {}) {
+  if (!gameplaySlice || typeof gameplaySlice !== "object") return null;
+  const now = typeof options.now === "function" ? options.now() : options.now;
+  return createEffectState(gameplaySlice, Number(now ?? Date.now()), String(gameplaySlice?.player?.playerId || ""));
+}
+
 export function createServerMapPresentationModel(gameplaySlice = null, options = {}) {
   if (!gameplaySlice || typeof gameplaySlice !== "object") return null;
   const nowValue = typeof options.now === "function" ? options.now() : options.now;
@@ -208,6 +214,6 @@ export function createServerMapPresentationModel(gameplaySlice = null, options =
     revealedDistrictIds,
     occupiableSpyDistrictIds,
     destroyedDistrictIds,
-    effects: createEffectState(gameplaySlice, now, currentPlayerId)
+    effects: createServerMapEffectsModel(gameplaySlice, { now })
   };
 }

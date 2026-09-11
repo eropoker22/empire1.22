@@ -91,14 +91,14 @@ export const freeModeVenueBuildingActions: NonNullable<ResolvedGameModeConfig["b
     label: "Vybrat cash",
     description: "Okamžitě vybere noční dirty cash ze Strip Clubu.",
     durationMs: 0,
-    cooldownMs: 10 * 60 * 1000,
+    cooldownMs: 40 * 60 * 1000,
     inputCost: {},
-    outputGain: { "dirty-cash": 360 },
-    heatGain: 3,
+    outputGain: { "dirty-cash": 1500 },
+    heatGain: 5,
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Strip Club vybral 360 dirty cash. Heat +3."
+    reportText: "Strip Club vybral aktuální tržby. Přesná částka a HEAT jsou v přehledu výsledku."
   },
   vip_lounge: {
     actionId: "vip_lounge",

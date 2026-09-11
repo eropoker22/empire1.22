@@ -1,4 +1,6 @@
 import type { ResolvedGameModeConfig } from "../contracts/game-mode-config";
+import { createReplacementValueResolver } from "@empire/game-core/rules/economy/replacementValue";
+import { STREET_SALE_PRICE_MULTIPLIER } from "../public/free-mode-street-dealers-config";
 
 const EXPECTED_SLOT_RESOURCES = ["neon-dust", "pulse-shot", "velvet-smoke"] as const;
 
@@ -6,6 +8,7 @@ const EXPECTED_SLOT_RESOURCES = ["neon-dust", "pulse-shot", "velvet-smoke"] as c
 export const validateStreetDealersConfig = (config: ResolvedGameModeConfig): void => {
   const dealers = config.balance.streetDealers;
   if (!dealers) return;
+  const values = createReplacementValueResolver(config);
 
   if (dealers.dealerSlots.length !== EXPECTED_SLOT_RESOURCES.length || dealers.sellableDrugs.length !== EXPECTED_SLOT_RESOURCES.length) {
     throw new Error("Street Dealers require exactly three configured sale slots.");
@@ -21,8 +24,9 @@ export const validateStreetDealersConfig = (config: ResolvedGameModeConfig): voi
     if (drug.minimumAmountPerSale !== 10) {
       throw new Error(`Street Dealers require a minimum sale of 10 ${resourceKey}.`);
     }
-    if (drug.unitSalePriceDirtyCash !== Math.round(recipe.cleanCashCostPerUnit * 1.25)) {
-      throw new Error(`Street Dealers price for ${resourceKey} must be 125% of its Drug Lab clean-cash cost.`);
+    const fullCost = values.resolve(resourceKey);
+    if (fullCost === null || drug.unitSalePriceDirtyCash !== Math.round(fullCost * STREET_SALE_PRICE_MULTIPLIER)) {
+      throw new Error(`Street Dealers price for ${resourceKey} must include its complete production chain and risk premium.`);
     }
   }
 };

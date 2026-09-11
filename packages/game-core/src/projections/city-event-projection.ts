@@ -31,7 +31,7 @@ export const createPlayerCityEventsView = (
   const currentInfluence = calculatePlayerDisplayedInfluence(state, playerId);
   const definitionById = new Map(config.definitions.map((definition) => [definition.id, definition]));
   const activeOffer = playerState.activeRun
-    ? Object.values(playerState.offersByAgent).flat().find((offer) => offer.offerId === playerState.activeRun?.offerId)
+    ? playerState.activeRun.offerSnapshot ?? Object.values(playerState.offersByAgent).flat().find((offer) => offer.offerId === playerState.activeRun?.offerId)
     : null;
   const activeDefinition = activeOffer ? definitionById.get(activeOffer.definitionId) : null;
 
@@ -46,7 +46,7 @@ export const createPlayerCityEventsView = (
     activeRun: playerState.activeRun && activeOffer ? {
       runId: playerState.activeRun.runId,
       offerId: activeOffer.offerId,
-      title: activeDefinition?.title ?? activeOffer.definitionId,
+      title: playerState.activeRun.titleSnapshot ?? activeDefinition?.title ?? activeOffer.definitionId,
       agentName: config.agents[activeOffer.agentId].name,
       startedAtTick: playerState.activeRun.startedAtTick,
       completesAtTick: playerState.activeRun.completesAtTick,

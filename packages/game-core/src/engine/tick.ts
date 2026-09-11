@@ -70,7 +70,7 @@ export const runTick = (
   // End time-bound production boosts at the exact tick boundary before a
   // completed unit can schedule its successor with the post-expiry speed.
   const boostLifecycleResult = expirePlayerBoosts(retimeProductionSupport(state, advancedState, context), context);
-  const releasedPoliceState = releaseExpiredPoliceConsequences(boostLifecycleResult.nextState);
+  const releasedPoliceState = retimeProductionSupport(boostLifecycleResult.nextState, releaseExpiredPoliceConsequences(boostLifecycleResult.nextState), context);
   const incomeState = collectIncome(releasedPoliceState, context);
   const producedState = completeProduction(incomeState, context);
   const pharmacyProductionState = completePharmacyProduction(producedState, context);
@@ -140,7 +140,10 @@ export const runTick = (
     ...finalLockdownResult.events
   ];
   const feedEvents = createDayNightTransitionFeedEvent(victoryResult.nextState, context, state.root.tick, advancedState.root.tick);
-  const feedState = appendCityFeedEventsFromCoreEvents(victoryResult.nextState, events, undefined, context);
+  // Captures, alliance votes and police lifecycle may change production after
+  // this tick's completed units. Retime their successors once at this boundary.
+  const retimedState = retimeProductionSupport(bountyExpiryResult.nextState, victoryResult.nextState, context);
+  const feedState = appendCityFeedEventsFromCoreEvents(retimedState, events, undefined, context);
 
   return {
     nextState: feedEvents ? appendCityFeedEvents(feedState, [feedEvents], undefined, context) : feedState,

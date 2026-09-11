@@ -16,6 +16,7 @@ import {
   createPlaceTrapCommandFixture,
   createSelectSpawnDistrictCommandFixture
 } from "../fixtures/command-fixtures";
+import { createPlayerFixture } from "../fixtures/game-state-fixtures";
 import { createInstanceManagerFixture } from "../fixtures/runtime-fixtures";
 import { createDevGameplaySession } from "../helpers/gameplay-session-test-helpers";
 import { createDistrictBuildingSliceSeed } from "../../tools/seed/src";
@@ -264,6 +265,8 @@ describe("ServerInstanceManager", () => {
 
     runtime.state.root.phase = PRODUCTION_GAME_LIFECYCLE_PHASES.live;
     runtime.state.root.playerIds = Array.from({ length: runtime.config.balance.maxPlayersPerServer + 1 }, (_, index) => `player:${index}`);
+    // Historical identifiers alone are not seats: construct genuinely occupying participants.
+    for (const id of runtime.state.root.playerIds) runtime.state.playersById[id] = createPlayerFixture({ id, serverInstanceId: runtime.record.id });
     const playerCapRoot = { ...runtime.state.root };
     const playerCapCommand = createAttackDistrictCommandFixture({
       id: "command:attack:player-cap",

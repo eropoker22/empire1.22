@@ -1,3 +1,4 @@
+import { calculateReservedOperationPopulation } from "./reservedOperationPopulation";
 import type { PlayerId } from "@empire/shared-types";
 import type { GameCoreContext } from "../../engine/context";
 import type { CoreGameState } from "../../entities";
@@ -21,6 +22,7 @@ export interface PlayerEliminationScore {
   buildingCapitalValue?: number;
   buildingCapitalScore?: number;
   population: number;
+  reservedPopulation?: number;
   recentActivityBonus: number;
   lastActionAt: string | null;
 }
@@ -37,7 +39,8 @@ export const createPlayerEliminationScore = (
   const resourceBalances = state.resourceStatesById[player?.resourceStateId ?? ""]?.balances ?? {};
   const cleanCash = positiveNumber(resourceBalances.cash);
   const dirtyCash = positiveNumber(resourceBalances["dirty-cash"]);
-  const population = resolvePlayerPopulation(state, player);
+  const reservedPopulation = calculateReservedOperationPopulation(state, playerId);
+  const population = resolvePlayerPopulation(state, player) + reservedPopulation;
   const nonStockKeys = new Set(["cash", "dirty-cash", "population", "gang-members", "gangMembers", "gang_members", "clean-cash", "cleanCash", "dirtyCash"]);
   const resourceValue = (key: string, value: unknown): number => nonStockKeys.has(key)
     ? 0 : positiveNumber(value) * resolveResourceScoreValue(weights.resourceScoreValues, key);
@@ -81,6 +84,7 @@ export const createPlayerEliminationScore = (
     buildingCapitalValue: assets.buildingCapitalValue,
     buildingCapitalScore,
     population,
+    reservedPopulation,
     recentActivityBonus,
     lastActionAt: player?.lastActionAt ?? null
   };

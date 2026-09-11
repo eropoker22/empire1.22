@@ -165,6 +165,21 @@ describe("city status bar runtime", () => {
     });
   });
 
+  it("ticks the final pill each second and counts down quiet hours without consuming final time", () => {
+    const generatedAt = "2026-09-11T02:00:00.000Z";
+    const slice = {
+      server: { currentTick: 100, generatedAt, status: "running" },
+      mode: { tickRateMs: 10000 },
+      elimination: { quietHoursWindow: { active: true, endTick: 460 } },
+      player: { finalLockdown: { enabled: true, active: true, remainingActiveTicks: 4320, pausedByQuietHours: true } }
+    };
+    const view = (elapsed) => buildCityStatusViewModel({}, { gameplaySlice: slice, nowMs: Date.parse(generatedAt) + elapsed });
+    expect(view(0).dayPhaseLabel).toBe("Pauza 01:00:00 · FIN 12:00:00");
+    expect(view(1000).dayPhaseLabel).toBe("Pauza 00:59:59 · FIN 12:00:00");
+    slice.player.finalLockdown.pausedByQuietHours = false;
+    expect(view(1000).dayPhaseLabel).toBe("11:59:59 zbývá");
+  });
+
   it("uses core day night read model for clock and map phase when present", () => {
     expect(buildCityStatusViewModel({ cityMinutes: 23 * 60 + 9, mapPhase: "night" }, {
       playerView: {

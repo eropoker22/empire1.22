@@ -51,7 +51,7 @@ export function createMapRenderScheduler(options = {}) {
   let lastRenderAt = 0;
   let lastReason = "initial";
 
-  const isHidden = () => Boolean(documentRef?.hidden);
+  const isHidden = () => Boolean(documentRef?.hidden) || options.isVisible?.() === false;
 
   const clearScheduledFrame = () => {
     if (!scheduled) {

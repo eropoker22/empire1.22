@@ -1,55 +1,45 @@
-import type { AirportBalanceConfig } from "../contracts";
+import type { AirportBalanceConfig, ResolvedGameModeConfig } from "../contracts";
+import { createReplacementValueResolver } from "../rules/economy/replacementValue";
 import { deterministicUnitInterval } from "../utils/math";
 import type { AirportImportCategory } from "./airportTypes";
+
+const categoryItems: Record<AirportImportCategory, ReadonlyArray<readonly [string, number]>> = {
+  materials: [["metal-parts", 0.45], ["chemicals", 0.3], ["biomass", 0.25]],
+  rareComponents: [["tech-core", 0.75], ["combat-module", 0.25]],
+  weapons: [["baseball-bat", 0.24], ["pistol", 0.28], ["grenade", 0.2], ["smg", 0.22], ["bazooka", 0.06]],
+  defenseItems: [["vest", 0.28], ["barricades", 0.24], ["cameras", 0.22], ["alarm", 0.2], ["defense-tower", 0.06]]
+};
+
+/** Spend one bounded budget using complete recipe costs, never a free minimum per item. */
 export const createImportShipment = (
   category: AirportImportCategory,
   config: AirportBalanceConfig,
-  seed: string
+  seed: string,
+  gameConfig: ResolvedGameModeConfig
 ): Record<string, number> => {
-  const range = config.expressImport.shipmentValueRanges[category] ?? { min: 1200, max: 2000 };
-  const value = Math.floor(interpolate(range.min, range.max, deterministicUnitInterval(`${seed}:value`)));
-  if (category === "materials") {
-    return splitValueIntoItems(value, [
-      { itemId: "metal-parts", unitValue: 18, weight: 0.45 },
-      { itemId: "chemicals", unitValue: 28, weight: 0.3 },
-      { itemId: "biomass", unitValue: 16, weight: 0.25 }
-    ]);
+  const range = config.expressImport.shipmentValueRanges[category];
+  if (!range || !Number.isFinite(range.min) || !Number.isFinite(range.max) || range.min < 0 || range.max < range.min) {
+    throw new Error(`Invalid airport shipment budget for '${category}'.`);
   }
-  if (category === "rareComponents") {
-    return splitValueIntoItems(value, [
-      { itemId: "tech-core", unitValue: 85, weight: 0.75 },
-      { itemId: "combat-module", unitValue: 160, weight: 0.25 }
-    ]);
+  let remaining = Math.floor(range.min + (range.max - range.min) * deterministicUnitInterval(`${seed}:value`));
+  const values = createReplacementValueResolver(gameConfig);
+  const items = categoryItems[category].map(([itemId, weight]) => {
+    const cost = values.resolve(itemId);
+    if (cost === null || cost <= 0) throw new Error(`Airport item '${itemId}' requires a positive replacement value.`);
+    return { itemId, weight, cost };
+  });
+  const shipment: Record<string, number> = {};
+  for (let draw = 0; ; draw += 1) {
+    const available = items.filter((item) => item.cost <= remaining);
+    if (!available.length) break;
+    let roll = deterministicUnitInterval(`${seed}:item:${draw}`) * available.reduce((sum, item) => sum + item.weight, 0);
+    const selected = available.find((item) => (roll -= item.weight) < 0) ?? available[available.length - 1];
+    shipment[selected.itemId] = (shipment[selected.itemId] ?? 0) + 1;
+    remaining -= selected.cost;
   }
-  if (category === "weapons") {
-    return splitValueIntoItems(value, [
-      { itemId: "baseball-bat", unitValue: 90, weight: 0.24 },
-      { itemId: "pistol", unitValue: 180, weight: 0.28 },
-      { itemId: "grenade", unitValue: 220, weight: 0.2 },
-      { itemId: "smg", unitValue: 420, weight: 0.22 },
-      { itemId: "bazooka", unitValue: 900, weight: 0.06 }
-    ]);
-  }
-  return splitValueIntoItems(value, [
-    { itemId: "vest", unitValue: 160, weight: 0.28 },
-    { itemId: "barricades", unitValue: 140, weight: 0.24 },
-    { itemId: "cameras", unitValue: 260, weight: 0.22 },
-    { itemId: "alarm", unitValue: 220, weight: 0.2 },
-    { itemId: "defense-tower", unitValue: 800, weight: 0.06 }
-  ]);
+  if (!Object.keys(shipment).length) throw new Error(`Airport budget cannot buy any '${category}' item.`);
+  return shipment;
 };
-
-const splitValueIntoItems = (
-  value: number,
-  items: Array<{ itemId: string; unitValue: number; weight: number }>
-): Record<string, number> =>
-  Object.fromEntries(items.map((item) => [
-    item.itemId,
-    Math.max(1, Math.floor(value * item.weight / Math.max(1, item.unitValue)))
-  ]));
 
 export const scaleShipment = (shipment: Record<string, number>, multiplier: number): Record<string, number> =>
   Object.fromEntries(Object.entries(shipment).map(([itemId, amount]) => [itemId, Math.max(0, Math.floor(Number(amount || 0) * multiplier))]));
-
-const interpolate = (min: number, max: number, unit: number): number =>
-  min + (max - min) * Math.max(0, Math.min(1, unit));

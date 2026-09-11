@@ -57,5 +57,5 @@ export const handleHeistDistrict = (
       }
     }
   };
-  return { nextState: startPendingDistrictAction(stateWithReservedCrew, operation), events: [], errors: [] };
+  return { nextState: startPendingDistrictAction(stateWithReservedCrew, operation, context), events: [], errors: [] };
 };

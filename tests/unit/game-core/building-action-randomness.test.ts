@@ -18,7 +18,7 @@ describe("client command IDs cannot choose a building action outcome", () => {
         stripClubConfig: { ...config.balance.stripClub!, privateParty: { ...config.balance.stripClub!.privateParty,
           extraRumorChancePct: 100, scandalChancePct: 100 } }, action: config.balance.buildingActions!.private_party });
       const result = resolveInstantAirportImport({ ...common,
-        config: config.balance.airport!, category: "materials", metadata: getAirportMetadata(building) });
+        gameConfig: config, config: config.balance.airport!, category: "materials", metadata: getAirportMetadata(building) });
       // The tracking ID intentionally identifies the command; the outcome must not.
       const { importId: _importId, ...airportResult } = result.airportResult;
       return { ...result, airportResult };

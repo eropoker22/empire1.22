@@ -1,3 +1,4 @@
+import { copyAcceptedCityEventOffer } from "../rules/city-events/cityEventRunSnapshot";
 import type { CityEventCommand, PlayerCityEventOffer } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import type { GameCoreContext } from "../engine/context";
@@ -84,6 +85,8 @@ const startCityEvent = (
       playerId: player.id,
       startedAtTick: state.root.tick,
       completesAtTick: state.root.tick + offer.durationTicksSnapshot,
+      offerSnapshot: copyAcceptedCityEventOffer(offer),
+      titleSnapshot: context.config.balance.cityEvents!.definitions.find(d => d.id === offer.definitionId)?.title,
       deterministicOutcomeSeed: `${state.serverInstance.worldSeed}:${player.id}:${offer.offerId}:${runId}`,
       status: "running" as const
     },

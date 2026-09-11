@@ -1,3 +1,5 @@
+import { snapshotAllianceActionCooldown } from "./pendingAllianceCooldown";
+import type { GameCoreContext } from "../engine/context";
 import type {
   AttackWeaponId,
   DistrictOperationType,
@@ -13,7 +15,8 @@ import { writeAttackWeaponInventory } from "./attackWeaponInventory";
 
 export const startPendingDistrictAction = (
   state: CoreGameState,
-  operation: PendingDistrictActionOperation
+  operation: PendingDistrictActionOperation,
+  context: GameCoreContext
 ): CoreGameState => {
   const player = state.playersById[operation.playerId];
   const targetDistrict = state.districtsById[operation.targetDistrictId];
@@ -48,7 +51,7 @@ export const startPendingDistrictAction = (
     ...state,
     pendingDistrictActionOperationsById: {
       ...(state.pendingDistrictActionOperationsById ?? {}),
-      [operation.id]: operation
+      [operation.id]: { ...operation, allianceCooldownMultiplier: snapshotAllianceActionCooldown(state, operation, context), ...(typeof player.metadata?.membershipId === "string" ? { membershipId: player.metadata.membershipId } : {}) }
     },
     playersById: {
       ...state.playersById,
@@ -106,6 +109,7 @@ const clearPendingDistrictActionState = (
     ...(state.pendingDistrictActionOperationsById ?? {})
   };
 
+  pendingDistrictActionOperationsById[operation.id] = { ...operation, reservationsReleased: true };
   const player = state.playersById[operation.playerId];
   const cooldownState = player ? state.cooldownStatesById[player.cooldownStateId] : undefined;
   const cooldownStatesById = { ...state.cooldownStatesById };
@@ -154,7 +158,7 @@ const restoreReservedAttackLoadout = (
 ): CoreGameState => {
   if (operation.operationType !== "attack" || !operation.reservedAttackLoadout) return state;
   const player = state.playersById[operation.playerId];
-  if (!player) return state;
+  if (!player || operation.reservationsReleased || (operation.membershipId !== undefined && operation.membershipId !== player.metadata?.membershipId)) return state;
   const inventory = getAttackWeaponInventory(state, player);
   const restoredInventory = { ...inventory };
   for (const [weaponId, rawAmount] of Object.entries(operation.reservedAttackLoadout) as Array<[AttackWeaponId, number]>) {
@@ -178,7 +182,7 @@ const restoreReservedPopulation = (
   const reservedPopulation = Math.max(0, Number(operation.reservedPopulation ?? 0));
   if (operation.operationType !== "heist" || reservedPopulation <= 0) return state;
   const player = state.playersById[operation.playerId];
-  if (!player) return state;
+  if (!player || operation.reservationsReleased || (operation.membershipId !== undefined && operation.membershipId !== player.metadata?.membershipId)) return state;
   return {
     ...state,
     playersById: {

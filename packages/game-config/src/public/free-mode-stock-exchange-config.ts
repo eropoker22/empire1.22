@@ -61,9 +61,9 @@ export const freeModeStockExchangeConfig: StockExchangeBalanceConfig = {
   },
   insiderWindow: {
     actionId: "insider_window",
-    cooldownMinutes: 18,
-    durationMinutes: 6,
-    costCleanCash: 1500,
+    cooldownMinutes: 30,
+    durationMinutes: 16,
+    costCleanCash: 750,
     heatGain: 4,
     financialInspectionRiskPct: 10
   },

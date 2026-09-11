@@ -1,0 +1,3488 @@
+{
+  "baselineCommit": "ca7f6069bbe3cecfc3e3418b5e9428928de7ed39",
+  "methodology": "Deterministic configuration and shipment samples, not human match outcomes. Dirty cash = 0.7 clean is a comparison assumption, not an exchange rate. Eligible-hour rates exclude phase availability, faction/network bonuses, capacity, acquisition costs and police losses. Dynamic action inputs/rewards override empty catalog fields. InfluenceChange belongs to the district.",
+  "tickRateMs": 10000,
+  "cooldownMultiplier": 0.8,
+  "buildingTypes": [
+    {
+      "id": "central_bank",
+      "name": "Centrální banka",
+      "actions": [
+        "liquidity_injection",
+        "frozen_accounts",
+        "currency_intervention"
+      ]
+    },
+    {
+      "id": "city_hall",
+      "name": "Magistrát",
+      "actions": [
+        "official_cover",
+        "city_contract",
+        "emergency_decree"
+      ]
+    },
+    {
+      "id": "lobby_club",
+      "name": "Lobby Club",
+      "actions": [
+        "backroom_pressure",
+        "quiet_negotiation",
+        "media_screen"
+      ]
+    },
+    {
+      "id": "stock_exchange",
+      "name": "Burza",
+      "actions": [
+        "speculative_buy",
+        "market_pressure",
+        "insider_window"
+      ]
+    },
+    {
+      "id": "court",
+      "name": "Soud",
+      "actions": []
+    },
+    {
+      "id": "vip_lounge",
+      "name": "VIP Salonek",
+      "actions": []
+    },
+    {
+      "id": "airport",
+      "name": "Letiště",
+      "actions": [
+        "express_import",
+        "black_charter",
+        "evacuation_corridor"
+      ]
+    },
+    {
+      "id": "port",
+      "name": "Přístav",
+      "actions": [
+        "port_container_cut"
+      ]
+    },
+    {
+      "id": "parliament",
+      "name": "Parlament",
+      "actions": [
+        "parliament_policy_window"
+      ]
+    },
+    {
+      "id": "shopping_mall",
+      "name": "Obchodní centrum",
+      "actions": []
+    },
+    {
+      "id": "restaurant",
+      "name": "Restaurace",
+      "actions": [
+        "restaurant_collect_revenue",
+        "restaurant_cover_meetings",
+        "restaurant_local_network"
+      ]
+    },
+    {
+      "id": "arcade",
+      "name": "Herna",
+      "actions": [
+        "night_machines",
+        "back_cashdesk"
+      ]
+    },
+    {
+      "id": "casino",
+      "name": "Kasino",
+      "actions": [
+        "quiet_backroom",
+        "vip_night",
+        "bribed_inspector"
+      ]
+    },
+    {
+      "id": "car_dealer",
+      "name": "Autosalon",
+      "actions": []
+    },
+    {
+      "id": "fitness_club",
+      "name": "Fitness Club",
+      "actions": []
+    },
+    {
+      "id": "exchange",
+      "name": "Směnárna",
+      "actions": [
+        "good_rate"
+      ]
+    },
+    {
+      "id": "apartment_block",
+      "name": "Bytový blok",
+      "actions": [
+        "collect_population"
+      ]
+    },
+    {
+      "id": "recruitment_center",
+      "name": "Rekrutační centrum",
+      "actions": []
+    },
+    {
+      "id": "garage",
+      "name": "Garáž",
+      "actions": []
+    },
+    {
+      "id": "clinic",
+      "name": "Klinika",
+      "actions": [
+        "stabilization_protocol"
+      ]
+    },
+    {
+      "id": "school",
+      "name": "Škola",
+      "actions": [
+        "evening_course",
+        "collect_school_population"
+      ]
+    },
+    {
+      "id": "factory",
+      "name": "Továrna",
+      "actions": []
+    },
+    {
+      "id": "armory",
+      "name": "Zbrojovka",
+      "actions": []
+    },
+    {
+      "id": "warehouse",
+      "name": "Skladiště",
+      "actions": []
+    },
+    {
+      "id": "power_station",
+      "name": "Energetická stanice",
+      "actions": [
+        "backup_grid_switch",
+        "power_station_feed_production",
+        "power_station_reduce_heat"
+      ]
+    },
+    {
+      "id": "recycling_center",
+      "name": "Recyklační centrum",
+      "actions": [
+        "extract_losses"
+      ]
+    },
+    {
+      "id": "pharmacy",
+      "name": "Lékárna",
+      "actions": []
+    },
+    {
+      "id": "drug_lab",
+      "name": "Drug Lab",
+      "actions": []
+    },
+    {
+      "id": "smuggling_tunnel",
+      "name": "Pašovací tunel",
+      "actions": [
+        "open_channel"
+      ]
+    },
+    {
+      "id": "convenience_store",
+      "name": "Večerka",
+      "actions": [
+        "collect_convenience_store_population"
+      ]
+    },
+    {
+      "id": "strip_club",
+      "name": "Strip Club",
+      "actions": [
+        "strip_club_collect_cash",
+        "vip_lounge",
+        "private_party"
+      ]
+    },
+    {
+      "id": "street_dealers",
+      "name": "Pouliční dealeři",
+      "actions": [
+        "start_drug_sale"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "actionId": "liquidity_injection",
+      "buildingType": "central_bank",
+      "label": "Likviditní injekce",
+      "description": "Okamžitě přidá clean cash podle velikosti čisté ekonomiky hráče a zvýší Financial Oversight risk.",
+      "durationMs": 0,
+      "cooldownMs": 1200000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 4,
+      "influenceChange": -20,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Centrální banka provedla likviditní injekci podle čisté ekonomiky hráče.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 4,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 16
+        },
+        {
+          "phase": "night",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 4,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 16
+        }
+      ]
+    },
+    {
+      "actionId": "frozen_accounts",
+      "buildingType": "central_bank",
+      "label": "Zmrazené účty",
+      "description": "Na 8 minut zvýší ochranu clean cash, sníží pokuty a finanční ztráty, ale zhorší market fee.",
+      "durationMs": 480000,
+      "cooldownMs": 1440000,
+      "inputCost": {
+        "cash": 2000
+      },
+      "outputGain": {},
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Zmrazené účty chrání rezervy, ale zhoršují poplatkovou stopu na marketu.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 2000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 5,
+          "durationMinutes": 8,
+          "cooldownMinutesBeforeNetworkBonuses": 19.200000000000003
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 2000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 5,
+          "durationMinutes": 8,
+          "cooldownMinutesBeforeNetworkBonuses": 19.200000000000003
+        }
+      ]
+    },
+    {
+      "actionId": "currency_intervention",
+      "buildingType": "central_bank",
+      "label": "Kurzovní intervence",
+      "description": "Na 8 minut stabilizuje vybranou market kategorii a tlumí účinek Tržního tlaku z Burzy.",
+      "durationMs": 480000,
+      "cooldownMs": 1680000,
+      "inputCost": {
+        "cash": 3000
+      },
+      "outputGain": {},
+      "heatGain": 7,
+      "influenceChange": -25,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Centrální banka spustila kurzovní intervenci ve vybrané kategorii.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 3000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 7,
+          "durationMinutes": 8,
+          "cooldownMinutesBeforeNetworkBonuses": 22.400000000000002
+        },
+        {
+          "phase": "night",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 3361
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 9,
+          "durationMinutes": 8,
+          "cooldownMinutesBeforeNetworkBonuses": 22.400000000000002
+        }
+      ]
+    },
+    {
+      "actionId": "official_cover",
+      "buildingType": "city_hall",
+      "label": "Úřední krytí",
+      "description": "Na 8 minut sníží heat gain, police control chance a rumor chance ve všech vlastněných districtech.",
+      "durationMs": 480000,
+      "cooldownMs": 1200000,
+      "inputCost": {
+        "cash": 1500
+      },
+      "outputGain": {},
+      "heatGain": 2,
+      "influenceChange": -25,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Úřední krytí je aktivní. Všechny vlastněné districty mají dočasně slabší heat a policejní tlak.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1500
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 2,
+          "durationMinutes": 8,
+          "cooldownMinutesBeforeNetworkBonuses": 16
+        },
+        {
+          "phase": "night",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1725
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 3,
+          "durationMinutes": 8,
+          "cooldownMinutesBeforeNetworkBonuses": 16
+        }
+      ]
+    },
+    {
+      "actionId": "city_contract",
+      "buildingType": "city_hall",
+      "label": "Městská zakázka",
+      "description": "Převede politický vliv na clean cash podle počtu legálních budov hráče.",
+      "durationMs": 0,
+      "cooldownMs": 1080000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 3,
+      "influenceChange": -20,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Městská zakázka připsala clean cash podle legální infrastruktury.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 3,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 14.4
+        },
+        {
+          "phase": "night",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 4,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 14.4
+        }
+      ]
+    },
+    {
+      "actionId": "emergency_decree",
+      "buildingType": "city_hall",
+      "label": "Nouzová vyhláška",
+      "description": "Na 6 minut spustí městský režim: Noční hlídky, Zastavené kontroly nebo Stavební uzávěru.",
+      "durationMs": 360000,
+      "cooldownMs": 1680000,
+      "inputCost": {
+        "cash": 2500
+      },
+      "outputGain": {},
+      "heatGain": 8,
+      "influenceChange": -40,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Magistrát vydal nouzovou vyhlášku. Město se na chvíli mění.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 2500
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 8,
+          "durationMinutes": 6,
+          "cooldownMinutesBeforeNetworkBonuses": 22.400000000000002
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 2500
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 8,
+          "durationMinutes": 6,
+          "cooldownMinutesBeforeNetworkBonuses": 22.400000000000002
+        }
+      ]
+    },
+    {
+      "actionId": "backroom_pressure",
+      "buildingType": "lobby_club",
+      "label": "Zákulisní tlak",
+      "description": "Na 20 minut posílí influence produkci, sníží cenu influence akcí a omezí negativní drby.",
+      "durationMs": 1200000,
+      "cooldownMs": 2400000,
+      "inputCost": {
+        "cash": 1200
+      },
+      "outputGain": {},
+      "heatGain": 3,
+      "influenceChange": -8,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Zákulisní tlak je aktivní. Influence síť tlačí na rozhodnutí v celém městě.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1200
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 3,
+          "durationMinutes": 20,
+          "cooldownMinutesBeforeNetworkBonuses": 32
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1200
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 3,
+          "durationMinutes": 20,
+          "cooldownMinutesBeforeNetworkBonuses": 32
+        }
+      ]
+    },
+    {
+      "actionId": "quiet_negotiation",
+      "buildingType": "lobby_club",
+      "label": "Tiché vyjednávání",
+      "description": "Okamžitě zkrátí jeden politický/společenský cooldown, sníží rizika a zlevní další influence akci.",
+      "durationMs": 0,
+      "cooldownMs": 1440000,
+      "inputCost": {
+        "cash": 800
+      },
+      "outputGain": {},
+      "heatGain": 2,
+      "influenceChange": -5,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Tiché vyjednávání proběhlo mimo záznam. Rizika klesla a další influence akce bude levnější.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 800
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 2,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 19.200000000000003
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 800
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 2,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 19.200000000000003
+        }
+      ]
+    },
+    {
+      "actionId": "media_screen",
+      "buildingType": "lobby_club",
+      "label": "Mediální clona",
+      "description": "Na 15 minut sníží pravděpodobnost negativních drbů.",
+      "durationMs": 900000,
+      "cooldownMs": 1800000,
+      "inputCost": {
+        "cash": 800
+      },
+      "outputGain": {},
+      "heatGain": 4,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Mediální clona překresluje veřejný obraz a tlumí negativní drby.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 800
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 4,
+          "durationMinutes": 15,
+          "cooldownMinutesBeforeNetworkBonuses": 24
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 800
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 4,
+          "durationMinutes": 15,
+          "cooldownMinutesBeforeNetworkBonuses": 24
+        }
+      ]
+    },
+    {
+      "actionId": "speculative_buy",
+      "buildingType": "stock_exchange",
+      "label": "Spekulativní nákup",
+      "description": "Investuje clean cash do vybrané market kategorie. Výsledek může být zisk, neutrální pohyb nebo ztráta.",
+      "durationMs": 0,
+      "cooldownMs": 960000,
+      "inputCost": {
+        "cash": 750
+      },
+      "outputGain": {},
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Burza provedla spekulativní nákup a zvýšila financial inspection risk.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 750
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 5,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 12.8
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 750
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 5,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 12.8
+        }
+      ]
+    },
+    {
+      "actionId": "market_pressure",
+      "buildingType": "stock_exchange",
+      "label": "Tržní tlak",
+      "description": "Na 10 minut server-wide pumpne nebo dumpne ceny vybrané market kategorie.",
+      "durationMs": 600000,
+      "cooldownMs": 1320000,
+      "inputCost": {
+        "cash": 3000
+      },
+      "outputGain": {},
+      "heatGain": 8,
+      "influenceChange": -15,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Downtown burza rozkolísala ceny ve vybrané kategorii.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 3000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 8,
+          "durationMinutes": 10,
+          "cooldownMinutesBeforeNetworkBonuses": 17.6
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 3000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 8,
+          "durationMinutes": 10,
+          "cooldownMinutesBeforeNetworkBonuses": 17.6
+        }
+      ]
+    },
+    {
+      "actionId": "insider_window",
+      "buildingType": "stock_exchange",
+      "label": "Vnitřní tipy",
+      "description": "Na 16 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
+      "durationMs": 960000,
+      "cooldownMs": 1800000,
+      "inputCost": {
+        "cash": 750
+      },
+      "outputGain": {},
+      "heatGain": 4,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vnitřní tipy jsou aktivní. Burza ukazuje hlubší trend hinty, ale zvedá financial inspection risk.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 750
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 4,
+          "durationMinutes": 16,
+          "cooldownMinutesBeforeNetworkBonuses": 24
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 750
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 4,
+          "durationMinutes": 16,
+          "cooldownMinutesBeforeNetworkBonuses": 24
+        }
+      ]
+    },
+    {
+      "actionId": "express_import",
+      "buildingType": "airport",
+      "label": "Expresní dovoz",
+      "description": "Okamžitě doručí importní zásilku vybrané kategorie do SKLADU. Pokud se zásilka nevejde, command se odmítne bez platby.",
+      "durationMs": 0,
+      "cooldownMs": 1080000,
+      "inputCost": {
+        "cash": 2000
+      },
+      "outputGain": {},
+      "heatGain": 6,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Expresní dovoz byl okamžitě uložen do SKLADU.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 2000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 6,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 14.4
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 2000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 6,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 14.4
+        }
+      ]
+    },
+    {
+      "actionId": "black_charter",
+      "buildingType": "airport",
+      "label": "Černý charter",
+      "description": "Na 8 minut zlevní vybrané položky černého trhu o dalších 6 %. Celní kontrola při nákupu může přidat 10 HEAT.",
+      "durationMs": 480000,
+      "cooldownMs": 1440000,
+      "inputCost": {
+        "dirty-cash": 1000
+      },
+      "outputGain": {},
+      "heatGain": 9,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Černý charter aktivoval dočasnou slevu na vybrané položky černého trhu.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "blocked",
+          "blockedReason": "Černý charter odlétá jen v noci.",
+          "effectiveInputCost": {
+            "dirty-cash": 1000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 9,
+          "durationMinutes": 8,
+          "cooldownMinutesBeforeNetworkBonuses": 19.200000000000003
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "dirty-cash": 1000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 9,
+          "durationMinutes": 8,
+          "cooldownMinutesBeforeNetworkBonuses": 19.200000000000003
+        }
+      ]
+    },
+    {
+      "actionId": "evacuation_corridor",
+      "buildingType": "airport",
+      "label": "Evakuační koridor",
+      "description": "Na 7 minut podpoří nově zahájené útoky: zlepší únik a omezí ztráty při neúspěchu.",
+      "durationMs": 420000,
+      "cooldownMs": 1560000,
+      "inputCost": {
+        "cash": 1800
+      },
+      "outputGain": {},
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Evakuační koridor je aktivní. Nově zahájené útoky mají podporu úniku při neúspěchu.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1800
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 5,
+          "durationMinutes": 7,
+          "cooldownMinutesBeforeNetworkBonuses": 20.8
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1800
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 5,
+          "durationMinutes": 7,
+          "cooldownMinutesBeforeNetworkBonuses": 20.8
+        }
+      ]
+    },
+    {
+      "actionId": "port_container_cut",
+      "buildingType": "port",
+      "label": "Proříznout kontejner",
+      "description": "Vybere z kontejnerů užitečné zásoby a dirty cash přes přístavní trasu.",
+      "durationMs": 0,
+      "cooldownMs": 2400000,
+      "inputCost": {},
+      "outputGain": {
+        "dirty-cash": 900,
+        "metal-parts": 6
+      },
+      "heatGain": 6,
+      "influenceChange": 2,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Přístav rozebral kontejnerovou trasu a vytáhl dirty cash i metal parts.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "dirty-cash": 810,
+            "metal-parts": 5
+          },
+          "effectiveHeatGain": 8,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 32
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "dirty-cash": 900,
+            "metal-parts": 6
+          },
+          "effectiveHeatGain": 6,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 32
+        }
+      ]
+    },
+    {
+      "actionId": "parliament_policy_window",
+      "buildingType": "parliament",
+      "label": "Politické okno",
+      "description": "Otevře krátké politické okno pro zisk vlivu a clean cash.",
+      "durationMs": 0,
+      "cooldownMs": 2700000,
+      "inputCost": {},
+      "outputGain": {
+        "cash": 1600
+      },
+      "heatGain": 5,
+      "influenceChange": 10,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Parlament otevřel politické okno a přidal vliv i clean cash.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "cash": 1600
+          },
+          "effectiveHeatGain": 5,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 36
+        },
+        {
+          "phase": "night",
+          "availability": "blocked",
+          "blockedReason": "Politické okno se otevírá jen přes den.",
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "cash": 1600
+          },
+          "effectiveHeatGain": 5,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 36
+        }
+      ]
+    },
+    {
+      "actionId": "restaurant_collect_revenue",
+      "buildingType": "restaurant",
+      "label": "Vybrat tržby",
+      "description": "Vybere lokální tržby restaurace jako clean a dirty cash.",
+      "durationMs": 0,
+      "cooldownMs": 3600000,
+      "inputCost": {},
+      "outputGain": {
+        "cash": 1800,
+        "dirty-cash": 900
+      },
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Restaurace vybrala lokální tržby: 1800 clean cash a 900 dirty cash.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "cash": 1800,
+            "dirty-cash": 900
+          },
+          "effectiveHeatGain": 5,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        },
+        {
+          "phase": "night",
+          "availability": "blocked",
+          "blockedReason": "Tržby restaurace můžeš vybrat jen přes den.",
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "cash": 1800,
+            "dirty-cash": 900
+          },
+          "effectiveHeatGain": 5,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        }
+      ]
+    },
+    {
+      "actionId": "restaurant_cover_meetings",
+      "buildingType": "restaurant",
+      "label": "Krýt schůzky",
+      "description": "Na 30 minut zvedne lokální income restaurace a přidá vliv.",
+      "durationMs": 1800000,
+      "cooldownMs": 2700000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 4,
+      "influenceChange": 8,
+      "effectModifiers": {
+        "cleanIncomeMultiplier": 1.18,
+        "dirtyIncomeMultiplier": 1.18
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Restaurace kryje schůzky. Income restaurace je dočasně posílený.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 4,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 36
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 4,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 36
+        }
+      ]
+    },
+    {
+      "actionId": "restaurant_local_network",
+      "buildingType": "restaurant",
+      "label": "Posílit lokální síť",
+      "description": "Na 30 minut posílí lokální vliv restaurace.",
+      "durationMs": 1800000,
+      "cooldownMs": 2700000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 5,
+      "influenceChange": 10,
+      "effectModifiers": {
+        "influenceMultiplier": 1.5
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Restaurace posílila lokální síť a vliv v districtu.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 5,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 36
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 5,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 36
+        }
+      ]
+    },
+    {
+      "actionId": "night_machines",
+      "buildingType": "arcade",
+      "label": "Noční automaty",
+      "description": "Na 20 minut zvýší produkci Herny, vliv, heat a audit risk.",
+      "durationMs": 1200000,
+      "cooldownMs": 2700000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "effectModifiers": {
+        "cleanIncomeMultiplier": 1.35,
+        "dirtyIncomeMultiplier": 1.65,
+        "influenceMultiplier": 1.15,
+        "heatMultiplier": 1.45
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Aktivuje Noční automaty. Boost se sám se sebou nestackuje.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "blocked",
+          "blockedReason": "Noční automaty se rozjíždí až po setmění.",
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 20,
+          "cooldownMinutesBeforeNetworkBonuses": 36
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 20,
+          "cooldownMinutesBeforeNetworkBonuses": 36
+        }
+      ]
+    },
+    {
+      "actionId": "back_cashdesk",
+      "buildingType": "arcade",
+      "label": "Zadní pokladna",
+      "description": "Instantně vypere část aktuálního dirty cash přes zadní pokladnu Herny.",
+      "durationMs": 0,
+      "cooldownMs": 960000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 3,
+      "influenceChange": 1,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vypere část dirty cash, přidá clean cash po poplatku a zvýší audit risk.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 3,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 12.8
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 3,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 12.8
+        }
+      ]
+    },
+    {
+      "actionId": "quiet_backroom",
+      "buildingType": "casino",
+      "label": "Tichá herna",
+      "description": "Instantně vypere část aktuálního dirty cash přes tiché zázemí kasina.",
+      "durationMs": 0,
+      "cooldownMs": 840000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 7,
+      "influenceChange": 3,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vypere část dirty cash, přidá clean cash po poplatku a zvýší audit risk.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 9,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 11.200000000000001
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 7,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 11.200000000000001
+        }
+      ]
+    },
+    {
+      "actionId": "vip_night",
+      "buildingType": "casino",
+      "label": "VIP noc",
+      "description": "Na 10 minut výrazně zvýší casino income, vliv, heat a audit risk.",
+      "durationMs": 600000,
+      "cooldownMs": 1560000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "effectModifiers": {
+        "cleanIncomeMultiplier": 1.7,
+        "dirtyIncomeMultiplier": 1.55,
+        "influenceMultiplier": 1.25,
+        "heatMultiplier": 1.6
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Aktivuje VIP noc. Boost se sám se sebou nestackuje.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "blocked",
+          "blockedReason": "VIP noc můžeš spustit jen v noci.",
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 10,
+          "cooldownMinutesBeforeNetworkBonuses": 20.8
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 10,
+          "cooldownMinutesBeforeNetworkBonuses": 20.8
+        }
+      ]
+    },
+    {
+      "actionId": "bribed_inspector",
+      "buildingType": "casino",
+      "label": "Podplacený inspektor",
+      "description": "Zaplatí inspektora. Úspěch sníží heat a audit risk, selhání zvýší policejní tlak.",
+      "durationMs": 1800000,
+      "cooldownMs": 4500000,
+      "inputCost": {
+        "cash": 6500
+      },
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Heat control akce s rizikem selhání.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 6500
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 60
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 6500
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 60
+        }
+      ]
+    },
+    {
+      "actionId": "good_rate",
+      "buildingType": "exchange",
+      "label": "Výhodný kurz",
+      "description": "Instantně vypere menší část aktuálního dirty cash přes síť směnáren.",
+      "durationMs": 0,
+      "cooldownMs": 1080000,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 6,
+      "influenceChange": 3,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vypere část dirty cash, přidá clean cash po poplatku a zvýší audit risk.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 6,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 14.4
+        },
+        {
+          "phase": "night",
+          "availability": "blocked",
+          "blockedReason": "Výhodný kurz můžeš spustit jen přes den.",
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 6,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 14.4
+        }
+      ]
+    },
+    {
+      "actionId": "collect_population",
+      "buildingType": "apartment_block",
+      "label": "Vybrat obyvatele",
+      "description": "Přesune lokálně uložené obyvatele z bytového bloku do globální populace hráče.",
+      "durationMs": 0,
+      "cooldownMs": 0,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vybere obyvatele z lokálního zásobníku bytového bloku.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 0
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 0
+        }
+      ]
+    },
+    {
+      "actionId": "stabilization_protocol",
+      "buildingType": "clinic",
+      "label": "Stabilizační protokol",
+      "description": "Za clean cash vrátí část neexpirovaných ztrát z recovery poolu do gangu a skladu.",
+      "durationMs": 0,
+      "cooldownMs": 1080000,
+      "inputCost": {
+        "cash": 1200
+      },
+      "outputGain": {},
+      "heatGain": 1,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Stabilizační protokol obnoví část nedávných ztrát. Recovery neprobíhá automaticky.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1200
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 1,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 14.4
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1200
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 1,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 14.4
+        }
+      ]
+    },
+    {
+      "actionId": "evening_course",
+      "buildingType": "school",
+      "label": "Večerní kurz",
+      "description": "Na 20 minut zrychlí nábor členů v bytových blocích. Nestackuje se.",
+      "durationMs": 1200000,
+      "cooldownMs": 2100000,
+      "inputCost": {
+        "cash": 1000
+      },
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Večerní kurz dočasně zvedne nábor členů v bytových blocích.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 20,
+          "cooldownMinutesBeforeNetworkBonuses": 28
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 1000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 20,
+          "cooldownMinutesBeforeNetworkBonuses": 28
+        }
+      ]
+    },
+    {
+      "actionId": "collect_school_population",
+      "buildingType": "school",
+      "label": "Vybrat obyvatele",
+      "description": "Přesune celé obyvatele uložené ve Škole do globální populace hráče.",
+      "durationMs": 0,
+      "cooldownMs": 0,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vybere celé obyvatele z lokálního zásobníku Školy.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 0
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 0
+        }
+      ]
+    },
+    {
+      "actionId": "backup_grid_switch",
+      "buildingType": "power_station",
+      "label": "Přepnutí na záložní síť",
+      "description": "Dočasně zvýší infrastructure bonus a posílí kamery, alarm, Továrny a Zbrojovky.",
+      "durationMs": 1500000,
+      "cooldownMs": 3600000,
+      "inputCost": {
+        "cash": 3500
+      },
+      "outputGain": {},
+      "heatGain": 3,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Záložní síť aktivní. Infrastruktura a obranné systémy jsou dočasně posílené.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 3500
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 3,
+          "durationMinutes": 25,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 3500
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 3,
+          "durationMinutes": 25,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        }
+      ]
+    },
+    {
+      "actionId": "power_station_feed_production",
+      "buildingType": "power_station",
+      "label": "Prodat přebytek",
+      "description": "Okamžitě přidá menší clean a dirty výnos z přesměrované výroby.",
+      "durationMs": 0,
+      "cooldownMs": 3600000,
+      "inputCost": {},
+      "outputGain": {
+        "cash": 2000,
+        "dirty-cash": 500
+      },
+      "heatGain": 10,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Prodej přebytku připsal výnos. Přesné částky a HEAT jsou v přehledu výsledku.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "cash": 2000,
+            "dirty-cash": 500
+          },
+          "effectiveHeatGain": 10,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "cash": 2000,
+            "dirty-cash": 500
+          },
+          "effectiveHeatGain": 10,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        }
+      ]
+    },
+    {
+      "actionId": "power_station_reduce_heat",
+      "buildingType": "power_station",
+      "label": "Snížit heat",
+      "description": "Sníží HEAT hráče i tohoto districtu o 20 bodů. Rozběhnutou razii neruší.",
+      "durationMs": 0,
+      "cooldownMs": 3600000,
+      "inputCost": {
+        "cash": 5000
+      },
+      "outputGain": {},
+      "heatGain": -20,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Energetická stanice stabilizovala provoz a snížila HEAT hráče i districtu o 20.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 5000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": -20,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        },
+        {
+          "phase": "night",
+          "availability": "neutral",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 5000
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": -20,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        }
+      ]
+    },
+    {
+      "actionId": "extract_losses",
+      "buildingType": "recycling_center",
+      "label": "Vytěžit ztráty",
+      "description": "Vrátí část neexpirovaných itemových ztrát ze salvage poolu. Nevrací populaci ani členy gangu.",
+      "durationMs": 0,
+      "cooldownMs": 960000,
+      "inputCost": {
+        "cash": 900
+      },
+      "outputGain": {},
+      "heatGain": 2,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Recyklační centrum vytěžilo část ztracených itemů ze šrotu.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "available",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 900
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 2,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 12.8
+        },
+        {
+          "phase": "night",
+          "availability": "available",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 900
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 2,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 12.8
+        }
+      ]
+    },
+    {
+      "actionId": "open_channel",
+      "buildingType": "smuggling_tunnel",
+      "label": "Otevřít kanál",
+      "description": "Na 30 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
+      "durationMs": 1800000,
+      "cooldownMs": 3600000,
+      "inputCost": {
+        "cash": 900
+      },
+      "outputGain": {},
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Otevřený kanál krátkodobě zvedne tok špinavých peněz v tunelech. Pouliční dealeři mohou dříve zopakovat prodej, ale roste riziko pouličního incidentu.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 900
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 7,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 900
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 5,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        }
+      ]
+    },
+    {
+      "actionId": "collect_convenience_store_population",
+      "buildingType": "convenience_store",
+      "label": "Vybrat obyvatele",
+      "description": "Přesune lokálně uložené obyvatele z Večerky do globální populace hráče.",
+      "durationMs": 0,
+      "cooldownMs": 0,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Vybere obyvatele z lokálního zásobníku Večerky.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "available",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 0
+        },
+        {
+          "phase": "night",
+          "availability": "available",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 0
+        }
+      ]
+    },
+    {
+      "actionId": "strip_club_collect_cash",
+      "buildingType": "strip_club",
+      "label": "Vybrat cash",
+      "description": "Okamžitě vybere noční dirty cash ze Strip Clubu.",
+      "durationMs": 0,
+      "cooldownMs": 2400000,
+      "inputCost": {},
+      "outputGain": {
+        "dirty-cash": 1500
+      },
+      "heatGain": 5,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Strip Club vybral aktuální tržby. Přesná částka a HEAT jsou v přehledu výsledku.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "dirty-cash": 1275
+          },
+          "effectiveHeatGain": 7,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 32
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {
+            "dirty-cash": 1500
+          },
+          "effectiveHeatGain": 5,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 32
+        }
+      ]
+    },
+    {
+      "actionId": "vip_lounge",
+      "buildingType": "strip_club",
+      "label": "Hostit VIP klienty",
+      "description": "Na 30 minut zvýší produkci Strip Clubu, vliv, heat a šanci na drb.",
+      "durationMs": 1800000,
+      "cooldownMs": 3600000,
+      "inputCost": {
+        "cash": 800
+      },
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "effectModifiers": {
+        "cleanIncomeMultiplier": 1.45,
+        "dirtyIncomeMultiplier": 1.35,
+        "influenceMultiplier": 1.55,
+        "heatMultiplier": 1.5
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "VIP klienti jsou aktivní. Boost se sám se sebou nestackuje.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "blocked",
+          "blockedReason": "Hostit VIP klienty můžeš jen v noci.",
+          "effectiveInputCost": {
+            "cash": 800
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 800
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 30,
+          "cooldownMinutesBeforeNetworkBonuses": 48
+        }
+      ]
+    },
+    {
+      "actionId": "private_party",
+      "buildingType": "strip_club",
+      "label": "Soukromá party",
+      "description": "Přidá vliv, dočasně zvýší jeho tvorbu a může přinést extra drb nebo skandál.",
+      "durationMs": 600000,
+      "cooldownMs": 1800000,
+      "inputCost": {
+        "cash": 900
+      },
+      "outputGain": {},
+      "heatGain": 6,
+      "influenceChange": 12,
+      "effectModifiers": {
+        "influenceMultiplier": 1.7
+      },
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Soukromá party proběhla. Výsledek může obsahovat kontakt, extra drb nebo skandál.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 900
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 8,
+          "durationMinutes": 10,
+          "cooldownMinutesBeforeNetworkBonuses": 24
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {
+            "cash": 900
+          },
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 6,
+          "durationMinutes": 10,
+          "cooldownMinutesBeforeNetworkBonuses": 24
+        }
+      ]
+    },
+    {
+      "actionId": "start_drug_sale",
+      "buildingType": "street_dealers",
+      "label": "Prodat zásobu",
+      "description": "Prodá látku z Drug Labu přes jeden ze tří pevných slotů Pouličních dealerů. Minimum je 10 ks a současně může běžet jen jeden prodej.",
+      "durationMs": 0,
+      "cooldownMs": 0,
+      "inputCost": {},
+      "outputGain": {},
+      "heatGain": 0,
+      "influenceChange": 0,
+      "requiredOwner": true,
+      "allowedIfContested": false,
+      "reportText": "Pouliční dealeři spustili prodej přes vybraný slot.",
+      "phases": [
+        {
+          "phase": "day",
+          "availability": "penalized",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 0
+        },
+        {
+          "phase": "night",
+          "availability": "buffed",
+          "blockedReason": null,
+          "effectiveInputCost": {},
+          "effectiveOutputGain": {},
+          "effectiveHeatGain": 0,
+          "durationMinutes": 0,
+          "cooldownMinutesBeforeNetworkBonuses": 0
+        }
+      ]
+    }
+  ],
+  "supportingConfig": {
+    "arcade": {
+      "id": "arcade",
+      "buildingTypeId": "arcade",
+      "countOnMap": 16,
+      "category": [
+        "economy",
+        "dirty_cash",
+        "laundering",
+        "network"
+      ],
+      "cleanCashPerMinute": 30,
+      "dirtyCashPerMinute": 20,
+      "influencePerMinute": 0.05555555555555555,
+      "heatPerMinute": 0.12,
+      "launderingCapacity": 3800,
+      "baseAuditRiskPct": 3,
+      "auditWindowMinutes": 30,
+      "auditCheckEveryMinutes": 7,
+      "network": {
+        "incomeBonusPctPerExtraArcade": 5,
+        "launderingLimitBonusPctPerExtraArcade": 6,
+        "heatBonusPctPerExtraArcade": 3,
+        "maxIncomeMultiplier": 1.45,
+        "maxLaunderingLimitMultiplier": 1.55,
+        "maxHeatMultiplier": 1.27
+      },
+      "nightMachines": {
+        "actionId": "night_machines",
+        "cooldownMinutes": 45,
+        "durationMinutes": 20,
+        "cleanIncomeBonusPct": 35,
+        "dirtyIncomeBonusPct": 65,
+        "influenceBonusPct": 15,
+        "heatBonusPct": 45,
+        "auditRiskBonusPct": 4
+      },
+      "backCashdesk": {
+        "actionId": "back_cashdesk",
+        "cooldownMinutes": 16,
+        "minimumDirtyCash": 500,
+        "dirtyCashSharePct": 13,
+        "maxDirtyCashPerAction": 3800,
+        "feePct": 15,
+        "heatGain": 3,
+        "influenceGain": 1,
+        "auditRiskBonusPct": 3,
+        "auditRiskDurationMinutes": 8
+      },
+      "auditRiskTiers": [
+        {
+          "maxLaunderedAmount": 2000,
+          "riskPct": 3
+        },
+        {
+          "maxLaunderedAmount": 6000,
+          "riskPct": 7
+        },
+        {
+          "maxLaunderedAmount": 12000,
+          "riskPct": 14
+        },
+        {
+          "maxLaunderedAmount": 24000,
+          "riskPct": 24
+        },
+        {
+          "maxLaunderedAmount": null,
+          "riskPct": 36
+        }
+      ],
+      "auditConsequences": {
+        "machineInspection": {
+          "incomePenaltyPct": 6,
+          "durationMinutes": 8
+        },
+        "seizedMachine": {
+          "dirtyIncomePenaltyPct": 8,
+          "durationMinutes": 10
+        },
+        "closedBackRoom": {
+          "actionBlockedMinutes": 7
+        },
+        "operatingFine": {
+          "cleanCashLoss": 1200
+        },
+        "localRaid": {
+          "heatGain": 8
+        }
+      }
+    },
+    "casino": {
+      "buildingTypeId": "casino",
+      "countOnMap": 3,
+      "category": [
+        "economy",
+        "laundering",
+        "high-risk"
+      ],
+      "cleanCashPerMinute": 75,
+      "dirtyCashPerMinute": 41.666666666666664,
+      "influencePerMinute": 0.0763888888888889,
+      "heatPerMinute": 0.10416666666666667,
+      "launderingCapacity": 18000,
+      "baseAuditRiskPct": 8,
+      "auditWindowMinutes": 30,
+      "auditCheckEveryMinutes": 5,
+      "quietBackroom": {
+        "actionId": "quiet_backroom",
+        "cooldownMinutes": 14,
+        "minimumDirtyCash": 1500,
+        "dirtyCashSharePct": 24,
+        "maxDirtyCashPerAction": 18000,
+        "feePct": 9,
+        "heatGain": 7,
+        "influenceGain": 3,
+        "auditRiskBonusPct": 6,
+        "auditRiskDurationMinutes": 10
+      },
+      "vipNight": {
+        "actionId": "vip_night",
+        "cooldownMinutes": 26,
+        "durationMinutes": 10,
+        "cleanIncomeBonusPct": 70,
+        "dirtyIncomeBonusPct": 55,
+        "influenceBonusPct": 25,
+        "heatBonusPct": 60,
+        "auditRiskBonusPct": 8
+      },
+      "bribedInspector": {
+        "actionId": "bribed_inspector",
+        "cooldownMinutes": 75,
+        "cleanCashCost": 6500,
+        "protectionMinutes": 30,
+        "failureChancePct": 14,
+        "successHeatReduction": 15,
+        "successAuditRiskReductionPct": 35,
+        "successInfluenceGain": 4,
+        "failureHeatGain": 12,
+        "failureAuditRiskBonusPct": 10,
+        "failureAuditRiskDurationMinutes": 8
+      },
+      "auditRiskTiers": [
+        {
+          "maxLaunderedAmount": 5000,
+          "riskPct": 6
+        },
+        {
+          "maxLaunderedAmount": 12000,
+          "riskPct": 13
+        },
+        {
+          "maxLaunderedAmount": 25000,
+          "riskPct": 24
+        },
+        {
+          "maxLaunderedAmount": 45000,
+          "riskPct": 38
+        },
+        {
+          "maxLaunderedAmount": null,
+          "riskPct": 55
+        }
+      ],
+      "auditConsequences": {
+        "lightInspection": {
+          "incomePenaltyPct": 10,
+          "durationMinutes": 8
+        },
+        "seizedBooks": {
+          "dirtyCashLossPct": 12
+        },
+        "frozenAccounts": {
+          "launderingBlockedMinutes": 8
+        },
+        "policeRaid": {
+          "heatGain": 20,
+          "incomePenaltyPct": 20,
+          "durationMinutes": 10
+        },
+        "closedVipLounge": {
+          "vipBlockedMinutes": 12
+        }
+      },
+      "upgrades": [
+        {
+          "level": 1,
+          "cleanCashCost": 0,
+          "incomeBonusPct": 0,
+          "launderingLimitBonusPct": 0
+        },
+        {
+          "level": 2,
+          "cleanCashCost": 7500,
+          "techCoreCost": 3,
+          "incomeBonusPct": 12,
+          "launderingLimitBonusPct": 8
+        },
+        {
+          "level": 3,
+          "cleanCashCost": 18000,
+          "techCoreCost": 7,
+          "incomeBonusPct": 25,
+          "launderingLimitBonusPct": 16,
+          "feeReductionPct": 2
+        },
+        {
+          "level": 4,
+          "cleanCashCost": 38000,
+          "techCoreCost": 14,
+          "combatModuleCost": 3,
+          "incomeBonusPct": 40,
+          "launderingLimitBonusPct": 25,
+          "actionHeatReductionPct": 8
+        }
+      ]
+    },
+    "exchangeOffice": {
+      "id": "exchange_office",
+      "buildingTypeId": "exchange",
+      "countOnMap": 11,
+      "category": [
+        "economy",
+        "laundering",
+        "network"
+      ],
+      "cleanCashPerMinute": 70,
+      "dirtyCashPerMinute": 95,
+      "influencePerMinute": 0.041666666666666664,
+      "heatPerMinute": 0.04861111111111111,
+      "launderingCapacity": 6000,
+      "baseAuditRiskPct": 4,
+      "auditWindowMinutes": 30,
+      "auditCheckEveryMinutes": 6,
+      "network": {
+        "incomeBonusPctPerExtraExchange": 8,
+        "launderingLimitBonusPctPerExtraExchange": 10,
+        "heatBonusPctPerExtraExchange": 4,
+        "maxIncomeMultiplier": 1.48,
+        "maxLaunderingLimitMultiplier": 1.6,
+        "maxHeatMultiplier": 1.24
+      },
+      "goodRate": {
+        "actionId": "good_rate",
+        "cooldownMinutes": 18,
+        "minimumDirtyCash": 800,
+        "dirtyCashSharePct": 16,
+        "maxDirtyCashPerAction": 6000,
+        "feePct": 12,
+        "heatGain": 6,
+        "influenceGain": 3,
+        "auditRiskBonusPct": 4,
+        "auditRiskDurationMinutes": 8
+      },
+      "auditRiskTiers": [
+        {
+          "maxLaunderedAmount": 3000,
+          "riskPct": 4
+        },
+        {
+          "maxLaunderedAmount": 8000,
+          "riskPct": 9
+        },
+        {
+          "maxLaunderedAmount": 16000,
+          "riskPct": 17
+        },
+        {
+          "maxLaunderedAmount": 30000,
+          "riskPct": 28
+        },
+        {
+          "maxLaunderedAmount": null,
+          "riskPct": 42
+        }
+      ],
+      "auditConsequences": {
+        "suspiciousTransaction": {
+          "incomePenaltyPct": 8,
+          "durationMinutes": 8
+        },
+        "blockedTransfer": {
+          "actionBlockedMinutes": 7
+        },
+        "lostClient": {
+          "dirtyIncomePenaltyPct": 10,
+          "durationMinutes": 10
+        },
+        "documentCheck": {
+          "heatGain": 10
+        },
+        "seizedCash": {
+          "dirtyCashLossPct": 8
+        }
+      }
+    },
+    "restaurant": {
+      "id": "restaurant",
+      "buildingTypeId": "restaurant",
+      "countOnMap": 36,
+      "category": [
+        "economy",
+        "rumors",
+        "influence",
+        "city_life"
+      ],
+      "cleanCashPerMinute": 38,
+      "dirtyCashPerMinute": 0,
+      "influencePerMinute": 0.12,
+      "heatPerMinute": 0.04,
+      "noSpecialActions": false,
+      "noLaundering": true,
+      "noAuditRisk": true,
+      "passiveRumorIntervalMinutes": 40,
+      "baseRumorChancePct": 9,
+      "truthChanceByOwnedCount": [
+        {
+          "minOwned": 1,
+          "maxOwned": 2,
+          "truthChancePct": 45
+        },
+        {
+          "minOwned": 3,
+          "maxOwned": 5,
+          "truthChancePct": 50
+        },
+        {
+          "minOwned": 6,
+          "maxOwned": 9,
+          "truthChancePct": 55
+        },
+        {
+          "minOwned": 10,
+          "maxOwned": null,
+          "truthChancePct": 60
+        }
+      ],
+      "districtHintChancePct": 18,
+      "buildingHintChancePct": 8,
+      "rumorTypes": [
+        "civilian_movement",
+        "suspicious_delivery",
+        "police_interest",
+        "economic_activity",
+        "storage_movement",
+        "attack_preparation",
+        "weak_defense",
+        "fake"
+      ],
+      "network": {
+        "incomeBonusPctPerExtraRestaurant": 2.5,
+        "influenceBonusPctPerExtraRestaurant": 3,
+        "rumorChanceBonusPctPerExtraRestaurant": 4,
+        "heatBonusPctPerExtraRestaurant": 2,
+        "maxIncomeMultiplier": 1.25,
+        "maxInfluenceMultiplier": 1.3,
+        "maxRumorMultiplier": 1.4,
+        "maxHeatMultiplier": 1.2
+      }
+    },
+    "stripClub": {
+      "id": "strip_club",
+      "buildingTypeId": "strip_club",
+      "countOnMap": 17,
+      "category": [
+        "economy",
+        "influence",
+        "rumors",
+        "social_network"
+      ],
+      "cleanCashPerMinute": 75,
+      "dirtyCashPerMinute": 65,
+      "influencePerMinute": 0.0625,
+      "heatPerMinute": 0.059027777777777776,
+      "noLaundering": true,
+      "noAuditRisk": true,
+      "passiveRumorIntervalMinutes": 120,
+      "baseRumorChancePct": 100,
+      "baseTruthChancePct": 55,
+      "truthChancePctPerExtraClub": 3,
+      "maxTruthChancePct": 75,
+      "districtHintChancePct": 35,
+      "buildingHintChancePct": 20,
+      "rumorTypes": [
+        "money",
+        "relationships",
+        "police",
+        "attacks",
+        "storage",
+        "laundering",
+        "fake"
+      ],
+      "network": {
+        "incomeBonusPctPerExtraStripClub": 5,
+        "influenceBonusPctPerExtraStripClub": 7,
+        "rumorChanceBonusPctPerExtraStripClub": 8,
+        "heatBonusPctPerExtraStripClub": 4,
+        "maxIncomeMultiplier": 1.35,
+        "maxInfluenceMultiplier": 1.5,
+        "maxRumorMultiplier": 1.6,
+        "maxHeatMultiplier": 1.28
+      },
+      "vipLounge": {
+        "actionId": "vip_lounge",
+        "cooldownMinutes": 60,
+        "durationMinutes": 30,
+        "cleanCashCost": 800,
+        "cleanIncomeBonusPct": 45,
+        "dirtyIncomeBonusPct": 35,
+        "influenceBonusPct": 55,
+        "heatBonusPct": 50,
+        "rumorChanceFlatBonusPct": 10
+      },
+      "privateParty": {
+        "actionId": "private_party",
+        "cooldownMinutes": 30,
+        "durationMinutes": 10,
+        "cleanCashCost": 900,
+        "instantInfluenceGain": 12,
+        "influenceProductionBonusPct": 70,
+        "extraRumorChancePct": 45,
+        "heatGain": 6,
+        "scandalChancePct": 12,
+        "scandalHeatGain": 10,
+        "scandalInfluenceLoss": 4
+      }
+    },
+    "smugglingTunnel": {
+      "id": "smuggling_tunnel",
+      "buildingTypeId": "smuggling_tunnel",
+      "countOnMap": 18,
+      "category": [
+        "dirty_cash",
+        "smuggling",
+        "dealer_support",
+        "risk_reward"
+      ],
+      "cleanCashPerMinute": 0,
+      "dirtyCashPerMinute": 54,
+      "influencePerMinute": 0,
+      "populationPerMinute": 0,
+      "heatPerMinute": 0.07,
+      "noCleanCash": true,
+      "noInfluence": true,
+      "noPopulationProduction": true,
+      "noIntelPower": true,
+      "noLaundering": true,
+      "noAuditRisk": true,
+      "openChannel": {
+        "actionId": "open_channel",
+        "cooldownMinutes": 60,
+        "durationMinutes": 30,
+        "costCleanCash": 900,
+        "heatGain": 5,
+        "tunnelDirtyProductionBonusPct": 45,
+        "dealerSaleSpeedBonusPct": 10,
+        "dealerSaleHeatBonusPct": 15,
+        "streetIncidentFlatRiskPct": 5,
+        "stackable": false
+      },
+      "dealerSupply": {
+        "bonusPctPerTunnel": 4,
+        "maxBonusPct": 32,
+        "saleSpeedSharePct": 35,
+        "streetRiskReductionSharePct": 40,
+        "passiveDirtyIncomeSharePct": 25,
+        "saleHeatRiskSharePct": 20
+      },
+      "network": {
+        "dirtyProductionBonusPctPerExtraTunnel": 5,
+        "maxDirtyProductionMultiplier": 1.35,
+        "heatBonusPctPerExtraTunnel": 4,
+        "maxHeatMultiplier": 1.28
+      }
+    },
+    "streetDealers": {
+      "id": "street_dealers",
+      "buildingTypeId": "street_dealers",
+      "name": "Pouliční dealeři",
+      "countOnMap": 19,
+      "category": [
+        "dirty_cash",
+        "drug_distribution",
+        "street_economy"
+      ],
+      "cleanCashPerMinute": 0,
+      "dirtyCashPerMinute": 36,
+      "influencePerMinute": 0,
+      "populationPerMinute": 0,
+      "heatPerMinute": 0.06,
+      "noCleanCash": true,
+      "noInfluence": true,
+      "noPopulationProduction": true,
+      "noIntelPower": true,
+      "noLaundering": true,
+      "noAuditRisk": true,
+      "startDrugSale": {
+        "actionId": "start_drug_sale"
+      },
+      "dealerSlots": [
+        {
+          "slotId": "slot-1",
+          "itemId": "neon-dust"
+        },
+        {
+          "slotId": "slot-2",
+          "itemId": "pulse-shot"
+        },
+        {
+          "slotId": "slot-3",
+          "itemId": "velvet-smoke"
+        }
+      ],
+      "sellableDrugs": [
+        {
+          "itemId": "neon-dust",
+          "label": "Neon Dust",
+          "aliases": [
+            "neonDust"
+          ],
+          "unitSalePriceDirtyCash": 2196,
+          "cooldownMinutes": 4,
+          "baseHeatPerUnit": 2,
+          "minimumAmountPerSale": 10,
+          "baseStreetRiskPct": 4
+        },
+        {
+          "itemId": "pulse-shot",
+          "label": "Pulse Shot",
+          "aliases": [
+            "pulseShot"
+          ],
+          "unitSalePriceDirtyCash": 3492,
+          "cooldownMinutes": 5,
+          "baseHeatPerUnit": 3,
+          "minimumAmountPerSale": 10,
+          "baseStreetRiskPct": 6
+        },
+        {
+          "itemId": "velvet-smoke",
+          "label": "Velvet Smoke",
+          "aliases": [
+            "velvetSmoke"
+          ],
+          "unitSalePriceDirtyCash": 3780,
+          "cooldownMinutes": 6,
+          "baseHeatPerUnit": 4,
+          "minimumAmountPerSale": 10,
+          "baseStreetRiskPct": 8
+        }
+      ],
+      "streetIncidents": {
+        "extraCooldownMinutes": 3,
+        "fakeCustomerRewardPenaltyPct": 25,
+        "streetConflictHeatGain": 8,
+        "lostPackageAmountPct": 15,
+        "maxStreetRiskPct": 35
+      },
+      "network": {
+        "passiveDirtyIncomeBonusPctPerExtraDealer": 4,
+        "saleSpeedBonusPctPerExtraDealer": 3,
+        "heatBonusPctPerExtraDealer": 3,
+        "maxPassiveDirtyIncomeMultiplier": 1.28,
+        "maxSaleSpeedMultiplier": 1.22,
+        "maxHeatMultiplier": 1.22
+      }
+    },
+    "powerStation": {
+      "id": "power_station",
+      "buildingTypeId": "power_station",
+      "countOnMap": 9,
+      "category": [
+        "infrastructure",
+        "support",
+        "defense_multiplier"
+      ],
+      "cleanCashPerMinute": 46.333333333333336,
+      "dirtyCashPerMinute": 13,
+      "influencePerMinute": 0,
+      "heatPerMinute": 0.08,
+      "noPowerCapacity": true,
+      "noEnergyResource": true,
+      "noLaundering": true,
+      "noAuditRisk": true,
+      "infrastructure": {
+        "bonusPctPerStation": 4,
+        "maxBonusPct": 28,
+        "weights": {
+          "factoryProductionSpeed": 1,
+          "armoryProductionSpeed": 1,
+          "clinicRecoveryRate": 0.5,
+          "casinoIncome": 0.4,
+          "arcadeIncome": 0.4,
+          "exchangeIncome": 0.4,
+          "stripClubIncome": 0.3,
+          "apartmentPopulationProduction": 0.25
+        }
+      },
+      "network": {
+        "incomeBonusPctPerExtraStation": 4,
+        "heatBonusPctPerExtraStation": 3,
+        "maxIncomeMultiplier": 1.24,
+        "maxHeatMultiplier": 1.18
+      },
+      "defense": {
+        "cameraStrengthBonusPctPerStation": 5,
+        "alarmStrengthBonusPctPerStation": 5,
+        "maxCameraStrengthBonusPct": 35,
+        "maxAlarmStrengthBonusPct": 35
+      },
+      "backupGridSwitch": {
+        "actionId": "backup_grid_switch",
+        "cooldownMinutes": 60,
+        "durationMinutes": 25,
+        "cleanCashCost": 3500,
+        "heatGain": 3,
+        "temporaryInfrastructureBonusPct": 12,
+        "cameraStrengthBonusPct": 20,
+        "alarmStrengthBonusPct": 20,
+        "factoryProductionSpeedBonusPct": 10,
+        "armoryProductionSpeedBonusPct": 10
+      }
+    },
+    "school": {
+      "id": "school",
+      "buildingTypeId": "school",
+      "countOnMap": 6,
+      "category": [
+        "population",
+        "education",
+        "city_life"
+      ],
+      "cleanCashPerMinute": 18,
+      "dirtyCashPerMinute": 0,
+      "influencePerMinute": 0.05,
+      "heatPerMinute": 0,
+      "populationPerMinute": 0.55,
+      "baseStudentCapacity": 60,
+      "noDirtyCash": true,
+      "noLaundering": true,
+      "noAuditRisk": true,
+      "noHeat": true,
+      "productionStopsAtCapacity": true,
+      "requiresManualCollect": true,
+      "allowPartialCollect": true,
+      "network": {
+        "populationProductionBonusPctPerExtraSchool": 8,
+        "studentCapacityBonusPctPerExtraSchool": 10,
+        "incomeBonusPctPerExtraSchool": 4,
+        "maxPopulationProductionMultiplier": 1.4,
+        "maxStudentCapacityMultiplier": 1.5,
+        "maxIncomeMultiplier": 1.2
+      },
+      "talentPool": {
+        "baseChancePct": 0,
+        "chancePctPerExtraSchool": 0,
+        "maxChancePct": 0,
+        "eveningCourseTalentChanceBonusPct": 0,
+        "betterTalentChanceBonusPct": 0
+      },
+      "collectPopulation": {
+        "actionId": "collect_school_population",
+        "cooldownMinutes": 0,
+        "minCollectPopulation": 1
+      },
+      "eveningCourse": {
+        "actionId": "evening_course",
+        "cooldownMinutes": 35,
+        "durationMinutes": 20,
+        "costCleanCash": 1000,
+        "heatGain": 0,
+        "populationProductionMultiplier": 1.6,
+        "talentChanceFlatBonusPct": 0,
+        "betterTalentChanceBonusPct": 0,
+        "cleanIncomeMultiplier": 1,
+        "stackable": false
+      }
+    },
+    "clinic": {
+      "id": "clinic",
+      "buildingTypeId": "clinic",
+      "countOnMap": 8,
+      "category": [
+        "economy",
+        "recovery",
+        "support"
+      ],
+      "cleanCashPerMinute": 51.666666666666664,
+      "dirtyCashPerMinute": 0,
+      "influencePerMinute": 0,
+      "heatPerMinute": 0.059027777777777776,
+      "noLaundering": true,
+      "noAuditRisk": true,
+      "recovery": {
+        "baseRecoveryRatePct": 15,
+        "recoveryRatePctPerExtraClinic": 3,
+        "maxRecoveryRatePct": 40,
+        "poolTtlMinutes": 90,
+        "toxicTrapRateMultiplier": 0.5
+      },
+      "network": {
+        "incomeBonusPctPerExtraClinic": 5,
+        "heatBonusPctPerExtraClinic": 3,
+        "maxIncomeMultiplier": 1.4,
+        "maxHeatMultiplier": 1.24
+      },
+      "stabilizationProtocol": {
+        "actionId": "stabilization_protocol",
+        "cooldownMinutes": 18,
+        "cleanCashCost": 1200,
+        "heatGain": 1
+      }
+    },
+    "recyclingCenter": {
+      "id": "recycling_center",
+      "buildingTypeId": "recycling_center",
+      "countOnMap": 14,
+      "category": [
+        "support",
+        "salvage",
+        "item_recovery"
+      ],
+      "cleanCashPerMinute": 40,
+      "dirtyCashPerMinute": 0,
+      "influencePerMinute": 0,
+      "heatPerMinute": 0.08,
+      "noLaundering": true,
+      "noAuditRisk": true,
+      "noPopulationProduction": true,
+      "noPopulationRecovery": true,
+      "salvage": {
+        "baseRatePct": 12,
+        "ratePctPerExtraCenter": 3,
+        "maxRatePct": 34,
+        "poolTtlMinutes": 18,
+        "rareItems": [
+          "tech-core",
+          "combat-module"
+        ],
+        "recoverableItems": {
+          "chemicals": {
+            "itemName": "Chemicals",
+            "category": "materials"
+          },
+          "biomass": {
+            "itemName": "Biomass",
+            "category": "materials"
+          },
+          "metal-parts": {
+            "itemName": "Metal Parts",
+            "category": "materials"
+          },
+          "tech-core": {
+            "itemName": "Tech Core",
+            "category": "materials"
+          },
+          "combat-module": {
+            "itemName": "Bojový modul",
+            "category": "materials"
+          }
+        }
+      },
+      "extractLosses": {
+        "actionId": "extract_losses",
+        "cooldownMinutes": 16,
+        "cleanCashCost": 900,
+        "heatGain": 2
+      },
+      "network": {
+        "incomeBonusPctPerExtraCenter": 4,
+        "heatBonusPctPerExtraCenter": 3,
+        "maxIncomeMultiplier": 1.28,
+        "maxHeatMultiplier": 1.21
+      }
+    },
+    "lobbyClub": {
+      "id": "lobby_club",
+      "buildingTypeId": "lobby_club",
+      "countOnMap": 2,
+      "zone": "downtown",
+      "category": [
+        "ultra_rare",
+        "lobbying",
+        "influence",
+        "political_support"
+      ],
+      "cleanCashPerMinute": 95,
+      "dirtyCashPerMinute": 0,
+      "influencePerMinute": 0.65,
+      "populationPerMinute": 0,
+      "heatPerMinute": 0.1,
+      "noIntelPower": true,
+      "noDirtyCash": true,
+      "noPopulationProduction": true,
+      "noLaundering": true,
+      "noAuditRisk": true,
+      "lobbyPressureTiers": [
+        {
+          "minOwned": 1,
+          "maxOwned": 1,
+          "pressurePct": 10,
+          "incomeMultiplier": 1,
+          "influenceMultiplier": 1,
+          "heatMultiplier": 1
+        },
+        {
+          "minOwned": 2,
+          "maxOwned": 99,
+          "pressurePct": 22,
+          "incomeMultiplier": 1.12,
+          "influenceMultiplier": 1.18,
+          "heatMultiplier": 1.1
+        }
+      ],
+      "influenceCostReduction": {
+        "oneClubPct": 8,
+        "twoClubPct": 15,
+        "maxCombinedPct": 25
+      },
+      "negativeRumorReduction": {
+        "oneClubPct": 10,
+        "twoClubPct": 18,
+        "minNegativeRumorChancePct": 5
+      },
+      "civilNetworkSupport": {
+        "restaurantCivilRumorTruthPct": 4,
+        "convenienceDistrictHintChancePct": 4,
+        "shoppingMallMarketFeeReductionPct": 3,
+        "vipLoungeTruthChancePct": 3
+      },
+      "backroomPressure": {
+        "actionId": "backroom_pressure",
+        "cooldownMinutes": 40,
+        "durationMinutes": 20,
+        "costInfluence": 8,
+        "costCleanCash": 1200,
+        "heatGain": 3,
+        "influenceProductionBonusPct": 18,
+        "influenceActionCostReductionPct": 10,
+        "negativeRumorReductionPct": 15,
+        "districtControlPressurePct": 8,
+        "politicalActionHeatIncreasePct": 10,
+        "scandalRiskPct": 8
+      },
+      "quietNegotiation": {
+        "actionId": "quiet_negotiation",
+        "cooldownMinutes": 24,
+        "costCleanCash": 800,
+        "costInfluence": 5,
+        "heatGain": 2,
+        "cooldownRemainingReductionPct": 20,
+        "riskReductionPct": 10,
+        "riskReductionMinutes": 8,
+        "nextInfluenceActionDiscountPct": 8,
+        "nextInfluenceActionDiscountMinutes": 8,
+        "scandalRiskPct": 6,
+        "targetBuildingTypeIds": [
+          "city_hall",
+          "vip_lounge",
+          "strip_club",
+          "stock_exchange",
+          "central_bank",
+          "port",
+          "airport"
+        ]
+      },
+      "mediaScreen": {
+        "actionId": "media_screen",
+        "cooldownMinutes": 30,
+        "durationMinutes": 15,
+        "costCleanCash": 800,
+        "heatGain": 4,
+        "negativeRumorReductionPct": 35,
+        "negativeRumorTruthReductionPct": 15,
+        "policeRaidWarningChancePct": 6,
+        "civilRumorTruthPct": 6,
+        "weakRewriteChancePct": 35,
+        "scandalRiskPct": 7
+      },
+      "lobbyScandal": {
+        "intervalMinutes": 8,
+        "passiveRiskPct": 2,
+        "cityHallRiskPct": 3,
+        "stockExchangeRiskPct": 3,
+        "heatThreshold": 150,
+        "heatRiskPct": 8,
+        "influenceLoss": 10,
+        "incomePenaltyPct": 40,
+        "incomePenaltyMinutes": 8,
+        "influenceReductionDisabledMinutes": 8,
+        "policeHeatGain": 12
+      },
+      "synergies": {
+        "cityHallOfficialCoverCostReductionPct": 5,
+        "cityHallContractRewardPct": 5,
+        "cityHallEmergencyDecreeCooldownMinutes": 2,
+        "cityHallCorruptionScandalRiskPct": 3,
+        "vipLoungeTruthChancePct": 3,
+        "vipLoungeNegativeRumorReductionPct": 5,
+        "vipLoungeBackroomWhisperCostReductionPct": 5,
+        "stripClubRumorTruthPct": 4,
+        "stripClubPrivatePartyScandalReductionPct": 4,
+        "stockExchangeSpeculativeBuyCostReductionPct": 5,
+        "stockExchangeFinancialInspectionRiskPct": 3
+      }
+    },
+    "cityHall": {
+      "id": "city_hall",
+      "buildingTypeId": "city_hall",
+      "countOnMap": 1,
+      "zone": "downtown",
+      "category": [
+        "ultra_rare",
+        "politics",
+        "city_control",
+        "heat_management"
+      ],
+      "cleanCashPerMinute": 130,
+      "dirtyCashPerMinute": 0,
+      "influencePerMinute": 0.85,
+      "populationPerMinute": 0,
+      "heatPerMinute": 0.12,
+      "noIntelPower": true,
+      "noDirtyCash": true,
+      "noPopulationProduction": true,
+      "noLaundering": true,
+      "cityAuthority": {
+        "influenceGenerationBonusPct": 10,
+        "legalBuildingHeatReductionPct": 8,
+        "policeRaidWarningChancePct": 12,
+        "warningCooldownMinutes": 10,
+        "influenceActionCostReductionPct": 10,
+        "maxInfluenceActionCostReductionPct": 25,
+        "districtControlPressurePct": 8,
+        "legalBuildingTypeIds": [
+          "restaurant",
+          "convenience_store",
+          "shopping_mall",
+          "school",
+          "fitness_club",
+          "garage",
+          "car_dealer",
+          "warehouse",
+          "clinic",
+          "recruitment_center",
+          "recycling_center",
+          "power_station"
+        ]
+      },
+      "officialCover": {
+        "actionId": "official_cover",
+        "cooldownMinutes": 20,
+        "durationMinutes": 8,
+        "costInfluence": 25,
+        "costCleanCash": 1500,
+        "heatGain": 2,
+        "heatGainReductionPct": 35,
+        "policeControlChanceReductionPct": 20,
+        "rumorChanceReductionPct": 15,
+        "riskPct": 8
+      },
+      "cityContract": {
+        "actionId": "city_contract",
+        "cooldownMinutes": 18,
+        "costInfluence": 20,
+        "heatGain": 3,
+        "baseRewardCleanCash": 1500,
+        "rewardPerLegalBuilding": 120,
+        "maxRewardCleanCash": 6500,
+        "restaurantConvenienceSynergyPct": 10,
+        "restaurantSynergyThreshold": 6,
+        "convenienceSynergyThreshold": 4,
+        "riskPct": 6,
+        "riskDurationMinutes": 8,
+        "legalBuildingTypeIds": [
+          "restaurant",
+          "convenience_store",
+          "school",
+          "warehouse",
+          "clinic",
+          "fitness_club",
+          "garage",
+          "car_dealer",
+          "shopping_mall",
+          "power_station",
+          "recruitment_center",
+          "recycling_center"
+        ]
+      },
+      "emergencyDecree": {
+        "actionId": "emergency_decree",
+        "cooldownMinutes": 28,
+        "durationMinutes": 6,
+        "costInfluence": 40,
+        "costCleanCash": 2500,
+        "heatGain": 8,
+        "riskPct": 12,
+        "modes": {
+          "nightPatrols": {
+            "modeId": "night_patrols",
+            "incomingAttackPreparationIncreasePct": 8,
+            "districtRobberyCooldownIncreasePct": 12,
+            "defenseBonusPct": 5
+          },
+          "suspendedChecks": {
+            "modeId": "suspended_checks",
+            "heatGainReductionPct": 18,
+            "policeIncidentChanceReductionPct": 10
+          },
+          "constructionClosure": {
+            "modeId": "construction_closure",
+            "enemyZoneMovementTimeIncreasePct": 10,
+            "enemyZoneRobberyTimeIncreasePct": 10
+          }
+        }
+      },
+      "corruptionScandal": {
+        "intervalMinutes": 8,
+        "passiveRiskPct": 2,
+        "heatThreshold": 150,
+        "heatRiskPct": 8,
+        "casinoOrStockExchangeRiskPct": 4,
+        "stockExchangeSynergyRiskPct": 5,
+        "airportSynergyRiskPct": 4,
+        "influencePenaltyPct": 50,
+        "influencePenaltyMinutes": 8,
+        "cityContractBlockedMinutes": 8,
+        "publicResistanceInfluenceLoss": 12,
+        "policeOversightHeatGain": 14
+      },
+      "synergies": {
+        "stripClubContactChancePct": 5,
+        "stripClubPrivatePartyScandalReductionPct": 3,
+        "civilRumorTruthRestaurantThreshold": 10,
+        "civilRumorTruthConvenienceThreshold": 8,
+        "civilRumorTruthBonusPct": 5,
+        "stockExchangeFinancialInspectionRiskReductionPct": 5,
+        "airportCustomsRiskReductionPct": 5
+      }
+    },
+    "centralBank": {
+      "id": "central_bank",
+      "buildingTypeId": "central_bank",
+      "countOnMap": 2,
+      "zone": "downtown",
+      "category": [
+        "ultra_rare",
+        "finance",
+        "reserve",
+        "market_stability"
+      ],
+      "cleanCashPerMinute": 160,
+      "dirtyCashPerMinute": 0,
+      "influencePerMinute": 0.35,
+      "populationPerMinute": 0,
+      "heatPerMinute": 0.1,
+      "noIntelPower": true,
+      "noDirtyCash": true,
+      "noPopulationProduction": true,
+      "noLaundering": true,
+      "reserveTiers": [
+        {
+          "minOwned": 1,
+          "maxOwned": 1,
+          "cleanCashProtectionPct": 12,
+          "interestIntervalMinutes": 10,
+          "interestPct": 2.5,
+          "maxInterestCleanCash": 2500,
+          "incomeMultiplier": 1,
+          "influenceMultiplier": 1,
+          "heatMultiplier": 1,
+          "fineReductionPct": 10,
+          "marketFeeReductionPct": 5,
+          "financialInspectionPenaltyReductionPct": 8,
+          "economicCrisisImpactReductionPct": 12
+        },
+        {
+          "minOwned": 2,
+          "maxOwned": 2,
+          "cleanCashProtectionPct": 22,
+          "interestIntervalMinutes": 10,
+          "interestPct": 4,
+          "maxInterestCleanCash": 4000,
+          "incomeMultiplier": 1.18,
+          "influenceMultiplier": 1.15,
+          "heatMultiplier": 1.12,
+          "fineReductionPct": 18,
+          "marketFeeReductionPct": 8,
+          "financialInspectionPenaltyReductionPct": 14,
+          "economicCrisisImpactReductionPct": 20
+        }
+      ],
+      "liquidityInjection": {
+        "actionId": "liquidity_injection",
+        "cooldownMinutes": 20,
+        "costInfluence": 20,
+        "heatGain": 4,
+        "baseRewardCleanCash": 2500,
+        "rewardPerCleanEconomyBuilding": 90,
+        "maxRewardCleanCash": 8000,
+        "shoppingMallRewardBonusPct": 8,
+        "riskPct": 6,
+        "riskDurationMinutes": 8,
+        "cleanEconomyBuildingTypeIds": [
+          "restaurant",
+          "convenience_store",
+          "shopping_mall",
+          "garage",
+          "car_dealer",
+          "warehouse",
+          "fitness_club",
+          "school",
+          "clinic",
+          "recycling_center",
+          "power_station",
+          "city_hall",
+          "stock_exchange",
+          "airport",
+          "port",
+          "vip_lounge"
+        ]
+      },
+      "frozenAccounts": {
+        "actionId": "frozen_accounts",
+        "cooldownMinutes": 24,
+        "durationMinutes": 8,
+        "costCleanCash": 2000,
+        "heatGain": 5,
+        "cleanCashProtectionBonusPct": 25,
+        "dirtyCashProtectionPct": 8,
+        "fineReductionPct": 20,
+        "financialEventLossReductionPct": 25,
+        "marketFeePenaltyPct": 5,
+        "riskPct": 8
+      },
+      "currencyIntervention": {
+        "actionId": "currency_intervention",
+        "cooldownMinutes": 28,
+        "durationMinutes": 8,
+        "costCleanCash": 3000,
+        "costInfluence": 25,
+        "heatGain": 7,
+        "targetCategories": [
+          "materials",
+          "weapons",
+          "defenseItems",
+          "rareComponents",
+          "drugsAndBoosts"
+        ],
+        "volatilityReductionPct": 30,
+        "priceMoveCapPct": 6,
+        "holderMarketFeeReductionPct": 6,
+        "stockExchangeEffectReductionPct": 25,
+        "stockExchangeSynergyEffectBonusPct": 10,
+        "riskPct": 12
+      },
+      "financialOversight": {
+        "intervalMinutes": 8,
+        "passiveRiskPct": 2,
+        "heatThreshold": 150,
+        "heatRiskPct": 8,
+        "stockExchangeRiskPct": 5,
+        "cityHallRiskReductionPct": 4,
+        "interestDisabledMinutes": 8,
+        "liquidityBlockedMinutes": 8,
+        "regulatoryFineCleanCash": 3500,
+        "feeReductionDisabledMinutes": 8
+      },
+      "synergies": {
+        "stockExchangeSpeculativeRiskReductionPct": 5,
+        "cityHallCorruptionPenaltyReductionPct": 8,
+        "cityHallInfluenceActionCostReductionPct": 3,
+        "shoppingMallMarketFeeReductionPct": 3,
+        "shoppingMallCleanIncomeBonusPct": 4
+      }
+    },
+    "stockExchange": {
+      "id": "stock_exchange",
+      "buildingTypeId": "stock_exchange",
+      "countOnMap": 1,
+      "zone": "downtown",
+      "category": [
+        "ultra_rare",
+        "economy",
+        "market_control",
+        "financial_power"
+      ],
+      "cleanCashPerMinute": 220,
+      "dirtyCashPerMinute": 0,
+      "influencePerMinute": 0.45,
+      "populationPerMinute": 0,
+      "heatPerMinute": 0.18,
+      "noDirtyCash": true,
+      "noPopulationProduction": true,
+      "noIntelPower": true,
+      "noLaundering": true,
+      "marketInsight": {
+        "intervalMinutes": 8,
+        "baseHintCount": 1,
+        "insiderHintCount": 3
+      },
+      "marketFeeReduction": {
+        "regularMarketPct": 10,
+        "playerMarketPct": 5,
+        "blackMarketPct": 3,
+        "insiderExtraPct": 8
+      },
+      "speculativeBuy": {
+        "actionId": "speculative_buy",
+        "cooldownMinutes": 16,
+        "costCleanCash": 750,
+        "maxInvestmentCleanCash": 10000,
+        "heatGain": 5,
+        "targetCategories": [
+          "materials",
+          "drugsAndBoosts",
+          "weapons",
+          "defenseItems",
+          "rareComponents"
+        ],
+        "successChancePct": 65,
+        "insiderSuccessChanceBonusPct": 12,
+        "successProfitMinPct": 25,
+        "successProfitMaxPct": 45,
+        "neutralChancePct": 25,
+        "neutralReturnMinPct": -8,
+        "neutralReturnMaxPct": 8,
+        "lossReturnMinPct": -30,
+        "lossReturnMaxPct": -15,
+        "riskPct": 6,
+        "riskDurationMinutes": 8
+      },
+      "marketPressure": {
+        "actionId": "market_pressure",
+        "cooldownMinutes": 22,
+        "durationMinutes": 10,
+        "costCleanCash": 3000,
+        "costInfluence": 15,
+        "heatGain": 8,
+        "targetCategories": [
+          "materials",
+          "drugsAndBoosts",
+          "weapons",
+          "defenseItems",
+          "rareComponents"
+        ],
+        "pumpRegularPct": 12,
+        "dumpRegularPct": -10,
+        "blackMarketEffectSharePct": 40,
+        "riskPct": 12,
+        "riskDurationMinutes": 10
+      },
+      "insiderWindow": {
+        "actionId": "insider_window",
+        "cooldownMinutes": 30,
+        "durationMinutes": 16,
+        "costCleanCash": 750,
+        "heatGain": 4,
+        "financialInspectionRiskPct": 10
+      },
+      "financialInspection": {
+        "intervalMinutes": 6,
+        "multiActionWindowMinutes": 20,
+        "multiActionThreshold": 2,
+        "multiActionRiskPct": 8,
+        "heatThreshold": 150,
+        "heatRiskPct": 10,
+        "frozenIncomeMinutes": 6,
+        "feeReductionDisabledMinutes": 8,
+        "fineCleanCash": 3000,
+        "panicVolatilityPct": 15,
+        "panicDurationMinutes": 8,
+        "scandalHeatGain": 12
+      }
+    },
+    "airport": {
+      "id": "airport",
+      "buildingTypeId": "airport",
+      "countOnMap": 1,
+      "zone": "downtown",
+      "category": [
+        "ultra_rare",
+        "logistics",
+        "import",
+        "black_market_support",
+        "mobility"
+      ],
+      "cleanCashPerMinute": 180,
+      "dirtyCashPerMinute": 45,
+      "influencePerMinute": 0.2,
+      "populationPerMinute": 0,
+      "heatPerMinute": 0.2,
+      "noIntelPower": true,
+      "noPopulationProduction": true,
+      "noLaundering": true,
+      "importDiscount": {
+        "materialsPct": 8,
+        "rareComponentsPct": 6,
+        "weaponsPct": 5,
+        "defenseItemsPct": 5,
+        "drugsAndBoostsPct": 0,
+        "blackMarketItemsPct": 4,
+        "shoppingMallMaterialsSynergyPct": 2
+      },
+      "cooldownReduction": {
+        "marketDeliveryPct": 15,
+        "blackMarketDeliveryPct": 10,
+        "resourceTransferPct": 8,
+        "equipmentTransferPct": 8,
+        "shoppingMallMarketDeliverySynergyPct": 5,
+        "combinedLogisticsMaxReductionPct": 30
+      },
+      "blackMarketSignal": {
+        "rareItemOfferChanceBonusPct": 12,
+        "extraStockRefreshOffers": 1,
+        "weaponsAndComponentsChanceBonusPct": 10
+      },
+      "expressImport": {
+        "actionId": "express_import",
+        "cooldownMinutes": 18,
+        "durationSeconds": 90,
+        "costCleanCash": 2000,
+        "nextImportCostPenaltyPct": 20,
+        "heatGain": 6,
+        "targetCategories": [
+          "materials",
+          "rareComponents",
+          "weapons",
+          "defenseItems"
+        ],
+        "customsRiskPct": 10,
+        "customsHeatGain": 10,
+        "customsShipmentPenaltyPct": 25,
+        "shipmentValueRanges": {
+          "materials": {
+            "min": 3000,
+            "max": 4000
+          },
+          "rareComponents": {
+            "min": 4200,
+            "max": 6000
+          },
+          "weapons": {
+            "min": 3000,
+            "max": 4200
+          },
+          "defenseItems": {
+            "min": 3000,
+            "max": 4200
+          }
+        }
+      },
+      "blackCharter": {
+        "actionId": "black_charter",
+        "cooldownMinutes": 24,
+        "durationMinutes": 8,
+        "costDirtyCash": 1000,
+        "heatGain": 9,
+        "specialOfferDiscountPct": 6,
+        "purchaseCustomsRiskPct": 15,
+        "offerItems": [
+          "tech-core",
+          "combat-module",
+          "smg",
+          "bazooka",
+          "ghost-serum",
+          "overdrive-x"
+        ]
+      },
+      "evacuationCorridor": {
+        "actionId": "evacuation_corridor",
+        "cooldownMinutes": 26,
+        "durationMinutes": 7,
+        "costCleanCash": 1800,
+        "heatGain": 5,
+        "escapeChanceBonusPct": 18,
+        "peopleLossReductionPct": 10,
+        "equipmentLossReductionPct": 10,
+        "retreatReturnTimeReductionPct": 12,
+        "gangMovementTimeReductionPct": 10,
+        "customsRiskPct": 6
+      },
+      "customsInspection": {
+        "intervalMinutes": 8,
+        "passiveRiskPct": 3,
+        "heatThreshold": 150,
+        "heatRiskPct": 8,
+        "smugglingTunnelThreshold": 6,
+        "smugglingTunnelRiskPct": 5,
+        "stockExchangeSynergyRiskPct": 5,
+        "discountDisabledMinutes": 8,
+        "hangarHeatGain": 14,
+        "nextImportCostPenaltyPct": 20
+      }
+    },
+    "port": {
+      "id": "port",
+      "buildingTypeId": "port",
+      "countOnMap": 1,
+      "zone": "downtown",
+      "category": [
+        "logistics",
+        "containers",
+        "materials",
+        "dirty_cash_routes"
+      ],
+      "cleanCashPerMinute": 26,
+      "dirtyCashPerMinute": 8.5,
+      "influencePerMinute": 0.018055555555555554,
+      "populationPerMinute": 0,
+      "heatPerMinute": 0.003472222222222222,
+      "noPopulationProduction": true,
+      "containerCut": {
+        "actionId": "port_container_cut",
+        "cooldownMinutes": 40,
+        "heatGain": 6,
+        "dirtyCashGain": 900,
+        "metalPartsGain": 6,
+        "influenceGain": 2
+      }
+    },
+    "parliament": {
+      "id": "parliament",
+      "buildingTypeId": "parliament",
+      "countOnMap": 1,
+      "zone": "downtown",
+      "category": [
+        "ultra_rare",
+        "power",
+        "politics",
+        "influence"
+      ],
+      "cleanCashPerMinute": 22,
+      "dirtyCashPerMinute": 3,
+      "influencePerMinute": 0.027777777777777776,
+      "populationPerMinute": 0,
+      "heatPerMinute": 0.0020833333333333333,
+      "noPopulationProduction": true,
+      "policyWindow": {
+        "actionId": "parliament_policy_window",
+        "cooldownMinutes": 45,
+        "heatGain": 5,
+        "cleanCashGain": 1600,
+        "influenceGain": 10
+      }
+    }
+  },
+  "cashCollections": [
+    {
+      "actionId": "restaurant_collect_revenue",
+      "baseReward": {
+        "cash": 1800,
+        "dirty-cash": 900
+      },
+      "cooldownMinutesBeforeOtherBonuses": 48,
+      "cleanEquivalentPerUse": 2430,
+      "cleanEquivalentPerEligibleHour": 3037.5,
+      "heatPerEligibleHour": 6.25
+    },
+    {
+      "actionId": "strip_club_collect_cash",
+      "baseReward": {
+        "dirty-cash": 1500
+      },
+      "cooldownMinutesBeforeOtherBonuses": 32,
+      "cleanEquivalentPerUse": 1050,
+      "cleanEquivalentPerEligibleHour": 1968.75,
+      "heatPerEligibleHour": 9.375
+    },
+    {
+      "actionId": "port_container_cut",
+      "baseReward": {
+        "dirty-cash": 900,
+        "metal-parts": 6
+      },
+      "cooldownMinutesBeforeOtherBonuses": 32,
+      "cleanEquivalentPerUse": 2430,
+      "cleanEquivalentPerEligibleHour": 4556.25,
+      "heatPerEligibleHour": 11.25
+    },
+    {
+      "actionId": "parliament_policy_window",
+      "baseReward": {
+        "cash": 1600
+      },
+      "cooldownMinutesBeforeOtherBonuses": 36,
+      "cleanEquivalentPerUse": 1600,
+      "cleanEquivalentPerEligibleHour": 2666.6666666666665,
+      "heatPerEligibleHour": 8.333333333333334
+    },
+    {
+      "actionId": "power_station_feed_production",
+      "baseReward": {
+        "cash": 2000,
+        "dirty-cash": 500
+      },
+      "cooldownMinutesBeforeOtherBonuses": 48,
+      "cleanEquivalentPerUse": 2350,
+      "cleanEquivalentPerEligibleHour": 2937.5,
+      "heatPerEligibleHour": 12.5
+    }
+  ],
+  "drugSales": [
+    {
+      "itemId": "neon-dust",
+      "completeCostClean": 1220,
+      "priceDirty": 2196,
+      "grossMarginAfter15PctLaundering": 646.5999999999999,
+      "heatPerUnit": 2,
+      "riskPctAtMinimumBeforeBonuses": 14,
+      "minimumBatch": 10
+    },
+    {
+      "itemId": "pulse-shot",
+      "completeCostClean": 1940,
+      "priceDirty": 3492,
+      "grossMarginAfter15PctLaundering": 1028.1999999999998,
+      "heatPerUnit": 3,
+      "riskPctAtMinimumBeforeBonuses": 16,
+      "minimumBatch": 10
+    },
+    {
+      "itemId": "velvet-smoke",
+      "completeCostClean": 2100,
+      "priceDirty": 3780,
+      "grossMarginAfter15PctLaundering": 1113,
+      "heatPerUnit": 4,
+      "riskPctAtMinimumBeforeBonuses": 18,
+      "minimumBatch": 10
+    }
+  ],
+  "airportSamples": [
+    {
+      "category": "materials",
+      "samples": 1000,
+      "minFullValue": 2820,
+      "maxFullValue": 3960,
+      "meanFullValue": 3385.2,
+      "meanCustomsValue": 2314.38,
+      "expectedValueIncludingCustoms": 3278.118,
+      "price": 2000
+    },
+    {
+      "category": "rareComponents",
+      "samples": 1000,
+      "minFullValue": 4200,
+      "maxFullValue": 4200,
+      "meanFullValue": 4200,
+      "meanCustomsValue": 2100,
+      "expectedValueIncludingCustoms": 3990,
+      "price": 2000
+    },
+    {
+      "category": "weapons",
+      "samples": 1000,
+      "minFullValue": 2700,
+      "maxFullValue": 3900,
+      "meanFullValue": 3328.2,
+      "meanCustomsValue": 756,
+      "expectedValueIncludingCustoms": 3070.98,
+      "price": 2000
+    },
+    {
+      "category": "defenseItems",
+      "samples": 1000,
+      "minFullValue": 2400,
+      "maxFullValue": 3900,
+      "meanFullValue": 3030,
+      "meanCustomsValue": 480,
+      "expectedValueIncludingCustoms": 2775,
+      "price": 2000
+    }
+  ],
+  "speculation": {
+    "maxInvestment": 10000,
+    "baseExpectedNetBeforeRisk": 1300,
+    "insiderExpectedNetBeforeWindowCostAndRisk": 1945,
+    "windowCost": 750
+  }
+}

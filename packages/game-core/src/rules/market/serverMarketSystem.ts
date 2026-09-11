@@ -1,3 +1,4 @@
+import { resolveAirportCharter, rollAirportCharterCustoms } from "./airportCharter";
 import {
   clonePriceHistory,
   cloneServerState
@@ -206,6 +207,11 @@ export const buyResource = (
   addRollingVolume(state.market, resourceId, "buy", safeAmount, now);
   const risk = applyTransactionRisk(state, player, marketType, totalPrice, now);
   const blackMarketHeat = marketType === "black" ? applyBlackMarketHeat(state, player, totalPrice, now) : { heatAdded: 0, policeSuspicionAdded: 0 };
+  const customsHeat = marketType === "black" ? rollAirportCharterCustoms(state, getPlayerId(player), resourceId) : 0;
+  if (customsHeat > 0) {
+    addHeatToPlayer(state, player, customsHeat, "airport_charter_customs");
+    appendGameLog(state, "market", `Celní kontrola charteru: HEAT +${customsHeat}.`, { playerId: getPlayerId(player), resourceId, heatAdded: customsHeat });
+  }
   const transaction = appendMarketTransaction(state, {
     id: createMarketTransactionId(state, now, player),
     timestamp: now,
@@ -243,11 +249,11 @@ export const buyResource = (
     shoppingMallDiscountPct: marketBonus.discountPct,
     shoppingMallDiscountAmount: Math.max(0, baseUnitPrice - unitPrice) * safeAmount,
     marketFeeReductionPct: marketBonus.marketFeeReductionPct,
-    heatAdded: blackMarketHeat.heatAdded,
+    heatAdded: blackMarketHeat.heatAdded + customsHeat,
     policeSuspicionAdded: blackMarketHeat.policeSuspicionAdded + risk.policeSuspicionAdded,
     auditTriggered: risk.auditTriggered,
     transactionId: transaction.id,
-    message: "Nákup na server marketu proběhl."
+    message: customsHeat > 0 ? `Nákup proběhl. Celní kontrola charteru zvýšila HEAT o ${customsHeat}.` : "Nákup na server marketu proběhl."
   };
 };
 
@@ -1209,7 +1215,8 @@ const getAirportImportDiscountPct = (
   if (!building) return 0;
   const metadata = isPlainObject(building.metadata?.airport) ? building.metadata.airport : {};
   if (Number(metadata.discountDisabledUntilTick || 0) > tick) return 0;
-  if (marketType === "black") return Math.max(0, Number(config.importDiscount?.blackMarketItemsPct || 0));
+  if (marketType === "black") return Math.max(0, Number(config.importDiscount?.blackMarketItemsPct || 0))
+    + resolveAirportCharter(serverState, playerId, resourceId).discountPct;
   if (marketType !== "normal") return 0;
   const category = getAirportImportCategoryForResource(resourceId);
   const shoppingMallBonus = category === "materials" && getOwnedShoppingMallCountForMarket(serverState, playerId, "shopping_mall") > 0

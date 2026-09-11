@@ -10,7 +10,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     actionId: "open_channel",
     buildingType: "smuggling_tunnel",
     label: "Otevřít kanál",
-    description: "Na 15 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
+    description: "Na 30 minut globálně posílí dirty cash produkci Pašovacích tunelů a prodej Pouličních dealerů. Nestackuje se.",
     durationMs: freeModeSmugglingTunnelConfig.openChannel.durationMinutes * 60 * 1000,
     cooldownMs: freeModeSmugglingTunnelConfig.openChannel.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeSmugglingTunnelConfig.openChannel.costCleanCash },
@@ -19,7 +19,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Otevřený kanál krátkodobě zvedne tok špinavých peněz v tunelech. Pouliční dealeři prodávají výhodněji, ale roste riziko pouličního incidentu."
+    reportText: "Otevřený kanál krátkodobě zvedne tok špinavých peněz v tunelech. Pouliční dealeři mohou dříve zopakovat prodej, ale roste riziko pouličního incidentu."
   },
   extract_losses: {
     actionId: "extract_losses",
@@ -115,7 +115,7 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     actionId: "night_machines",
     buildingType: "arcade",
     label: "Noční automaty",
-    description: "Na 7 minut zvýší produkci Herny, vliv, heat a audit risk.",
+    description: "Na 20 minut zvýší produkci Herny, vliv, heat a audit risk.",
     durationMs: freeModeArcadeConfig.nightMachines.durationMinutes * 60 * 1000,
     cooldownMs: freeModeArcadeConfig.nightMachines.cooldownMinutes * 60 * 1000,
     inputCost: {},
@@ -160,22 +160,22 @@ export const freeModeRecoveryBuildingActions: NonNullable<ResolvedGameModeConfig
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Napájení výroby přidalo 2000 clean cash a 500 dirty cash. Heat +10."
+    reportText: "Prodej přebytku připsal výnos. Přesné částky a HEAT jsou v přehledu výsledku."
   },
   power_station_reduce_heat: {
     actionId: "power_station_reduce_heat",
     buildingType: "power_station",
     label: "Snížit heat",
-    description: "Serverově sníží heat districtu o 20 bodů.",
+    description: "Sníží HEAT hráče i tohoto districtu o 20 bodů. Rozběhnutou razii neruší.",
     durationMs: 0,
     cooldownMs: 60 * 60 * 1000,
-    inputCost: { cash: 10000 },
+    inputCost: { cash: 5000 },
     outputGain: {},
     heatGain: -20,
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Energetická stanice stabilizovala provoz a snížila heat districtu o 20."
+    reportText: "Energetická stanice stabilizovala provoz a snížila HEAT hráče i districtu o 20."
   },
   start_drug_sale: {
     actionId: "start_drug_sale",

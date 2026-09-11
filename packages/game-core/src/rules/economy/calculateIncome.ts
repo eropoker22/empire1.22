@@ -1,3 +1,4 @@
+import { BUILDING_SCOPED_INCOME_ACTIONS } from "./buildingActionIncomeModifiers";
 import type { CoreGameState } from "../../entities";
 import type { BuildingActionEffectModifiers, ConflictBalanceConfig, FixedBuildingBalanceConfig } from "../../contracts";
 import type { GameCoreContext } from "../../engine/context";
@@ -119,6 +120,7 @@ export const resolveActiveDistrictEffectModifiers = (
         continue;
       }
 
+      if (effect.effectType === "building_action_effect" && BUILDING_SCOPED_INCOME_ACTIONS.has(String(effect.payload.actionId || ""))) continue;
       const modifiers = extractEffectModifiers(effect.payload);
       multiplyModifier(resolved, "incomeMultiplier", modifiers.incomeMultiplier);
       multiplyModifier(resolved, "cleanIncomeMultiplier", modifiers.cleanIncomeMultiplier);

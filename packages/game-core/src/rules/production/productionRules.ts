@@ -16,15 +16,14 @@ export const applyDistrictStabilizationToProductionDuration = (
   building: Building,
   context: GameCoreContext
 ): number => {
+  return Math.max(1, Math.ceil(durationTicks / resolveDistrictStabilizationProductionSpeed(state, building, context)));
+};
+
+export const resolveDistrictStabilizationProductionSpeed = (state: CoreGameState, building: Building, context: GameCoreContext): number => {
   const district = state.districtsById[building.districtId];
-  if (!district || typeof district.stabilizingUntilTick !== "number" || district.stabilizingUntilTick <= state.root.tick) {
-    return Math.max(1, Math.ceil(durationTicks));
-  }
-  const speedMultiplier = Math.max(
-    0.01,
-    Number(context.config.balance.conflict?.captureStabilization?.productionSpeedMultiplier ?? 0.5)
-  );
-  return Math.max(1, Math.ceil(durationTicks / speedMultiplier));
+  if (!district || typeof district.stabilizingUntilTick !== "number" || district.stabilizingUntilTick <= state.root.tick) return 1;
+  const value = Number(context.config.balance.conflict?.captureStabilization?.productionSpeedMultiplier ?? .5);
+  return Number.isFinite(value) ? Math.max(.01, value) : 1;
 };
 import type { Building } from "@empire/shared-types";
 import type { CoreGameState } from "../../entities";

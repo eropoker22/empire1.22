@@ -1,3 +1,5 @@
+import { appendCityEventNotification as appendNotification } from "./cityEventNotifications";
+import { retainLegacyCityEventRun, retainUnsettledLegacyCityEvent } from "./cityEventRunSnapshot";
 import type {
   PendingPlayerCityEventReward,
   PlayerCityEventAgentId,
@@ -8,7 +10,7 @@ import type { CityEventAgentScheduleConfig, CityEventDefinitionConfig } from "..
 import type { CoreGameState } from "../../entities";
 import type { GameCoreContext } from "../../engine/context";
 import type { CoreEvent } from "../../events";
-import { CORE_EVENT_TYPES, createEvent, createNotification } from "../../events";
+import { CORE_EVENT_TYPES, createEvent } from "../../events";
 import { calculateReceivableResourceAmount } from "../../handlers/storageCapacityCredit";
 import { increasePlayerPoliceHeat } from "../../handlers/playerPoliceState";
 import { normalizeStorageResourceKey } from "../../handlers/storageCapacityTypes";
@@ -144,9 +146,10 @@ export const synchronizePlayerCityEvents = (
 ): CoreGameState => {
   const config = context.config.balance.cityEvents;
   if (!config?.enabled || !state.playersById[playerId]) return state;
-  const current = getPlayerCityEventState(state, playerId);
+  const original = getPlayerCityEventState(state, playerId);
+  const current = retainLegacyCityEventRun(original);
   const minute = resolveCityMinuteOfDay(state, context);
-  let changed = false;
+  let changed = current !== original;
   const offersByAgent = { ...current.offersByAgent };
   const windows = { ...current.lastProcessedScheduleWindowByAgent };
   for (const agentId of AGENT_IDS) {
@@ -202,34 +205,6 @@ const addPendingReward = (
   }
 ];
 
-const appendNotification = (
-  state: CoreGameState,
-  playerId: string,
-  idSuffix: string,
-  title: string,
-  bodyKey: string,
-  payload: Record<string, unknown>,
-  context: GameCoreContext
-): CoreGameState => {
-  const id = composeEntityId("notification", `city-event:${playerId}:${idSuffix}`);
-  if (state.notificationsById[id]) return state;
-  const notification = createNotification({
-    id,
-    recipientType: "player",
-    recipientId: playerId,
-    category: "city.event",
-    title,
-    bodyKey,
-    payload,
-    createdAt: context.clock?.nowIso() ?? new Date(0).toISOString(),
-    readAt: null
-  });
-  return {
-    ...state,
-    notificationsById: { ...state.notificationsById, [id]: notification },
-    root: { ...state.root, notificationIds: [...state.root.notificationIds, id], version: state.root.version + 1 }
-  };
-};
 
 const resolveReward = (
   state: CoreGameState,
@@ -292,8 +267,15 @@ export const completeDuePlayerCityEvents = (
     const playerEventState = getPlayerCityEventState(nextState, playerId);
     const run = playerEventState.activeRun;
     if (!run || run.completesAtTick > nextState.root.tick) continue;
-    const offer = Object.values(playerEventState.offersByAgent).flat().find((candidate) => candidate.offerId === run.offerId);
-    if (!offer) continue;
+    const offer = run.offerSnapshot;
+    if (!offer) {
+      nextState = retainUnsettledLegacyCityEvent(nextState, playerId, playerEventState, run);
+      nextState = appendNotification(nextState, playerId, `${run.runId}:recovery`,
+        "Stará zakázka vyžaduje ověření nákladů. Další zakázky jsou dostupné.",
+        "city.event.recovery_required", { runId: run.runId, offerId: run.offerId,
+          message: "Původní podmínky chybí. Nárok je uchován pro ověření správcem; odměna ani další náklad nebyly vymyšleny." }, context);
+      continue;
+    }
     const succeeded = hash(run.deterministicOutcomeSeed) % 100 < offer.successRateSnapshot;
     const player = nextState.playersById[playerId];
     let pending = [...playerEventState.pendingRewards];
@@ -340,7 +322,7 @@ export const completeDuePlayerCityEvents = (
       nextState,
       playerId,
       `${run.runId}:completed`,
-      succeeded ? `${definition?.title ?? "Zakázka"} byla dokončena.` : `${definition?.title ?? "Zakázka"} selhala.`,
+      succeeded ? `${run.titleSnapshot ?? definition?.title ?? "Zakázka"} byla dokončena.` : `${run.titleSnapshot ?? definition?.title ?? "Zakázka"} selhala.`,
       succeeded ? "city.event.succeeded" : "city.event.failed",
       { offerId: offer.offerId, heat, pendingRewardCount: pending.length },
       context

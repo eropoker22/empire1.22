@@ -47,13 +47,15 @@ export const refreshLiveCooldownLabels = (
   nodes.forEach((node) => {
     const endsAtMs = Number(node.dataset.cooldownEndsAtMs || 0);
 
-    node.textContent = formatLiveCooldownLabel({
+    const label = formatLiveCooldownLabel({
       endsAtMs,
       nowMs,
       prefix: node.dataset.cooldownPrefix ?? "Čekání ",
       readyLabel: node.dataset.cooldownReadyLabel ?? "Připraveno"
     });
-    node.dataset.cooldownState = endsAtMs > nowMs ? "cooling" : "ready";
+    const state = endsAtMs > nowMs ? "cooling" : "ready";
+    if (node.textContent !== label) node.textContent = label;
+    if (node.dataset.cooldownState !== state) node.dataset.cooldownState = state;
   });
 
   return nodes.length;

@@ -6957,21 +6957,20 @@ html body.game-modal-scroll-locked .district-building-detail-shell .district-bui
   html body.game-body:has(#police-action-result-modal:not(.hidden):not([hidden])) #game-header,
   html body.game-body:has(#police-action-result-modal:not(.hidden):not([hidden])) .game-topbar,
   html body.game-body:has(#police-action-result-modal:not(.hidden):not([hidden])) .game-resource-strip {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     pointer-events: none !important;
   }
 
   html body #police-action-result-modal:not(.hidden):not([hidden]),
   html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) {
     align-items: flex-start !important;
-    padding: max(2px, env(safe-area-inset-top)) 4px max(6px, env(safe-area-inset-bottom)) !important;
+    padding: calc(var(--mobile-topbar-offset, 100px) + 12px) 4px max(6px, env(safe-area-inset-bottom)) !important;
   }
 
   html body #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert,
   html body.game-modal-scroll-locked #police-action-result-modal:not(.hidden):not([hidden]) .police-action-result-modal__content.is-owned-district-raid-alert {
-    max-height: calc(var(--mobile-locked-vh, 100svh) - max(4px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom))) !important;
+    max-height: calc(var(--mobile-locked-vh, 100svh) - var(--mobile-topbar-offset, 100px) - 24px) !important;
     margin: 0 auto !important;
   }
 
@@ -7202,5 +7201,29 @@ html body .district-building-detail-shell.is-standard-building-detail:not([hidde
     overflow: hidden !important;
     z-index: 1 !important;
     box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 720px), (pointer: coarse) {
+  html body.game-body:has(#police-action-result-modal:not(.hidden):not([hidden])) .game-topbar {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 0 auto !important;
+    transform: none !important;
+    z-index: 30000 !important;
+  }
+  html body.game-body:has(#police-action-result-modal:not(.hidden):not([hidden])) .game-resource-strip {
+    display: grid !important;
+  }
+  html body.game-body #game-command-bar-mount .city-status-bar[data-city-status-mode="final"] .city-status-pill:has([data-city-day-phase]) {
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+  html body.game-body #game-command-bar-mount .city-status-bar[data-city-status-mode="final"] .city-status-pill [data-city-day-phase] {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
   }
 }

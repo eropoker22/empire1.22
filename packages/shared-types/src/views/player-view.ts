@@ -136,6 +136,7 @@ export interface PlayerAllianceLifecycleView {
   activeVote: AllianceKickVote | null;
   eligibleVotes: AllianceKickVote[];
   exitPenalty: AllianceExitPenalty | null;
+  exitPenalties?: AllianceExitPenalty[];
   formerAllyTruces: FormerAllianceTruce[];
   canConfirmReady: boolean;
   readyReasonCode: string | null;

@@ -28,7 +28,7 @@ export const freeModeExchangeOfficeConfig: ExchangeOfficeBalanceConfig = {
     dirtyCashSharePct: 16,
     maxDirtyCashPerAction: 6000,
     feePct: 12,
-    heatGain: 12,
+    heatGain: 6,
     influenceGain: 3,
     auditRiskBonusPct: 4,
     auditRiskDurationMinutes: 8

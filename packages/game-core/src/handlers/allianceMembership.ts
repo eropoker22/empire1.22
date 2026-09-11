@@ -1,3 +1,4 @@
+import { isCurrentAllianceLeader } from "../rules/alliances/allianceAuthorization";
 import { normalizeAllianceChatBody, appendRetainedAllianceMessage, validateAllianceChatRate } from "./allianceChatPolicy";
 import { spendPlayerInfluence } from "../rules/economy/playerInfluence";
 import type {
@@ -142,12 +143,9 @@ const inviteAllianceMember = (
   context: GameCoreContext
 ): AllianceMembershipResult => {
   const alliance = state.alliancesById[command.payload.allianceId];
-  const actorMembership = alliance?.membershipByPlayerId?.[command.playerId];
   const target = state.playersById[command.payload.targetPlayerId];
   if (!alliance || alliance.status !== "active") return rejected(state, "ALLIANCE_NOT_FOUND", "Aliance nebyla nalezena.");
-  if (!actorMembership || actorMembership.status === "removed" || actorMembership.role !== "leader"
-    || alliance.ownerPlayerId !== command.playerId || !alliance.memberIds.includes(command.playerId)
-    || state.playersById[command.playerId]?.status !== "active") return rejected(state, "ALLIANCE_INVITE_NOT_ALLOWED", "Členy může zvát jen leader aliance.");
+  if (!isCurrentAllianceLeader(state, alliance, command.playerId)) return rejected(state, "ALLIANCE_INVITE_NOT_ALLOWED", "Členy může zvát jen leader aliance.");
   if (!target) return rejected(state, "TARGET_PLAYER_NOT_FOUND", "Cílový hráč nebyl nalezen.");
   if (target.allianceId) return rejected(state, "TARGET_ALREADY_IN_ALLIANCE", "Cílový hráč už je v alianci.");
   if (alliance.memberIds.length >= context.config.balance.maxAllianceSize) return rejected(state, "ALLIANCE_FULL", "Aliance je plná.");

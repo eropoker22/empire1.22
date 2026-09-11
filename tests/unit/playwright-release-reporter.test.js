@@ -66,13 +66,16 @@ describe("Playwright release reporter", () => {
     }, {
       status: "failed",
       retry: 0,
-      errors: [{ message: "Expected 0 pixels; token=raw-token" }]
+      errors: [{
+        message: "Expected 0 pixels; token=raw-token",
+        stack: "Expected 0 pixels; token=raw-token\n    at tests/e2e/helpers/surface.js:42:9"
+      }]
     });
 
     await expect(reporter.onEnd({ status: "failed" })).resolves.toEqual({ status: "failed" });
     const summary = JSON.parse(await readFile(summaryPath, "utf8"));
     expect(summary.errors).toEqual([
-      "social parity > boost: Expected 0 pixels; token=[redacted]"
+      "social parity > boost: Expected 0 pixels; token=[redacted]\n    at tests/e2e/helpers/surface.js:42:9"
     ]);
   });
 

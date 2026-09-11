@@ -1008,6 +1008,7 @@ test.describe("live/demo shared presentation parity", () => {
       });
       const sharedDistrictId = Number(String(entry.spawnDistrictId).replace(/^district:/u, ""));
       await openParityLocalDemo(localPage, {
+        factionId: entry.factionId,
         gangColor: entry.gangColor,
         ownedDistrictIds: [sharedDistrictId],
         startDistrictId: sharedDistrictId,
@@ -1143,6 +1144,7 @@ test.describe("live/demo shared presentation parity", () => {
         return readModel?.player?.dayNight?.phaseId === "night" ? "night" : "day";
       });
       await openParityLocalDemo(localPage, {
+        factionId: entry.factionId,
         gangColor: entry.gangColor,
         ownedDistrictIds: [Number(String(entry.spawnDistrictId).replace(/^district:/u, ""))],
         startDistrictId: Number(String(entry.spawnDistrictId).replace(/^district:/u, "")),
@@ -1297,6 +1299,7 @@ test.describe("live/demo shared presentation parity", () => {
       });
       const sharedDistrictId = Number(String(entry.spawnDistrictId).replace(/^district:/u, ""));
       await openParityLocalDemo(localPage, {
+        factionId: entry.factionId,
         gangColor: entry.gangColor,
         ownedDistrictIds: [sharedDistrictId],
         startDistrictId: sharedDistrictId,
@@ -1476,6 +1479,7 @@ test.describe("live/demo shared presentation parity", () => {
         return readModel?.player?.dayNight?.phaseId === "night" ? "night" : "day";
       });
       await openParityLocalDemo(localPage, {
+        factionId: entry.factionId,
         gangColor: entry.gangColor,
         ownedDistrictIds: [24],
         startDistrictId: 24,
@@ -1608,6 +1612,7 @@ test.describe("live/demo spawn-reachable canonical building matrix", () => {
         });
         const sharedDistrictId = Number(String(entry.spawnDistrictId).replace(/^district:/u, ""));
         await openParityLocalDemo(localPage, {
+          factionId: entry.factionId,
           gangColor: entry.gangColor,
           ownedDistrictIds: [sharedDistrictId],
           startDistrictId: sharedDistrictId,
