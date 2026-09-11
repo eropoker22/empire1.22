@@ -181,3 +181,44 @@ html body.game-body .armory-slot__materials-row > .armory-slot__material-pill:on
     padding: 16px !important;
   }
 }
+
+/* Boost content owns scrolling; its frame follows browser chrome changes. */
+@media (max-width: 720px), (max-width: 900px) and (pointer: coarse) {
+  html body.game-body #boost-modal:not(.hidden):not([hidden]) {
+    --boost-viewport-gap: max(8px, env(safe-area-inset-top), env(safe-area-inset-bottom));
+    inset: var(--mobile-visible-top, 0px) 0 auto !important;
+    height: var(--mobile-visible-vh, 100dvh) !important;
+    min-height: 0 !important;
+    max-height: var(--mobile-visible-vh, 100dvh) !important;
+    padding: var(--boost-viewport-gap) 8px !important;
+    box-sizing: border-box;
+    overflow: hidden !important;
+  }
+  html body.game-body #boost-modal:not(.hidden):not([hidden]) > .modal__content.boost-modal__content {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    animation: none !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    width: min(680px, 100%) !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box;
+  }
+  html body.game-body #boost-modal .boost-modal__body {
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+    scroll-padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
