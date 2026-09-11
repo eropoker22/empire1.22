@@ -5,6 +5,7 @@ import {
   getGameplayExecutionMode
 } from "./runtime/gameplayExecutionMode.js";
 import { closeOverlay, openOverlay } from "./ui/legacyOverlayCoordinator.js";
+import { readTickCountdown } from "./runtime/authoritativeTickCountdown.js";
 import {
   getBountyDisplayLabel,
   getBountyDisplayType,
@@ -131,7 +132,12 @@ function formatObjectiveIcon(objectiveType) {
   return "⌖";
 }
 
-function formatBountyRemainingLabel(entry) {
+function formatBountyRemainingLabel(entry, gameplaySlice = null) {
+  if (gameplaySlice?.server) {
+    const countdown = readTickCountdown(gameplaySlice, entry.expiresAtTick, formatDurationMs);
+    return countdown.expired && gameplaySlice.server.status !== "ended"
+      ? "Čeká na potvrzení serveru" : countdown.label;
+  }
   const remainingMs = getBountyRemainingMs(entry);
   return remainingMs > 0 ? formatDurationMs(remainingMs) : "Čeká na refresh";
 }
@@ -920,7 +926,7 @@ export function initBountyRuntime() {
     const boardRenderSignature = createBountyBoardRenderSignature(activeEntries, targets);
     if (uiState.boardRenderSignature !== boardRenderSignature) {
       boardBody.innerHTML = activeEntries.map(
-        (entry) => createBountyBoardRowMarkup(entry, targets)
+        (entry) => createBountyBoardRowMarkup(entry, targets, formatBountyRemainingLabel(entry, uiState.gameplaySlice))
       ).join("");
       uiState.boardRenderSignature = boardRenderSignature;
     } else {
@@ -931,7 +937,7 @@ export function initBountyRuntime() {
         );
         const remaining = row?.querySelector?.("[data-bounty-remaining]") || null;
         if (remaining) {
-          remaining.textContent = formatBountyRemainingLabel(entry);
+          remaining.textContent = formatBountyRemainingLabel(entry, uiState.gameplaySlice);
         }
       }
     }
