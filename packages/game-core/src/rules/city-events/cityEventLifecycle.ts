@@ -214,9 +214,8 @@ const resolveReward = (
 ): { state: CoreGameState; pending: PendingPlayerCityEventReward[] } => {
   const player = state.playersById[playerId];
   const resources = state.resourceStatesById[player.resourceStateId];
-  if (!resources) return { state, pending: [] };
   let nextState = state;
-  let balances = { ...resources.balances };
+  let balances = { ...resources?.balances };
   let pending: PendingPlayerCityEventReward[] = [];
   for (const [rawKey, rawAmount] of Object.entries(offer.rewardSnapshot)) {
     const amount = Math.max(0, Math.floor(Number(rawAmount || 0)));
@@ -237,6 +236,10 @@ const resolveReward = (
       continue;
     }
     const key = rawKey === "cash" || rawKey === "dirty-cash" ? rawKey : normalizeStorageResourceKey(rawKey);
+    if (!resources) {
+      pending = addPendingReward(pending, offer.offerId, key, amount, nextState.root.tick, "storage-capacity");
+      continue;
+    }
     const receivable = key === "cash" || key === "dirty-cash"
       ? amount
       : context.config.balance.warehouse
@@ -245,7 +248,7 @@ const resolveReward = (
     balances[key] = Math.max(0, Number(balances[key] || 0)) + receivable;
     pending = addPendingReward(pending, offer.offerId, key, amount - receivable, nextState.root.tick, "storage-capacity");
   }
-  nextState = {
+  if (resources) nextState = {
     ...nextState,
     resourceStatesById: {
       ...nextState.resourceStatesById,

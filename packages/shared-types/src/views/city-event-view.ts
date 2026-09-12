@@ -17,6 +17,7 @@ export interface CityEventOfferView {
   durationMinutes: number;
   durationTicks: number;
   rewards: Record<string, number>;
+  startCost?: Partial<Record<"cash" | "dirty-cash", number>>;
   successHeat: number;
   failureHeat: number;
   failureDirtyCashLoss: number;

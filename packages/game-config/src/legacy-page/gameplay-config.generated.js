@@ -1358,7 +1358,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 28,
         "reward": {
           "influence": 7,
-          "dirty-cash": 900
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1398,7 +1398,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 26,
         "reward": {
           "metal-parts": 2,
-          "influence": 3
+          "influence": 3,
+          "dirty-cash": 2900
         },
         "risk": {
           "successHeat": 4,
@@ -1437,7 +1438,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 66,
         "durationMinutes": 27,
         "reward": {
-          "dirty-cash": 2000,
+          "dirty-cash": 2900,
           "metal-parts": 2
         },
         "risk": {
@@ -1458,7 +1459,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 30,
         "reward": {
           "influence": 8,
-          "cash": 1000
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1537,7 +1538,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 24,
         "reward": {
           "influence": 8,
-          "cash": 900
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1556,7 +1557,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 71,
         "durationMinutes": 22,
         "reward": {
-          "dirty-cash": 2200,
+          "dirty-cash": 3500,
           "influence": 2
         },
         "risk": {
@@ -1734,7 +1735,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 69,
         "durationMinutes": 23,
         "reward": {
-          "influence": 3
+          "influence": 3,
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1792,7 +1794,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 72,
         "durationMinutes": 22,
         "reward": {
-          "dirty-cash": 1700,
+          "dirty-cash": 3500,
           "influence": 6
         },
         "risk": {
@@ -1813,7 +1815,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "cash": 600
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1871,7 +1873,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 68,
         "durationMinutes": 25,
         "reward": {
-          "dirty-cash": 1900,
+          "dirty-cash": 3500,
           "influence": 3
         },
         "risk": {
@@ -1912,7 +1914,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 71,
         "durationMinutes": 22,
         "reward": {
-          "cash": 500,
+          "cash": 3500,
           "influence": 3
         },
         "risk": {
@@ -2154,7 +2156,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 29,
         "reward": {
           "influence": 8,
-          "dirty-cash": 1400
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2315,7 +2317,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "dirty-cash": 700
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2375,7 +2377,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 23,
         "reward": {
           "influence": 8,
-          "cash": 1000
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2474,7 +2476,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "dirty-cash": 900
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2632,7 +2634,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "cash": 800
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2691,7 +2693,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 71,
         "durationMinutes": 22,
         "reward": {
-          "cash": 600,
+          "cash": 3500,
           "influence": 3
         },
         "risk": {
@@ -2732,7 +2734,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "metal-parts": 6,
-          "cash": 700,
+          "cash": 1700,
           "influence": 2
         },
         "risk": {
@@ -2853,7 +2855,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "cash": 700
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2952,7 +2954,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 70,
         "durationMinutes": 23,
         "reward": {
-          "dirty-cash": 1900,
+          "dirty-cash": 3500,
           "influence": 4
         },
         "risk": {
@@ -3013,7 +3015,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 24,
         "reward": {
           "metal-parts": 2,
-          "influence": 3
+          "influence": 3,
+          "dirty-cash": 2900
         },
         "risk": {
           "successHeat": 4,
@@ -3053,7 +3056,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "cash": 900
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -3072,7 +3075,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 72,
         "durationMinutes": 22,
         "reward": {
-          "dirty-cash": 2100,
+          "dirty-cash": 3500,
           "influence": 3
         },
         "risk": {
@@ -3153,7 +3156,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 27,
         "reward": {
           "influence": 8,
-          "dirty-cash": 1500,
+          "dirty-cash": 2600,
           "metal-parts": 3
         },
         "risk": {

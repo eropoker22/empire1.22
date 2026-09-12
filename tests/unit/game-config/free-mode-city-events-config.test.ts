@@ -47,4 +47,23 @@ describe("free mode City Event config", () => {
       expect(Object.keys(definition.reward).some((key) => forbidden.has(key))).toBe(false);
     }
   });
+  it("compensates the longer duration and higher risks of hard contracts within their budget", () => {
+    const resolver = createReplacementValueResolver(config);
+    for (const event of cityEvents.definitions.filter(event => event.difficulty === "hard")) {
+      const value = Object.entries(event.reward).reduce((sum, [key, amount]) => sum + Number(amount) *
+        (key === "influence" ? 0 : ["cash", "dirty-cash"].includes(key) ? 1 : resolver.resolve(key)!), 0);
+      expect(value, event.id).toBeGreaterThanOrEqual(3500);
+      expect(value, event.id).toBeLessThanOrEqual(cityEvents.difficultyBudgets.hard.maxReplacementValue);
+    }
+  });
+  it.each(["rate", "duration", "risk", "negative-cost", "empty-schedule"])("rejects an invalid economy configuration: %s", scenario => {
+    const invalid = structuredClone(config);
+    const event = invalid.balance.cityEvents!.definitions[0];
+    if (scenario === "rate") event.successRate = NaN;
+    if (scenario === "duration") event.durationMinutes = NaN;
+    if (scenario === "risk") event.risk = { ...event.risk, failureDirtyCashLoss: Infinity };
+    if (scenario === "negative-cost") event.risk = { ...event.risk, startCost: { cash: -500 } };
+    if (scenario === "empty-schedule") invalid.balance.cityEvents!.agents.victor.refreshTimes = [];
+    expect(() => validateModeConfig(invalid)).toThrow();
+  });
 });

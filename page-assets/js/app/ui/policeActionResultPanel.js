@@ -17,6 +17,7 @@ const POLICE_ACTION_RESULT_TONE_CLASSES = Object.freeze([
   "is-district-attack-warning",
   "is-owned-district-raid-alert",
   "is-building-action-result",
+  "is-apartment-recruitment",
   "is-player-alert",
   "is-major-fail",
   "is-success"

@@ -214,6 +214,7 @@ function mapServerCityEventOffer(agent, offer) {
     title: String(offer?.title || "City Event"),
     desc: String(offer?.description || ""),
     reward: rewards,
+    startCost: Object.entries(offer?.startCost || {}).map(([key, value]) => formatRewardEntry(key, value)).filter(Boolean),
     gains,
     risk: `Úspěch Heat +${successHeat} · Selhání Heat +${failureHeat}${failureDirtyCashLoss > 0 ? ` · ztráta až ${failureDirtyCashLoss.toLocaleString("cs-CZ")} dirty cash` : ""}`,
     successHeat,
@@ -927,11 +928,11 @@ export function initCityEventsRuntime() {
     if (detailGiver) detailGiver.textContent = String(task.giver || AGENTS[task.agentKey || ""]?.name || "-");
     if (detailStats) {
       detailStats.innerHTML = `
-        <span>Úspěšnost ${Math.max(0, Math.floor(Number(task.successRate || 0)))}% • ${Math.max(1, Math.floor(Number(task.durationMinutes || 1)))} min${runState.active ? ` • Probíhá ${runState.remainingSec}s` : ""}${disabledReason ? ` • ${disabledReason}` : ""}</span>
+        <span>Úspěšnost ${Math.max(0, Math.floor(Number(task.successRate || 0)))}% • ${Math.max(1, Math.floor(Number(task.durationMinutes || 1)))} min${runState.active ? ` • Probíhá ${runState.remainingSec}s` : ""}${disabledReason ? ` • ${escapeHtml(disabledReason)}` : ""}</span>
         <span class="event-difficulty event-difficulty--${difficulty.key}">${difficulty.label}</span>
       `;
     }
-    if (detailDesc) detailDesc.textContent = String(task.desc || "");
+    if (detailDesc) detailDesc.textContent = `${String(task.desc || "")}\n${task.startCost?.length ? `Vstupní cena: ${task.startCost.join(" · ")} (platí i při neúspěchu).` : "Bez vstupní ceny."} Odměnu získáš při úspěchu; nevejde-li se do skladu, počká na vyzvednutí.`;
     renderDetailChips(detailGains, task.gains, "gain");
     renderDetailChips(detailRisk, task.risk ? [task.risk] : [], "risk");
     if (detailAcceptBtn) {
@@ -961,7 +962,18 @@ export function initCityEventsRuntime() {
     }
   };
 
+  const renderPendingRewards = () => {
+    const pendingRewards = shouldRunServerCityEvents() ? (getServerCityEventsView()?.pendingRewards || []) : [];
+    return pendingRewards.length ? `
+      <div class="events-task events-task--pending-rewards">
+        <div class="events-task__title">Čekající odměny</div>
+        <div class="events-pending-list">${pendingRewards.map((reward) => `<div class="events-pending-row"><span>${escapeHtml(formatRewardEntry(reward.resourceKey, reward.amount))}<small>${reward.canClaim ? "Připraveno k vyzvednutí" : reward.reason === "missing-owned-district" ? "Potřebuješ vlastní district" : "Nejdřív uvolni místo ve skladu"}</small></span><button type="button" class="btn btn-small" data-city-event-claim="${escapeHtml(reward.pendingRewardId)}"${reward.canClaim && !serverSubmitPending ? "" : " disabled"}>Vyzvednout</button></div>`).join("")}</div>
+      </div>
+    ` : "";
+  };
+
   const renderTasks = (agentKey) => {
+    const pendingMarkup = renderPendingRewards();
     const agent = AGENTS[agentKey];
     if (!agent) return;
     const serverAgent = shouldRunServerCityEvents() ? getServerAgent(agentKey) : null;
@@ -985,7 +997,7 @@ export function initCityEventsRuntime() {
       if (agentDesc) {
         agentDesc.textContent = `${agent.desc} Zakázky se odemknou až při ${unlockState.requiredInfluence} vlivu. Teď máš ${unlockState.currentInfluence}.`;
       }
-      tasklist.innerHTML = `
+      tasklist.innerHTML = pendingMarkup + `
         <div class="events-task events-task--agent-locked">
           <div class="events-task__title">Zakázky zamčené</div>
           <div class="events-task__desc">Potřebuješ alespoň ${unlockState.requiredInfluence} vliv. Aktuálně máš ${unlockState.currentInfluence}.</div>
@@ -1004,7 +1016,7 @@ export function initCityEventsRuntime() {
       )
     } : resolveLocalScheduleWindow(agentKey);
     if (!schedule.available) {
-      tasklist.innerHTML = `
+      tasklist.innerHTML = pendingMarkup + `
         <div class="events-task events-task--agent-locked">
           <div class="events-task__title">Kontakt je teď zavřený</div>
           <div class="events-task__desc">Další úkoly přijdou v ${schedule.nextBoundaryLabel}.</div>
@@ -1016,13 +1028,6 @@ export function initCityEventsRuntime() {
 
     const visibleTasks = getRenderedTasks(agentKey);
     const activeRun = getRenderedActiveRun();
-    const pendingRewards = shouldRunServerCityEvents() ? (getServerCityEventsView()?.pendingRewards || []) : [];
-    const pendingMarkup = pendingRewards.length ? `
-      <div class="events-task events-task--pending-rewards">
-        <div class="events-task__title">Čekající odměny</div>
-        <div class="events-task__desc">${pendingRewards.map((reward) => `${escapeHtml(formatRewardEntry(reward.resourceKey, reward.amount))} <button type="button" class="btn btn-small" data-city-event-claim="${escapeHtml(reward.pendingRewardId)}"${reward.canClaim && !serverSubmitPending ? "" : " disabled"}>Vyzvednout</button>`).join(" ")}</div>
-      </div>
-    ` : "";
     tasklist.innerHTML = pendingMarkup + visibleTasks.map((task) => {
       const successRate = Math.max(0, Math.min(100, Math.floor(Number(task?.successRate || 0))));
       const durationMinutes = Math.max(1, Math.floor(Number(task?.durationMinutes || 1)));
@@ -1034,6 +1039,7 @@ export function initCityEventsRuntime() {
         <div class="events-task${runState.active || task.attempted || task.canStart === false ? " events-task--locked" : ""}${isBlockedByOtherRun ? " events-task--queue-locked" : ""}" data-event-open="${escapeHtml(task.id || "")}">
           <div class="events-task__title">${escapeHtml(task.title)}</div>
           <div class="events-task__desc">${escapeHtml(task.desc)}</div>
+          <div class="events-task__reward-preview">Možná odměna: ${escapeHtml((task.gains || []).join(" · "))}</div>
           <div class="events-task__meta">
             <span>${escapeHtml(metaLabel)}</span>
             <span class="event-difficulty event-difficulty--${difficulty.key}">${difficulty.label}</span>
@@ -1060,12 +1066,13 @@ export function initCityEventsRuntime() {
         : claimed.pendingRewards.length
           ? `Část odměn čeká u kontaktů na místo ve SKLADU: ${claimed.pendingRewards.join(", ")}.`
           : serverPendingCount > 0
-            ? `Na vyzvednutí čeká ${serverPendingCount} serverových odměn. Vyber kontakt a zkontroluj nabídky.`
+            ? `Na vyzvednutí čeká ${serverPendingCount} odměn. Vyzvednout je můžeš hned po uvolnění kapacity.`
             : "Vyber kontakt a zobrazí se jeho dočasné pouliční zakázky.";
     }
     if (agentQuote) agentQuote.textContent = "";
-    tasklist.innerHTML = "";
-    modal.classList.add("events-modal--compact");
+    selectedAgentKey = null;
+    tasklist.innerHTML = renderPendingRewards();
+    modal.classList.toggle("events-modal--compact", !tasklist.innerHTML);
     syncRefreshLabel();
     modal.hidden = false;
     modal.classList.remove("hidden");
@@ -1270,6 +1277,7 @@ export function initCityEventsRuntime() {
         }
       } finally {
         serverSubmitPending = false;
+        if (!destroyed && selectedEventTask && !detailModal.classList.contains("hidden")) openEventDetailModal(selectedEventTask);
       }
       return;
     }
@@ -1314,7 +1322,8 @@ export function initCityEventsRuntime() {
         if (!destroyed && selectedAgentKey) {
           renderTasks(selectedAgentKey);
         } else if (!destroyed) {
-          claimButton.disabled = false;
+          tasklist.innerHTML = renderPendingRewards();
+          modal.classList.toggle("events-modal--compact", !tasklist.innerHTML);
         }
       }
       return;
@@ -1385,7 +1394,10 @@ export function initCityEventsRuntime() {
   const handleServerSliceRendered = () => {
     if (!shouldRunServerCityEvents()) return;
     syncAgentUnlockBadges();
-    if (selectedAgentKey && !modal.classList.contains("hidden")) renderTasks(selectedAgentKey);
+    if (!modal.classList.contains("hidden")) {
+      if (selectedAgentKey) renderTasks(selectedAgentKey);
+      else { tasklist.innerHTML = renderPendingRewards(); modal.classList.toggle("events-modal--compact", !tasklist.innerHTML); }
+    }
     if (selectedEventTask && !detailModal.classList.contains("hidden")) {
       const refreshedTask = getRenderedTasks(selectedEventTask.agentKey)
         .find((task) => task.offerId === selectedEventTask.offerId);

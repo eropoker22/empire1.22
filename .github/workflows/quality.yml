@@ -113,6 +113,12 @@ jobs:
       - name: Player feedback UI regression
         run: npm run test:e2e:smoke -- tests/e2e/player-feedback-ui.spec.js
 
+      - name: Narrow phone HEAT and recruitment
+        run: npm run test:e2e:smoke -- tests/e2e/player-polish-mobile.spec.js
+
+      - name: Narrow phone onboarding
+        run: npm run test:e2e:smoke -- tests/e2e/onboarding-smoke.spec.js --grep "narrow phone"
+
       - name: Upload Playwright evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

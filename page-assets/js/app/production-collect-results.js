@@ -47,13 +47,13 @@ export function createPopulationCollectResultPayload({
   };
 
   return {
-    tone: "is-success is-building-action-result",
+    tone: `is-success is-building-action-result${buildingLabel === "Bytový blok" ? " is-apartment-recruitment" : ""}`,
     title: copy.title,
     badge: "Nábor",
     summary: `Z ${copy.source} se k tvému gangu přidalo ${safeAmount} nových členů.`,
     rows: [
       { label: "Budova", value: buildingLabel },
-      districtLabel ? { label: "District", value: districtLabel } : null,
+      districtLabel && buildingLabel !== "Bytový blok" ? { label: "District", value: districtLabel } : null,
       { label: "Noví členové", value: String(safeAmount), nowrap: true }
     ].filter(Boolean),
     collectItems: [{ label: "Členové gangu", value: `${safeAmount}`, amount: safeAmount }]
@@ -75,7 +75,7 @@ export function createStorageCollectResultPayload({ buildingLabel = "Budova", it
     ? normalizedItems.map((item) => `${item.label} ${item.value}`).join(" · ")
     : "Bez položek";
   return {
-    tone: "is-specialty-financial",
+    tone: `is-specialty-financial${isApartmentBlockRecruitment ? " is-apartment-recruitment" : ""}`,
     title: recruitmentTitle || `${buildingLabel}: výběr do skladu`,
     badge: "Sklad",
     hideBadge: isRecruitment || Boolean(hideBadge),
@@ -85,7 +85,10 @@ export function createStorageCollectResultPayload({ buildingLabel = "Budova", it
       : isApartmentBlockRecruitment
         ? ""
       : `Do skladu přesunuto: ${itemSummary}.`,
-    rows: [
+    rows: isApartmentBlockRecruitment ? [
+      { label: "Budova", value: buildingLabel },
+      { label: "Noví členové", value: total > 0 ? String(total) : normalizedItems.map(item => item.value).join(" · "), nowrap: true }
+    ] : [
       { label: "Budova", value: buildingLabel },
       districtLabel ? { label: "District", value: districtLabel } : null,
       isConvenienceStoreRecruitment ? null : { label: "Typ", value: meta },

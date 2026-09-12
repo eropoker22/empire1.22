@@ -20,6 +20,17 @@ import { clearDepartedPlayerState } from "../../../packages/game-core/src/rules/
 const BASE_TIME = "2026-01-01T00:00:00.000Z";
 
 describe("alliance lifecycle", () => {
+  it.each(["different-alliance", "missing-roster", "exit-pending"])("rejects private chat from stale membership: %s", scenario => {
+    const { state } = createAllianceState(["player:1", "player:2"]);
+    if (scenario === "different-alliance") state.playersById["player:2"].allianceId = null;
+    if (scenario === "missing-roster") state.alliancesById["alliance:1"].memberIds = ["player:1"];
+    if (scenario === "exit-pending") state.alliancesById["alliance:1"].membershipByPlayerId!["player:2"].status = "exit_pending";
+    const before = JSON.stringify(state);
+    const result = applyCommand(state, command("send-alliance-chat-message", "player:2", { allianceId: "alliance:1", body: "Stale access" }), context(BASE_TIME));
+    expect(result.errors[0]?.code).toBe("ALLIANCE_CHAT_NOT_ALLOWED");
+    expect(JSON.stringify(result.nextState)).toBe(before);
+    expect(createAllianceBoardReadModel(state, "player:2", context(BASE_TIME)).activeAlliance?.chatMessages || []).toEqual([]);
+  });
   it.each(["voluntary", "server", "return", "inconsistent-owner"])("rejects a former leader after %s without any side effects", (scenario) => {
     const { state } = createAllianceState(["player:1", "player:2"]);
     const left = applyCommand(state, command("leave-alliance", "player:1", { allianceId: "alliance:1", chosenSuccessorPlayerId: "player:2" }), context(BASE_TIME));

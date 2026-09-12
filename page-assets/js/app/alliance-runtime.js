@@ -83,7 +83,7 @@ const ALLIANCE_COLOR_OPTIONS = Object.freeze([
 const READY_STATUS_COPY = {
   due_soon: { label: "Aktivní", hint: "Brzy zvol Zůstávám nebo Končím.", tone: "warning" },
   overdue: { label: "Po termínu", hint: "Okno aktivity vypršelo.", tone: "danger" },
-  vote_eligible: { label: "Po termínu", hint: "Server zpracuje automatické vyloučení.", tone: "danger" },
+  vote_eligible: { label: "Po termínu", hint: "Leader může zahájit hlasování o vyloučení.", tone: "danger" },
   vote_pending: { label: "Řeší se stav", hint: "Aliance čeká na serverový výsledek.", tone: "warning" },
   active: { label: "Aktivní", hint: "Do konce běžící časomíry zvol Zůstávám nebo Končím.", tone: "success" },
   ready: { label: "Aktivní", hint: "Aktivita je potvrzená.", tone: "success" }
@@ -865,7 +865,8 @@ const getSelectedAllianceInviteTargetPlayerId = (activeAlliance, targets = []) =
 
 const getAllianceChatDraftBody = (activeAlliance) => {
   const allianceId = String(activeAlliance?.allianceId || "");
-  if (!allianceId || allianceChatDraft?.allianceId !== allianceId) {
+  if (!allianceId || allianceChatDraft?.allianceId !== allianceId
+    || allianceChatDraft?.playerId !== String(latestAllianceBoard?.currentPlayerId || "")) {
     allianceChatDraft = null;
     return "";
   }
@@ -2062,7 +2063,12 @@ const renderAllianceState = () => {
     createEntry.innerHTML = "";
   }
 
-  if (activePanel) {
+  const chatScope = activeAlliance ? `${board?.currentPlayerId || ""}:${activeAlliance.allianceId}` : "";
+  const keepChatComposer = selectedAllianceTab === "chat" && chatScope
+    && activePanel?.dataset.chatScope === chatScope
+    && activePanel.querySelector("[data-alliance-chat-input]");
+  if (activePanel && !keepChatComposer) {
+    activePanel.dataset.chatScope = selectedAllianceTab === "chat" ? chatScope : "";
     if (selectedAllianceTab === "members") selectedAllianceTab = "overview";
     allianceModal?.setAttribute("data-alliance-tab", selectedAllianceTab);
     const panels = activeAlliance ? {
@@ -2595,7 +2601,7 @@ const mountAllianceRuntimeBindings = () => {
 
   document.addEventListener("click", async (event) => {
     const target = event.target instanceof Element ? event.target.closest(
-      "[data-alliance-member-avatar-open], [data-alliance-tab], [data-alliance-modal-close], [data-alliance-leave-open], [data-alliance-management-open], [data-alliance-icon-option], [data-alliance-color-option], [data-alliance-join], [data-alliance-public-message], [data-alliance-public-invite], [data-alliance-invite-accept], [data-alliance-invite-reject], #alliance-create-toggle-btn, #alliance-ready-btn, #alliance-management-ready-btn, #alliance-management-open-btn, #alliance-management-invite-btn, [data-alliance-chat-send], [data-alliance-kick-start], [data-alliance-kick-vote]"
+      "[data-alliance-member-avatar-open], button[data-alliance-tab], [data-alliance-modal-close], [data-alliance-leave-open], [data-alliance-management-open], [data-alliance-icon-option], [data-alliance-color-option], [data-alliance-join], [data-alliance-public-message], [data-alliance-public-invite], [data-alliance-invite-accept], [data-alliance-invite-reject], #alliance-create-toggle-btn, #alliance-ready-btn, #alliance-management-ready-btn, #alliance-management-open-btn, #alliance-management-invite-btn, [data-alliance-chat-send], [data-alliance-kick-start], [data-alliance-kick-vote]"
     ) : null;
     if (!(target instanceof HTMLElement)) return;
     const activeAlliance = latestAllianceBoard?.activeAlliance;
@@ -2608,7 +2614,7 @@ const mountAllianceRuntimeBindings = () => {
       closeAllAllianceModals();
       return;
     }
-    if (target.hasAttribute("data-alliance-tab")) {
+    if (target.matches("button[data-alliance-tab]")) {
       const nextAllianceTab = target.getAttribute("data-alliance-tab") || "overview";
       if (selectedAllianceTab === "invites" && nextAllianceTab !== "invites") {
         allianceInviteSelection = null;
@@ -2713,9 +2719,17 @@ const mountAllianceRuntimeBindings = () => {
         notify("Zpráva přidána do aliančního chatu.");
         return;
       }
+      const senderPlayerId = String(latestAllianceBoard?.currentPlayerId || "");
       const ok = await runAllianceCommand("send-alliance-chat-message", { allianceId: activeAlliance.allianceId, body }, "Zpráva odeslána.");
       if (ok) {
-        allianceChatDraft = null;
+        // A poll or a new draft can arrive while the first message is in flight.
+        const currentInput = document.querySelector("[data-alliance-chat-input]");
+        if (allianceChatDraft?.allianceId === activeAlliance.allianceId
+          && allianceChatDraft.playerId === senderPlayerId
+          && String(allianceChatDraft.body || "").trim() === body) {
+          allianceChatDraft = null;
+          if (currentInput instanceof HTMLInputElement) currentInput.value = "";
+        }
         renderAllianceState();
       }
       return;
@@ -2777,7 +2791,7 @@ const mountAllianceRuntimeBindings = () => {
       closeAllAllianceModals();
     }
     const target = event.target;
-    if (event.key === "Enter" && target instanceof HTMLInputElement && target.hasAttribute("data-alliance-chat-input")) {
+    if (event.key === "Enter" && !event.isComposing && target instanceof HTMLInputElement && target.hasAttribute("data-alliance-chat-input")) {
       event.preventDefault();
       document.querySelector("[data-alliance-chat-send]")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       return;
@@ -2813,7 +2827,7 @@ const mountAllianceRuntimeBindings = () => {
     if (!target.hasAttribute("data-alliance-chat-input")) return;
     const allianceId = String(latestAllianceBoard?.activeAlliance?.allianceId || "");
     allianceChatDraft = allianceId
-      ? { allianceId, body: target.value }
+      ? { allianceId, playerId: String(latestAllianceBoard?.currentPlayerId || ""), body: target.value }
       : null;
   });
 

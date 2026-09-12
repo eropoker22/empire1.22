@@ -27,8 +27,11 @@ export const validateCityEventConfig = (
     throw new Error("Free mode requires exactly 300 canonical City Event definitions.");
   }
   for (const agent of Object.values(cityEvents.agents)) {
-    if (!agents.has(agent.agentId) || agent.offerCount !== 3 || agent.requiredInfluence < 0) {
+    if (!agents.has(agent.agentId) || agent.offerCount !== 3 || !Number.isSafeInteger(agent.requiredInfluence) || agent.requiredInfluence < 0) {
       throw new Error(`Invalid City Event agent '${agent.agentId}'.`);
+    }
+    if (!agent.refreshTimes.length || new Set(agent.refreshTimes.map(time => `${time.hour}:${time.minute}`)).size !== agent.refreshTimes.length) {
+      throw new Error(`City Event agent '${agent.agentId}' requires distinct refresh times.`);
     }
     for (const time of agent.refreshTimes) assertClockTime(time.hour, time.minute, `${agent.agentId} refresh`);
     if (agent.availability) {
@@ -50,14 +53,20 @@ export const validateCityEventConfig = (
     }
     const budget = cityEvents.difficultyBudgets[definition.difficulty as CityEventDifficulty];
     if (!budget) throw new Error(`City Event '${definition.id}' has invalid difficulty.`);
-    if (definition.successRate < budget.successRateMin || definition.successRate > budget.successRateMax) {
+    if (!Number.isInteger(definition.successRate) || definition.successRate < budget.successRateMin || definition.successRate > budget.successRateMax) {
       throw new Error(`City Event '${definition.id}' success rate is outside its difficulty profile.`);
     }
-    if (definition.durationMinutes < budget.durationMinutesMin || definition.durationMinutes > budget.durationMinutesMax) {
+    if (!Number.isFinite(definition.durationMinutes) || definition.durationMinutes < budget.durationMinutesMin || definition.durationMinutes > budget.durationMinutesMax) {
       throw new Error(`City Event '${definition.id}' durationMinutes is outside its difficulty profile.`);
     }
-    if (definition.risk.successHeat < 0 || definition.risk.failureHeat < definition.risk.successHeat || definition.risk.failureDirtyCashLoss < 0) {
+    if ([definition.risk.successHeat, definition.risk.failureHeat, definition.risk.failureDirtyCashLoss].some(value => !Number.isSafeInteger(value) || value < 0)
+      || definition.risk.failureHeat < definition.risk.successHeat) {
       throw new Error(`City Event '${definition.id}' has invalid risk values.`);
+    }
+    for (const [key, amount] of Object.entries(definition.risk.startCost ?? {})) {
+      if (!["cash", "dirty-cash"].includes(key) || !Number.isSafeInteger(amount) || Number(amount) < 0) {
+        throw new Error(`City Event '${definition.id}' has invalid entry cost.`);
+      }
     }
 
     let rewardValue = 0;

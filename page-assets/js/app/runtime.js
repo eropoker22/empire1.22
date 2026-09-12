@@ -15947,6 +15947,18 @@ const {
   dirtyActionCost: GANG_HEAT_DIRTY_COST,
   influenceActionCost: GANG_HEAT_INFLUENCE_COST,
   onServerAction: method => submitServerDistrictActionCommand({ type: "reduce-police-heat", payload: { method } }),
+  getLocalHeatReductionActions: gang => [
+    ["dirty", GANG_HEAT_DIRTY_COST, GANG_HEAT_DIRTY_REDUCTION],
+    ["clean", GANG_HEAT_CLEAN_COST, GANG_HEAT_CLEAN_REDUCTION],
+    ["influence", GANG_HEAT_INFLUENCE_COST, GANG_HEAT_INFLUENCE_REDUCTION]
+  ].map(([method, cost, reduction]) => ({
+    method, cost, actualHeatReduction: Math.min(reduction, Math.max(0, Number(gang.heat || 0))),
+    available: Number(gang.heat || 0) > 0 && (method === "influence" ? Number(gang.influence || 0)
+      : Number(getResolvedEconomyState()[method === "dirty" ? "dirtyMoney" : "cleanMoney"] || 0)) >= cost,
+    auditRiskPct: gangHeatAuditData.resolveGangHeatAuditRisk?.(gang.heatReductionAuditTimestamps, Date.now()) || 0,
+    riskDescription: method === "dirty" ? "Snížení zvýší audit risk. Opakované úplatky mohou přivolat policejní akci do districtu." : "Snížení zvýší audit risk.",
+    cooldownMs: 0
+  })),
   formatGangHeatProtectionLabel,
   gangHeatTiers: GANG_HEAT_TIERS,
   getServerPlayerView,

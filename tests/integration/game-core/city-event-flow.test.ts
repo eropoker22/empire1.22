@@ -44,6 +44,49 @@ const scheduledState = () => {
 };
 
 describe("authoritative City Event lifecycle", () => {
+  it("retains monetary and item rewards if the resource account is temporarily missing at completion", () => {
+    const state = scheduledState();
+    const offer = state.playerCityEventStatesByPlayerId!["player:1"].offersByAgent.victor[0];
+    offer.successRateSnapshot = 100;
+    offer.durationTicksSnapshot = 1;
+    offer.rewardSnapshot = { cash: 100, chemicals: 4, influence: 2 };
+    const running = applyCommand(state, command("start-city-event", { offerId: offer.offerId }, "missing-account"), context).nextState;
+    running.root.tick += 1;
+    delete running.resourceStatesById["resource:1"];
+    const settled = completeDuePlayerCityEvents(running, context).nextState;
+    expect(settled.playerCityEventStatesByPlayerId!["player:1"].pendingRewards).toEqual(expect.arrayContaining([
+      expect.objectContaining({ resourceKey: "cash", amount: 100 }), expect.objectContaining({ resourceKey: "chemicals", amount: 4 })
+    ]));
+    expect(settled.districtsById["district:1"].influence).toBe(402);
+    expect(completeDuePlayerCityEvents(settled, context).nextState).toBe(settled);
+  });
+  it("projects accepted offer duration and entry cost, and refuses an unaffordable entry", () => {
+    const state = scheduledState();
+    const offer = state.playerCityEventStatesByPlayerId!["player:1"].offersByAgent.victor[0];
+    offer.durationTicksSnapshot = 9;
+    offer.riskSnapshot = { ...offer.riskSnapshot, startCost: { cash: 500 } };
+    state.resourceStatesById["resource:1"].balances.cash = 499;
+    const view = createPlayerCityEventsView(state, "player:1", context)!.agents[0].offers[0];
+    expect(view).toMatchObject({ startCost: { cash: 500 }, canStart: false, durationMinutes: Math.ceil(9 * config.tickRateMs / 60000) });
+    expect(applyCommand(state, command("start-city-event", { offerId: offer.offerId }, "unaffordable"), context).errors[0]?.code).toBe("city_event_start_cost_missing");
+    state.resourceStatesById["resource:1"].balances.cash = 500;
+    expect(createPlayerCityEventsView(state, "player:1", context)!.agents[0].offers[0].canStart).toBe(true);
+    const started = applyCommand(state, command("start-city-event", { offerId: offer.offerId }, "affordable"), context);
+    expect(started.errors).toEqual([]);
+    expect(started.nextState.resourceStatesById["resource:1"].balances.cash).toBe(0);
+  });
+  it("retains completion events when a new command catches up a due run", () => {
+    const state = scheduledState();
+    const offer = state.playerCityEventStatesByPlayerId!["player:1"].offersByAgent.victor[0];
+    offer.successRateSnapshot = 100;
+    offer.durationTicksSnapshot = 1;
+    const started = applyCommand(state, command("start-city-event", { offerId: offer.offerId }, "first-run"), context).nextState;
+    started.root.tick += 1;
+    const nextOffer = started.playerCityEventStatesByPlayerId!["player:1"].offersByAgent.victor[1];
+    const next = applyCommand(started, command("start-city-event", { offerId: nextOffer.offerId }, "next-run"), context);
+    expect(next.errors).toEqual([]);
+    expect(next.events.map(event => event.type)).toEqual(expect.arrayContaining(["city-event-succeeded", "city-event-started"]));
+  });
   it("generates stable schedule-window offers and projects exact risk", () => {
     const first = scheduledState();
     const second = synchronizePlayerCityEvents(first, "player:1", context);

@@ -22,10 +22,9 @@ describe("production collect results", () => {
       badge: "Nábor",
       collectItems: [{ label: "Členové gangu", value: "12", amount: 12 }]
     });
-    expect(payload.rows).toEqual(expect.arrayContaining([
-      { label: "District", value: "District 7" },
-      { label: "Noví členové", value: "12", nowrap: true }
-    ]));
+    expect(payload.rows).toContainEqual({ label: "Noví členové", value: "12", nowrap: true });
+    if (buildingLabel === "Bytový blok") expect(payload.rows.map(row => row.label)).toEqual(["Budova", "Noví členové"]);
+    else expect(payload.rows).toContainEqual({ label: "District", value: "District 7" });
   });
 
   it.each([
