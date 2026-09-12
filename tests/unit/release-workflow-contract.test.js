@@ -233,11 +233,18 @@ describe("public release workflows", () => {
     );
     expect(quality).not.toContain("test:e2e:full");
     expect(quality).not.toContain("--all");
-    // The canonical live smoke remains intact; the isolated feedback UI check is an additional gate.
-    const feedbackCommand = "run: npm run test:e2e:smoke -- tests/e2e/player-feedback-ui.spec.js";
-    expect(quality).toContain("- name: Player feedback UI regression");
-    expect(quality).toContain(feedbackCommand);
-    expect(quality.replace(feedbackCommand, "")).not.toMatch(/tests\/e2e\/[^\s]+\.spec\.[jt]s/u);
+    // The canonical live smoke stays intact; requested presentation checks are explicit extra gates.
+    const uiCommands = [
+      "run: npm run test:e2e:smoke -- tests/e2e/player-feedback-ui.spec.js --output=playwright-evidence/feedback",
+      "run: npm run test:e2e:smoke -- tests/e2e/player-polish-mobile.spec.js --output=playwright-evidence/mobile",
+      "run: npm run test:e2e:smoke -- tests/e2e/player-onboarding-mobile.spec.js --output=playwright-evidence/onboarding"
+    ];
+    let canonicalWorkflow = quality;
+    for (const command of uiCommands) {
+      expect(quality).toContain(command);
+      canonicalWorkflow = canonicalWorkflow.replace(command, "");
+    }
+    expect(canonicalWorkflow).not.toMatch(/tests\/e2e\/[^\s]+\.spec\.[jt]s/u);
   });
 
   it("runs the complete remote staging matrix against the exact deployed SHA", () => {

@@ -29,3 +29,5 @@ admin-vite.out.log
 
 # Local Netlify folder
 .netlify
+
+/playwright-evidence/
