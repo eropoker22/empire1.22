@@ -28,8 +28,8 @@ describe("market state helpers", () => {
     expect(state.serverId).toBe("free-01");
     expect(state.items[getMarketStockKey("market", "chemicals")].price).toBe(450);
     expect(state.items[getMarketStockKey("market", "stim-pack")].price).toBe(1000);
-    expect(state.items[getMarketStockKey("black-market", "tech-core")].price).toBe(3260);
-    expect(state.items[getMarketStockKey("black-market", "combat-module")].price).toBe(12250);
+    expect(state.items[getMarketStockKey("black-market", "tech-core")].price).toBe(2630);
+    expect(state.items[getMarketStockKey("black-market", "combat-module")].price).toBe(9880);
     expect(state.stock[getMarketStockKey("market", "chemicals")]).toBe(24);
     expect(state.playerListings).toEqual([]);
   });

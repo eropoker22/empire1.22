@@ -1,3 +1,9 @@
+export function selectBountyBoardEntries(entries = []) {
+  const active = entries.filter(entry => entry.status === "active")
+    .sort((left, right) => Number(right.rewardCleanCash || 0) - Number(left.rewardCleanCash || 0));
+  return [...active, ...entries.filter(entry => entry.status !== "active").slice(0, 20)];
+}
+
 export function getBountyDisplayType(bounty) {
   const objectiveType = String(bounty?.objectiveType || "attack-player");
   if (objectiveType === "destroy-player-district" && String(bounty?.targetDistrictId || "").trim()) {

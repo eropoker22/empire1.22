@@ -114,7 +114,7 @@ export const runTick = (
     ? applyCentralBankPassiveInterestAndOversight(cityHallState, context.config.balance.centralBank, context.config.tickRateMs, context.config.balance.lobbyClub)
     : cityHallState;
   const marketNow = context.clock?.now().getTime() ?? centralBankState.root.tick * context.config.tickRateMs;
-  const marketState = tickMarket(centralBankState, marketNow).nextState as CoreGameState;
+  const marketState = tickMarket(centralBankState, marketNow, context).nextState as CoreGameState;
   const cityEventResult = completeDuePlayerCityEvents(marketState, context);
   const bountyExpiryResult = expireBounties(cityEventResult.nextState, context);
   const districtActionResult = completePendingDistrictActions(bountyExpiryResult.nextState, context);

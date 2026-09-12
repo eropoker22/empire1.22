@@ -84,7 +84,7 @@ describe("result modal runtime", () => {
     expect(openEliminationResultModal).toHaveBeenCalledWith(root, { title: "Elimination" });
   });
 
-  it("keeps queue behavior guarded by visible modal state", () => {
+  it("opens a new result immediately above the previously visible card", () => {
     const renderSimpleResultModal = vi.fn(() => true);
     const runtime = createRuntime({ renderSimpleResultModal });
     const root = createRoot({
@@ -93,7 +93,7 @@ describe("result modal runtime", () => {
 
     runtime.queueOrOpenResultModal(root, "spy", { title: "Queued" });
 
-    expect(runtime.getResultModalQueue().getQueueSize()).toBe(1);
-    expect(renderSimpleResultModal).not.toHaveBeenCalled();
+    expect(runtime.getResultModalQueue().getQueueSize()).toBe(0);
+    expect(renderSimpleResultModal).toHaveBeenCalledWith(root, { title: "Queued" }, expect.any(Object));
   });
 });

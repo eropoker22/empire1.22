@@ -15,6 +15,7 @@ import { resolveAttackWeaponLoadout, validateAttack } from "../validation";
 import { applyAttackWeaponLosses, writeAttackWeaponInventory } from "./attackWeaponInventory";
 import { applyCarDealerCooldownReductionTicks } from "./carDealerBuildingActions";
 import { resolveCityHallNightPatrolPressure } from "./cityHallBuildingActions";
+import { addPlayerFeedback } from "./playerFeedbackNotification";
 import { startPendingDistrictAction } from "./pendingDistrictActionShared";
 
 export const handleAttackDistrict = (
@@ -58,7 +59,14 @@ export const handleAttackDistrict = (
     },
     resourceStatesById: writeAttackWeaponInventory(state, attacker, availableInventory)
   };
-  return { nextState: startPendingDistrictAction(stateWithReservedAttackLoadout, operation, context), events: [], errors: [] };
+  let nextState = startPendingDistrictAction(stateWithReservedAttackLoadout, operation, context);
+  if (targetDistrict.ownerPlayerId) nextState = addPlayerFeedback(nextState, context, {
+    id: `incoming-attack:${operation.id}`, playerId: targetDistrict.ownerPlayerId, title: "Tvůj district je pod útokem",
+    payload: { kind: "incoming-attack", operationId: operation.id, attackerPlayerId: attacker.id,
+      attackerName: String(attacker.metadata?.displayName || attacker.name),
+      districtId: targetDistrict.id, sourceDistrictId, resolveAtTick: operation.resolveAtTick }
+  });
+  return { nextState, events: [], errors: [] };
 };
 
 export const resolveAttackPreparationDurationTicks = (

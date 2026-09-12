@@ -1,0 +1,80 @@
+/* Player feedback: compact recruitment, readable HEAT quotes and city market. */
+html body #police-action-result-modal:not(.hidden):not([hidden]) .is-apartment-recruitment .police-action-result-modal__details {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+html body #police-action-result-modal .is-apartment-recruitment .modal__row {
+  min-width: 0;
+  grid-column: auto !important;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+html body .wanted-popup-cost { white-space: pre-line; line-height: 1.65; }
+.heat-confirm-shell[hidden] { display: none; }
+.heat-confirm-shell { position: fixed; inset: 0; z-index: 3200; display: grid; place-items: center; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+.heat-confirm-backdrop { position: absolute; inset: 0; background: rgba(3, 14, 35, .58); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.heat-confirm-card { position: relative; box-sizing: border-box; width: min(460px, 100%); max-height: 90dvh; overflow: auto; padding: 24px; color: #e8f4ff; background: linear-gradient(145deg, rgba(25, 74, 122, .91), rgba(9, 28, 61, .9)); border: 1px solid #73bdff80; border-radius: 20px; box-shadow: 0 24px 80px #0008, inset 0 1px #c9e6ff33; }
+.heat-confirm-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .12em; color: #92ceff; }
+.heat-confirm-card h2 { font-size: 22px; margin: 10px 32px 18px 0; }
+.heat-confirm-card p { font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.heat-confirm-card .heat-confirm-cost { font-weight: 800; font-size: 17px; padding: 12px; border-radius: 10px; background: #8dcbff12; }
+.heat-confirm-close { position: absolute; right: 10px; top: 10px; width: 44px; height: 44px; border: 0; background: transparent; color: #e8f4ff; font-size: 24px; cursor: pointer; }
+.heat-confirm-actions { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; margin-top: 18px; }
+.heat-confirm-actions button { min-height: 44px; border-radius: 12px; border: 1px solid #a3d4ff66; color: #e8f4ff; background: #c8e3ff12; font-weight: 700; cursor: pointer; }
+.heat-confirm-actions [data-heat-confirm-submit] { color: #071b35; background: #94cdff; }
+.heat-confirm-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.heat-confirm-card button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.events-pending-list { display: grid; gap: 8px; }
+.events-pending-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #89aec32b; padding-top: 8px; }
+.events-pending-row span { min-width: 0; overflow-wrap: anywhere; }
+.events-pending-row small { display: block; color: #9caebd; margin-top: 4px; }
+.events-pending-row button { flex-shrink: 0; min-height: 44px; }
+.events-task__reward-preview { font-size: 12px; line-height: 1.5; color: #a8dfc9; margin: 8px 0; }
+#event-detail-desc { white-space: pre-line; }
+html body .market-popup-shell[data-market-mode="market"] .market-popup-card { --market-accent: #7cd9d0; border-color: #70b4c345; border-radius: 22px; background: linear-gradient(150deg, #152b38f7, #09121dfc 65%); }
+html body .market-popup-shell[data-market-mode="market"] .market-popup-heading { border-color: #83b4c32b; }
+html body .market-popup-shell[data-market-mode="market"] .market-popup-row { border: 1px solid #8fbaca2e; border-radius: 14px; background: linear-gradient(125deg, #1c36435e, #0c1b27a8); padding: 16px; }
+html body .market-popup-shell[data-market-mode="market"] .market-popup-row__fact { border-radius: 8px; background: #06141c80; }
+html body .market-popup-shell[data-market-mode="market"] .market-popup-row__fact small { color: #9aafbc; }
+html body .market-popup-shell[data-market-mode="market"] .market-popup-row__quantity-controls { border-radius: 10px; }
+html body .market-popup-shell[data-market-mode="market"] .market-popup-row__actions > .button { min-height: 44px; border-radius: 10px; text-transform: none; box-shadow: none; }
+html body .market-popup-shell[data-market-mode="market"] .market-popup-row__buy { background: #7cd9d0; color: #071d24; border-color: #a2eee6; }
+html body .market-popup-shell[data-market-mode="market"] .market-popup-row__sell { color: #b7d2fc; border-color: #7eabeb66; background: #23436b66; }
+html body .market-popup-shell[data-market-mode="market"] .button:hover:not(:disabled) { filter: brightness(1.12); }
+html body .market-popup-shell[data-market-mode="market"] .button:focus-visible { outline: 2px solid #bcf6f0; outline-offset: 3px; }
+@media (max-width: 720px) {
+  html body .empire-onboarding[data-placement-mode="mobile"] {
+    box-sizing: border-box !important;
+    width: auto !important;
+    min-width: 0 !important;
+    inset: auto max(8px, env(safe-area-inset-right)) calc(var(--onboarding-visible-bottom, 0px) + max(8px, env(safe-area-inset-bottom))) max(8px, env(safe-area-inset-left)) !important;
+    transform: none !important;
+    max-height: calc(var(--onboarding-viewport-height, 100dvh) * .42) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    padding: 12px !important;
+    scroll-padding-block: 12px;
+  }
+  html body .empire-onboarding[data-placement-mode="mobile"] .empire-onboarding__header { gap: 6px; margin-bottom: 6px; }
+  html body .empire-onboarding[data-placement-mode="mobile"] .empire-onboarding__title { font-size: 17px; line-height: 1.2; }
+  html body .empire-onboarding[data-placement-mode="mobile"] .empire-onboarding__body { font-size: 12px; line-height: 1.45; }
+  html body .empire-onboarding[data-placement-mode="mobile"] .empire-onboarding__actions { position: sticky; bottom: -12px; padding-block: 8px; background: #0a1425f5; }
+  html body[data-onboarding-step="building-action"] #profile-gang-card {
+    box-sizing: border-box !important;
+    padding: 10px !important;
+    gap: 4px !important;
+    max-height: calc(58dvh - var(--mobile-topbar-offset, 72px) - 30px);
+    overflow-y: auto;
+    scroll-margin-top: calc(var(--mobile-topbar-offset, 72px) + 10px);
+  }
+  html body[data-onboarding-step="building-action"] #profile-gang-card .gang-profile-row { min-height: 28px !important; margin: 0 !important; padding-block: 4px !important; font-size: 12px !important; }
+  html body.game-body .wanted-popup-card .wanted-popup-meta--header { display: none !important; }
+  html body.game-body .wanted-popup-card .wanted-popup-meta--mobile { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; width: 100% !important; gap: 6px !important; }
+  html body.game-body .wanted-popup-card .wanted-popup-meta--mobile .wanted-popup-row { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 4px !important; min-width: 0; margin: 0; padding: 8px 6px; font-size: 11px; }
+  html body.game-body .wanted-popup-card .wanted-popup-meta--mobile .wanted-popup-row span { white-space: normal !important; overflow-wrap: anywhere; font-size: 12px; }
+  html body.game-body .wanted-popup-card .wanted-popup-cost-row--full { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 6px !important; }
+  html body.game-body .wanted-popup-card .wanted-popup-cost-row--full .wanted-popup-cost { display: block !important; text-align: left !important; white-space: pre-line !important; border-radius: 10px !important; overflow-wrap: anywhere; padding: 8px 10px; }
+  .heat-confirm-card { padding: 18px; }
+}

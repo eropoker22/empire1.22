@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="../page-assets/css/styles-game-about.css?v=20260807-dialog-sizing">
     <link rel="stylesheet" href="../page-assets/css/styles-mobile-refinements.css">
     <link rel="stylesheet" href="../page-assets/css/styles-match-overview.css">
+    <link rel="stylesheet" href="../page-assets/css/styles-player-polish.css">
   </head>
   <body class="game-body game-body--booting">
     <section class="game-authority-gate modal lifecycle-modal lifecycle-modal--authority" data-game-authority-gate data-server-lifecycle-surface="authority" role="status" aria-live="polite" aria-hidden="false">
@@ -162,7 +163,7 @@
           <section id="game-map-stage" class="map-stage-shell" aria-label="Game map stage">
             <div class="map-stage-header">
               <div class="map-stage-heading">
-                <h2 class="map-stage-title">Mapa kontroly města</h2>
+                <button type="button" class="map-stage-title map-numbers-toggle" data-map-numbers-toggle aria-pressed="false" aria-label="Zobrazit čísla districtů" title="Zobrazit / skrýt čísla districtů">Čísla</button>
                 <div class="map-stage-actions map-stage-actions--desktop" aria-label="Map quick actions desktop">
                   <button
                     type="button"
@@ -286,7 +287,7 @@
                 </p>
               </div>
               <p class="panel-note profile-row profile-row--members gang-profile-row"><span class="gang-profile-row__label">Populace</span><span data-population>—</span></p>
-              <p class="panel-note profile-row profile-row--wanted gang-profile-row"><span class="gang-profile-row__label">Heat</span><button type="button" class="button gang-profile-value-button profile-heat-panel" data-gang-heat>—</button></p>
+              <button type="button" class="panel-note profile-row profile-row--wanted gang-profile-row gang-heat-row-button" data-gang-heat-open aria-label="Zobrazit HEAT a policii"><span class="gang-profile-row__label">Heat</span><span class="gang-profile-value-button profile-heat-panel" data-gang-heat>—</span></button>
               <p class="panel-note profile-row profile-row--faction gang-profile-row"><span class="gang-profile-row__label">Frakce</span><span data-gang-faction>—</span></p>
               <p class="panel-note profile-row profile-row--districts gang-profile-row"><span class="gang-profile-row__label">Distrikty</span><span data-gang-districts>—</span></p>
               <p class="panel-note profile-row profile-row--alliance gang-profile-row"><span class="gang-profile-row__label">Aliance</span><span id="profile-alliance" data-gang-alliance>—</span></p>

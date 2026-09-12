@@ -37,26 +37,22 @@ describe("result modal queue", () => {
     expect(queue.getQueueSize()).toBe(0);
   });
 
-  it("queues while a modal is visible and opens next item after close", () => {
+  it("interrupts the visible result and restores it after the newer one closes", () => {
     const calls = [];
-    const visibleModal = new FakeModal();
-    const closingModal = new FakeModal();
-    const root = { querySelector: () => closingModal };
-    let visible = visibleModal;
+    const modal = new FakeModal(); let visible = null;
+    const root = { querySelector: () => modal };
     const queue = createResultModalQueue({
       getVisibleModal: () => visible,
-      openByKind: (_root, kind, payload) => calls.push({ kind, payload }),
-      setTimeout: (callback) => callback()
+      openByKind: (_root, kind, payload) => { visible = modal; calls.push({kind,payload}); },
+      setTimeout: callback => callback()
     });
-
-    queue.queueOrOpen(root, "spy", { id: 1 });
+    queue.queueOrOpen(root, "attack", {id: 1});
+    queue.queueOrOpen(root, "spy", {id: 2});
+    expect(calls).toEqual([{kind: "attack", payload: {id: 1}}, {kind: "spy", payload: {id: 2}}]);
     expect(queue.getQueueSize()).toBe(1);
-
     visible = null;
     queue.close(root, "[data-modal]");
-
-    expect(closingModal.classList.contains("hidden")).toBe(true);
-    expect(calls).toEqual([{ kind: "spy", payload: { id: 1 } }]);
+    expect(calls[2]).toEqual({kind: "attack", payload: {id: 1}});
     expect(queue.getQueueSize()).toBe(0);
   });
 });

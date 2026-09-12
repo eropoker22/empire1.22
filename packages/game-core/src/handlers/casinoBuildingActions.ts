@@ -100,7 +100,7 @@ export const resolveCasinoAuditRisk = (input: {
   }
 
   return {
-    riskPct: Math.max(0, Math.round(riskPct * 10) / 10),
+    riskPct: Math.min(100, Math.max(0, Math.round(riskPct * 10) / 10)),
     launderedInWindow
   };
 };

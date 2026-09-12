@@ -4643,6 +4643,7 @@
       hardTimeoutTicks: FREE_MODE_HARD_TIMEOUT_TICKS,
       police: freeModePoliceConfig,
       conflict: {
+        initialAttackProtectionMs: 2 * 60 * 60 * 1e3,
         spyCooldownTicks: ticksFromMinutes(6),
         spyAuthorizationTtlTicks: ticksFromMinutes(10),
         spySlotCooldownTicks: ticksFromMinutes(6),

@@ -83,7 +83,7 @@ describe("market command handler", () => {
   it("buys from normal market with server calculated price and stock mutation", () => {
     const state = createState();
     const initialStock = Number(tickMarket(state, 0).nextState.market?.stock["metal-parts"] ?? 0);
-    const unitPrice = calculateMarketPrice(state, "metal-parts", "normal").finalPrice;
+    const unitPrice = calculateMarketPrice({ ...state, config: context.config }, "metal-parts", "normal").finalPrice;
     const result = applyCommand(state, buyCommand({
       resourceId: "metal-parts",
       amount: 2,
@@ -112,7 +112,7 @@ describe("market command handler", () => {
   it("sells resources into normal market and credits clean cash", () => {
     const state = createState();
     const initialStock = Number(tickMarket(state, 0).nextState.market?.stock["metal-parts"] ?? 0);
-    const unitPrice = Math.max(1, Math.floor(calculateMarketPrice(state, "metal-parts", "normal").finalPrice * 0.65));
+    const unitPrice = Math.max(1, Math.floor(calculateMarketPrice({ ...state, config: context.config }, "metal-parts", "normal").finalPrice * 0.65));
     const result = applyCommand(state, sellCommand({
       resourceId: "metal-parts",
       amount: 3
@@ -202,4 +202,3 @@ describe("market command handler", () => {
     expect(cancelled.nextState.market?.playerListings).toHaveLength(0);
   });
 });
-

@@ -66,6 +66,10 @@ export interface BattleReport {
   heatGained: number;
   reportForAttacker: string;
   reportForDefender: string;
+  attackPower?: number;
+  defensePower?: number;
+  stabilizingUntilTick?: number | null;
+  tacticalGrid?: { attackerApplied: boolean; defenderApplied: boolean; multiplier: number };
   attackDurationTicks: number;
   tick: number;
   createdAt: string;

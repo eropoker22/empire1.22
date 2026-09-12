@@ -83,6 +83,7 @@ export function normalizeBuildingActionSnapshot(snapshot) {
     compact,
     ...(hasCountdownStyle ? { countdownStyle } : {}),
     ...(hasCountdownPrefix ? { countdownPrefix } : {}),
+    ...(typeof snapshot?.getCountdown === "function" ? { getCountdown: snapshot.getCountdown } : {}),
     dismissible,
     persistent: !dismissible,
     resultPayload,
@@ -269,15 +270,22 @@ export function formatBuildingActionFeedCountdown(remainingMs, style = "clock") 
 
 function bindBuildingActionFeedCountdown(element, expiresAt, onExpire = null, {
   style = "clock",
-  prefix = "Čekání "
+  prefix = "Čekání ",
+  getCountdown = null
 } = {}) {
   const windowRef = element?.ownerDocument?.defaultView;
   const targetMs = Number(expiresAt || 0);
-  if (!element || !windowRef || !Number.isFinite(targetMs) || targetMs <= 0) {
+  if (!element || !windowRef || (!getCountdown && (!Number.isFinite(targetMs) || targetMs <= 0))) {
     return;
   }
 
   const update = () => {
+    if (getCountdown) {
+      const countdown = getCountdown();
+      element.textContent = `${prefix}${countdown.label}`;
+      if (countdown.expired) { windowRef.clearInterval(timerId); onExpire?.(); }
+      return;
+    }
     const remainingMs = Math.max(0, targetMs - Date.now());
     element.textContent = `${prefix}${formatBuildingActionFeedCountdown(remainingMs, style)}`;
     if (remainingMs <= 0 && timerId) {
@@ -318,6 +326,10 @@ function isLegacyPoliceRaidEntry(entry) {
   }
 
   const sourceKind = normalizeBuildingActionClassToken(entry?.sourceKind || entry?.kind || "", "");
+  // Server notifications have a known type; player names are not police metadata.
+  if (sourceKind === "player-feedback") {
+    return false;
+  }
   if (sourceKind === "police-raid") {
     return true;
   }
@@ -370,7 +382,8 @@ export function restoreBuildingActionEntries(entries, now = Date.now(), limit = 
 
     const fingerprint = createBuildingActionFingerprint(entry);
     const duplicateTimestamps = recentFingerprints.get(fingerprint) || [];
-    const isRecentDuplicate = duplicateTimestamps.some(
+    // Distinct authoritative IDs represent distinct attacks, bounties or sales.
+    const isRecentDuplicate = entry.sourceKind !== "player-feedback" && duplicateTimestamps.some(
       (timestampMs) => Math.abs(timestampMs - entry.timestampMs) <= duplicateWindowMs
     );
     if (isRecentDuplicate) {
@@ -514,7 +527,8 @@ export function createBuildingActionFeedItemElement(documentRef, entry, options 
         options.onExpire,
         {
           style: entry.countdownStyle,
-          prefix: entry.countdownPrefix
+          prefix: entry.countdownPrefix,
+          getCountdown: entry.getCountdown
         }
       );
     }

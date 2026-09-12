@@ -1,3 +1,4 @@
+import { calendarTimeAtTick } from "@empire/game-core";
 import { createAllianceBoardReadModel, createBountyReadModel, createCityChatReadModel, createCityFeedProjection, createConflictReportViews, createGameplayEconomyRatesView, createLeaderboardReadModel, createOnboardingReadModel, createOwnedDistrictBuildingIndexViews, createPlayerFrontierSummaryView, createPoliceReadModel, getMarketViewModel } from "@empire/game-core";
 import {
   empireStreetsCityMapManifestHash,
@@ -58,7 +59,7 @@ export const createGameplaySliceProjection = (
   return {
     server: {
       serverInstanceId: runtime.record.id,
-      logicalTime: runtime.state.serverInstance.calendarAnchor?.at ?? new Date(Date.parse(runtime.state.serverInstance.startedAt) + runtime.state.root.tick * runtime.config.tickRateMs).toISOString(),
+      logicalTime: new Date(calendarTimeAtTick(runtime.state, runtime.state.root.tick, runtime.config.tickRateMs)).toISOString(),
       phase: runtime.state.root.phase,
       mode: runtime.record.mode,
       status: runtime.record.status,
@@ -124,7 +125,7 @@ const createOwnedTrapMapEffects = (
 ): GameplayMapEffectView[] => {
   const currentTick = runtime.state.root.tick;
   const tickRateMs = runtime.config.tickRateMs;
-  const nowMs = runtime.clock.now().getTime();
+  const nowMs = calendarTimeAtTick(runtime.state, currentTick, tickRateMs);
 
   return Object.values(runtime.state.trapsById ?? {}).flatMap((trap) => {
     if (trap.ownerPlayerId !== playerId || trap.status !== "active") return [];
@@ -149,7 +150,7 @@ const createPendingConflictMapEffects = (
 ): GameplayMapEffectView[] => {
   const currentTick = runtime.state.root.tick;
   const tickRateMs = runtime.config.tickRateMs;
-  const nowMs = runtime.clock.now().getTime();
+  const nowMs = calendarTimeAtTick(runtime.state, currentTick, tickRateMs);
   return Object.values(runtime.state.pendingDistrictActionOperationsById ?? {}).flatMap((operation) => {
     if (operation.playerId !== playerId || operation.resolveAtTick <= currentTick) return [];
     const type = operation.operationType === "spy"
@@ -181,14 +182,14 @@ const createPublicConflictMapEffects = (
 ): GameplayMapEffectView[] => {
   const currentTick = runtime.state.root.tick;
   const tickRateMs = runtime.config.tickRateMs;
-  const nowMs = runtime.clock.now().getTime();
+  const nowMs = calendarTimeAtTick(runtime.state, currentTick, tickRateMs);
   const cityFeedEvents = Object.values(runtime.state.cityFeedEventsById ?? {});
 
   return Object.values(runtime.state.districtsById).flatMap((district) => {
     const operationLocks = district.operationLocks ?? {};
     return (["attack", "occupy"] as const).flatMap((type) => {
-      const expiresAtTick = Number(operationLocks[type] ?? 0);
-      if (expiresAtTick <= currentTick) return [];
+      const lockExpiresAtTick = Number(operationLocks[type] ?? 0);
+      if (lockExpiresAtTick <= currentTick) return [];
 
       const sourceType = type === "attack" ? "attack" : "district_occupy";
       const pendingOccupy = type === "occupy"
@@ -203,6 +204,7 @@ const createPublicConflictMapEffects = (
             && operation.resolveAtTick > currentTick)
           .sort((left, right) => right.issuedAtTick - left.issuedAtTick)[0]
         : null;
+      const expiresAtTick = pendingAction?.resolveAtTick ?? pendingOccupy?.resolveAtTick ?? lockExpiresAtTick;
       const sourceEvent = cityFeedEvents
         .filter((event) => (
           event.sourceType === sourceType
@@ -226,8 +228,7 @@ const createPublicConflictMapEffects = (
       const player = playerId ? runtime.state.playersById[playerId] : undefined;
       const playerColor = player?.color;
       const playerName = String(
-        player?.metadata?.gangName
-        || player?.metadata?.displayName
+        player?.metadata?.displayName
         || player?.name
         || ""
       ).trim();
@@ -237,6 +238,7 @@ const createPublicConflictMapEffects = (
         type,
         source: "server-public-operation",
         playerId,
+        ...(pendingAction ? { sourceDistrictId: pendingAction.sourceDistrictId } : {}),
         ...(playerName ? { playerName } : {}),
         ...(playerColor ? { playerColor } : {}),
         districtId: district.id,

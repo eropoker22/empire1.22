@@ -1,3 +1,4 @@
+import { readTickCountdown } from "./authoritativeTickCountdown.js";
 export function formatCombatLootLabel(itemId) {
   const key = String(itemId || "").trim().toLowerCase();
   const labels = {
@@ -20,7 +21,7 @@ export function formatCombatLootLabel(itemId) {
     vest: "Vesta",
     barricades: "Barikády",
     cameras: "Kamery",
-    "defense-tower": "Defense tower",
+    "defense-tower": "Obranná věž",
     alarm: "Alarm"
   };
 
@@ -109,6 +110,16 @@ export function createResultPayloadBuilders(deps = {}) {
   const getResultDistrictOwnerLabel = (districtId, fallbackOwnerLabel = "") => {
     const normalizedDistrictId = resolveDistrictNumericId(districtId);
     const fallback = String(fallbackOwnerLabel || "").trim();
+    const slice = deps.getGameplaySlice?.();
+    if (slice) {
+      const district = slice.districts?.find(entry => resolveDistrictNumericId(entry.districtId) === normalizedDistrictId)
+        || (resolveDistrictNumericId(slice.district?.districtId) === normalizedDistrictId ? slice.district : null);
+      if (!district) return "Neznámý hráč";
+      if (district.status === "destroyed") return "Zničený";
+      if (!district.ownerPlayerId) return "Neobsazeno";
+      if (district.ownerPlayerId === slice.player?.playerId) return slice.player?.profile?.displayName || "TY";
+      return String(district.ownerName || "").trim() || "Neznámý hráč";
+    }
     if (!normalizedDistrictId) {
       return fallback || "Neznámý";
     }
@@ -259,11 +270,19 @@ export function createResultPayloadBuilders(deps = {}) {
     const districtId = resolveDistrictNumericId(district || attackMarker?.districtId);
     const attackerDistrictId = resolveDistrictNumericId(attackMarker?.attackerDistrictId || attackMarker?.sourceDistrictId);
     const buildRows = () => {
-      const remainingMs = Math.max(0, Number(attackMarker?.expiresAt || 0) - now());
+      const slice = deps.getGameplaySlice?.();
+      const liveOperation = slice?.mapEffects?.find(effect => effect.type === "attack"
+        && resolveDistrictNumericId(effect.districtId) === districtId && effect.playerId === attackMarker?.playerId
+        && (!attackMarker?.effectId || effect.effectId === attackMarker.effectId));
+      const countdown = slice ? readTickCountdown(slice, liveOperation?.expiresAtTick
+        ?? (Array.isArray(slice.mapEffects) ? slice.server?.currentTick : null), formatDurationLabel) : null;
+      const remainingMs = attackMarker?.getRemainingMs?.() ?? Math.max(0, Number(attackMarker?.expiresAt || 0) - now());
       return [
-        { label: "Útočník", value: getResultDistrictOwnerLabel(attackerDistrictId, "Neznámý gang") },
+        { label: "Útočník", value: String(attackMarker?.playerName || "").trim() || getResultDistrictOwnerLabel(attackerDistrictId, "Neznámý hráč") },
         { label: "Obránce", value: getResultDistrictOwnerLabel(districtId, "Neobsazeno") },
-        { label: "Konec boje", value: formatDurationLabel(remainingMs), nowrap: true, countdownUntil: Number(attackMarker?.expiresAt || 0) }
+        { label: "Konec boje", value: countdown ? (countdown.expired ? "Čeká na výsledek serveru" : countdown.label)
+          : remainingMs > 0 ? formatDurationLabel(remainingMs) : "Čeká na výsledek serveru", nowrap: true,
+          countdownUntil: slice || attackMarker?.getRemainingMs ? undefined : Number(attackMarker?.expiresAt || 0) }
       ];
     };
 
@@ -278,7 +297,6 @@ export function createResultPayloadBuilders(deps = {}) {
       rows: buildRows(),
       getRows: buildRows,
       refreshMs: 1000,
-      autoCloseWhen: () => Math.max(0, Number(attackMarker?.expiresAt || 0) - now()) <= 0
     };
   };
 

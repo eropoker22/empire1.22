@@ -1,3 +1,4 @@
+import { getOnboardingViewport, observeOnboardingViewport } from "./onboardingViewport.js";
 import {
   isOnboardingDefeated,
   resolveOnboardingStepState
@@ -30,7 +31,8 @@ const panelState = {
   hidden: false,
   currentStepId: "welcome",
   lastFocusedStepId: null,
-  lastPageTopStepId: null
+  lastPageTopStepId: null,
+  stopGeometryObserver: null
 };
 
 function asArray(value) {
@@ -281,10 +283,11 @@ function positionHighlightElement(ownerDocument, highlight, target, step = {}) {
   const viewportWidth = ownerDocument.defaultView?.innerWidth || 1024;
   const viewportHeight = ownerDocument.defaultView?.innerHeight || 768;
   const padding = viewportWidth <= 720 ? 6 : 8;
-  const left = clamp(rect.left - padding, 6, Math.max(6, viewportWidth - 42));
-  const top = clamp(rect.top - padding, 6, Math.max(6, viewportHeight - 42));
-  const width = Math.min(Math.max(38, rect.width + padding * 2), Math.max(42, viewportWidth - left - 6));
-  const height = Math.min(Math.max(38, rect.height + padding * 2), Math.max(42, viewportHeight - top - 6));
+  const visible = getOnboardingViewport(ownerDocument.defaultView);
+  const left = clamp(rect.left - padding, visible.left + 6, Math.max(visible.left + 6, visible.right - 42));
+  const top = clamp(rect.top - padding, visible.top + 6, Math.max(visible.top + 6, visible.bottom - 42));
+  const width = Math.min(Math.max(38, rect.width + padding * 2), Math.max(42, visible.right - left - 6));
+  const height = Math.min(Math.max(38, rect.height + padding * 2), Math.max(42, visible.bottom - top - 6));
   highlight.hidden = false;
   highlight.dataset.highlightKind = resolveStepKind(step);
   setElementStyle(highlight, "left", `${left}px`);
@@ -440,10 +443,20 @@ function resetPanelPlacement(mount) {
   mount.style.right = "";
   mount.style.bottom = "";
   mount.dataset.placementMode = "default";
+  mount.style.removeProperty?.("--onboarding-visible-bottom");
+  mount.style.removeProperty?.("--onboarding-viewport-height");
 }
 
 function positionPanelNearTarget(mount, target, step = {}) {
   const win = mount?.ownerDocument?.defaultView;
+  if (mount?.style && win && win.innerWidth <= 720) {
+    const viewport = getOnboardingViewport(win);
+    resetPanelPlacement(mount);
+    mount.dataset.placementMode = "mobile";
+    mount.style.setProperty?.("--onboarding-visible-bottom", `${Math.max(0, win.innerHeight - viewport.bottom)}px`);
+    mount.style.setProperty?.("--onboarding-viewport-height", `${viewport.height}px`);
+    return;
+  }
   if (!mount?.style || !target?.getBoundingClientRect || !win || win.innerWidth <= 900 || step.highlightType === "map" || step.placement === "center") {
     resetPanelPlacement(mount);
     return;
@@ -581,6 +594,8 @@ export function shouldAutoStartOnboarding(progress = {}, readModel = {}) {
 }
 
 export function hideOnboardingPanel() {
+  panelState.stopGeometryObserver?.();
+  panelState.stopGeometryObserver = null;
   panelState.hidden = true;
   if (panelState.mount) {
     panelState.mount.hidden = true;
@@ -898,10 +913,11 @@ function getFocusBackdropRect(ownerDocument, root, step = {}, focusTargets = [])
   const viewportWidth = ownerDocument?.defaultView?.innerWidth || 1024;
   const viewportHeight = ownerDocument?.defaultView?.innerHeight || 768;
   const padding = Math.max(0, Number(step.focusBackdropPadding ?? 10) || 0);
-  const left = clamp(rect.left - padding, 0, viewportWidth);
-  const top = clamp(rect.top - padding, 0, viewportHeight);
-  const right = clamp(rect.right + padding, 0, viewportWidth);
-  const bottom = clamp(rect.bottom + padding, 0, viewportHeight);
+  const visible = getOnboardingViewport(ownerDocument.defaultView);
+  const left = clamp(rect.left - padding, visible.left, visible.right);
+  const top = clamp(rect.top - padding, visible.top, visible.bottom);
+  const right = clamp(rect.right + padding, visible.left, visible.right);
+  const bottom = clamp(rect.bottom + padding, visible.top, visible.bottom);
   if (right - left <= 0 || bottom - top <= 0) {
     return null;
   }
@@ -1192,7 +1208,8 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
   }
   const focusTargets = resolveFocusTargets(ownerDocument, root, step, target);
   const primaryTarget = focusTargets[0] || target;
-  if (!lockBackgroundScroll && step.scrollFocusIntoView && shouldScrollFocusIntoView(ownerDocument, step)) {
+  updateFocusTargetClasses(focusTargets, step);
+  if (enteredStep && !lockBackgroundScroll && step.scrollFocusIntoView && shouldScrollFocusIntoView(ownerDocument, step)) {
     const scrollTarget = step.scrollFocusSelector
       ? resolveTargetElement(ownerDocument, root, step.scrollFocusSelector)
       : step.focusBackdropHoleSelector
@@ -1204,18 +1221,22 @@ export function renderOnboardingPanel(progress = {}, callbacks = {}, options = {
       inline: step.scrollFocusInline || "nearest"
     });
   }
-  const focusRect = focusBackdrop ? getFocusBackdropRect(ownerDocument, root, step, focusTargets) : null;
-  updateStepBackdrop(ownerDocument, welcomePageScroll ? "welcome" : (focusBackdrop ? "focus" : "none"), focusRect);
-  updateFocusTargetClasses(focusTargets, step);
-  if (showTargetRing) {
-    updateHighlight(ownerDocument, primaryTarget, step);
-    updateExtraHighlights(ownerDocument, focusTargets.slice(1), step);
-  } else {
-    updateHighlight(ownerDocument, null, step);
-    updateExtraHighlights(ownerDocument, [], step);
-  }
-  updateMapDistrictHighlights(ownerDocument, root, step);
-  positionPanelNearTarget(mount, target, step);
+  const updateGeometry = () => {
+    const focusRect = focusBackdrop ? getFocusBackdropRect(ownerDocument, root, step, focusTargets) : null;
+    updateStepBackdrop(ownerDocument, welcomePageScroll ? "welcome" : (focusBackdrop ? "focus" : "none"), focusRect);
+    if (showTargetRing) {
+      updateHighlight(ownerDocument, primaryTarget, step);
+      updateExtraHighlights(ownerDocument, focusTargets.slice(1), step);
+    } else {
+      updateHighlight(ownerDocument, null, step);
+      updateExtraHighlights(ownerDocument, [], step);
+    }
+    updateMapDistrictHighlights(ownerDocument, root, step);
+    positionPanelNearTarget(mount, target, step);
+  };
+  panelState.stopGeometryObserver?.();
+  updateGeometry();
+  panelState.stopGeometryObserver = observeOnboardingViewport(mount, updateGeometry);
   scheduleFocus(mount, normalized.currentStepId);
 
   return true;

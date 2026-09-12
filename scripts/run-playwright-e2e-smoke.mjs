@@ -94,7 +94,7 @@ function printRecentLogs(label, lines) {
   }
 }
 
-function killProcessTree(processRef) {
+function killProcessTree(processRef, signal = "SIGTERM") {
   if (!processRef?.pid) {
     return;
   }
@@ -102,7 +102,32 @@ function killProcessTree(processRef) {
     spawnSync("taskkill", ["/pid", String(processRef.pid), "/T", "/F"], { stdio: "ignore" });
     return;
   }
-  processRef.kill("SIGTERM");
+  // The local-bin wrapper starts its own Node child. Signal the whole group
+  // so a completed smoke run cannot leave Vite listening for the next run.
+  try {
+    process.kill(-processRef.pid, signal);
+  } catch (error) {
+    if (error.code !== "ESRCH") throw error;
+  }
+}
+
+async function stopServer(processRef) {
+  if (!processRef?.pid) return;
+  if (processRef.exitCode !== null || processRef.signalCode !== null) {
+    killProcessTree(processRef);
+    return;
+  }
+  await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      killProcessTree(processRef, "SIGKILL");
+      resolve();
+    }, PROCESS_KILL_GRACE_MS);
+    processRef.once("close", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    killProcessTree(processRef);
+  });
 }
 
 async function waitForHealth(timeoutMs = HEALTH_TIMEOUT_MS) {
@@ -146,6 +171,7 @@ function runCommand(command, args, options = {}) {
       cwd: process.cwd(),
       env,
       stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",
       windowsHide: true
     });
     attachProcessLogs(child, label, lines);
@@ -166,7 +192,10 @@ function runCommand(command, args, options = {}) {
       timedOut = true;
       console.error(`[e2e-smoke] ${label} timed out after ${formatDuration(options.timeoutMs || PLAYWRIGHT_TIMEOUT_MS)}. Killing process tree.`);
       killProcessTree(child);
-      killGraceTimer = setTimeout(() => complete(124), PROCESS_KILL_GRACE_MS);
+      killGraceTimer = setTimeout(() => {
+        killProcessTree(child, "SIGKILL");
+        complete(124);
+      }, PROCESS_KILL_GRACE_MS);
       killGraceTimer.unref?.();
     }, options.timeoutMs || PLAYWRIGHT_TIMEOUT_MS);
     timeoutTimer.unref?.();
@@ -206,6 +235,7 @@ const server = reuseExistingServer ? null : spawn(process.execPath, [
   cwd: process.cwd(),
   env,
   stdio: ["ignore", "pipe", "pipe"],
+  detached: process.platform !== "win32",
   windowsHide: true
 });
 if (server) {
@@ -253,7 +283,7 @@ try {
 } finally {
   stoppingServer = true;
   if (server) {
-    killProcessTree(server);
+    await stopServer(server);
   }
 }
 

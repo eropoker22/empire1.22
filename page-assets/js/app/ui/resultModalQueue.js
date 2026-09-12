@@ -6,6 +6,7 @@ function safeFunction(fn, fallback = () => {}) {
 
 export function createResultModalQueue(options = {}) {
   const queue = [];
+  let current = null;
   const getVisibleModal = safeFunction(options.getVisibleModal, () => null);
   const openByKind = safeFunction(options.openByKind);
   const timerSource = options.timerApi || (typeof window !== "undefined" ? window : globalThis);
@@ -20,6 +21,7 @@ export function createResultModalQueue(options = {}) {
 
     const nextItem = queue.shift();
     if (nextItem) {
+      current = nextItem;
       openByKind(root, nextItem.kind, nextItem.payload);
     }
   };
@@ -29,11 +31,13 @@ export function createResultModalQueue(options = {}) {
       return;
     }
 
-    if (getVisibleModal(root)) {
-      queue.push({ kind, payload });
-      return;
+    const visible = getVisibleModal(root);
+    if (visible) {
+      if (current) queue.unshift(current);
+      visible.classList?.add?.("hidden");
+      closeOverlay(visible, { restoreFocus: false });
     }
-
+    current = { kind, payload };
     openByKind(root, kind, payload);
   };
 
@@ -43,6 +47,7 @@ export function createResultModalQueue(options = {}) {
       return;
     }
 
+    current = null;
     modal.classList?.add?.("hidden");
     closeOverlay(modal);
     if (setTimeoutFn) {

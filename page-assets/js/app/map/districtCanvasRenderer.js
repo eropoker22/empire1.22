@@ -637,6 +637,18 @@ function renderDistrictCanvas(canvas, phase, interactionState = {}, imageSet = n
       }
     }
 
+    if (renderStateLayer && interactionState.showDistrictNumbers) {
+      context.save();
+      context.font = "bold 15px sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.lineWidth = 3;
+      context.strokeStyle = "#03101d";
+      context.fillStyle = "#ffffff";
+      context.strokeText(String(district.id), district.centerX, district.centerY);
+      context.fillText(String(district.id), district.centerX, district.centerY);
+      context.restore();
+    }
     const bountyMarker = bountyDistrictMarkers instanceof Map
       ? bountyDistrictMarkers.get(district.id)
       : bountyDistrictMarkers?.[district.id];

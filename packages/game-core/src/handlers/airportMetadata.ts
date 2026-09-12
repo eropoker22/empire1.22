@@ -1,6 +1,6 @@
 import type { AirportBalanceConfig } from "../contracts";
 import type { CoreGameState } from "../entities";
-import type { AirportImportCategory, AirportMetadata, PendingAirportImport } from "./airportTypes";
+import type { AirportImportCategory, AirportImportShipment, AirportMetadata, PendingAirportImport } from "./airportTypes";
 export const getAirportMetadata = (
   building: CoreGameState["buildingsById"][string],
   tick = 0
@@ -45,24 +45,15 @@ const readAirportMetadata = (building: CoreGameState["buildingsById"][string]): 
     discountDisabledUntilTick: asOptionalTick(raw.discountDisabledUntilTick),
     nextImportCostPenaltyPct: Number(raw.nextImportCostPenaltyPct || 0),
     lastCustomsInspectionTick: asOptionalTick(raw.lastCustomsInspectionTick),
-    lastImportShipment: isRecord(raw.lastImportShipment)
-      ? {
-          tick: Math.floor(Number(raw.lastImportShipment.tick || 0)),
-          category: resolveImportCategory(raw.lastImportShipment.category, ["materials", "rareComponents", "weapons", "defenseItems"]),
-          requestedItems: readNumberRecord(raw.lastImportShipment.requestedItems),
-          acceptedItems: readNumberRecord(raw.lastImportShipment.acceptedItems),
-          lostItems: readNumberRecord(raw.lastImportShipment.lostItems),
-          customsTriggered: Boolean(raw.lastImportShipment.customsTriggered)
-        }
-      : undefined,
+    lastImportShipment: readImportShipment(raw.lastImportShipment),
     customsEvents: Array.isArray(raw.customsEvents) ? raw.customsEvents.filter(isRecord).map((entry) => ({ type: String(entry.type || ""), tick: Math.floor(Number(entry.tick || 0)), label: String(entry.label || entry.type || ""), riskPct: Number(entry.riskPct || 0) })).filter((entry) => entry.type) : []
   };
 };
 
 const cleanupAirportMetadata = (metadata: AirportMetadata, tick: number): AirportMetadata => ({
+  // Paid cargo is removed only by settlement, including overdue snapshot imports.
   ...metadata,
   blackCharterOffer: Number(metadata.blackCharterExpiresAtTick || 0) > tick ? metadata.blackCharterOffer : undefined,
-  pendingImports: metadata.pendingImports.filter((entry) => entry.completesAtTick > tick || entry.completesAtTick === tick),
   customsEvents: metadata.customsEvents.slice(-10)
 });
 
@@ -74,9 +65,22 @@ const readPendingImport = (entry: Record<string, unknown>): PendingAirportImport
     category,
     startedAtTick: Math.floor(Number(entry.startedAtTick || 0)),
     completesAtTick: Math.floor(Number(entry.completesAtTick || 0)),
-    shipment: readNumberRecord(entry.shipment)
+    shipment: readNumberRecord(entry.shipment),
+    customsResolved: entry.customsResolved === true,
+    deliveryProgress: readImportShipment(entry.deliveryProgress)
   };
 };
+
+const readImportShipment = (value: unknown): AirportImportShipment | undefined => isRecord(value)
+  ? {
+      tick: Math.floor(Number(value.tick || 0)),
+      category: resolveImportCategory(value.category, ["materials", "rareComponents", "weapons", "defenseItems"]),
+      requestedItems: readNumberRecord(value.requestedItems),
+      acceptedItems: readNumberRecord(value.acceptedItems),
+      lostItems: readNumberRecord(value.lostItems),
+      customsTriggered: value.customsTriggered === true
+    }
+  : undefined;
 
 export const withAirportMetadata = (
   building: CoreGameState["buildingsById"][string],

@@ -5,6 +5,7 @@ import type {
 } from "@empire/shared-types";
 import type { CoreGameState } from "../entities/game-state";
 import type { ResolvedGameModeConfig } from "../contracts";
+import { getInitialAttackProtection } from "../rules/conflict/initialAttackProtection";
 import { getAttackWeaponInventory, validateAttack } from "../validation";
 import { hasValidAttackAuthorization } from "../validation/spyIntel";
 import { calculateAttackPopulationRequired } from "../rules";
@@ -77,7 +78,12 @@ export const createDistrictAttackTargetViews = (
         Number(catastropheConfig?.finalChanceCap ?? 0.18),
         baseChance + bazookaBonus
       );
-      const cooldownRemainingTicks = Math.max(
+      const protection = getInitialAttackProtection(state, config ? { config } : undefined, issuedAt);
+      const actionCooldownRemainingTicks = Math.max(
+        remainingTicks(cooldowns["offense:global"], state.root.tick),
+        remainingTicks(cooldowns[`conflict:source:${sourceDistrict.id}`], state.root.tick),
+        remainingTicks(sourceDistrict.stabilizingUntilTick, state.root.tick),
+        remainingTicks(targetDistrict.stabilizingUntilTick, state.root.tick),
         globalCooldownRemainingTicks,
         sourceCooldownRemainingTicks,
         targetProtectionRemainingTicks
@@ -92,7 +98,9 @@ export const createDistrictAttackTargetViews = (
         enabled: errors.length === 0,
         disabledCode: errors[0]?.code ?? null,
         disabledReason: errors[0]?.message ?? null,
-        cooldownRemainingTicks,
+        attackUnlocksAt: protection.remainingMs > 0 ? new Date(protection.endsAt).toISOString() : null,
+        actionCooldownEndsAtTick: state.root.tick + actionCooldownRemainingTicks,
+        cooldownRemainingTicks: Math.max(actionCooldownRemainingTicks, Math.ceil(protection.remainingMs / (config?.tickRateMs ?? 10000))),
         globalCooldownRemainingTicks,
         sourceCooldownRemainingTicks,
         targetProtectionRemainingTicks,

@@ -137,7 +137,7 @@ export const resolveCentralBankAction = (input: {
       influenceChange: 0,
       inputCost: { cash: input.config.frozenAccounts.costCleanCash },
       outputGain: {},
-      reportText: "Zmrazené účty jsou aktivní. Rezervy jsou chráněné, ale market fee je dočasně horší.",
+      reportText: "Zmrazené účty jsou aktivní. Rezervy jsou chráněné a finanční ztráty jsou snížené.",
       centralBankResult: {
         type: "frozen_accounts",
         activeUntilTick: expiresAtTick,
@@ -207,7 +207,7 @@ export const validateCentralBankAction = (input: {
   if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
   const metadata = getCentralBankMetadata(input.building, input.state.root.tick);
   if (input.actionId === config.liquidityInjection.actionId) {
-    if (Number(metadata.liquidityBlockedUntilTick || 0) > input.state.root.tick) return "central_bank_liquidity_blocked";
+    if (Math.max(Number(metadata.liquidityBlockedUntilTick || 0), Number(metadata.feeReductionDisabledUntilTick || 0)) > input.state.root.tick) return "central_bank_liquidity_blocked";
     if (Math.max(0, Number(input.districtInfluence || 0)) < config.liquidityInjection.costInfluence) return "central_bank_insufficient_influence";
   }
   if (input.actionId === config.frozenAccounts.actionId) {

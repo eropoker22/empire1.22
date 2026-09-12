@@ -1,4 +1,4 @@
-import { isCurrentAllianceLeader } from "../rules/alliances/allianceAuthorization";
+import { isCurrentAllianceLeader, isCurrentAllianceMember } from "../rules/alliances/allianceAuthorization";
 import { normalizeAllianceChatBody, appendRetainedAllianceMessage, validateAllianceChatRate } from "./allianceChatPolicy";
 import { spendPlayerInfluence } from "../rules/economy/playerInfluence";
 import type {
@@ -239,8 +239,7 @@ const sendAllianceChatMessage = (
   context: GameCoreContext
 ): AllianceMembershipResult => {
   const alliance = state.alliancesById[command.payload.allianceId];
-  const membership = alliance?.membershipByPlayerId?.[command.playerId];
-  if (!alliance || alliance.status !== "active" || !membership || membership.status === "removed") {
+  if (!alliance || !isCurrentAllianceMember(state, alliance, command.playerId)) {
     return rejected(state, "ALLIANCE_CHAT_NOT_ALLOWED", "Hráč není aktivní člen aliance.");
   }
 

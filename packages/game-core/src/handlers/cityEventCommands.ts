@@ -34,10 +34,11 @@ export const handleCityEventCommand = (
   const config = context.config.balance.cityEvents;
   const player = state.playersById[command.playerId];
   if (!config?.enabled || !player) return rejected(state, "city_event_unavailable", "Pouliční zakázky nejsou dostupné.");
-  const caughtUp = completeDuePlayerCityEvents(synchronizePlayerCityEvents(state, player.id, context), context).nextState;
-  return command.type === "start-city-event"
-    ? startCityEvent(caughtUp, command, context)
-    : claimCityEventReward(caughtUp, command, context);
+  const caughtUp = completeDuePlayerCityEvents(synchronizePlayerCityEvents(state, player.id, context), context);
+  const result = command.type === "start-city-event"
+    ? startCityEvent(caughtUp.nextState, command, context)
+    : claimCityEventReward(caughtUp.nextState, command, context);
+  return { ...result, events: [...caughtUp.events, ...result.events] };
 };
 
 const startCityEvent = (

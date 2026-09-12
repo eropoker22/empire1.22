@@ -266,14 +266,9 @@ describe("gang wanted status runtime", () => {
     elements.influence.dispatch("click");
 
     expect(elements.popup.hidden).toBe(false);
-    expect(onDirtyAction).toHaveBeenCalledWith(expect.objectContaining({
-      root,
-      syncWantedStatus: expect.any(Function)
-    }));
-    expect(onInfluenceAction).toHaveBeenCalledWith(expect.objectContaining({
-      root,
-      syncWantedStatus: expect.any(Function)
-    }));
+    // A missing quote/dialog must never execute a paid action. Actual confirmation is covered with DOM tests.
+    expect(onDirtyAction).not.toHaveBeenCalled();
+    expect(onInfluenceAction).not.toHaveBeenCalled();
     expect(renderHeatBadge).toHaveBeenCalledWith(expect.objectContaining({
       activePoliceActionCount: 1,
       riskKey: "high",

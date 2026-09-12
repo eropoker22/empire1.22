@@ -3,8 +3,8 @@ import { expect } from "@playwright/test";
 const SESSION_KEY = "empireStreets.session.v1";
 const SCOPED_SESSION_KEY = "empireStreets.session.free.instance-free-eu-central-public-1.v1";
 
-export async function openLocalGame(page) {
-  await page.addInitScript(({ sessionKey, scopedSessionKey }) => {
+export async function openLocalGame(page, { heat = 0, influence = 0 } = {}) {
+  await page.addInitScript(({ sessionKey, scopedSessionKey, heat, influence }) => {
     window.EmpireConfigOverrides = Object.freeze({
       ...(window.EmpireConfigOverrides || {}),
       localDemoEnabled: true
@@ -28,7 +28,7 @@ export async function openLocalGame(page) {
         factorySupplies: { metalParts: 40, techCore: 20, combatModule: 8 }
       },
       economy: { cleanMoney: 100_000, dirtyMoney: 10_000 },
-      gang: { population: 30, heat: 0, influence: 0, lastHeatDecayAt: now },
+      gang: { population: 30, heat, influence, lastHeatDecayAt: now },
       missions: { attackOrders: [], occupyOrders: [], robberyOrders: [], spy: { available: 3, missions: [] } },
       production: {
         jobs: {}, factory: { level: 1, resources: {}, slots: [], updatedAt: Date.now() },
@@ -43,7 +43,7 @@ export async function openLocalGame(page) {
     localStorage.setItem("empire:onboarding:v2:onboarding:Production%20Layout%20QA", JSON.stringify({
       completed: true, skipped: true, currentStepId: "completed", dismissedAt: now, version: "demo-v1-clean"
     }));
-  }, { sessionKey: SESSION_KEY, scopedSessionKey: SCOPED_SESSION_KEY });
+  }, { sessionKey: SESSION_KEY, heat, influence, scopedSessionKey: SCOPED_SESSION_KEY });
   const pending = new Set();
   page.on("request", request => pending.add(request.url()));
   page.on("requestfinished", request => pending.delete(request.url()));

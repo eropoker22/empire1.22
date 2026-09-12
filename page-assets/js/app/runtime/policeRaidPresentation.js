@@ -11,6 +11,7 @@ export function createPoliceRaidResultPayload(raid, formatDuration = value => Ma
     title: inspection
       ? active ? "RUTINNÍ POLICEJNÍ KONTROLA" : applied ? "VÝSLEDEK POLICEJNÍ KONTROLY" : "PLÁNOVANÁ POLICEJNÍ KONTROLA"
       : active ? "PROBÍHÁ POLICEJNÍ RAZIE" : applied ? "DOPADY POLICEJNÍ RAZIE" : "POLICEJNÍ RAZIE SE BLÍŽÍ",
+    hideSummary: true,
     badge: "POLICIE", tone: "is-owned-district-raid-alert", raidId: raid.raidId,
     targetDistrictId: target, previewConsequences: preview,
     summary: raid.explanation || (target ? `Policie zasáhla district ${target}.` : "Policejní zásah proti tvému gangu."),
@@ -29,17 +30,12 @@ export function createServerPoliceRaidNews(police, { tick = 0, tickRateMs = 1000
   if (!police) return [];
   const raids = new Map();
   if (police.pendingRaid) raids.set(police.pendingRaid.raidId, police.pendingRaid);
-  for (const event of police.policeFeed || []) {
-    if (event.type !== "police-raid-resolved" || !event.payload?.raidId || raids.has(event.payload.raidId)) continue;
-    raids.set(event.payload.raidId, { raidId: event.payload.raidId, kind: event.payload.kind, explanation: event.payload.explanation,
-      status: "resolved", targetDistrictId: event.districtId,
-      createdAtTick: event.createdAtTick, previewConsequences: event.payload });
-  }
-  return [...raids.values()].map(raid => {
+  return [...raids.values()].filter(raid => raid.status !== "resolved"
+    && raid.consequencesAppliedAtTick !== undefined && Number(raid.expiresAtMs) > now).map(raid => {
     const resultPayload = createPoliceRaidResultPayload(raid, formatDuration, now);
     return { id: `server-police-raid:${raid.raidId}`, timestampMs: now - Math.max(0, tick - Number(raid.createdAtTick || 0)) * tickRateMs,
       tone: "warning", title: resultPayload.title, summary: resultPayload.summary, meta: "Zobrazit skutečné dopady zásahu",
-      sourceKind: "police-raid", category: "police-raid", persistent: true, dismissible: false,
+      expiresAt: Number(raid.expiresAtMs), sourceKind: "police-raid", category: "police-raid", persistent: true, dismissible: false,
       resultKind: "police", resultPayload };
   });
 }

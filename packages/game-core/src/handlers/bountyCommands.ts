@@ -13,6 +13,7 @@ import type { GameCoreContext } from "../engine/context";
 import type { CoreError } from "../errors";
 import type { CoreEvent } from "../events";
 import { CORE_EVENT_TYPES, createEvent } from "../events";
+import { addPlayerFeedback } from "./playerFeedbackNotification";
 import { expireBounties } from "./bountyClaims";
 import { settleUnclaimedBounty } from "./bountySettlement";
 import { changeCleanCash, createBountyEventPayload, getPlayerResourceState, rejected } from "./bountyCommandUtils";
@@ -119,7 +120,12 @@ export const createBounty = (
   };
 
   return {
-    nextState,
+    nextState: addPlayerFeedback(nextState, context, {
+      id: `bounty-target:${bounty.id}`, playerId: target.id, title: "Na tebe byla vypsána odměna",
+      payload: { kind: "bounty-created", bountyId: bounty.id, districtId: bounty.targetDistrictId,
+        createdByLabel: bounty.isAnonymous ? "Anonym" : String(creator.metadata?.displayName || creator.name),
+        rewardCleanCash, objectiveType, expiresAtTick: bounty.expiresAtTick }
+    }),
     events: [createEvent(CORE_EVENT_TYPES.bountyCreated, createBountyEventPayload(bounty))],
     errors: []
   };

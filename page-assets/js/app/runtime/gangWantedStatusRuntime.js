@@ -1,4 +1,5 @@
 import { closeOverlay, openOverlay } from "../ui/legacyOverlayCoordinator.js";
+import { createWantedActionConfirmation, wantedActionCostLabel, wantedActionRiskLabel } from "../ui/wantedActionConfirmation.js";
 import { formatDistrictMetricNumber } from "./formatters.js";
 import { selectAuthoritativePlayerHeat } from "../../../../packages/shared-types/src/views/authoritative-gameplay-slice.js";
 
@@ -277,6 +278,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
     const elements = resolveWantedElements(root, selectors);
     let lastAuthoritativeWantedViewModel = null;
     let actionPending = false;
+    let confirmation = null;
 
     if (!hasRequiredWantedElements(elements)) {
       return false;
@@ -328,6 +330,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
               journal,
               policeFeedback
             }, {
+              heatReductionActions: deps.getLocalHeatReductionActions?.(gangState) || [],
               cleanActionCost: deps.cleanActionCost,
               dirtyActionCost: deps.dirtyActionCost,
               influenceActionCost: deps.influenceActionCost,
@@ -373,11 +376,10 @@ export function createGangWantedStatusRuntime(deps = {}) {
         const costNode = root.querySelector(`[data-wanted-popup-${action.method}-cost]`);
         const button = elements[`${action.method}ActionButton`];
         const currency = action.method === "influence" ? "vlivu" : `${action.method} cash`;
-        const wait = action.remainingMs > 0 ? ` · za ${Math.ceil(action.remainingMs / 60000)} min` : "";
-        if (costNode) costNode.textContent = `${Number(action.cost).toLocaleString("cs-CZ")} ${currency} · −${action.actualHeatReduction} heat · audit ${action.auditRiskPct} % · CD ${Math.ceil(action.cooldownMs / 60000)} min${wait}`;
+        if (costNode) costNode.textContent = `${wantedActionCostLabel(action)}\n${wantedActionRiskLabel(action)}`;
         if (button) button.title = action.reason || `Sníží pouze heat hráče. Audit může přidat ${action.auditHeatGain} heat a pokutu nejvýše ${action.auditFineMax} ${currency}. Rozběhnutou razii nezruší.`;
       }
-      if (actionPending) for (const button of [elements.dirtyActionButton, elements.cleanActionButton, elements.influenceActionButton]) {
+      if (actionPending || (serverAuthoritative && !serverWantedViewModel?.available)) for (const button of [elements.dirtyActionButton, elements.cleanActionButton, elements.influenceActionButton]) {
         if (button) button.disabled = true;
       }
       return wantedViewModel;
@@ -393,13 +395,14 @@ export function createGangWantedStatusRuntime(deps = {}) {
     };
 
     const closePopup = () => {
+      confirmation?.close();
       elements.popup.hidden = true;
       document.documentElement?.classList?.remove?.("game-wanted-popup-open");
       document.body?.classList?.remove?.("game-wanted-popup-open");
       closeOverlay(elements.popup, { restoreFocus: false });
     };
 
-    elements.heatButton.addEventListener("click", openPopup);
+    (elements.heatButton.closest?.("[data-gang-heat-open]") || elements.heatButton).addEventListener("click", openPopup);
     const runWantedAction = async (callback, method) => {
       if (deps.isServerAuthoritativeMode?.() && method && typeof deps.onServerAction === "function") {
         if (actionPending) return false;
@@ -431,9 +434,18 @@ export function createGangWantedStatusRuntime(deps = {}) {
       return true;
     };
 
-    elements.dirtyActionButton?.addEventListener("click", () => runWantedAction(deps.onDirtyAction, "dirty"));
-    elements.cleanActionButton?.addEventListener("click", () => runWantedAction(deps.onCleanAction, "clean"));
-    elements.influenceActionButton?.addEventListener("click", () => runWantedAction(deps.onInfluenceAction, "influence"));
+    confirmation = createWantedActionConfirmation({
+      root,
+      readAction: method => {
+        const vm = syncWantedStatus();
+        if (actionPending || (deps.isServerAuthoritativeMode?.() && selectAuthoritativePlayerHeat(deps.getServerPlayerView?.()) === null)) return null;
+        return vm.heatReductionActions.find(action => action.method === method) || null;
+      },
+      onConfirm: method => runWantedAction({ dirty: deps.onDirtyAction, clean: deps.onCleanAction, influence: deps.onInfluenceAction }[method], method)
+    });
+    for (const method of ["dirty", "clean", "influence"]) {
+      elements[`${method}ActionButton`]?.addEventListener("click", () => confirmation.open(method));
+    }
     elements.clearLogButton?.addEventListener("click", () => runWantedAction(deps.onClearLog));
 
     for (const closeElement of elements.popupCloseElements) {
@@ -442,6 +454,7 @@ export function createGangWantedStatusRuntime(deps = {}) {
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !elements.popup.hidden) {
+        if (confirmation.close()) { event.preventDefault(); return; }
         closePopup();
       }
     });

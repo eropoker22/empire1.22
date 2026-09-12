@@ -30,10 +30,9 @@ import {
 } from "../handlers/shoppingMallBuildingActions";
 import {
   getStockExchangeMetadata,
-  resolveStockExchangeFeeReduction,
   resolveStockExchangeInspectionRiskPct
 } from "../handlers/stockExchangeBuildingActions";
-import { formatNumber, formatTickLabel } from "./district-building-action-formatters";
+import { formatNumber, formatTickLabel as formatServerTickLabel } from "./district-building-action-formatters";
 import {
   formatCityHallEmergencyDecree,
   formatFinanceActionCooldown,
@@ -44,6 +43,7 @@ import type { BuildingStatsProjectionInput, BuildingStatView } from "./district-
 
 export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput): BuildingStatView[] | null => {
   const tickRateMs = input.tickRateMs ?? input.dayNightConfig?.tickRateMs ?? 5_000;
+  const formatTickLabel = (ticks: number): string => formatServerTickLabel(ticks, tickRateMs);
   if (input.building.buildingTypeId === "shopping_mall" && input.shoppingMallConfig && input.building.ownerPlayerId) {
     const ownedCount = getOwnedShoppingMallCount(input.state, input.building.ownerPlayerId, input.shoppingMallConfig);
     const network = resolveShoppingMallNetworkMultipliers(ownedCount, input.shoppingMallConfig);
@@ -59,12 +59,11 @@ export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput):
       { label: "Vliv", value: formatMultiplierBonus(network.influenceMultiplier) },
       { label: "Běžný market", value: `-${formatNumber(marketBonuses.regularMarketDiscountPct)} %` },
       { label: "Černý market", value: `-${formatNumber(marketBonuses.blackMarketDiscountPct)} %` },
-      { label: "Market poplatek", value: `-${formatNumber(marketBonuses.marketFeeReductionPct)} %` }
+      { label: "Market poplatek", value: "0 %" }
     ];
   }
   if (input.building.buildingTypeId === "stock_exchange" && input.stockExchangeConfig && input.building.ownerPlayerId) {
     const metadata = getStockExchangeMetadata(input.building, input.tick);
-    const feeReduction = resolveStockExchangeFeeReduction({ building: input.building, config: input.stockExchangeConfig, tick: input.tick });
     const riskPct = resolveStockExchangeInspectionRiskPct({
       state: input.state,
       building: input.building,
@@ -80,14 +79,12 @@ export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput):
       { label: "Clean / min", value: `$${formatNumber(input.stockExchangeConfig.cleanCashPerMinute)}` },
       { label: "Influence / min", value: formatNumber(input.stockExchangeConfig.influencePerMinute) },
       { label: "Heat / min", value: formatNumber(input.stockExchangeConfig.heatPerMinute) },
-      { label: "Běžný poplatek", value: `-${formatNumber(feeReduction.regularMarketPct)} %` },
-      { label: "Hráčský poplatek", value: `-${formatNumber(feeReduction.playerMarketPct)} %` },
-      { label: "Černý poplatek", value: `-${formatNumber(feeReduction.blackMarketPct)} %` },
+      { label: "Market poplatek", value: "0 %" },
       { label: "Tržní signály", value: hints || "čeká na další signál" },
       { label: "Finanční kontrola", value: `${formatNumber(riskPct)} %` },
+      { label: "Akce burzy", value: Number(metadata.feeReductionDisabledUntilTick || 0) > input.tick ? `pozastaveny ${formatTickLabel(Number(metadata.feeReductionDisabledUntilTick) - input.tick)}` : "dostupné" },
       { label: "Vnitřní tipy", value: Number(metadata.insiderWindowExpiresAtTick || 0) > input.tick ? `aktivní ${formatTickLabel(Number(metadata.insiderWindowExpiresAtTick) - input.tick)}` : "neaktivní" },
       { label: "Zmrazení income", value: Number(metadata.incomeFrozenUntilTick || 0) > input.tick ? `aktivní ${formatTickLabel(Number(metadata.incomeFrozenUntilTick) - input.tick)}` : "žádné" },
-      { label: "Stav poplatků", value: feeReduction.disabled ? `vypnuto ${formatTickLabel(Number(metadata.feeReductionDisabledUntilTick || 0) - input.tick)}` : "aktivní" },
       { label: "Serverové tržní efekty", value: activeEffects || "žádné" }
     ];
   }
@@ -111,13 +108,14 @@ export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput):
       { label: "Vlastněné banky", value: `${ownedCount}/${input.centralBankConfig.countOnMap}` },
       { label: "Ochrana clean cash", value: `${formatNumber(stats.cleanCashProtectionPct)} %` },
       { label: "Úrok rezervy", value: `${formatNumber(stats.interestPct)} % každých ${formatNumber(stats.interestIntervalMinutes)} min` },
-      { label: `Max úrok / ${formatTickLabel(1, tickRateMs)}`, value: `$${formatNumber(stats.maxInterestCleanCash)}` },
+      { label: `Max úrok / ${formatNumber(stats.interestIntervalMinutes)} min`, value: `$${formatNumber(stats.maxInterestCleanCash)}` },
       { label: "Další úrok", value: metadata.lastInterestTick === undefined || !stats.tier ? "počítá se" : formatTickLabel(Math.max(0, metadata.lastInterestTick + Math.ceil(stats.tier.interestIntervalMinutes * 60000 / Math.max(1, tickRateMs)) - input.tick)) },
       { label: "Poslední úrok", value: latestInterest ? `$${formatNumber(latestInterest.amount)}` : "žádný" },
-      { label: "Market poplatek", value: `-${formatNumber(stats.marketFeeReductionPct)} %` },
+      { label: "Market poplatek", value: "0 %" },
       { label: "Stabilita ekonomiky", value: `pokuty -${formatNumber(stats.fineReductionPct)} %, krize -${formatNumber(stats.economicCrisisImpactReductionPct)} %` },
       { label: "Finanční postih", value: `-${formatNumber(stats.financialInspectionPenaltyReductionPct)} %` },
       { label: "Riziko dohledu", value: `${formatNumber(resolveCentralBankOversightRiskForUi(input.state, input.building, input.centralBankConfig, input.tick))} %` },
+      { label: "Likviditní injekce", value: stats.liquidityBlocked ? `blokovaná ${formatTickLabel(Math.max(Number(metadata.liquidityBlockedUntilTick || 0), Number(metadata.feeReductionDisabledUntilTick || 0)) - input.tick)}` : "dostupná" },
       { label: "Zmrazené účty", value: stats.frozenAccountsActive ? `aktivní ${formatTickLabel(Number(metadata.frozenAccountsExpiresAtTick || 0) - input.tick)}` : "neaktivní" },
       { label: "Kurzovní intervence", value: intervention || "neaktivní" },
       { label: "Stav rezervy", value: stats.interestDisabled ? `úrok vypnutý ${formatTickLabel(Number(metadata.interestDisabledUntilTick || 0) - input.tick)}` : "aktivní" }
@@ -238,4 +236,3 @@ export const createFinanceBuildingStats = (input: BuildingStatsProjectionInput):
   }
   return null;
 };
-

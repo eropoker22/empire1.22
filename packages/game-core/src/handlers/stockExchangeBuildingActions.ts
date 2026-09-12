@@ -85,6 +85,12 @@ export const validateStockExchangeAction = (input: {
   const config = input.config;
   if (!config || input.building.buildingTypeId !== config.buildingTypeId) return null;
   const metadata = getStockExchangeMetadata(input.building, input.state.root.tick);
+  // Existing snapshots store the inspection deadline under this historical name.
+  // With commission-free markets it suspends the exchange's paid trading actions.
+  if (Number(metadata.feeReductionDisabledUntilTick || 0) > input.state.root.tick
+    && [config.speculativeBuy.actionId, config.marketPressure.actionId, config.insiderWindow.actionId].some(id => id === input.actionId)) {
+    return "stock_exchange_trading_suspended";
+  }
   if (input.actionId === config.speculativeBuy.actionId) {
     const investment = Math.floor(Number(input.payload.investmentCleanCash ?? input.payload.investment ?? (input.payload.amount || 0)));
     if (!resolveCategoryOrNull(input.payload.targetCategory ?? input.payload.category, config.speculativeBuy.targetCategories)) return "stock_exchange_invalid_market_category";
@@ -105,4 +111,3 @@ export const validateStockExchangeAction = (input: {
   }
   return null;
 };
-

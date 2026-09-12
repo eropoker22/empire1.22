@@ -111,11 +111,14 @@ const clearPendingDistrictActionState = (
 
   pendingDistrictActionOperationsById[operation.id] = { ...operation, reservationsReleased: true };
   const player = state.playersById[operation.playerId];
+  const sameMembership = operation.membershipId === undefined || operation.membershipId === player?.metadata?.membershipId;
   const cooldownState = player ? state.cooldownStatesById[player.cooldownStateId] : undefined;
   const cooldownStatesById = { ...state.cooldownStatesById };
-  if (cooldownState) {
+  if (cooldownState && sameMembership) {
     const cooldowns = { ...cooldownState.cooldowns };
-    for (const key of operation.cooldownKeys) delete cooldowns[key];
+    for (const key of operation.cooldownKeys) {
+      if (cooldowns[key] === operation.resolveAtTick) delete cooldowns[key];
+    }
     cooldownStatesById[cooldownState.id] = { ...cooldownState, cooldowns };
   }
 
@@ -123,12 +126,14 @@ const clearPendingDistrictActionState = (
   const districtsById = { ...state.districtsById };
   if (targetDistrict) {
     const operationLocks = { ...targetDistrict.operationLocks };
-    delete operationLocks[operation.operationType as DistrictOperationType];
+    if (operationLocks[operation.operationType as DistrictOperationType] === operation.resolveAtTick) {
+      delete operationLocks[operation.operationType as DistrictOperationType];
+    }
     districtsById[targetDistrict.id] = { ...targetDistrict, operationLocks };
   }
 
   let playerSpyOperationStatesByPlayerId = state.playerSpyOperationStatesByPlayerId;
-  if (operation.spySlotId && player) {
+  if (operation.spySlotId && player && sameMembership) {
     const spyState = state.playerSpyOperationStatesByPlayerId?.[player.id];
     if (spyState) {
       playerSpyOperationStatesByPlayerId = {
@@ -136,6 +141,7 @@ const clearPendingDistrictActionState = (
         [player.id]: {
           ...spyState,
           slots: spyState.slots.map((slot) => slot.slotId === operation.spySlotId
+            && slot.lastMissionId === operation.command.id && slot.availableAtTick === operation.resolveAtTick
             ? { ...slot, availableAtTick: state.root.tick }
             : slot) as PlayerSpyOperationState["slots"]
         }

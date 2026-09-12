@@ -15,6 +15,8 @@ export const createDistrictSummaryViews = (
     .map((districtId) => state.districtsById[districtId])
     .filter((district) => district !== undefined)
     .map((district) => {
+      const owner = district.status !== "destroyed" && district.ownerPlayerId ? state.playersById[district.ownerPlayerId] : null;
+      const displayName = typeof owner?.metadata?.displayName === "string" ? owner.metadata.displayName.trim() : "";
       const intelKnown = district.ownerPlayerId === playerId
         || hasRevealedDistrictTypeIntel(state, playerId, district.id);
 
@@ -23,6 +25,7 @@ export const createDistrictSummaryViews = (
         name: district.name,
         zone: district.zone,
         ownerPlayerId: district.status === "destroyed" ? null : district.ownerPlayerId,
+        ownerName: owner ? displayName || owner.name : null,
         ownerColor: district.status === "destroyed" || !district.ownerPlayerId
           ? null
           : state.playersById[district.ownerPlayerId]?.color ?? null,
@@ -33,6 +36,7 @@ export const createDistrictSummaryViews = (
         adjacentDistrictIds: district.adjacentDistrictIds,
         heat: district.status === "destroyed" ? 0 : district.heat,
         influence: district.status === "destroyed" ? 0 : district.influence,
+        stabilizingUntilTick: district.stabilizingUntilTick ?? null,
         filledSlotCount: intelKnown
           ? district.buildingIds
               .map((buildingId) => state.buildingsById[buildingId])

@@ -210,6 +210,6 @@ export function renderSpyWarningPanel(root, payload = {}, options = {}) {
   `;
   elements.modal.classList.remove("hidden");
   elements.modal.removeAttribute("aria-hidden");
-  openOverlay(elements.modal, { type: "modal", ariaModal: true });
+  openOverlay(elements.modal, { type: "modal", ariaModal: true, alwaysOnTop: true });
   return true;
 }

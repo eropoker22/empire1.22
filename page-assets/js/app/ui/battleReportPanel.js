@@ -109,9 +109,9 @@ function renderBattleReportExtraRows(root, stats, payload = {}) {
   const extraRows = Array.isArray(payload.extraRows)
     ? payload.extraRows
     : [
-        { label: "Loot", value: payload.lootLabel || "Žádný" },
-        { label: "Heat gained", value: payload.heatGainedLabel || "+0" },
-        { label: "Police warning", value: payload.policeWarningLabel || "Bez hlášení" },
+        { label: "Kořist", value: payload.lootLabel || "Žádný" },
+        { label: "Získaný HEAT", value: payload.heatGainedLabel || "+0" },
+        { label: "Policejní varování", value: payload.policeWarningLabel || "Bez hlášení" },
         { label: "Další krok", value: payload.nextActionLabel || "Zpět na mapu" }
       ];
 
@@ -180,6 +180,6 @@ export function renderBattleReport(root, payload = {}, options = {}) {
   renderBattleReportExtraRows(root, stats, payload);
   modal.classList.remove("hidden");
   modal.removeAttribute("aria-hidden");
-  openOverlay(modal, { type: "modal", ariaModal: true });
+  openOverlay(modal, { type: "modal", ariaModal: true, alwaysOnTop: true });
   return true;
 }

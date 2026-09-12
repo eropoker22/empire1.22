@@ -175,7 +175,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "actionId": "insider_window",
       "buildingType": "stock_exchange",
       "label": "Vnitřní tipy",
-      "description": "Na 16 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
+      "description": "Na 16 minut zlepší tržní signály a zvýší šanci Spekulativního nákupu.",
       "durationMs": 960000,
       "cooldownMs": 1800000,
       "inputCost": {
@@ -207,7 +207,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "actionId": "frozen_accounts",
       "buildingType": "central_bank",
       "label": "Zmrazené účty",
-      "description": "Na 8 minut zvýší ochranu clean cash, sníží pokuty a finanční ztráty, ale zhorší market fee.",
+      "description": "Na 8 minut zvýší ochranu clean cash a sníží pokuty a finanční ztráty.",
       "durationMs": 480000,
       "cooldownMs": 1440000,
       "inputCost": {
@@ -218,7 +218,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Zmrazené účty chrání rezervy, ale zhoršují poplatkovou stopu na marketu."
+      "reportText": "Zmrazené účty chrání rezervy a snižují finanční ztráty."
     },
     "currency_intervention": {
       "actionId": "currency_intervention",
@@ -1358,7 +1358,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 28,
         "reward": {
           "influence": 7,
-          "dirty-cash": 900
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1398,7 +1398,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 26,
         "reward": {
           "metal-parts": 2,
-          "influence": 3
+          "influence": 3,
+          "dirty-cash": 2900
         },
         "risk": {
           "successHeat": 4,
@@ -1437,7 +1438,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 66,
         "durationMinutes": 27,
         "reward": {
-          "dirty-cash": 2000,
+          "dirty-cash": 2900,
           "metal-parts": 2
         },
         "risk": {
@@ -1458,7 +1459,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 30,
         "reward": {
           "influence": 8,
-          "cash": 1000
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1537,7 +1538,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 24,
         "reward": {
           "influence": 8,
-          "cash": 900
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1556,7 +1557,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 71,
         "durationMinutes": 22,
         "reward": {
-          "dirty-cash": 2200,
+          "dirty-cash": 3500,
           "influence": 2
         },
         "risk": {
@@ -1734,7 +1735,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 69,
         "durationMinutes": 23,
         "reward": {
-          "influence": 3
+          "influence": 3,
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1792,7 +1794,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 72,
         "durationMinutes": 22,
         "reward": {
-          "dirty-cash": 1700,
+          "dirty-cash": 3500,
           "influence": 6
         },
         "risk": {
@@ -1813,7 +1815,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "cash": 600
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -1871,7 +1873,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 68,
         "durationMinutes": 25,
         "reward": {
-          "dirty-cash": 1900,
+          "dirty-cash": 3500,
           "influence": 3
         },
         "risk": {
@@ -1912,7 +1914,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 71,
         "durationMinutes": 22,
         "reward": {
-          "cash": 500,
+          "cash": 3500,
           "influence": 3
         },
         "risk": {
@@ -2154,7 +2156,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 29,
         "reward": {
           "influence": 8,
-          "dirty-cash": 1400
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2315,7 +2317,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "dirty-cash": 700
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2375,7 +2377,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 23,
         "reward": {
           "influence": 8,
-          "cash": 1000
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2474,7 +2476,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "dirty-cash": 900
+          "dirty-cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2632,7 +2634,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "cash": 800
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2691,7 +2693,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 71,
         "durationMinutes": 22,
         "reward": {
-          "cash": 600,
+          "cash": 3500,
           "influence": 3
         },
         "risk": {
@@ -2732,7 +2734,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "metal-parts": 6,
-          "cash": 700,
+          "cash": 1700,
           "influence": 2
         },
         "risk": {
@@ -2853,7 +2855,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "cash": 700
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -2952,7 +2954,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 70,
         "durationMinutes": 23,
         "reward": {
-          "dirty-cash": 1900,
+          "dirty-cash": 3500,
           "influence": 4
         },
         "risk": {
@@ -3013,7 +3015,8 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 24,
         "reward": {
           "metal-parts": 2,
-          "influence": 3
+          "influence": 3,
+          "dirty-cash": 2900
         },
         "risk": {
           "successHeat": 4,
@@ -3053,7 +3056,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 22,
         "reward": {
           "influence": 8,
-          "cash": 900
+          "cash": 3500
         },
         "risk": {
           "successHeat": 4,
@@ -3072,7 +3075,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "successRate": 72,
         "durationMinutes": 22,
         "reward": {
-          "dirty-cash": 2100,
+          "dirty-cash": 3500,
           "influence": 3
         },
         "risk": {
@@ -3153,7 +3156,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
         "durationMinutes": 27,
         "reward": {
           "influence": 8,
-          "dirty-cash": 1500,
+          "dirty-cash": 2600,
           "metal-parts": 3
         },
         "risk": {
@@ -7503,7 +7506,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "neon-dust": {
         "name": "Neon Dust",
-        "basePrice": 1900,
+        "basePrice": 1530,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 140,
         "minPriceMultiplier": 1,
@@ -7536,7 +7539,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "pulse-shot": {
         "name": "Pulse Shot",
-        "basePrice": 3010,
+        "basePrice": 2430,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 90,
         "minPriceMultiplier": 1,
@@ -7547,7 +7550,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "velvet-smoke": {
         "name": "Velvet Smoke",
-        "basePrice": 3260,
+        "basePrice": 2630,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 90,
         "minPriceMultiplier": 1,
@@ -7558,7 +7561,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "tech-core": {
         "name": "Tech Core",
-        "basePrice": 3260,
+        "basePrice": 2630,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 80,
         "minPriceMultiplier": 1,
@@ -7569,7 +7572,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "pistol": {
         "name": "Pistole",
-        "basePrice": 4650,
+        "basePrice": 3750,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 70,
         "minPriceMultiplier": 1,
@@ -7580,7 +7583,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "grenade": {
         "name": "Granát",
-        "basePrice": 4190,
+        "basePrice": 3380,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 70,
         "minPriceMultiplier": 1,
@@ -7591,7 +7594,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "vest": {
         "name": "Vesta",
-        "basePrice": 4650,
+        "basePrice": 3750,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 70,
         "minPriceMultiplier": 1,
@@ -7602,7 +7605,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "cameras": {
         "name": "Kamery",
-        "basePrice": 7440,
+        "basePrice": 6000,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 50,
         "minPriceMultiplier": 1,
@@ -7613,7 +7616,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "alarm": {
         "name": "Alarm",
-        "basePrice": 4190,
+        "basePrice": 3380,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 70,
         "minPriceMultiplier": 1,
@@ -7624,7 +7627,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "combat-module": {
         "name": "Combat Module",
-        "basePrice": 12250,
+        "basePrice": 9880,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 24,
         "minPriceMultiplier": 1,
@@ -7635,7 +7638,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "ghost-serum": {
         "name": "Ghost Serum",
-        "basePrice": 10670,
+        "basePrice": 8600,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 18,
         "minPriceMultiplier": 1,
@@ -7646,7 +7649,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "overdrive-x": {
         "name": "Overdrive X",
-        "basePrice": 16490,
+        "basePrice": 13300,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 18,
         "minPriceMultiplier": 1,
@@ -7657,7 +7660,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "smg": {
         "name": "SMG",
-        "basePrice": 13180,
+        "basePrice": 10630,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 16,
         "minPriceMultiplier": 1,
@@ -7668,7 +7671,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "bazooka": {
         "name": "Bazuka",
-        "basePrice": 25890,
+        "basePrice": 20880,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 8,
         "minPriceMultiplier": 1,
@@ -7679,7 +7682,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       },
       "defense-tower": {
         "name": "Obranná věž",
-        "basePrice": 34260,
+        "basePrice": 27630,
         "normalMarketStartStock": 0,
         "normalMarketMaxStock": 8,
         "minPriceMultiplier": 1,

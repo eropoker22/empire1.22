@@ -33,6 +33,7 @@ describe("file persistence repositories", () => {
         defenseLoadout: {}
       };
       firstManager.startInstance(instanceId);
+      runtime.state.serverInstance.startedAt = new Date(runtime.clock.now().getTime() - 7200000).toISOString();
 
       const result = await firstManager.dispatchCommand(
         instanceId,

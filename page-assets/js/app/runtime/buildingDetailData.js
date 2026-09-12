@@ -272,11 +272,11 @@ const LEGACY_SPECIAL_ACTION_PROFILES = Object.freeze({
   burza: Object.freeze([
     Object.freeze({ stockSpeculativeBuy: true, cleanCost: 2500, maxInvestmentCleanCash: 10000, heat: 5, cooldownMs: 16 * 60 * 1000, successChancePct: 65, neutralChancePct: 25, badChancePct: 10, summary: "Investuje výchozí částku do materiálového marketu. Výsledek může být zisk, neutrální pohyb nebo ztráta." }),
     Object.freeze({ stockMarketPressure: true, cleanCost: 3000, influenceCost: 15, heat: 8, durationMs: 10 * 60 * 1000, cooldownMs: 22 * 60 * 1000, pumpPct: 12, dumpPct: -10, blackMarketEffectSharePct: 40, summary: "Na krátkou dobu zvýší ceny materiálového marketu." }),
-    Object.freeze({ stockInsiderWindow: true, cleanCost: 1500, heat: 4, durationMs: 6 * 60 * 1000, cooldownMs: 18 * 60 * 1000, trendHints: 3, extraFeeReductionPct: 8, speculativeSuccessBonusPct: 12, summary: "Zlepší trend hints, fee reduction a šanci Spekulativního nákupu." })
+    Object.freeze({ stockInsiderWindow: true, cleanCost: 1500, heat: 4, durationMs: 6 * 60 * 1000, cooldownMs: 18 * 60 * 1000, trendHints: 3, extraFeeReductionPct: 8, speculativeSuccessBonusPct: 12, summary: "Zlepší tržní signály a šanci Spekulativního nákupu." })
   ]),
   "centralni banka": Object.freeze([
     Object.freeze({ centralBankLiquidityInjection: true, influenceCost: 20, heat: 4, cooldownMs: 20 * 60 * 1000, baseRewardCleanCash: 2500, rewardPerCleanEconomyBuilding: 90, maxRewardCleanCash: 8000, summary: "Přidá clean cash podle čisté ekonomiky hráče a zvedne Financial Oversight risk." }),
-    Object.freeze({ centralBankFrozenAccounts: true, cleanCost: 2000, heat: 5, durationMs: 8 * 60 * 1000, cooldownMs: 24 * 60 * 1000, cleanCashProtectionBonusPct: 25, dirtyCashProtectionPct: 8, fineReductionPct: 20, marketFeePenaltyPct: 5, summary: "Dočasně chrání rezervy, snižuje pokuty a finanční ztráty, ale zhorší market fee." }),
+    Object.freeze({ centralBankFrozenAccounts: true, cleanCost: 2000, heat: 5, durationMs: 8 * 60 * 1000, cooldownMs: 24 * 60 * 1000, cleanCashProtectionBonusPct: 25, dirtyCashProtectionPct: 8, fineReductionPct: 20, marketFeePenaltyPct: 5, summary: "Dočasně chrání rezervy a snižuje pokuty a finanční ztráty." }),
     Object.freeze({ centralBankCurrencyIntervention: true, cleanCost: 3000, influenceCost: 25, heat: 7, durationMs: 8 * 60 * 1000, cooldownMs: 28 * 60 * 1000, volatilityReductionPct: 30, priceMoveCapPct: 6, marketFeeReductionPct: 6, stockExchangeEffectReductionPct: 25, summary: "Stabilizuje materiálový market a tlumí Tržní tlak Burzy." })
   ]),
   magistrat: Object.freeze([

@@ -392,7 +392,7 @@ function raiseOverlayAbovePrevious(element) {
   }
 
   const previousZIndex = Number.parseInt(view.getComputedStyle(previousElement).zIndex, 10);
-  const currentZIndex = Number.parseInt(view.getComputedStyle(element).zIndex, 10);
+  const currentZIndex = Number.parseInt(view.getComputedStyle(element).zIndex, 10) || 0;
   if (!Number.isFinite(previousZIndex) || !Number.isFinite(currentZIndex) || currentZIndex > previousZIndex) {
     return;
   }

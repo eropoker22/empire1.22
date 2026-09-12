@@ -110,6 +110,16 @@ jobs:
       - name: E2E smoke
         run: npm run test:e2e:smoke
 
+      - name: Player feedback UI regression
+        run: npm run test:e2e:smoke -- tests/e2e/player-feedback-ui.spec.js --output=playwright-evidence/feedback
+
+      - name: Narrow phone HEAT and recruitment
+        run: npm run test:e2e:smoke -- tests/e2e/player-polish-mobile.spec.js --output=playwright-evidence/mobile
+
+      - name: Narrow phone onboarding
+        if: success() || failure()
+        run: npm run test:e2e:smoke -- tests/e2e/player-onboarding-mobile.spec.js --output=playwright-evidence/onboarding
+
       - name: Upload Playwright evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -120,3 +130,4 @@ jobs:
           path: |
             playwright-report/**
             test-results/**
+            playwright-evidence/**

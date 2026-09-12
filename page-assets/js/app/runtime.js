@@ -1,4 +1,7 @@
 import { createAlliancePenaltyNewsModels } from "./runtime/alliancePenaltyPresentation.js";
+import { deduplicateRumorEntries } from "./runtime/rumorDeduplication.js";
+import { createServerBattleReportPresentation } from "./runtime/serverBattleReportPresentation.js";
+import { createPlayerFeedbackSync, renderDistrictBountyNotice, createStabilizationNews } from "./runtime/playerFeedback.js";
 import { createPoliceRaidResultPayload, createServerPoliceRaidNews } from "./runtime/policeRaidPresentation.js";
 import { resolveDistrictActions } from "./legacy/district-action-policy.js";
 import {
@@ -956,7 +959,7 @@ import {
   summarizePenaltyEntries
 } from "./runtime/gangHeatPoliceHelpers.js";
 import {
-  createResultPayloadBuilders
+  createResultPayloadBuilders, formatCombatLootLabel
 } from "./runtime/resultPayloadBuilders.js";
 import { createCompletedRegistrationStatusViewModel, createExistingRegistrationViewModel, createFactionPreviewViewModel, createLockedRegistrationStatusViewModel } from "./runtime/authRegistrationViewModel.js";
 import { createMarketCopy, createMarketDashboardViewModel, createMarketTradeStateViewModel, getSuggestedPlayerMarketUnitPrice } from "./runtime/marketViewModel.js";
@@ -2098,6 +2101,7 @@ function getLaunchPlayerRuntime() {
       getStoredRegistration,
       getServerPlayerColor: () => latestGameplaySliceReadModel?.player?.color,
       getWorldState: getResolvedWorldState,
+      getGameplaySlice: getServerGameplaySliceReadModel,
       getLegacyAvatar: () => loadTextStorage(LEGACY_STORAGE_KEYS.avatar, ""),
       normalizeRuntimeHexColor,
       getRegistrationAccentColor,
@@ -3411,6 +3415,7 @@ function renderPopulationState(root) {
 function getResultPayloadBuilders() {
   if (!resultPayloadBuilders) {
     resultPayloadBuilders = createResultPayloadBuilders({
+      getGameplaySlice: getServerGameplaySliceReadModel,
       getDistrictById: (districtId) => window.empireStreetsDistrictState?.getDistrictById?.(districtId) || null,
       getWorldState: getResolvedWorldState,
       startPhaseOwnerByDistrictId: START_PHASE_OWNER_BY_DISTRICT_ID,
@@ -4084,25 +4089,10 @@ function createServerConflictReportPresentation(report = {}) {
     };
   }
 
-  if (report.reportType === "battle") {
-    const succeeded = report.result === "success";
-    return {
-      kind: "attack",
-      modalKind: null,
-      payload: {
-        tone: succeeded ? "is-success" : "is-major-fail",
-        title: succeeded ? "Útok: Úspěch" : "Útok: Neúspěch",
-        summary: String(report.reportForAttacker || `Útok na ${targetLabel} byl vyhodnocen serverem.`),
-        targetDistrictId,
-        rows: [
-          { label: "Cíl", value: targetLabel },
-          { label: "Výsledek", value: String(report.outcomeTier || report.result || "-") },
-          { label: "Ztráty útočníka", value: formatServerReportRecord(report.attackerLosses) },
-          { label: "Heat", value: `+${Math.max(0, Number(report.heatGained || 0))}` }
-        ]
-      }
-    };
-  }
+  if (report.reportType === "battle") return createServerBattleReportPresentation(report, {
+    districtLabel: formatServerReportDistrict, recordLabel: formatServerReportRecord, resourceLabel: formatCombatLootLabel,
+    formatDuration: formatDurationLabel, tickRateMs: getServerTickRateMs(), viewerId: latestGameplaySliceReadModel?.player?.playerId
+  });
 
   if (report.reportType === "building-action") {
     const buildingLabel = getServerBuildingLabel(report);
@@ -4745,7 +4735,7 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
     return;
   }
 
-  const activeEntries = restoreBuildingActionEntries(panel.entries, Date.now(), BUILDING_ACTION_LOG_LIMIT);
+  const activeEntries = deduplicateRumorEntries(restoreBuildingActionEntries(panel.entries, Date.now(), BUILDING_ACTION_LOG_LIMIT));
   if (activeEntries.length !== panel.entries.length) {
     panel.entries = activeEntries;
     persistStreetNewsEntries(panel.entries);
@@ -4780,6 +4770,7 @@ function renderBuildingActionFeed(root, { syncPreview = false, previewSnapshot =
       })
     : null;
   const visibleEntries = dedupeStreetNewsCooldownEntries([
+    ...createStabilizationNews(latestGameplaySliceReadModel, { getSlice: getServerGameplaySliceReadModel }).map((entry) => createBuildingActionEntry(entry)),
     ...createServerPoliceRaidNews(latestGameplaySliceReadModel?.player?.police, { tick: latestGameplaySliceReadModel?.server?.currentTick, tickRateMs: latestGameplaySliceReadModel?.mode?.tickRateMs, formatDuration: formatDurationLabel }).map((entry) => createBuildingActionEntry(entry)),
     ...cooldownEntries,
     ...(rumorInboxEntry ? [rumorInboxEntry] : []),
@@ -13310,6 +13301,7 @@ function bindDistrictCanvas(root) {
       }))
     });
 
+    renderDistrictBountyNotice(root, readModel, canonicalDistrictId);
     const actions = Array.isArray(serverView.actions) ? serverView.actions : [];
     renderDistrictActionHub({
       actions,
@@ -14166,6 +14158,10 @@ function bindDistrictCanvas(root) {
   let lastWorldMapFingerprint = createWorldMapFingerprint();
   let lastServerMapFingerprints = null;
   let lastServerVisibleSurfaceFingerprint = "";
+  const syncPlayerFeedback = createPlayerFeedbackSync({ root, append: appendBuildingActionResultEntry,
+    open: queueOrOpenResultModal, resourceLabel: getProductionResourceLabel, getSlice: () => latestGameplaySliceReadModel,
+    storage: (() => { try { return window.localStorage; } catch { return null; } })() });
+  syncPlayerFeedback(getServerGameplaySliceReadModel());
   const seenServerConflictReportIds = new Set();
   let serverConflictReportsHydrated = false;
   const initialServerReports = getServerGameplaySliceReadModel()?.reports;
@@ -14487,6 +14483,19 @@ function bindDistrictCanvas(root) {
 
   window.empireStreetsDistrictState = districtStateApi;
 
+  const numbersToggle = root.querySelector("[data-map-numbers-toggle]");
+  try { interactionState.showDistrictNumbers = localStorage.getItem("empire:district-numbers") === "true"; } catch {}
+  const syncNumbersToggle = () => {
+    numbersToggle?.setAttribute("aria-pressed", String(Boolean(interactionState.showDistrictNumbers)));
+    numbersToggle?.setAttribute("aria-label", interactionState.showDistrictNumbers ? "Skrýt čísla districtů" : "Zobrazit čísla districtů");
+  };
+  syncNumbersToggle();
+  numbersToggle?.addEventListener("click", () => {
+    interactionState.showDistrictNumbers = !interactionState.showDistrictNumbers;
+    try { localStorage.setItem("empire:district-numbers", String(interactionState.showDistrictNumbers)); } catch {}
+    syncNumbersToggle();
+    render("ui:district-numbers");
+  });
   phaseHost.addEventListener("mapphasechange", () => render("ui:map-phase-change"));
   phaseHost.addEventListener("mapphasechange", () => refreshOpenDistrictBuildingDetailPopups(root));
   phaseHost.addEventListener("mapborderchange", () => render("ui:map-border-change"));
@@ -14617,12 +14626,14 @@ function bindDistrictCanvas(root) {
     if (nextSlice) {
       latestGameplaySliceReadModel = nextSlice;
     }
+    syncPlayerFeedback(nextSlice);
     syncServerConflictReports(root, nextSlice?.reports, seenServerConflictReportIds, {
       announce: serverConflictReportsHydrated
     });
     serverConflictReportsHydrated = true;
     const nextSurfaceFingerprint = JSON.stringify({
       district: nextSlice?.district || null,
+      bounty: nextSlice?.bounty || null,
       reports: Array.isArray(nextSlice?.reports) ? nextSlice.reports.slice(0, 1) : []
     });
     if (
@@ -15936,6 +15947,18 @@ const {
   dirtyActionCost: GANG_HEAT_DIRTY_COST,
   influenceActionCost: GANG_HEAT_INFLUENCE_COST,
   onServerAction: method => submitServerDistrictActionCommand({ type: "reduce-police-heat", payload: { method } }),
+  getLocalHeatReductionActions: gang => [
+    ["dirty", GANG_HEAT_DIRTY_COST, GANG_HEAT_DIRTY_REDUCTION],
+    ["clean", GANG_HEAT_CLEAN_COST, GANG_HEAT_CLEAN_REDUCTION],
+    ["influence", GANG_HEAT_INFLUENCE_COST, GANG_HEAT_INFLUENCE_REDUCTION]
+  ].map(([method, cost, reduction]) => ({
+    method, cost, actualHeatReduction: Math.min(reduction, Math.max(0, Number(gang.heat || 0))),
+    available: Number(gang.heat || 0) > 0 && (method === "influence" ? Number(gang.influence || 0)
+      : Number(getResolvedEconomyState()[method === "dirty" ? "dirtyMoney" : "cleanMoney"] || 0)) >= cost,
+    auditRiskPct: gangHeatAuditData.resolveGangHeatAuditRisk?.(gang.heatReductionAuditTimestamps, Date.now()) || 0,
+    riskDescription: method === "dirty" ? "Snížení zvýší audit risk. Opakované úplatky mohou přivolat policejní akci do districtu." : "Snížení zvýší audit risk.",
+    cooldownMs: 0
+  })),
   formatGangHeatProtectionLabel,
   gangHeatTiers: GANG_HEAT_TIERS,
   getServerPlayerView,

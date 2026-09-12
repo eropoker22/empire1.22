@@ -85,6 +85,8 @@ export interface PlayerMarketListing {
 
 export interface ServerMarketState {
   mode: MarketModeId;
+  nextListingSequence?: number;
+  nextTransactionSequence?: number;
   stock: Record<MarketResourceId, number>;
   rollingVolume: Record<MarketResourceId, { buy: number; sell: number }>;
   volumeEvents: Array<{

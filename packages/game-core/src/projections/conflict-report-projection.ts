@@ -1,3 +1,5 @@
+import { asNumberRecord, asNumberRecordByKey } from "./conflict-report-records";
+import { projectBattleReportDetails } from "./battle-report-details-projection";
 import type { BattleReport, ConflictReportView, Notification, SpyReport } from "@empire/shared-types";
 import type { CoreGameState } from "../entities";
 import { mapConflictOperationNotificationToReport } from "./conflict-operation-report-projection";
@@ -102,6 +104,7 @@ const mapNotificationToReport = (notification: Notification): ConflictReportView
       heatGained: Number(payload.heatGained ?? 0),
       reportForAttacker: String(payload.reportForAttacker ?? ""),
       reportForDefender: String(payload.reportForDefender ?? ""),
+      ...projectBattleReportDetails(payload),
       attackDurationTicks: Number(payload.attackDurationTicks ?? 0),
       tick: Number(payload.tick ?? 0),
       createdAt: String(payload.createdAt ?? notification.createdAt),
@@ -220,19 +223,6 @@ const asUnknownRecord = (value: unknown): Record<string, unknown> | undefined =>
   return { ...(value as Record<string, unknown>) };
 };
 
-const asNumberRecord = (value: unknown): Record<string, number> => {
-  if (!value || typeof value !== "object") {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => [
-      key,
-      Number(entryValue ?? 0)
-    ])
-  );
-};
-
 const asStringArray = (value: unknown): string[] => Array.isArray(value)
   ? value.map((entry) => String(entry || "").trim()).filter(Boolean)
   : [];
@@ -248,17 +238,4 @@ const asBattleOutcomeTier = (value: unknown): BattleReport["outcomeTier"] => {
   }
 
   return "failed_raid";
-};
-
-const asNumberRecordByKey = (value: unknown): Record<string, Record<string, number>> => {
-  if (!value || typeof value !== "object") {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => [
-      key,
-      asNumberRecord(entryValue)
-    ])
-  );
 };

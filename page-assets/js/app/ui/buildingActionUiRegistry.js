@@ -215,7 +215,6 @@ function formatActionProfileConfiguredEffects(profile = {}, options = {}) {
     formatPctLabel("Dump", profile.dumpPct),
     formatPctLabel("Dopad černého trhu", profile.blackMarketEffectSharePct),
     Number(profile.trendHints || 0) > 0 ? `Trend hinty +${formatCompactNumber(profile.trendHints)}` : "",
-    formatReductionPctLabel("Market poplatek", profile.extraFeeReductionPct || profile.marketFeeReductionPct),
     formatPctLabel("Šance spekulace", profile.speculativeSuccessBonusPct),
     formatPctLabel("Ochrana clean cash", profile.cleanCashProtectionBonusPct),
     formatPctLabel("Ochrana dirty cash", profile.dirtyCashProtectionPct),
@@ -438,7 +437,6 @@ export function formatBuildingActionRiskProfile(profile = {}, options = {}) {
   if (Number(profile.auditRiskFailurePct || 0) > 0) risks.push(`Audit fail +${formatCompactNumber(profile.auditRiskFailurePct)}%`);
   if (Number(profile.failureChancePct || 0) > 0) risks.push(`Selhání ${formatCompactNumber(profile.failureChancePct)}%`);
   if (Number(profile.heatFailure || 0) !== 0) risks.push(`Fail heat ${Number(profile.heatFailure) > 0 ? "+" : ""}${Math.floor(Number(profile.heatFailure))}`);
-  if (Number(profile.marketFeePenaltyPct || 0) > 0) risks.push(`Market poplatek +${formatCompactNumber(profile.marketFeePenaltyPct)}%`);
   if (Number(profile.purchaseCustomsRiskPct || 0) > 0) risks.push(`Celnice +${formatCompactNumber(profile.purchaseCustomsRiskPct)}%`);
   if (Number(profile.heatRiskBonusPct || 0) > 0) risks.push(`Heat risk +${formatCompactNumber(profile.heatRiskBonusPct)}%`);
   if (Number(profile.streetIncidentFlatRiskPct || 0) > 0) risks.push(`Pouliční incident +${formatCompactNumber(profile.streetIncidentFlatRiskPct)}%`);

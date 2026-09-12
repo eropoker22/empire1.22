@@ -28,6 +28,8 @@ describe("production conflict gameplay slice", () => {
     runtime.state.serverInstance.worldSeed = "pending-spy-trap-seed";
     runtime.state.notificationsById = {};
     server.instanceManager.startInstance(instanceId);
+    // These scenarios exercise battles after the real two-hour opening protection.
+    runtime.state.serverInstance.startedAt = new Date(runtime.clock.now().getTime() - 7200000).toISOString();
 
     const attackerClient = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
@@ -204,6 +206,8 @@ describe("production conflict gameplay slice", () => {
       defenseLoadout: {}
     };
     server.instanceManager.startInstance(instanceId);
+    // These scenarios exercise battles after the real two-hour opening protection.
+    runtime.state.serverInstance.startedAt = new Date(runtime.clock.now().getTime() - 7200000).toISOString();
 
     const attackerClient = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
@@ -291,6 +295,8 @@ describe("production conflict gameplay slice", () => {
     runtime.state.serverInstance.worldSeed = "pending-spy-cooldown-seed";
     runtime.state.notificationsById = {};
     server.instanceManager.startInstance(instanceId);
+    // These scenarios exercise battles after the real two-hour opening protection.
+    runtime.state.serverInstance.startedAt = new Date(runtime.clock.now().getTime() - 7200000).toISOString();
 
     const attackerClient = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)
@@ -376,6 +382,8 @@ describe("production conflict gameplay slice", () => {
     runtime.state.serverInstance.worldSeed = "pending-spy-catastrophe-seed";
     runtime.state.notificationsById = {};
     server.instanceManager.startInstance(instanceId);
+    // These scenarios exercise battles after the real two-hour opening protection.
+    runtime.state.serverInstance.startedAt = new Date(runtime.clock.now().getTime() - 7200000).toISOString();
 
     const attackerClient = createClientApp({
       transport: createInMemoryClientTransport(server.gameplaySliceTransport)

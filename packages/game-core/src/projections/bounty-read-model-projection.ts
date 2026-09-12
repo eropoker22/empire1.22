@@ -28,6 +28,10 @@ export const createBountyReadModel = (
   const tickRateMs = Math.max(1, Math.floor(Number(context.tickRateMs ?? 1000)));
   const player = state.playersById[playerId] ?? null;
   const resourceState = player ? state.resourceStatesById[player.resourceStateId] : null;
+  const bounties = Object.values(state.bountiesById ?? {})
+    .sort((left, right) => right.createdAtTick - left.createdAtTick || left.id.localeCompare(right.id));
+  const board = [...bounties.filter(bounty => bounty.status === "active"),
+    ...bounties.filter(bounty => bounty.status !== "active").slice(0, 50)];
 
   return {
     minRewardCleanCash: BOUNTY_MIN_REWARD_CLEAN_CASH,
@@ -72,10 +76,7 @@ export const createBountyReadModel = (
         };
       })
       .filter((candidate) => candidate.activeDistrictCount > 0),
-    activeBounties: Object.values(state.bountiesById ?? {})
-      .sort((left, right) => right.createdAtTick - left.createdAtTick)
-      .slice(0, 50)
-      .map((bounty) => createBountyBoardEntryView(state, bounty, playerId, nowTick, tickRateMs)),
+    activeBounties: board.map((bounty) => createBountyBoardEntryView(state, bounty, playerId, nowTick, tickRateMs)),
     recentBountyEvents: createRecentBountyEventViews(state)
   };
 };

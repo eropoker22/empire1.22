@@ -105,19 +105,25 @@ export const createPlayerCityEventsView = (
             : "Intel pulse 06:00 / 14:00 / 22:00",
         offers: (playerState.offersByAgent[agentId] ?? []).map((offer) => {
           const definition = definitionById.get(offer.definitionId);
-          const canStart = availableNow && unlocked && !playerState.activeRun
-            && offer.status === "available" && offer.expiresAtTick > state.root.tick;
-          const disabledReason = !availableNow
+          const balances = state.resourceStatesById[player.resourceStateId]?.balances;
+          const canAfford = balances && Object.entries(offer.riskSnapshot.startCost ?? {})
+            .every(([key, amount]) => Math.floor(Number(balances[key] || 0)) >= Number(amount || 0));
+          const disabledReason = player.status !== "active" || state.matchResult
+            ? "Hráč nebo hra už není aktivní."
+            : !availableNow
             ? "Kontakt je teď zavřený."
             : !unlocked
               ? `Vyžaduje ${schedule.requiredInfluence} influence.`
               : playerState.activeRun
                 ? "Nejdřív dokonči aktivní zakázku."
-                : offer.status !== "available"
+                : offer.status !== "available" || playerState.attemptedOfferIds.includes(offer.offerId)
                   ? "Tato nabídka už byla použita."
                   : offer.expiresAtTick <= state.root.tick
                     ? "Tato nabídka vypršela."
-                    : null;
+                    : !canAfford
+                      ? "Nemáš prostředky na vstupní cenu zakázky."
+                      : null;
+          const canStart = disabledReason === null;
           return {
             offerId: offer.offerId,
             definitionId: offer.definitionId,
@@ -125,9 +131,10 @@ export const createPlayerCityEventsView = (
             description: definition?.description ?? "",
             difficulty: definition?.difficulty ?? "medium",
             successRate: offer.successRateSnapshot,
-            durationMinutes: definition?.durationMinutes ?? Math.ceil(offer.durationTicksSnapshot * context.config.tickRateMs / 60_000),
+            durationMinutes: Math.ceil(offer.durationTicksSnapshot * context.config.tickRateMs / 60_000),
             durationTicks: offer.durationTicksSnapshot,
             rewards: { ...offer.rewardSnapshot },
+            startCost: { ...offer.riskSnapshot.startCost },
             successHeat: offer.riskSnapshot.successHeat,
             failureHeat: offer.riskSnapshot.failureHeat,
             failureDirtyCashLoss: offer.riskSnapshot.failureDirtyCashLoss,
