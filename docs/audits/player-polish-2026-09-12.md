@@ -43,5 +43,7 @@ Metoda: cena náhrady z kanonických výrobních receptů × pravděpodobnost ú
 - Serverový test používá tři skutečné herní relace přes reserve/join/load/submit. Ověřuje doručení soukromé zprávy členovi, soukromí vůči cizímu hráči, zákaz padělání playerId, idempotenci zprávy a odebrání přístupu po odchodu.
 - Existující alianční regrese ověřují vytvoření, souhlas s pozvánkou, souběh posledního místa, max. čtyři členy, aktivitu/grace/hlasování, předání vedení, zrušení hlasování, rozpuštění, postihy a příměří.
 - Typecheck, lint/architekturní kontroly a generování browser konfigurace prošly.
-- Přidány Chromium scénáře pro HEAT, nábor a market (320×568, 393×852) a onboarding (320×568, 360×740, 393×852). Výsledek CI bude doplněn po běhu.
+- [Quality 34692119280](https://github.com/eropoker22/empire1.22/actions/runs/34692119280) na commitu `4b4b7580f87c54b727b26d9015864d39d6bb0d9f`: všech osm úloh prošlo (lint/typecheck/buildy, unit, integration, server, persistence, read-models, critical recovery a E2E).
+- Chromium: 13/13 scénářů — 6 původních live smoke, 2 hráčská oznámení, 2 mobilní HEAT/nábor/market (320×568, 393×852) a 3 onboarding (320×568, 360×740, 393×852). Ověřeno zarovnání údajů, zrušení bez platby, potvrzení skutečné akce, dvojice náborových údajů a nepřekrývání panelu gangu průvodcem včetně změny výšky viewportu.
+- První CI běh odhalil přebíjení mobilního HEAT starším CSS a potřebu aktualizovat explicitní seznam dodatečných UI kontrol. Obojí bylo opraveno; původní live smoke ani zákaz jeho demo náhrad nebyl změněn. Screenshoty jednotlivých UI sad mají oddělené výstupní adresáře v CI artefaktu.
 - Místní prohlížečový náhled blokuje přístup na localhost. Fyzický iPhone/WebKit a živý PostgreSQL nebyly v této dávce ověřeny.
