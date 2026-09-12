@@ -33,18 +33,19 @@ export const completeAirportImportsAndCustoms = (
         nextState = completion.state;
         currentBuilding = nextState.buildingsById[building.id] ?? currentBuilding;
         metadata = {
-          ...getAirportMetadata(currentBuilding, nextState.root.tick),
+          ...metadata,
           lastImportShipment: completion.lastImportShipment,
           customsEvents: completion.customsEvent
-            ? [...getAirportMetadata(currentBuilding, nextState.root.tick).customsEvents, completion.customsEvent].slice(-10)
-            : getAirportMetadata(currentBuilding, nextState.root.tick).customsEvents
+            ? [...metadata.customsEvents, completion.customsEvent].slice(-10)
+            : metadata.customsEvents
         };
         if (completion.remainingShipment && Object.values(completion.remainingShipment).some((amount) => amount > 0)) {
           pendingRemainders.push({
             ...pending,
             shipment: completion.remainingShipment,
             completesAtTick: nextState.root.tick + 1,
-            customsResolved: true
+            customsResolved: true,
+            deliveryProgress: completion.lastImportShipment
           });
         }
       }
@@ -122,8 +123,12 @@ const completePendingImport = (
   const capacity = warehouseConfig
     ? resolveWarehouseStorageCapacity(state, player.id, warehouseConfig)
     : null;
-  const acceptedItems: Record<string, number> = {};
-  const lostItems: Record<string, number> = {};
+  const acceptedItems: Record<string, number> = { ...pending.deliveryProgress?.acceptedItems };
+  const lostItems: Record<string, number> = { ...pending.deliveryProgress?.lostItems };
+  for (const [itemId, requested] of Object.entries(pending.shipment)) {
+    const confiscated = Math.max(0, requested - Number(shipment[itemId] || 0));
+    if (confiscated > 0) lostItems[itemId] = Number(lostItems[itemId] || 0) + confiscated;
+  }
   const nextBalances = normalizeStorageBalances(playerResourceState.balances);
   const remainingShipment: Record<string, number> = {};
 
@@ -134,7 +139,7 @@ const completePendingImport = (
     const accepted = Number.isFinite(cap) ? Math.max(0, Math.min(requested, cap - current)) : requested;
     if (accepted > 0) {
       nextBalances[itemId] = current + accepted;
-      acceptedItems[itemId] = accepted;
+      acceptedItems[itemId] = Number(acceptedItems[itemId] || 0) + accepted;
     }
     if (requested > accepted) {
       remainingShipment[itemId] = requested - accepted;
@@ -169,12 +174,11 @@ const completePendingImport = (
     lastImportShipment: {
       tick: state.root.tick,
       category: pending.category,
-      requestedItems: pending.shipment,
+      requestedItems: pending.deliveryProgress?.requestedItems ?? pending.shipment,
       acceptedItems,
       lostItems,
-      customsTriggered
+      customsTriggered: customsTriggered || pending.deliveryProgress?.customsTriggered === true
     },
     remainingShipment
   };
 };
-

@@ -13,9 +13,9 @@ export const applyCustomsInspectionConsequence = (
   lobbyClubConfig?: LobbyClubBalanceConfig
 ): { state: CoreGameState; metadataPatch: Partial<AirportMetadata>; event: AirportCustomsEvent } => {
   const roll = deterministicUnitInterval(`${state.serverInstance.worldSeed}:airport-customs-type:${building.id}:${state.root.tick}`);
-  const type = ["held_container", "customs_stamp", "hangar_search", "lost_papers", "cargo_rumor"][Math.min(4, Math.floor(roll * 5))];
+  const type = ["customs_cleared", "customs_stamp", "hangar_search", "lost_papers", "cargo_rumor"][Math.min(4, Math.floor(roll * 5))];
   const labels: Record<string, string> = {
-    held_container: "Zadržený kontejner",
+    customs_cleared: "Kontrola bez nálezu",
     customs_stamp: "Celní razítko",
     hangar_search: "Prohlídka hangáru",
     lost_papers: "Ztracené papíry",

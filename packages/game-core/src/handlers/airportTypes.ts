@@ -9,6 +9,17 @@ export interface PendingAirportImport {
   shipment: Record<string, number>;
   /** Customs is rolled once; capacity retries must not reroll it. */
   customsResolved?: boolean;
+  /** Cumulative receipt for cargo delivered in several storage-capacity retries. */
+  deliveryProgress?: AirportImportShipment;
+}
+
+export interface AirportImportShipment {
+  tick: number;
+  category: AirportImportCategory;
+  requestedItems: Record<string, number>;
+  acceptedItems: Record<string, number>;
+  lostItems: Record<string, number>;
+  customsTriggered: boolean;
 }
 
 export interface AirportCustomsEvent {
@@ -30,14 +41,7 @@ export interface AirportMetadata {
   discountDisabledUntilTick?: number;
   nextImportCostPenaltyPct?: number;
   lastCustomsInspectionTick?: number;
-  lastImportShipment?: {
-    tick: number;
-    category: AirportImportCategory;
-    requestedItems: Record<string, number>;
-    acceptedItems: Record<string, number>;
-    lostItems: Record<string, number>;
-    customsTriggered: boolean;
-  };
+  lastImportShipment?: AirportImportShipment;
   customsEvents: AirportCustomsEvent[];
 }
 

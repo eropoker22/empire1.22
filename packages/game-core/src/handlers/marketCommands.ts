@@ -38,6 +38,8 @@ export const handleMarketCommand = (
     return rejected(state, "market_invalid_amount", "Množství v marketu musí být kladné celé číslo.");
   }
 
+  // Validation, execution and seller feedback must identify the same listing.
+  const listingId = "listingId" in command.payload ? command.payload.listingId.trim() : "";
   const normalizedState = normalizePlayerStorageAliases(state, player.id);
   const now = context.clock?.now().getTime() ?? normalizedState.root.tick * context.config.tickRateMs;
   // Market rules also need the live building bonuses. Config is execution context,
@@ -62,7 +64,7 @@ export const handleMarketCommand = (
 
   if (command.type === "buy-player-market-listing" && context.config.balance.warehouse) {
     const listing = (marketState.market as { playerListings?: Array<{ id: string; resourceId: string; amount: number; status: string }> } | undefined)
-      ?.playerListings?.find((entry) => entry.id === command.payload.listingId && entry.status === "active");
+      ?.playerListings?.find((entry) => entry.id === listingId && entry.status === "active");
     if (listing && isMarketResourceId(listing.resourceId)) {
       const capacityCheck = canPlayerReceiveResource(
         marketState,
@@ -84,8 +86,8 @@ export const handleMarketCommand = (
       : command.type === "create-player-market-listing"
         ? createPlayerMarketListing(marketState, player, command.payload.resourceId, command.payload.amount, command.payload.unitPrice, command.payload.paymentType, now)
         : command.type === "buy-player-market-listing"
-          ? buyPlayerMarketListing(marketState, player, command.payload.listingId, now)
-          : cancelPlayerMarketListing(marketState, player, command.payload.listingId, now);
+          ? buyPlayerMarketListing(marketState, player, listingId, now)
+          : cancelPlayerMarketListing(marketState, player, listingId, now);
 
   if (!result.success || !result.nextState) {
     return rejected(
@@ -100,11 +102,11 @@ export const handleMarketCommand = (
   let nextState = resolvedState as CoreGameState;
   if (command.type === "buy-player-market-listing") {
     const listing = (marketState.market as { playerListings?: Array<{ id: string; sellerPlayerId: string }> })
-      ?.playerListings?.find((entry) => entry.id === command.payload.listingId);
+      ?.playerListings?.find((entry) => entry.id === listingId);
     if (listing) nextState = addPlayerFeedback(nextState, context, {
-      id: `market-sale:${command.payload.listingId}`, playerId: listing.sellerPlayerId, title: "Tvá nabídka byla prodána",
+      id: `market-sale:${listingId}`, playerId: listing.sellerPlayerId, title: "Tvá nabídka byla prodána",
       payload: { kind: "market-sale", resourceId: result.resourceId, amount: result.amount,
-        creditedAmount: result.totalPrice, paymentType: result.paymentType, listingId: command.payload.listingId }
+        creditedAmount: result.totalPrice, paymentType: result.paymentType, listingId }
     });
   }
   return {
