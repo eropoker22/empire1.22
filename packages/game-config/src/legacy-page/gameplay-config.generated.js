@@ -175,7 +175,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "actionId": "insider_window",
       "buildingType": "stock_exchange",
       "label": "Vnitřní tipy",
-      "description": "Na 16 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
+      "description": "Na 16 minut zlepší tržní signály a zvýší šanci Spekulativního nákupu.",
       "durationMs": 960000,
       "cooldownMs": 1800000,
       "inputCost": {
@@ -207,7 +207,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "actionId": "frozen_accounts",
       "buildingType": "central_bank",
       "label": "Zmrazené účty",
-      "description": "Na 8 minut zvýší ochranu clean cash, sníží pokuty a finanční ztráty, ale zhorší market fee.",
+      "description": "Na 8 minut zvýší ochranu clean cash a sníží pokuty a finanční ztráty.",
       "durationMs": 480000,
       "cooldownMs": 1440000,
       "inputCost": {
@@ -218,7 +218,7 @@ export const BROWSER_GAMEPLAY_CONFIG = Object.freeze({
       "influenceChange": 0,
       "requiredOwner": true,
       "allowedIfContested": false,
-      "reportText": "Zmrazené účty chrání rezervy, ale zhoršují poplatkovou stopu na marketu."
+      "reportText": "Zmrazené účty chrání rezervy a snižují finanční ztráty."
     },
     "currency_intervention": {
       "actionId": "currency_intervention",

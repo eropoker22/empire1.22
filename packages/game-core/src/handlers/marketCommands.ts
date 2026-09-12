@@ -40,7 +40,9 @@ export const handleMarketCommand = (
 
   const normalizedState = normalizePlayerStorageAliases(state, player.id);
   const now = context.clock?.now().getTime() ?? normalizedState.root.tick * context.config.tickRateMs;
-  const marketState = tickMarket(normalizedState, now).nextState as CoreGameState;
+  // Market rules also need the live building bonuses. Config is execution context,
+  // not persisted game state, so remove the temporary adapter field below.
+  const marketState = tickMarket({ ...normalizedState, config: context.config }, now).nextState as CoreGameState;
   if (command.type === "buy-market-resource" && context.config.balance.warehouse) {
     const capacityCheck = canPlayerReceiveResource(
       marketState,
@@ -93,7 +95,9 @@ export const handleMarketCommand = (
     );
   }
 
-  let nextState = result.nextState as CoreGameState;
+  const resolvedState = { ...result.nextState };
+  delete resolvedState.config;
+  let nextState = resolvedState as CoreGameState;
   if (command.type === "buy-player-market-listing") {
     const listing = (marketState.market as { playerListings?: Array<{ id: string; sellerPlayerId: string }> })
       ?.playerListings?.find((entry) => entry.id === command.payload.listingId);
@@ -154,4 +158,3 @@ const rejected = (
   events: [],
   errors: [{ code, message }]
 });
-

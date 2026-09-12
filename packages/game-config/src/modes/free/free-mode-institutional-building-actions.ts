@@ -164,7 +164,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     actionId: "insider_window",
     buildingType: "stock_exchange",
     label: "Vnitřní tipy",
-    description: "Na 16 minut zlepší trend hinty, sníží market poplatek a zvedne šanci Spekulativního nákupu.",
+    description: "Na 16 minut zlepší tržní signály a zvýší šanci Spekulativního nákupu.",
     durationMs: freeModeStockExchangeConfig.insiderWindow.durationMinutes * 60 * 1000,
     cooldownMs: freeModeStockExchangeConfig.insiderWindow.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeStockExchangeConfig.insiderWindow.costCleanCash },
@@ -194,7 +194,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     actionId: "frozen_accounts",
     buildingType: "central_bank",
     label: "Zmrazené účty",
-    description: "Na 8 minut zvýší ochranu clean cash, sníží pokuty a finanční ztráty, ale zhorší market fee.",
+    description: "Na 8 minut zvýší ochranu clean cash a sníží pokuty a finanční ztráty.",
     durationMs: freeModeCentralBankConfig.frozenAccounts.durationMinutes * 60 * 1000,
     cooldownMs: freeModeCentralBankConfig.frozenAccounts.cooldownMinutes * 60 * 1000,
     inputCost: { cash: freeModeCentralBankConfig.frozenAccounts.costCleanCash },
@@ -203,7 +203,7 @@ export const freeModeInstitutionalBuildingActions: NonNullable<ResolvedGameModeC
     influenceChange: 0,
     requiredOwner: true,
     allowedIfContested: false,
-    reportText: "Zmrazené účty chrání rezervy, ale zhoršují poplatkovou stopu na marketu."
+    reportText: "Zmrazené účty chrání rezervy a snižují finanční ztráty."
   },
   currency_intervention: {
     actionId: "currency_intervention",

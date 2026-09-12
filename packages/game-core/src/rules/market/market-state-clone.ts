@@ -76,6 +76,8 @@ const cloneResourceState = <T extends AnyRecord>(resourceState: T): T => ({
 
 const cloneMarketState = (market: Partial<ServerMarketState>): ServerMarketState => ({
   mode: market.mode === "war" ? "war" : "free",
+  nextListingSequence: market.nextListingSequence,
+  nextTransactionSequence: market.nextTransactionSequence,
   stock: { ...(market.stock ?? {}) } as Record<MarketResourceId, number>,
   rollingVolume: Object.fromEntries(marketResourceIds.map((resourceId) => [
     resourceId,

@@ -164,7 +164,7 @@ export const validateRunBuildingActionSpecifics = (
   if (stockExchangeErrorCode) {
     errors.push({
       code: stockExchangeErrorCode,
-      message: "Stock exchange action preconditions are not met."
+      message: stockExchangeErrorCode === "stock_exchange_trading_suspended" ? "Finanční kontrola dočasně pozastavila akce burzy. Vyčkej na skončení omezení." : "Podmínky pro tuto akci burzy nejsou splněné."
     });
   }
   const airportErrorCode = validateAirportAction({

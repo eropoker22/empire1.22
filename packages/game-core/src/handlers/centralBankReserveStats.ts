@@ -28,7 +28,7 @@ export const resolveCentralBankReserveStats = (input: {
   const metadata = getCentralBankMetadata(bank, input.tick);
   const frozenAccountsActive = Number(metadata.frozenAccountsExpiresAtTick || 0) > input.tick;
   const interestDisabled = Number(metadata.interestDisabledUntilTick || 0) > input.tick;
-  const liquidityBlocked = Number(metadata.liquidityBlockedUntilTick || 0) > input.tick;
+  const liquidityBlocked = Math.max(Number(metadata.liquidityBlockedUntilTick || 0), Number(metadata.feeReductionDisabledUntilTick || 0)) > input.tick;
   const feeDisabled = Number(metadata.feeReductionDisabledUntilTick || 0) > input.tick;
   const shoppingMallBonus = hasOwnedBuilding(input.state, input.playerId, "shopping_mall")
     ? config.synergies.shoppingMallMarketFeeReductionPct

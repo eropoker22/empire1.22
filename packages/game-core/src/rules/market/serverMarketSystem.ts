@@ -1,4 +1,7 @@
 import { resolveAirportCharter, rollAirportCharterCustoms } from "./airportCharter";
+import { restoreMarketSequence, takeMarketSequence } from "./market-sequences";
+import { resolveWantedLevel } from "../police/wantedLevel";
+import { withMarketContext } from "./market-context";
 import {
   clonePriceHistory,
   cloneServerState
@@ -87,6 +90,8 @@ export const initializeServerMarket = <T extends object>(
 
   const market: ServerMarketState = {
     mode,
+    nextListingSequence: restoreMarketSequence(existing?.nextListingSequence, existing?.playerListings),
+    nextTransactionSequence: restoreMarketSequence(existing?.nextTransactionSequence, existing?.transactions),
     stock: sanitizeStock(existing?.stock, mode),
     rollingVolume: sanitizeRollingVolume(existing?.rollingVolume),
     volumeEvents: Array.isArray(existing?.volumeEvents) ? existing.volumeEvents.filter(isVolumeEvent) : [],
@@ -94,8 +99,8 @@ export const initializeServerMarket = <T extends object>(
     transactions: Array.isArray(existing?.transactions) ? existing.transactions.filter(isMarketTransaction).slice(-marketConfig.transactionLogLimit) : [],
     playerListings: sanitizePlayerMarketListings(existing?.playerListings, now),
     activeMarketEvents: Array.isArray(existing?.activeMarketEvents) ? existing.activeMarketEvents.filter(isActiveMarketEvent) : [],
-    lastStockRegenAt: safeTimestamp(existing?.lastStockRegenAt) || defaultMarket.lastStockRegenAt,
-    lastPriceSnapshotAt: safeTimestamp(existing?.lastPriceSnapshotAt) || defaultMarket.lastPriceSnapshotAt,
+    lastStockRegenAt: timestampOrDefault(existing?.lastStockRegenAt, defaultMarket.lastStockRegenAt),
+    lastPriceSnapshotAt: timestampOrDefault(existing?.lastPriceSnapshotAt, defaultMarket.lastPriceSnapshotAt),
     warningFlags: sanitizeTimestampMap(existing?.warningFlags)
   };
 
@@ -121,7 +126,7 @@ export const calculateMarketPrice = (
   const scarcityFactor = applyDayNightMarketVolatilityFactor(getScarcityFactor(state, resourceId), state);
   const chaosFactor = applyDayNightMarketVolatilityFactor(getChaosFactor(state), state);
   const inflationFactor = getInflationFactor(state);
-  const eventFactor = applyDayNightMarketVolatilityFactor(getEventPriceFactor(state, resourceId), state);
+  const eventFactor = applyDayNightMarketVolatilityFactor(getEventPriceFactor(state, resourceId) * getStockExchangeMarketPressureFactor(state, resourceId, marketType), state);
   const normalRawPrice = basePrice * demandFactor * scarcityFactor * chaosFactor * inflationFactor * eventFactor;
   const normalPrice = clamp(
     normalRawPrice,
@@ -151,7 +156,12 @@ export const calculateMarketPrice = (
   };
 };
 
-export const buyResource = (
+export const buyResource = (...args: Parameters<typeof buyResourceWithContext>): MarketActionResult => {
+  const [state, player, resource, amount, marketType, payment, now, context] = args;
+  return withMarketContext(state, context, contextual => buyResourceWithContext(contextual, player, resource, amount, marketType, payment, now, context));
+};
+
+const buyResourceWithContext = (
   serverState: AnyRecord,
   playerState: AnyRecord,
   resourceId: MarketResourceId,
@@ -256,7 +266,12 @@ export const buyResource = (
   };
 };
 
-export const sellResource = (
+export const sellResource = (...args: Parameters<typeof sellResourceWithContext>): MarketActionResult => {
+  const [state, player, resource, amount, now, context] = args;
+  return withMarketContext(state, context, contextual => sellResourceWithContext(contextual, player, resource, amount, now, context));
+};
+
+const sellResourceWithContext = (
   serverState: AnyRecord,
   playerState: AnyRecord,
   resourceId: MarketResourceId,
@@ -561,9 +576,11 @@ export const cancelPlayerMarketListing = (
 
 export const tickMarket = (
   serverState: AnyRecord,
-  now = resolveMarketNow(serverState)
+  now = resolveMarketNow(serverState),
+  context?: MarketScheduleContext
 ): { nextState: AnyRecord; snapshots: number; expiredEvents: string[]; expiredPlayerListings: string[]; warnings: string[] } => {
   const nextState = cloneServerState(serverState);
+  if (context) nextState.config = context.config;
   const state = initializeServerMarket(nextState, now);
   const expiredEvents = expireMarketEvents(state, now);
   const expiredPlayerListings = expirePlayerMarketListings(state, now);
@@ -571,6 +588,11 @@ export const tickMarket = (
   updateRollingVolume(state.market, now);
   const snapshots = maybeSnapshotPrices(state, now);
   const warnings = generateMarketWarnings(state, now);
+
+  if (context) {
+    if (Object.prototype.hasOwnProperty.call(serverState, "config")) state.config = serverState.config;
+    else delete state.config;
+  }
 
   return {
     nextState: state,
@@ -587,7 +609,7 @@ export const getMarketViewModel = (
   now = resolveMarketNow(serverState),
   context?: MarketScheduleContext
 ): AnyRecord => {
-  const state = initializeServerMarket(serverState, now);
+  const state = initializeServerMarket({ ...cloneServerState(serverState), ...(context ? { config: context.config } : {}) }, now);
   const player = resolvePlayerForRead(state, playerState);
   const totalMoneyInServer = getServerTotalMoney(state);
   const inflationFactor = getInflationFactor(state);
@@ -872,8 +894,7 @@ const sanitizePlayerMarketListings = (listings: unknown, now: number): PlayerMar
       listing.status === "active"
       && listing.amount > 0
       && listing.unitPrice >= marketConfig.playerMarket.minUnitPrice
-    )
-    .slice(0, marketConfig.transactionLogLimit);
+    );
 };
 
 const getStartStock = (resourceId: MarketResourceId, mode: MarketModeId): number => {
@@ -927,11 +948,8 @@ const getChaosFactor = (serverState: AnyRecord): number => {
 const getServerTotalHeat = (serverState: AnyRecord): number => {
   const playerHeat = getAllPlayers(serverState).reduce((total, player) => {
     const policeState = player?.policeStateId ? serverState.policeStatesById?.[player.policeStateId] : null;
-    return total
-      + safeNumber(player?.heat)
-      + safeNumber(player?.gang?.heat)
-      + safeNumber(player?.police?.heat)
-      + safeNumber(policeState?.heat);
+    // These are alternate representations of one heat balance, not four sources.
+    return total + safeNumber(policeState?.heat ?? player?.heat ?? player?.gang?.heat ?? player?.police?.heat);
   }, 0);
   const districtHeat = serverState.districtsById && typeof serverState.districtsById === "object"
     ? Object.values(serverState.districtsById).reduce((total: number, district: any) => total + safeNumber(district?.heat), 0)
@@ -958,17 +976,23 @@ const getRecentViolenceBonus = (serverState: AnyRecord, now = resolveMarketNow(s
 };
 
 const collectRecentEventRecords = (serverState: AnyRecord, windowStart: number): AnyRecord[] => {
-  const records: AnyRecord[] = [];
-  if (Array.isArray(serverState.eventLog)) {
-    records.push(...serverState.eventLog.filter((entry: AnyRecord) => safeTimestamp(entry?.createdAt ?? entry?.timestamp) >= windowStart));
-  }
-  if (serverState.eventsById && typeof serverState.eventsById === "object") {
-    records.push(...Object.values(serverState.eventsById).filter((entry: any) => {
-      const timestamp = safeTimestamp(entry?.timestamp ?? entry?.createdAt);
-      return timestamp === 0 || timestamp >= windowStart;
-    }) as AnyRecord[]);
-  }
-  return records;
+  const now = resolveMarketNow(serverState);
+  const tickRateMs = safePositiveNumber(serverState.config?.tickRateMs ?? serverState.tickRateMs, 1000);
+  const records: AnyRecord[] = [
+    ...Object.values(serverState.eventsById ?? {}) as AnyRecord[],
+    ...(Array.isArray(serverState.eventLog) ? serverState.eventLog : [])
+  ];
+  const seen = new Set<string>();
+  return records.filter(entry => {
+    const timestamp = typeof entry?.startTick === "number" ? entry.startTick * tickRateMs
+      : typeof (entry?.timestamp ?? entry?.createdAt) === "number" ? Number(entry.timestamp ?? entry.createdAt) : NaN;
+    if (!Number.isFinite(timestamp) || timestamp < windowStart || timestamp > now) return false;
+    if (typeof entry.id === "string") {
+      if (seen.has(entry.id)) return false;
+      seen.add(entry.id);
+    }
+    return true;
+  });
 };
 
 const getEventPriceFactor = (serverState: AnyRecord, resourceId: MarketResourceId): number => {
@@ -980,7 +1004,7 @@ const getEventPriceFactor = (serverState: AnyRecord, resourceId: MarketResourceI
       ? factor * safePositiveNumber(config.priceMultiplier, 1)
       : factor;
   }, 1);
-  return eventFactor * getStockExchangeMarketPressureFactor(serverState, resourceId, "normal");
+  return eventFactor;
 };
 
 const getEventStockRegenFactor = (serverState: AnyRecord, resourceId: MarketResourceId): number => {
@@ -1014,7 +1038,7 @@ const getBlackMarketTypeFactor = (serverState: AnyRecord, resourceId: MarketReso
     marketConfig.blackMarket.minRiskFactor,
     marketConfig.blackMarket.maxRiskFactor
   );
-  return roundRatio(resource.blackMarketMarkup * warMarkup * riskFactor * getStockExchangeMarketPressureFactor(serverState, resourceId, "black"));
+  return roundRatio(resource.blackMarketMarkup * warMarkup * riskFactor);
 };
 
 const getSellMultiplier = (serverState: AnyRecord, resourceId: MarketResourceId): number => {
@@ -1034,8 +1058,6 @@ const resolveShoppingMallMarketBonusForMarket = (
   const config = resolveShoppingMallMarketConfig(serverState);
   const count = getOwnedShoppingMallCountForMarket(serverState, getPlayerId(player), config.buildingTypeId);
   const baseDiscountPct = Math.min(config.maxDiscountPct, count * config.discountPctPerMall);
-  const stockExchangeFeeReductionPct = getStockExchangeMarketFeeReductionPct(serverState, getPlayerId(player), marketType);
-  const centralBankFeeReductionPct = getCentralBankMarketFeeReductionPct(serverState, getPlayerId(player));
   const airportImportDiscountPct = resourceId
     ? getAirportImportDiscountPct(serverState, getPlayerId(player), marketType, resourceId)
     : 0;
@@ -1048,7 +1070,8 @@ const resolveShoppingMallMarketBonusForMarket = (
         : config.emergencyMarketWeight;
   return {
     discountPct: baseDiscountPct * marketWeight + airportImportDiscountPct,
-    marketFeeReductionPct: Math.min(config.maxFeeReductionPct, count * config.feeReductionPctPerMall) + stockExchangeFeeReductionPct + centralBankFeeReductionPct,
+    // Trading has no separate commission; a reduction of a nonexistent fee is not a reward.
+    marketFeeReductionPct: 0,
     minFinalPriceMultiplier: config.minFinalPriceMultiplier
   };
 };
@@ -1107,63 +1130,6 @@ const getOwnedShoppingMallCountForMarket = (
 const isPlainObject = (value: unknown): value is AnyRecord =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
-const getStockExchangeMarketFeeReductionPct = (
-  serverState: AnyRecord,
-  playerId: string,
-  marketType: MarketType | "player" | "emergency"
-): number => {
-  if (!playerId) return 0;
-  const config = serverState?.config?.balance?.stockExchange ?? serverState?.balance?.stockExchange;
-  if (!config) return 0;
-  const tick = Number(serverState?.root?.tick ?? serverState?.serverInstance?.currentTick ?? 0);
-  const building = Object.values(serverState?.buildingsById ?? {}).find((candidate: any) =>
-    candidate?.buildingTypeId === (config.buildingTypeId ?? "stock_exchange")
-    && candidate?.ownerPlayerId === playerId
-    && candidate?.status === "active"
-  ) as AnyRecord | undefined;
-  if (!building) return 0;
-  const metadata = isPlainObject(building.metadata?.stockExchange) ? building.metadata.stockExchange : {};
-  if (Number(metadata.feeReductionDisabledUntilTick || 0) > tick) return 0;
-  const base = marketType === "black"
-    ? Number(config.marketFeeReduction?.blackMarketPct || 0)
-    : marketType === "player"
-      ? Number(config.marketFeeReduction?.playerMarketPct || 0)
-      : Number(config.marketFeeReduction?.regularMarketPct || 0);
-  const extra = Number(metadata.insiderWindowExpiresAtTick || 0) > tick
-    ? Number(config.marketFeeReduction?.insiderExtraPct || 0)
-    : 0;
-  return Math.max(0, base + extra);
-};
-
-const getCentralBankMarketFeeReductionPct = (
-  serverState: AnyRecord,
-  playerId: string
-): number => {
-  if (!playerId) return 0;
-  const config = serverState?.config?.balance?.centralBank ?? serverState?.balance?.centralBank;
-  if (!config) return 0;
-  const tick = Number(serverState?.root?.tick ?? serverState?.serverInstance?.currentTick ?? 0);
-  const buildings = Object.values(serverState?.buildingsById ?? {}).filter((candidate: any) =>
-    candidate?.buildingTypeId === (config.buildingTypeId ?? "central_bank")
-    && candidate?.ownerPlayerId === playerId
-    && candidate?.status === "active"
-  ) as AnyRecord[];
-  if (buildings.length <= 0) return 0;
-  const tier = resolveCentralBankTierForMarket(config, buildings.length);
-  if (!tier) return 0;
-  const metadata = isPlainObject(buildings[0]?.metadata?.centralBank) ? buildings[0].metadata.centralBank : {};
-  if (Number(metadata.feeReductionDisabledUntilTick || 0) > tick) return 0;
-  const hasShoppingMall = getOwnedShoppingMallCountForMarket(serverState, playerId, "shopping_mall") > 0;
-  const shoppingMallBonus = hasShoppingMall ? Number(config.synergies?.shoppingMallMarketFeeReductionPct || 0) : 0;
-  const interventionBonus = Array.isArray(metadata.currencyInterventions) && metadata.currencyInterventions.some((effect: any) => Number(effect?.expiresAtTick || 0) > tick)
-    ? Number(config.currencyIntervention?.holderMarketFeeReductionPct || 0)
-    : 0;
-  const frozenPenalty = Number(metadata.frozenAccountsExpiresAtTick || 0) > tick
-    ? Number(config.frozenAccounts?.marketFeePenaltyPct || 0)
-    : 0;
-  return Math.max(0, Number(tier.marketFeeReductionPct || 0) + shoppingMallBonus + interventionBonus - frozenPenalty);
-};
-
 const getCentralBankMarketPressureReductionPct = (
   serverState: AnyRecord,
   category: string
@@ -1190,13 +1156,6 @@ const getCentralBankMarketPressureReductionPct = (
         + (hasStockExchange ? Number(config.currencyIntervention?.stockExchangeSynergyEffectBonusPct || 0) : 0)
     );
   }, 0);
-};
-
-const resolveCentralBankTierForMarket = (config: AnyRecord, ownedCount: number): AnyRecord | null => {
-  const tiers = Array.isArray(config.reserveTiers) ? config.reserveTiers : [];
-  return tiers.find((tier: any) => ownedCount >= Number(tier?.minOwned || 0) && ownedCount <= Number(tier?.maxOwned || 0))
-    ?? tiers.find((tier: any) => ownedCount >= Number(tier?.minOwned || 0))
-    ?? null;
 };
 
 const getAirportImportDiscountPct = (
@@ -1278,7 +1237,7 @@ const getActivePlayerListingCount = (market: ServerMarketState, sellerPlayerId: 
   ).length;
 
 const createPlayerMarketListingId = (state: AnyRecord, now: number, seller: AnyRecord): string =>
-  `player-market:${now}:${getPlayerId(seller) || "seller"}:${state.market.playerListings.length}`;
+  `player-market:${now}:${getPlayerId(seller) || "seller"}:${takeMarketSequence(state.market, "listing")}`;
 
 const getPlayerLabel = (player: AnyRecord): string => {
   const label = String(player?.name ?? player?.displayName ?? player?.identity ?? player?.username ?? player?.id ?? "Hráč").trim();
@@ -1681,6 +1640,7 @@ const addHeatToPlayer = (serverState: AnyRecord, player: AnyRecord, amount: numb
     serverState.policeStatesById[player.policeStateId] = {
       ...current,
       heat: Math.max(0, safeNumber(current.heat)) + safeAmount,
+      wantedLevel: resolveWantedLevel(Math.max(0, safeNumber(current.heat)) + safeAmount),
       version: safeInteger(current.version) + 1
     };
   }
@@ -1725,16 +1685,16 @@ const notifyPoliceOfMarketActivity = (serverState: AnyRecord, player: AnyRecord,
 
 const appendGameLog = (serverState: AnyRecord, type: string, message: string, payload: AnyRecord = {}): void => {
   const now = resolveMarketNow(serverState);
-  const entry = { type, message, payload, createdAt: now };
+  const eventIds = Array.isArray(serverState.root?.eventIds) ? serverState.root.eventIds : [];
+  const tick = safeInteger(serverState.root?.tick);
+  const id = serverState.eventsById && serverState.root ? `event:market:${tick}:${eventIds.length}` : undefined;
+  const entry = { ...(id ? { id } : {}), type, message, payload, createdAt: now };
   if (Array.isArray(serverState.eventLog)) {
     serverState.eventLog.push(entry);
   } else {
     serverState.eventLog = [entry];
   }
-  if (serverState.eventsById && serverState.root) {
-    const eventIds = Array.isArray(serverState.root.eventIds) ? serverState.root.eventIds : [];
-    const tick = safeInteger(serverState.root.tick);
-    const id = `event:market:${tick}:${eventIds.length}`;
+  if (serverState.eventsById && serverState.root && id) {
     eventIds.push(id);
     serverState.root.eventIds = eventIds;
     serverState.eventsById[id] = {
@@ -1793,7 +1753,7 @@ const clampStock = (stock: number, resourceId: MarketResourceId, mode: MarketMod
   clamp(safeInteger(stock), 0, getMaxStock(resourceId, mode));
 
 const createMarketTransactionId = (state: AnyRecord, now: number, player: AnyRecord): string =>
-  `market:${now}:${getPlayerId(player) || "player"}:${state.market.transactions.length}`;
+  `market:${now}:${getPlayerId(player) || "player"}:${takeMarketSequence(state.market, "transaction")}`;
 
 export const getBlackMarketRotation = (serverState: AnyRecord, now = resolveMarketNow(serverState)): MarketResourceId[] => {
   const windowId = Math.floor(now / (marketConfig.blackMarket.rotationSeconds * 1000));
@@ -1884,7 +1844,7 @@ const createSeededMarketRandom = (seed: number): (() => number) => {
 };
 
 const deterministicMarketRoll = (serverState: AnyRecord): number => {
-  const seed = `${serverState.serverInstance?.worldSeed ?? "market"}:${serverState.root?.tick ?? 0}:${serverState.market?.transactions?.length ?? 0}`;
+  const seed = `${serverState.serverInstance?.worldSeed ?? "market"}:${serverState.root?.tick ?? 0}:${serverState.market?.nextTransactionSequence ?? 0}`;
   return stableHash(seed) / 0xffffffff;
 };
 
@@ -1928,6 +1888,9 @@ const safeTimestamp = (value: unknown): number => {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : 0;
 };
+
+const timestampOrDefault = (value: unknown, fallback: number): number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));

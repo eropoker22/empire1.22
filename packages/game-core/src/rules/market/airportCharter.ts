@@ -27,6 +27,6 @@ export const rollAirportCharterCustoms = (state: AnyRecord, playerId: string, re
   const charter = resolveAirportCharter(state, playerId, resourceId);
   if (!charter.active) return 0;
   // No client command ID or client time enters the outcome seed.
-  const seed = `${state.serverInstance?.worldSeed}:charter:${state.root?.tick}:${playerId}:${resourceId}:${state.market?.transactions?.length ?? 0}`;
+  const seed = `${state.serverInstance?.worldSeed}:charter:${state.root?.tick}:${playerId}:${resourceId}:${state.market?.nextTransactionSequence ?? 0}`;
   return deterministicUnitInterval(seed) < charter.customsRiskPct / 100 ? charter.customsHeat : 0;
 };

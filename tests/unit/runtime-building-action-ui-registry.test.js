@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   formatBuildingActionCategoryLabels,
+  formatBuildingActionOutputProfile,
+  formatBuildingActionRiskProfile,
   getActionDescription,
   getActionDisabledReason,
   getActionIcon,
@@ -10,6 +12,11 @@ import {
 import {
   renderBuildingActionResult
 } from "../../page-assets/js/app/ui/buildingActionResultPanel.js";
+
+it("does not show unused trading fee modifiers as a paid action reward or risk", () => {
+  expect(formatBuildingActionOutputProfile({ extraFeeReductionPct: 8, trendHints: 3 })).not.toMatch(/poplatek/i);
+  expect(formatBuildingActionRiskProfile({ marketFeePenaltyPct: 5, heat: 5 })).not.toMatch(/poplatek/i);
+});
 
 class FakeClassList {
   constructor() {

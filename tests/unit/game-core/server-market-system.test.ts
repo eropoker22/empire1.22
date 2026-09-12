@@ -54,8 +54,8 @@ const createMarketScheduleContext = () => ({
         enabled: true,
         defaultPhase: "day",
         phases: {
-          day: { id: "day", durationTicks: 72 },
-          night: { id: "night", durationTicks: 72 }
+          day: { id: "day", durationTicks: 72, modifiers: {} },
+          night: { id: "night", durationTicks: 72, modifiers: {} }
         }
       }
     }
@@ -146,13 +146,13 @@ describe("server market system", () => {
     expect(normalBuy.baseUnitPrice).toBe(baseNormalPrice);
     expect(normalBuy.shoppingMallDiscountPct).toBe(6);
     expect(normalBuy.unitPrice).toBe(Math.ceil(baseNormalPrice * 0.94));
-    expect(normalBuy.marketFeeReductionPct).toBe(15);
+    expect(normalBuy.marketFeeReductionPct).toBe(0);
     expect(blackBuy.shoppingMallDiscountPct).toBeCloseTo(2.4);
     expect(blackBuy.unitPrice).toBe(Math.ceil(baseBlackPrice * 0.976));
     expect(view.resources.find((resource: any) => resource.id === "metal-parts")?.normalMarket).toMatchObject({
       basePrice: baseNormalPrice,
       shoppingMallDiscountPct: 6,
-      marketFeeReductionPct: 15
+      marketFeeReductionPct: 0
     });
   });
 
